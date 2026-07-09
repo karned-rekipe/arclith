@@ -1,8 +1,16 @@
-# arclith
+# Arclith
 
-Hexagonal architecture framework for Python — domain models, use cases, repositories, adapters.
+Python 3.13 framework for building microservices with Hexagonal Architecture and Clean Architecture.
 
-Built on clean architecture principles: domain, application, adapters, infrastructure.
+Arclith provides reusable domain models, use cases, repositories, adapters, FastAPI/FastMCP bootstrap, configuration, probes, and service wiring.
+
+## Project Links
+
+- Repository: [karned-rekipe/arclith](https://github.com/karned-rekipe/arclith)
+- Functional sample: [karned-rekipe/_sample](https://github.com/karned-rekipe/_sample)
+- GitHub Project: [Arclith backlog](https://github.com/orgs/karned-rekipe/projects/5)
+- Issues: [Arclith issues](https://github.com/karned-rekipe/arclith/issues)
+- PyPI: [arclith](https://pypi.org/project/arclith/)
 
 ## Installation
 
@@ -18,6 +26,13 @@ pip install "arclith[duckdb]"
 pip install "arclith[fastapi]"
 pip install "arclith[mcp]"
 pip install "arclith[all]"
+```
+
+## Development
+
+```bash
+uv sync
+uv run pytest
 ```
 
 ## License

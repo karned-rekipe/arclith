@@ -1,4 +1,4 @@
-# docs/decisions.md — framework (`arclith`)
+# docs/decisions.md — Arclith (`arclith`)
 
 ## ADR-001 — UUIDv7 comme identifiant d'entité
 
@@ -182,4 +182,3 @@ pas les évolutions du spec MCP.
 - `Arclith.fastmcp(name)` retourne un `FastMCP` instance.
 - Les tools sont enregistrés via `@mcp.tool` (décorateur) à l'intérieur des classes `*MCP`.
 - `run_mcp_sse()` et `run_mcp_http()` lisent `config.mcp.host` / `config.mcp.port`.
-

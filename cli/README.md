@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-uv tool install "git+https://github.com/karned-rekipe/framework.git#subdirectory=cli"
+uv tool install "git+https://github.com/karned-rekipe/arclith.git#subdirectory=cli"
 ```
 
 ## Commandes

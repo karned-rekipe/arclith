@@ -7,7 +7,7 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
-_INSTALL_URL = "git+https://github.com/karned-rekipe/framework.git#subdirectory=cli"
+_INSTALL_URL = "git+https://github.com/karned-rekipe/arclith.git#subdirectory=cli"
 
 console = Console()
 
@@ -30,4 +30,3 @@ def run_update(ref: str | None = None) -> None:
     else:
         console.print("[red]✗[/red] Échec de la mise à jour")
         raise typer.Exit(result.returncode)
-

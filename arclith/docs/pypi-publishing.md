@@ -30,7 +30,7 @@ export UV_PUBLISH_TOKEN=pypi-VOTRE_TOKEN_ICI
 ## Première publication
 
 ```bash
-cd framework
+cd arclith
 
 # 1. Vérifier la version dans pyproject.toml
 grep '^version' pyproject.toml
@@ -93,4 +93,3 @@ En GitHub Actions, stocker le token dans les *Secrets* du repo (`UV_PUBLISH_TOKE
   env:
     UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}
 ```
-

@@ -522,5 +522,4 @@ adapters:
 - `arclith/adapters/input/fastmcp/auth.py` — wrapper FastMCP
 - `docs/multitenant.md` — détail du pipeline multitenant
 - `docs/decisions.md` — ADR-007 (stdio), ADR-008 (pipeline mutualisé)
-- `framework/SKILLS.md` → SK-F09 — recette pas-à-pas
-
+- `SKILLS.md` → SK-F09 — recette pas-à-pas

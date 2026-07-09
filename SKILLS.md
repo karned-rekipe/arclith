@@ -1,4 +1,4 @@
-# SKILLS.md — framework (`arclith`)
+# SKILLS.md — Arclith (`arclith`)
 
 ## SK-F01 — Ajouter un adaptateur de persistance
 

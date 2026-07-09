@@ -1,8 +1,8 @@
-# AGENTS.md — framework (`arclith`)
+# AGENTS.md — Arclith (`arclith`)
 
 ## Contexte global
 
-`arclith` est le framework hexagonal partagé par tous les repos de Rekipe. Il est publié sur PyPI (`arclith>=0.2.0`) et
+`arclith` est le framework hexagonal partagé par les microservices Arclith/Rekipe. Il est publié sur PyPI (`arclith>=0.2.0`) et
 ne doit contenir aucune logique métier. Les repos consommateurs (`recipe/`, `_sample/`) l'importent en dépendance.
 
 ## Rôle
@@ -153,4 +153,3 @@ make test        # pytest -v
 6. `docs/http-conventions.md` — status codes HTTP/REST SOTA
 7. `docs/auth.md` — authentification JWT : tous les patterns FastAPI + FastMCP
 8. `docs/multitenant.md` — isolation multi-tenant via Vault + ContextVar
-
