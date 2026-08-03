@@ -380,7 +380,7 @@ make test
 
 ```
 adapters/
-  input/
+  inbound/
     fastapi/
       routers/
         __init__.py              # Export tous les routers

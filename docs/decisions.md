@@ -185,8 +185,9 @@ comme MariaDB, PostgreSQL ou des event stores doivent pouvoir être ajoutés san
 - `adapters/inbound` pour HTTP, MCP, CLI, workers, agents;
 - `adapters/outbound` pour repositories, LLM, cache, secrets, events.
 
-Les noms historiques `input` et `output` restent tolérés pendant la migration. Les adapters de
-repositories ne sont plus sélectionnés par un `match` central fermé: ils passent par un
+Les anciens noms `input` et `output` ne sont pas conservés: Arclith est encore en phase
+initiale et cette refonte choisit une rupture nette plutôt qu'une compatibilité temporaire.
+Les adapters de repositories ne sont plus sélectionnés par un `match` central fermé: ils passent par un
 `RepositoryRegistry` avec adapters built-in enregistrés par défaut.
 
 **Pourquoi pas l'alternative évidente (ajouter MariaDB dans le switch existant) :**
@@ -199,7 +200,7 @@ technologie.
 - `AdaptersSettings.repository` accepte un nom libre.
 - `build_repository(..., registry=...)` peut recevoir un registry applicatif.
 - `Arclith.repository(..., registry=...)` expose ce point d'extension.
-- `ProjectLayout` expose les chemins canoniques inbound/outbound et les aliases legacy input/output.
+- `ProjectLayout` expose uniquement les chemins canoniques inbound/outbound.
 - Les futurs adapters MariaDB/PostgreSQL peuvent être livrés comme packages ou modules séparés.
 
 ---

@@ -118,10 +118,10 @@ config/
   secrets.yaml                    # secrets: { resolver, mappings, vault, yaml }
   adapters/
     adapters.yaml                 # adapters: { logger, repository }   ← adapter actif
-    output/
+    outbound/
       mongodb.yaml                # adapters.mongodb: { db_name, multitenant }
       duckdb.yaml                 # adapters.duckdb: { path, multitenant }
-    input/
+    inbound/
       fastapi.yaml                # api: { host, port, reload }
       fastmcp.yaml                # mcp: { host, port }
       probe.yaml                  # probe: { host, port, enabled }

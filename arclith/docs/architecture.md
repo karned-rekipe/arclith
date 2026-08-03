@@ -39,8 +39,8 @@ main.py
 
 Le framework expose cette convention avec `canonical_project_layout(package_name)`. Le sample officiel `_sample` l'applique sous `src/arclith_sample/`.
 
-`input` et `output` restent tolérés comme noms historiques, mais le vocabulaire cible est
-`inbound` / `outbound`:
+La convention canonique est `inbound` / `outbound`; les anciens noms `input` et `output`
+ne sont pas supportés dans cette refonte pré-1.0:
 
 - `inbound`: ce qui entre dans l'application et déclenche un cas d'usage (HTTP, MCP, CLI, jobs);
 - `outbound`: ce que le coeur appelle vers l'extérieur (repositories, LLM, event bus, mail, cache).
