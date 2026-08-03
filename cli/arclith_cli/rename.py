@@ -7,6 +7,7 @@ from pathlib import Path
 _SOURCE_PASCAL = "Ingredient"
 _SOURCE_SNAKE = "ingredient"
 _SOURCE_UPPER = "INGREDIENT"
+_SOURCE_PACKAGE = "arclith_sample"
 
 _TEXT_EXTENSIONS = {
     ".py", ".yaml", ".yml", ".toml", ".md", ".txt", ".json",
@@ -28,25 +29,27 @@ class EntityNames:
 
 
 def apply_rename(target_dir: Path, names: EntityNames, *, project_name: str, port: int) -> None:
-    _rename_file_contents(target_dir, names)
-    _rename_paths(target_dir, names)
+    package_name = _to_package(project_name)
+    _rename_file_contents(target_dir, names, package_name)
+    _rename_paths(target_dir, names, package_name)
     _patch_pyproject(target_dir, project_name)
     _patch_config(target_dir, project_name, port)
 
 
 # ── Content replacement ───────────────────────────────────────────────────────
 
-def _replace_in_text(text: str, names: EntityNames) -> str:
+def _replace_in_text(text: str, names: EntityNames, package_name: str) -> str:
     # Order: most specific first to avoid partial overlap (UPPER before lower)
     return (
         text
         .replace(_SOURCE_UPPER, names.upper)
         .replace(_SOURCE_PASCAL, names.pascal)
         .replace(_SOURCE_SNAKE, names.snake)
+        .replace(_SOURCE_PACKAGE, package_name)
     )
 
 
-def _rename_file_contents(directory: Path, names: EntityNames) -> None:
+def _rename_file_contents(directory: Path, names: EntityNames, package_name: str) -> None:
     for path in directory.rglob("*"):
         if not path.is_file():
             continue
@@ -56,14 +59,14 @@ def _rename_file_contents(directory: Path, names: EntityNames) -> None:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, PermissionError):
             continue
-        new_text = _replace_in_text(text, names)
+        new_text = _replace_in_text(text, names, package_name)
         if new_text != text:
             path.write_text(new_text, encoding="utf-8")
 
 
 # ── Path renaming ─────────────────────────────────────────────────────────────
 
-def _rename_paths(directory: Path, names: EntityNames) -> None:
+def _rename_paths(directory: Path, names: EntityNames, package_name: str) -> None:
     # Deepest first so parent renames don't invalidate children
     candidates = sorted(
         directory.rglob("*"),
@@ -73,9 +76,9 @@ def _rename_paths(directory: Path, names: EntityNames) -> None:
     for path in candidates:
         if not path.exists():
             continue
-        if not any(tok in path.name for tok in (_SOURCE_SNAKE, _SOURCE_PASCAL, _SOURCE_UPPER)):
+        if not any(tok in path.name for tok in (_SOURCE_SNAKE, _SOURCE_PASCAL, _SOURCE_UPPER, _SOURCE_PACKAGE)):
             continue
-        new_name = _replace_in_text(path.name, names)
+        new_name = _replace_in_text(path.name, names, package_name)
         if new_name != path.name:
             path.rename(path.parent / new_name)
 
@@ -157,3 +160,11 @@ def _to_snake(raw: str) -> str:
     s = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", s)
     return s.lower()
 
+
+def _to_package(raw: str) -> str:
+    package = raw.replace("-", "_").lower()
+    package = re.sub(r"[^a-z0-9_]", "_", package)
+    package = re.sub(r"_+", "_", package).strip("_")
+    if not package or not package[0].isalpha():
+        raise ValueError(f"Invalid project name for Python package: {raw!r}")
+    return package

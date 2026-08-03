@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-from typing import Annotated
 
 import typer
 from rich.console import Console

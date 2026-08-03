@@ -60,8 +60,8 @@ def test_scaffold_and_run(temp_workspace: Path):
         [
             "uv", "run", "python", "-c",
             "from arclith import load_config_dir, Arclith; "
-            "from adapters.input.fastapi.dependencies import require_auth; "
-            "from adapters.input.fastmcp.dependencies import require_auth_mcp; "
+            "from test_plan_service.adapters.input.fastapi.dependencies import require_auth; "
+            "from test_plan_service.adapters.input.fastmcp.dependencies import require_auth_mcp; "
             "print('✅ All imports OK')"
         ],
         cwd=project_dir,
@@ -75,7 +75,14 @@ def test_scaffold_and_run(temp_workspace: Path):
     )
     
     # Step 5 — verify expected structure
-    expected_dirs = ["domain", "adapters", "application", "infrastructure", "config", "tests"]
+    expected_dirs = [
+        "src/test_plan_service/domain",
+        "src/test_plan_service/adapters",
+        "src/test_plan_service/application",
+        "src/test_plan_service/infrastructure",
+        "config",
+        "tests",
+    ]
     for dirname in expected_dirs:
         assert (project_dir / dirname).is_dir(), f"Missing expected directory: {dirname}"
     
@@ -106,7 +113,8 @@ def test_scaffold_with_custom_entity_formats(temp_workspace: Path):
         assert project_dir.exists()
         
         # Verify entity naming in generated files
-        domain_model = project_dir / "domain" / "models" / f"{expected_snake}.py"
+        package_name = project_name.replace("-", "_")
+        domain_model = project_dir / "src" / package_name / "domain" / "models" / f"{expected_snake}.py"
         assert domain_model.exists(), f"Expected {domain_model} not found"
         
         content = domain_model.read_text()
@@ -145,4 +153,3 @@ def test_scaffold_runs_tests(temp_workspace: Path):
     assert "ImportError" not in result.stdout + result.stderr, (
         f"Import errors detected:\n{result.stdout}\n{result.stderr}"
     )
-

@@ -17,6 +17,7 @@ from .adapter_templates import (
     render_container,
 )
 from .entity_scanner import EntityInfo, scan_entities, scan_installed_adapters
+from .project_paths import ProjectPaths, detect_project_paths
 
 console = Console()
 
@@ -49,9 +50,10 @@ def add_adapter_cmd() -> None:
 # ── Validation ────────────────────────────────────────────────────────────────
 
 def _assert_arclith_project(project_dir: Path) -> None:
-    if not (project_dir / "domain" / "models").exists():
+    paths = detect_project_paths(project_dir)
+    if not paths.domain_models.exists():
         console.print(
-            "[red]✗[/red] Aucun dossier [bold]domain/models/[/bold] trouvé.\n"
+            "[red]✗[/red] Aucun dossier [bold]domain/models[/bold] ou [bold]src/<package>/domain/models[/bold] trouvé.\n"
             "    Exécutez [bold]arclith-cli add-adapter[/bold] depuis la racine d'un projet arclith."
         )
         raise typer.Exit(1)
@@ -86,7 +88,7 @@ def _prompt_adapter_type() -> str:
 def _prompt_entities(project_dir: Path) -> list[EntityInfo]:
     entities = scan_entities(project_dir)
     if not entities:
-        console.print("[red]✗[/red] Aucune entité trouvée dans [bold]domain/models/[/bold].")
+        console.print("[red]✗[/red] Aucune entité trouvée dans [bold]src/<package>/domain/models/[/bold].")
         raise typer.Exit(1)
 
     console.print("\n[bold]② Entité(s) cible(s)[/bold]")
@@ -159,7 +161,8 @@ def _show_recap(
     activate: bool,
 ) -> None:
     installed = scan_installed_adapters(project_dir)
-    files = _list_generated_files(project_dir, adapter, entities, installed)
+    paths = detect_project_paths(project_dir)
+    files = _list_generated_files(project_dir, paths, adapter, entities, installed)
 
     table = Table(show_header=True, header_style="bold blue", box=None, padding=(0, 2))
     table.add_column("Fichier")
@@ -182,6 +185,7 @@ def _show_recap(
 
 def _list_generated_files(
     project_dir: Path,
+    paths: ProjectPaths,
     adapter: str,
     entities: list[EntityInfo],
     installed: list[str],
@@ -193,12 +197,12 @@ def _list_generated_files(
         files.append((cfg, "remplacé ⚠" if cfg.exists() else "créé"))
 
     for entity in entities:
-        base = project_dir / "adapters" / "output" / adapter
+        base = paths.adapters_output / adapter
         repo_dir = base / "repositories"
         repo_file = repo_dir / f"{entity.snake}_repository.py"
         reexport = base / "repository.py"
         init = base / "__init__.py"
-        container = project_dir / "infrastructure" / "containers" / f"{entity.snake}_container.py"
+        container = paths.containers / f"{entity.snake}_container.py"
 
         files.append((init, "remplacé ⚠" if init.exists() else "créé"))
         files.append((repo_file, "remplacé ⚠" if repo_file.exists() else "créé"))
@@ -218,6 +222,7 @@ def _generate(
     activate: bool,
 ) -> None:
     installed = scan_installed_adapters(project_dir)
+    paths = detect_project_paths(project_dir)
     if adapter not in installed:
         installed = sorted(installed + [adapter])
 
@@ -231,8 +236,9 @@ def _generate(
             console.print(f"[green]✓[/green] {cfg_path.relative_to(project_dir)}")
 
     for entity in entities:
-        vars = {"pascal": entity.pascal, "snake": entity.snake, **params}
-        base = project_dir / "adapters" / "output" / adapter
+        import_vars = _import_vars(paths)
+        vars = {"pascal": entity.pascal, "snake": entity.snake, **params, **import_vars}
+        base = paths.adapters_output / adapter
         repo_dir = base / "repositories"
         repo_dir.mkdir(parents=True, exist_ok=True)
 
@@ -257,10 +263,10 @@ def _generate(
         console.print(f"[green]✓[/green] {reexport.relative_to(project_dir)}")
 
         # Container (full regeneration)
-        container = project_dir / "infrastructure" / "containers" / f"{entity.snake}_container.py"
+        container = paths.containers / f"{entity.snake}_container.py"
         existed = container.exists()
         container.parent.mkdir(parents=True, exist_ok=True)
-        container.write_text(render_container(entity.pascal, entity.snake, installed))
+        container.write_text(render_container(entity.pascal, entity.snake, installed, import_vars))
         action = "[yellow]remplacé ⚠[/yellow]" if existed else "[green]créé[/green]"
         console.print(f"{action} {container.relative_to(project_dir)}")
 
@@ -269,6 +275,15 @@ def _generate(
         _update_active_adapter(project_dir, adapter)
 
     console.print(f"\n[bold green]✓ Adapter [cyan]{adapter}[/cyan] scaffoldé avec succès.[/bold green]")
+
+
+def _import_vars(paths: ProjectPaths) -> dict[str, str]:
+    return {
+        "domain_import": paths.import_path("domain"),
+        "application_import": paths.import_path("application"),
+        "adapters_import": paths.import_path("adapters"),
+        "infrastructure_import": paths.import_path("infrastructure"),
+    }
 
 
 def _update_active_adapter(project_dir: Path, adapter: str) -> None:
@@ -285,4 +300,3 @@ def _update_active_adapter(project_dir: Path, adapter: str) -> None:
             text = text.rstrip("\n") + f"\nrepository: {adapter}\n"
         cfg.write_text(text)
     console.print(f"[cyan]↺[/cyan] config/adapters/adapters.yaml → repository: {adapter}")
-

@@ -25,8 +25,8 @@ path: {path}
 REPO_PYTHON: dict[str, str] = {
     "memory": """\
 from arclith.adapters.output.memory.repository import InMemoryRepository
-from domain.models.{snake} import {pascal}
-from domain.ports.output.{snake}_repository import {pascal}Repository
+from {domain_import}.models.{snake} import {pascal}
+from {domain_import}.ports.output.{snake}_repository import {pascal}Repository
 
 
 class InMemory{pascal}Repository(InMemoryRepository[{pascal}], {pascal}Repository):
@@ -36,8 +36,8 @@ class InMemory{pascal}Repository(InMemoryRepository[{pascal}], {pascal}Repositor
 from arclith.adapters.output.mongodb.config import MongoDBConfig
 from arclith.adapters.output.mongodb.repository import MongoDBRepository
 from arclith.domain.ports.logger import Logger
-from domain.models.{snake} import {pascal}
-from domain.ports.output.{snake}_repository import {pascal}Repository
+from {domain_import}.models.{snake} import {pascal}
+from {domain_import}.ports.output.{snake}_repository import {pascal}Repository
 
 
 class MongoDB{pascal}Repository(MongoDBRepository[{pascal}], {pascal}Repository):
@@ -54,8 +54,8 @@ class MongoDB{pascal}Repository(MongoDBRepository[{pascal}], {pascal}Repository)
 """,
     "duckdb": """\
 from arclith.adapters.output.duckdb.repository import DuckDBRepository
-from domain.models.{snake} import {pascal}
-from domain.ports.output.{snake}_repository import {pascal}Repository
+from {domain_import}.models.{snake} import {pascal}
+from {domain_import}.ports.output.{snake}_repository import {pascal}Repository
 
 
 class DuckDB{pascal}Repository(DuckDBRepository[{pascal}], {pascal}Repository):
@@ -76,17 +76,17 @@ class DuckDB{pascal}Repository(DuckDBRepository[{pascal}], {pascal}Repository):
 
 REPO_REEXPORT: dict[str, str] = {
     "memory": """\
-from adapters.output.memory.repositories.{snake}_repository import InMemory{pascal}Repository
+from {adapters_import}.output.memory.repositories.{snake}_repository import InMemory{pascal}Repository
 
 __all__ = ["InMemory{pascal}Repository"]
 """,
     "mongodb": """\
-from adapters.output.mongodb.repositories.{snake}_repository import MongoDB{pascal}Repository
+from {adapters_import}.output.mongodb.repositories.{snake}_repository import MongoDB{pascal}Repository
 
 __all__ = ["MongoDB{pascal}Repository"]
 """,
     "duckdb": """\
-from adapters.output.duckdb.repositories.{snake}_repository import DuckDB{pascal}Repository
+from {adapters_import}.output.duckdb.repositories.{snake}_repository import DuckDB{pascal}Repository
 
 __all__ = ["DuckDB{pascal}Repository"]
 """,
@@ -97,25 +97,25 @@ __all__ = ["DuckDB{pascal}Repository"]
 _CONTAINER_HEADER = """\
 from __future__ import annotations
 
-from application.services.{snake}_service import {pascal}Service
+from {application_import}.services.{snake}_service import {pascal}Service
 from arclith import Arclith, AdapterRegistry
 from arclith.infrastructure.config import AppConfig
 from arclith.domain.ports.logger import Logger
-from domain.models.{snake} import {pascal}
-from domain.ports.output.{snake}_repository import {pascal}Repository
+from {domain_import}.models.{snake} import {pascal}
+from {domain_import}.ports.output.{snake}_repository import {pascal}Repository
 
 """
 
 _CONTAINER_FACTORY: dict[str, str] = {
     "memory": """\
 def _build_memory(cfg: AppConfig, log: Logger) -> {pascal}Repository:
-    from adapters.output.memory.repository import InMemory{pascal}Repository
+    from {adapters_import}.output.memory.repository import InMemory{pascal}Repository
     return InMemory{pascal}Repository()
 
 """,
     "mongodb": """\
 def _build_mongodb(cfg: AppConfig, log: Logger) -> {pascal}Repository:
-    from adapters.output.mongodb.repository import MongoDB{pascal}Repository
+    from {adapters_import}.output.mongodb.repository import MongoDB{pascal}Repository
     from arclith.adapters.output.mongodb.config import MongoDBConfig
     mongo = cfg.adapters.mongodb
     if mongo is None:
@@ -125,7 +125,7 @@ def _build_mongodb(cfg: AppConfig, log: Logger) -> {pascal}Repository:
 """,
     "duckdb": """\
 def _build_duckdb(cfg: AppConfig, log: Logger) -> {pascal}Repository:
-    from adapters.output.duckdb.repository import DuckDB{pascal}Repository
+    from {adapters_import}.output.duckdb.repository import DuckDB{pascal}Repository
     duckdb = cfg.adapters.duckdb
     if duckdb is None:
         raise RuntimeError("DuckDB settings are required when repository=duckdb")
@@ -148,14 +148,15 @@ def build_{snake}_service(arclith: Arclith) -> tuple[{pascal}Service, Logger]:
 """
 
 
-def render_container(pascal: str, snake: str, installed_adapters: list[str]) -> str:
+def render_container(pascal: str, snake: str, installed_adapters: list[str], import_vars: dict[str, str]) -> str:
     """Generate the full container file content for a given entity and its adapters."""
     # memory is always included (arclith built-in, needs no extra files)
     adapters = list(dict.fromkeys(["memory"] + installed_adapters))
+    vars = {"pascal": pascal, "snake": snake, **import_vars}
 
-    header = _CONTAINER_HEADER.format(pascal=pascal, snake=snake)
+    header = _CONTAINER_HEADER.format(**vars)
     factories = "".join(
-        _CONTAINER_FACTORY[a].format(pascal=pascal, snake=snake)
+        _CONTAINER_FACTORY[a].format(**vars)
         for a in adapters
         if a in _CONTAINER_FACTORY
     )
@@ -164,10 +165,9 @@ def render_container(pascal: str, snake: str, installed_adapters: list[str]) -> 
         for a in adapters
         if a in _CONTAINER_FACTORY
     )
-    footer = _CONTAINER_FOOTER.format(pascal=pascal, snake=snake, registrations=registrations)
+    footer = _CONTAINER_FOOTER.format(**vars, registrations=registrations)
     return header + factories + footer
 
 
 def render(template: str, vars: dict[str, Any]) -> str:
     return template.format(**vars)
-

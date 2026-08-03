@@ -27,8 +27,8 @@ if grep -q '\[tool\.uv\.sources\]' pyproject.toml; then
 fi
 
 ARCLITH_VERSION=$(grep 'arclith\[' pyproject.toml | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
-if [[ "$ARCLITH_VERSION" < "0.7.1" ]]; then
-    echo -e "${RED}✗ FAIL: arclith version < 0.7.1 (found: $ARCLITH_VERSION)${NC}"
+if [[ "$ARCLITH_VERSION" < "0.10.0" ]]; then
+    echo -e "${RED}✗ FAIL: arclith version < 0.10.0 (found: $ARCLITH_VERSION)${NC}"
     exit 1
 fi
 echo -e "${GREEN}✓${NC} arclith>=$ARCLITH_VERSION from PyPI"
@@ -42,8 +42,8 @@ echo "Step 4/5 — Validating critical imports..."
 uv run python -c "
 from pathlib import Path
 from arclith import load_config_dir, Arclith
-from adapters.input.fastapi.dependencies import require_auth
-from adapters.input.fastmcp.dependencies import require_auth_mcp
+from e2e_test.adapters.input.fastapi.dependencies import require_auth
+from e2e_test.adapters.input.fastmcp.dependencies import require_auth_mcp
 print('✅ All imports OK')
 " 2>&1 | grep "✅" || {
     echo -e "${RED}✗ FAIL: Import error${NC}"
@@ -73,4 +73,3 @@ echo "Project scaffolded in: $TEST_DIR"
 echo "To explore:"
 echo "  cd $TEST_DIR"
 echo "  uv run python main.py"
-

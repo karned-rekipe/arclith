@@ -133,6 +133,8 @@ Sections validées depuis `config.yaml` :
 - Nommage adaptateurs output : `InMemory<Entity>Repository`, `MongoDB<Entity>Repository`, `DuckDB<Entity>Repository`.
 - Logger injecté partout — jamais `print()` ni `logging` directement dans les use cases.
 - `PurgeUseCase` : supprime physiquement les entités dont `deleted_at` est dépassé de `retention_days` jours.
+- Layout applicatif canonique : `src/<package>/{domain,application,adapters,infrastructure}`. Garder cette convention dans
+  `arclith.infrastructure.project_layout` et vérifier `_sample/` avant publication.
 
 ## Commandes utiles
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.10.0] — 2026-08-03
+
+### Added
+
+- **Layout applicatif canonique** — `ProjectLayout`, `ProjectLayoutKind` et `canonical_project_layout()` exposent la
+  convention `src/<package>/{domain,application,adapters,infrastructure}` pour les services Arclith.
+- **Documentation de layout** — README et documentation d'architecture alignés sur le layout namespacé utilisé par
+  `_sample`.
+
+---
+
 ## [0.8.2] — 2026-04-04
 
 ### Fixed
@@ -233,4 +244,3 @@ secrets:
 ---
 
 ## [0.1.0] — initial release
-

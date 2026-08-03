@@ -8,25 +8,24 @@ setup:
 	git config core.hooksPath .githooks
 
 lint:
-	$(UV) ruff check $(SRC)
+	$(UV) python -m ruff check $(SRC)
 
 typecheck:
-	$(UV) mypy $(SRC)
+	$(UV) python -m mypy $(SRC)
 
 security:
-	$(UV) bandit -r $(SRC) -ll
+	$(UV) python -m bandit -r $(SRC) -ll
 
 complexity:
-	@output=$$($(UV) radon cc $(SRC) --min C -s); \
+	@output=$$($(UV) python -m radon cc $(SRC) --min C -s); \
 	if [ -n "$$output" ]; then echo "$$output"; exit 1; fi
 
 test:
-	$(UV) pytest -v
+	$(UV) python -m pytest -v
 
 coverage:
-	uv run --frozen --extra all pytest --cov --cov-report=term-missing --cov-report=html
+	uv run --frozen --extra all python -m pytest --cov --cov-report=term-missing --cov-report=html
 
 quality: lint security complexity typecheck coverage
 
 precommit: lint typecheck security
-

@@ -4,17 +4,36 @@ arclith suit les principes de l'**architecture hexagonale** (Ports & Adapters) c
 
 La règle fondamentale : les dépendances ne vont que vers l'intérieur.
 
-```
-adapters / infrastructure
+```text
+src/<package>/adapters + src/<package>/infrastructure
         ↓
-   application
+   src/<package>/application
         ↓
-     domain
+     src/<package>/domain
 ```
 
 ---
 
-## `domain/`
+## Layout canonique
+
+Le layout recommandé est namespacé dans `src/<package>/...`.
+
+```text
+src/<package>/
+  domain/
+  application/
+  adapters/
+  infrastructure/
+config/
+tests/
+main.py
+```
+
+Le framework expose cette convention avec `canonical_project_layout(package_name)`. Le sample officiel `_sample` l'applique sous `src/arclith_sample/`.
+
+---
+
+## `src/<package>/domain/`
 
 Le cœur métier. Aucune dépendance externe, aucun I/O.
 
@@ -40,7 +59,7 @@ Les interfaces (abstractions) que le domaine expose vers l'extérieur.
 
 ---
 
-## `application/`
+## `src/<package>/application/`
 
 Orchestration. Coordonne les ports du domaine pour réaliser des cas d'usage concrets.
 
@@ -68,7 +87,7 @@ class IngredientService(BaseService[Ingredient]):
 
 ---
 
-## `adapters/`
+## `src/<package>/adapters/`
 
 Les implémentations concrètes des ports. Ils dépendent du domaine, jamais l'inverse.
 
@@ -101,7 +120,7 @@ Fournis par le framework :
 
 ---
 
-## `infrastructure/`
+## `src/<package>/infrastructure/`
 
 Configuration et assemblage. Ne contient pas de logique métier.
 
@@ -115,8 +134,9 @@ Configuration et assemblage. Ne contient pas de logique métier.
 
 | Dossier           | Rôle                          | Dépend de                 |
 |-------------------|-------------------------------|---------------------------|
-| `domain/`         | Logique métier pure           | Rien                      |
-| `application/`    | Orchestration des cas d'usage | `domain/`                 |
-| `adapters/`       | Implémentations concrètes     | `domain/`, `application/` |
-| `infrastructure/` | Config & assemblage           | Tout                      |
-
+| Dossier                                  | Rôle                          | Dépend de                                           |
+|------------------------------------------|-------------------------------|-----------------------------------------------------|
+| `src/<package>/domain/`                  | Logique métier pure           | Rien                                                |
+| `src/<package>/application/`             | Orchestration des cas d'usage | `src/<package>/domain/`                             |
+| `src/<package>/adapters/`                | Implémentations concrètes     | `src/<package>/domain/`, `src/<package>/application/` |
+| `src/<package>/infrastructure/`          | Config & assemblage           | Tout                                                |

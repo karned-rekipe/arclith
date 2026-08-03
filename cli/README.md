@@ -30,7 +30,7 @@ arclith-cli new MealPlan meal-plan-service --dir ~/projects --port 8500
 | `--dir` / `-d` | `.` | Répertoire parent |
 | `--ref` | `main` | Branche/tag du template |
 
-Le projet généré utilise un dossier `config/` structuré par adapter (voir section [Configuration](#configuration)).
+Le projet généré utilise un layout `src/<package>/...` pour le code applicatif et un dossier `config/` structuré par adapter (voir section [Configuration](#configuration)).
 
 ---
 
@@ -46,7 +46,7 @@ arclith-cli add-adapter
 **Étapes du wizard :**
 
 1. **Type d'adapter** — `memory` · `mongodb` · `duckdb`
-2. **Entité(s) cible(s)** — détectées automatiquement depuis `domain/models/` via AST ; sélection individuelle ou « toutes »
+2. **Entité(s) cible(s)** — détectées automatiquement depuis `src/<package>/domain/models/` via AST ; sélection individuelle ou « toutes »
 3. **Paramètres** — questions spécifiques à l'adapter :
    - `mongodb` → `db_name`, `multitenant`
    - `duckdb` → `path`
@@ -58,13 +58,13 @@ arclith-cli add-adapter
 
 ```
 config/adapters/output/<adapter>.yaml          # config scopée (mongodb/duckdb uniquement)
-adapters/output/<adapter>/__init__.py
-adapters/output/<adapter>/repository.py        # re-export
-adapters/output/<adapter>/repositories/<entity>_repository.py  # sous-classe à compléter
-infrastructure/containers/<entity>_container.py  # AdapterRegistry régénéré
+src/<package>/adapters/output/<adapter>/__init__.py
+src/<package>/adapters/output/<adapter>/repository.py        # re-export
+src/<package>/adapters/output/<adapter>/repositories/<entity>_repository.py  # sous-classe à compléter
+src/<package>/infrastructure/containers/<entity>_container.py  # AdapterRegistry régénéré
 ```
 
-> ⚠️ `infrastructure/containers/<entity>_container.py` est **régénéré intégralement** si le fichier existe déjà — un avertissement est affiché dans le récapitulatif.
+> ⚠️ `src/<package>/infrastructure/containers/<entity>_container.py` est **régénéré intégralement** si le fichier existe déjà — un avertissement est affiché dans le récapitulatif.
 
 ---
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "arclith-cli"
-version = "0.7.1"
+version = "0.8.0"
 description = "CLI scaffolding tool for arclith — hexagonal architecture framework"
 license = { file = "LICENSE" }
 requires-python = ">=3.13"
@@ -16,8 +16,11 @@ dependencies = [
     "typer>=0.15.0",
     "rich>=13.0.0",
     "httpx>=0.27.0",
-    "arclith>=0.7.0",
+    "arclith>=0.10.0",
 ]
+
+[tool.uv.sources]
+arclith = { path = "..", editable = true }
 
 [project.scripts]
 arclith-cli = "arclith_cli.main:app"
@@ -35,4 +38,6 @@ markers = [
 [dependency-groups]
 dev = [
     "pytest>=9.0.0",
+    "pytest-asyncio==1.3.0",
+    "ruff==0.15.6",
 ]

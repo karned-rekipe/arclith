@@ -4,6 +4,8 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 
+from .project_paths import detect_project_paths
+
 
 @dataclass(frozen=True)
 class EntityInfo:
@@ -13,12 +15,12 @@ class EntityInfo:
 
 
 def scan_entities(project_dir: Path) -> list[EntityInfo]:
-    """Scan domain/models/*.py via AST to find Entity subclasses.
+    """Scan domain model files via AST to find Entity subclasses.
 
     Extracts any class that directly names 'Entity' as a base.
     Parsing errors are silently skipped so a broken file never blocks the wizard.
     """
-    models_dir = project_dir / "domain" / "models"
+    models_dir = detect_project_paths(project_dir).domain_models
     if not models_dir.exists():
         return []
 
@@ -50,7 +52,7 @@ def scan_entities(project_dir: Path) -> list[EntityInfo]:
 
 def scan_installed_adapters(project_dir: Path) -> list[str]:
     """Return adapter names found under adapters/output/ (subdirectory names)."""
-    output_dir = project_dir / "adapters" / "output"
+    output_dir = detect_project_paths(project_dir).adapters_output
     if not output_dir.exists():
         return []
     return sorted(
@@ -64,4 +66,3 @@ def _to_snake(pascal: str) -> str:
     s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", pascal)
     s = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", s)
     return s.lower()
-
