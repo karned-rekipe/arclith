@@ -1,7 +1,8 @@
 import pytest
 
-from arclith.adapters.output.memory.repository import InMemoryRepository
+from arclith.adapters.outbound.memory.repository import InMemoryRepository
 from arclith.domain.models.entity import Entity
+from arclith.domain.ports.outbound.repository import Repository
 from arclith.infrastructure.config import AppConfig, AdaptersSettings, MongoDBSettings, DuckDBSettings
 from arclith.infrastructure.repository_factory import RepositoryRegistry, build_repository
 
@@ -26,7 +27,7 @@ def test_unknown_default_repository_adapter_raises(logger):
 def test_custom_repository_registry_builds_unknown_adapter(logger):
     config = AppConfig(adapters=AdaptersSettings(repository="mariadb"))
     expected = InMemoryRepository[Item]()
-    registry = RepositoryRegistry[Item]().register(
+    registry = RepositoryRegistry[Item, Repository[Item]]().register(
         "mariadb",
         lambda cfg, entity_class, log: expected,
     )
@@ -38,7 +39,7 @@ def test_custom_repository_registry_builds_unknown_adapter(logger):
 
 def test_mongodb_returns_mongodb_repository(logger):
     pytest.importorskip("motor")
-    from arclith.adapters.output.mongodb.repository import MongoDBRepository
+    from arclith.adapters.outbound.mongodb.repository import MongoDBRepository
     config = AppConfig(adapters = AdaptersSettings(
         repository = "mongodb",
         mongodb = MongoDBSettings(uri = "mongodb://localhost:27017", db_name = "test"),
@@ -49,7 +50,7 @@ def test_mongodb_returns_mongodb_repository(logger):
 
 def test_duckdb_returns_duckdb_repository(logger, tmp_path):
     pytest.importorskip("duckdb")
-    from arclith.adapters.output.duckdb.repository import DuckDBRepository
+    from arclith.adapters.outbound.duckdb.repository import DuckDBRepository
     config = AppConfig(adapters = AdaptersSettings(
         repository = "duckdb",
         duckdb = DuckDBSettings(path = str(tmp_path) + "/"),

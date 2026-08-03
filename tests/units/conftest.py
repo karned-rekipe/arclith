@@ -1,8 +1,8 @@
 from typing import Any
 import pytest
-from arclith.adapters.output.memory.repository import InMemoryRepository
+from arclith.adapters.outbound.memory.repository import InMemoryRepository
 from arclith.domain.models.entity import Entity
-from arclith.domain.ports.logger import Logger, LogLevel
+from arclith.domain.ports.outbound.logger import Logger, LogLevel
 
 
 class DummyEntity(Entity):

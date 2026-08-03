@@ -24,20 +24,20 @@ path: {path}
 
 REPO_PYTHON: dict[str, str] = {
     "memory": """\
-from arclith.adapters.output.memory.repository import InMemoryRepository
+from arclith.adapters.outbound.memory.repository import InMemoryRepository
 from {domain_import}.models.{snake} import {pascal}
-from {domain_import}.ports.output.{snake}_repository import {pascal}Repository
+from {domain_import}.ports.outbound.{snake}_repository import {pascal}Repository
 
 
 class InMemory{pascal}Repository(InMemoryRepository[{pascal}], {pascal}Repository):
     pass  # TODO: add custom query methods if needed
 """,
     "mongodb": """\
-from arclith.adapters.output.mongodb.config import MongoDBConfig
-from arclith.adapters.output.mongodb.repository import MongoDBRepository
-from arclith.domain.ports.logger import Logger
+from arclith.adapters.outbound.mongodb.config import MongoDBConfig
+from arclith.adapters.outbound.mongodb.repository import MongoDBRepository
+from arclith.domain.ports.outbound.logger import Logger
 from {domain_import}.models.{snake} import {pascal}
-from {domain_import}.ports.output.{snake}_repository import {pascal}Repository
+from {domain_import}.ports.outbound.{snake}_repository import {pascal}Repository
 
 
 class MongoDB{pascal}Repository(MongoDBRepository[{pascal}], {pascal}Repository):
@@ -53,9 +53,9 @@ class MongoDB{pascal}Repository(MongoDBRepository[{pascal}], {pascal}Repository)
     #         ]
 """,
     "duckdb": """\
-from arclith.adapters.output.duckdb.repository import DuckDBRepository
+from arclith.adapters.outbound.duckdb.repository import DuckDBRepository
 from {domain_import}.models.{snake} import {pascal}
-from {domain_import}.ports.output.{snake}_repository import {pascal}Repository
+from {domain_import}.ports.outbound.{snake}_repository import {pascal}Repository
 
 
 class DuckDB{pascal}Repository(DuckDBRepository[{pascal}], {pascal}Repository):
@@ -76,17 +76,17 @@ class DuckDB{pascal}Repository(DuckDBRepository[{pascal}], {pascal}Repository):
 
 REPO_REEXPORT: dict[str, str] = {
     "memory": """\
-from {adapters_import}.output.memory.repositories.{snake}_repository import InMemory{pascal}Repository
+from {adapters_import}.outbound.memory.repositories.{snake}_repository import InMemory{pascal}Repository
 
 __all__ = ["InMemory{pascal}Repository"]
 """,
     "mongodb": """\
-from {adapters_import}.output.mongodb.repositories.{snake}_repository import MongoDB{pascal}Repository
+from {adapters_import}.outbound.mongodb.repositories.{snake}_repository import MongoDB{pascal}Repository
 
 __all__ = ["MongoDB{pascal}Repository"]
 """,
     "duckdb": """\
-from {adapters_import}.output.duckdb.repositories.{snake}_repository import DuckDB{pascal}Repository
+from {adapters_import}.outbound.duckdb.repositories.{snake}_repository import DuckDB{pascal}Repository
 
 __all__ = ["DuckDB{pascal}Repository"]
 """,
@@ -95,55 +95,53 @@ __all__ = ["DuckDB{pascal}Repository"]
 # ── Container template (full file, regenerated with all installed adapters) ───
 
 _CONTAINER_HEADER = """\
-from __future__ import annotations
-
 from {application_import}.services.{snake}_service import {pascal}Service
-from arclith import Arclith, AdapterRegistry
+from arclith import Arclith, RepositoryRegistry
+from arclith.domain.ports.outbound.logger import Logger
 from arclith.infrastructure.config import AppConfig
-from arclith.domain.ports.logger import Logger
 from {domain_import}.models.{snake} import {pascal}
-from {domain_import}.ports.output.{snake}_repository import {pascal}Repository
+from {domain_import}.ports.outbound.{snake}_repository import {pascal}Repository
 
 """
 
 _CONTAINER_FACTORY: dict[str, str] = {
     "memory": """\
-def _build_memory(cfg: AppConfig, log: Logger) -> {pascal}Repository:
-    from {adapters_import}.output.memory.repository import InMemory{pascal}Repository
+def _build_memory(_cfg: AppConfig, _entity_class: type[{pascal}], _log: Logger) -> {pascal}Repository:
+    from {adapters_import}.outbound.memory.repository import InMemory{pascal}Repository
     return InMemory{pascal}Repository()
 
 """,
     "mongodb": """\
-def _build_mongodb(cfg: AppConfig, log: Logger) -> {pascal}Repository:
-    from {adapters_import}.output.mongodb.repository import MongoDB{pascal}Repository
-    from arclith.adapters.output.mongodb.config import MongoDBConfig
+def _build_mongodb(cfg: AppConfig, _entity_class: type[{pascal}], log: Logger) -> {pascal}Repository:
+    from {adapters_import}.outbound.mongodb.repository import MongoDB{pascal}Repository
+    from arclith.adapters.outbound.mongodb.config import MongoDBConfig
     mongo = cfg.adapters.mongodb
     if mongo is None:
-        raise RuntimeError("MongoDB settings are required when repository=mongodb")
+        raise ValueError("MongoDB settings are required when repository=mongodb")
     return MongoDB{pascal}Repository(MongoDBConfig(uri=mongo.uri, db_name=mongo.db_name), log)
 
 """,
     "duckdb": """\
-def _build_duckdb(cfg: AppConfig, log: Logger) -> {pascal}Repository:
-    from {adapters_import}.output.duckdb.repository import DuckDB{pascal}Repository
+def _build_duckdb(cfg: AppConfig, _entity_class: type[{pascal}], _log: Logger) -> {pascal}Repository:
+    from {adapters_import}.outbound.duckdb.repository import DuckDB{pascal}Repository
     duckdb = cfg.adapters.duckdb
     if duckdb is None:
-        raise RuntimeError("DuckDB settings are required when repository=duckdb")
+        raise ValueError("DuckDB settings are required when repository=duckdb")
     return DuckDB{pascal}Repository(duckdb.path)
 
 """,
 }
 
 _CONTAINER_FOOTER = """\
-_registry: AdapterRegistry[{pascal}] = (
-    AdapterRegistry()
+_repository_registry: RepositoryRegistry[{pascal}, {pascal}Repository] = (
+    RepositoryRegistry[{pascal}, {pascal}Repository]()
 {registrations}
 )
 
 
 def build_{snake}_service(arclith: Arclith) -> tuple[{pascal}Service, Logger]:
     arclith.logger.info("🗄️ Repository adapter selected", adapter=arclith.config.adapters.repository)
-    repo: {pascal}Repository = _registry.build(arclith.config, arclith.logger)
+    repo: {pascal}Repository = arclith.repository({pascal}, registry=_repository_registry)
     return {pascal}Service(repo, arclith.logger, arclith.config.soft_delete.retention_days), arclith.logger
 """
 

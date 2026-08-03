@@ -54,22 +54,22 @@ def test_resolve_adapters_selector():
 
 
 def test_resolve_output_adapter():
-    assert _resolve_key_path(Path("adapters/output/mongodb.yaml")) == ["adapters", "mongodb"]
-    assert _resolve_key_path(Path("adapters/output/duckdb.yaml")) == ["adapters", "duckdb"]
+    assert _resolve_key_path(Path("adapters/outbound/mongodb.yaml")) == ["adapters", "mongodb"]
+    assert _resolve_key_path(Path("adapters/outbound/duckdb.yaml")) == ["adapters", "duckdb"]
 
 
 def test_resolve_input_alias_fastapi():
-    assert _resolve_key_path(Path("adapters/input/fastapi.yaml")) == ["api"]
+    assert _resolve_key_path(Path("adapters/inbound/fastapi.yaml")) == ["api"]
 
 
 def test_resolve_input_alias_fastmcp():
-    assert _resolve_key_path(Path("adapters/input/fastmcp.yaml")) == ["mcp"]
+    assert _resolve_key_path(Path("adapters/inbound/fastmcp.yaml")) == ["mcp"]
 
 
 def test_resolve_input_no_alias():
-    assert _resolve_key_path(Path("adapters/input/keycloak.yaml")) == ["keycloak"]
-    assert _resolve_key_path(Path("adapters/input/cache.yaml")) == ["cache"]
-    assert _resolve_key_path(Path("adapters/input/tenant.yaml")) == ["tenant"]
+    assert _resolve_key_path(Path("adapters/inbound/keycloak.yaml")) == ["keycloak"]
+    assert _resolve_key_path(Path("adapters/inbound/cache.yaml")) == ["cache"]
+    assert _resolve_key_path(Path("adapters/inbound/tenant.yaml")) == ["tenant"]
 
 
 def test_resolve_unknown_path_returns_empty():
@@ -135,13 +135,13 @@ def test_load_config_dir_app_section():
 
 
 def test_load_config_dir_api_via_fastapi_alias():
-    path = _make_config_dir({"adapters/input/fastapi.yaml": {"port": 9999}})
+    path = _make_config_dir({"adapters/inbound/fastapi.yaml": {"port": 9999}})
     config = load_config_dir(path)
     assert config.api.port == 9999
 
 
 def test_load_config_dir_mcp_via_fastmcp_alias():
-    path = _make_config_dir({"adapters/input/fastmcp.yaml": {"port": 8888}})
+    path = _make_config_dir({"adapters/inbound/fastmcp.yaml": {"port": 8888}})
     config = load_config_dir(path)
     assert config.mcp.port == 8888
 
@@ -149,7 +149,7 @@ def test_load_config_dir_mcp_via_fastmcp_alias():
 def test_load_config_dir_mongodb_scoped():
     path = _make_config_dir({
         "adapters/adapters.yaml": {"repository": "mongodb"},
-        "adapters/output/mongodb.yaml": {"db_name": "mydb", "multitenant": False},
+        "adapters/outbound/mongodb.yaml": {"db_name": "mydb", "multitenant": False},
     })
     config = load_config_dir(path)
     assert config.adapters.repository == "mongodb"
@@ -160,7 +160,7 @@ def test_load_config_dir_mongodb_scoped():
 def test_load_config_dir_duckdb_scoped():
     path = _make_config_dir({
         "adapters/adapters.yaml": {"repository": "duckdb"},
-        "adapters/output/duckdb.yaml": {"path": "data/"},
+        "adapters/outbound/duckdb.yaml": {"path": "data/"},
     })
     config = load_config_dir(path)
     assert config.adapters.duckdb is not None
@@ -295,7 +295,7 @@ def test_export_config_yaml_content_is_valid_yaml():
     config_dir = _make_config_dir({
         "app.yaml": {"name": "RoundTrip"},
         "adapters/adapters.yaml": {"repository": "memory"},
-        "adapters/input/fastapi.yaml": {"port": 7777},
+        "adapters/inbound/fastapi.yaml": {"port": 7777},
     })
     out = config_dir / "config.yaml"
     export_config_yaml(config_dir, out)
@@ -311,8 +311,8 @@ def test_export_config_yaml_round_trip():
         "app.yaml": {"name": "RoundTrip", "version": "1.0.0"},
         "soft_delete.yaml": {"retention_days": 14},
         "adapters/adapters.yaml": {"repository": "duckdb"},
-        "adapters/output/duckdb.yaml": {"path": "data/"},
-        "adapters/input/fastapi.yaml": {"port": 8765},
+        "adapters/outbound/duckdb.yaml": {"path": "data/"},
+        "adapters/inbound/fastapi.yaml": {"port": 8765},
     })
     out = config_dir / "config.yaml"
     export_config_yaml(config_dir, out)
@@ -409,7 +409,7 @@ def test_adapters_lm_openai_with_base_url():
 def test_adapters_lm_loaded_from_config_dir():
     config_dir = _make_config_dir({
         "adapters/adapters.yaml": {"repository": "memory"},
-        "adapters/output/lm.yaml": {"provider": "anthropic", "model_name": "claude-sonnet-4-5", "api_key": ""},
+        "adapters/outbound/lm.yaml": {"provider": "anthropic", "model_name": "claude-sonnet-4-5", "api_key": ""},
     })
     config = load_config_dir(config_dir)
     assert config.adapters.lm is not None

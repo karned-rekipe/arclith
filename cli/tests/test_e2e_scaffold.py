@@ -94,8 +94,8 @@ def test_scaffold_and_run(temp_workspace: Path):
         [
             "uv", "run", "python", "-c",
             "from arclith import load_config_dir, Arclith; "
-            "from test_plan_service.adapters.input.fastapi.dependencies import require_auth; "
-            "from test_plan_service.adapters.input.fastmcp.dependencies import require_auth_mcp; "
+            "from test_plan_service.adapters.inbound.fastapi.dependencies import require_auth; "
+            "from test_plan_service.adapters.inbound.fastmcp.dependencies import require_auth_mcp; "
             "print('✅ All imports OK')"
         ],
         cwd=project_dir,

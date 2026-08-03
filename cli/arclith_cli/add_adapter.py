@@ -193,11 +193,11 @@ def _list_generated_files(
     files: list[tuple[Path, str]] = []
 
     if adapter != "memory" and CONFIG_YAML.get(adapter):
-        cfg = project_dir / "config" / "adapters" / "output" / f"{adapter}.yaml"
+        cfg = project_dir / "config" / "adapters" / "outbound" / f"{adapter}.yaml"
         files.append((cfg, "remplacé ⚠" if cfg.exists() else "créé"))
 
     for entity in entities:
-        base = paths.adapters_output / adapter
+        base = paths.adapters_outbound / adapter
         repo_dir = base / "repositories"
         repo_file = repo_dir / f"{entity.snake}_repository.py"
         reexport = base / "repository.py"
@@ -230,7 +230,7 @@ def _generate(
     if adapter != "memory":
         yaml_content = CONFIG_YAML.get(adapter, "")
         if yaml_content:
-            cfg_path = project_dir / "config" / "adapters" / "output" / f"{adapter}.yaml"
+            cfg_path = project_dir / "config" / "adapters" / "outbound" / f"{adapter}.yaml"
             cfg_path.parent.mkdir(parents=True, exist_ok=True)
             cfg_path.write_text(render(yaml_content, params))
             console.print(f"[green]✓[/green] {cfg_path.relative_to(project_dir)}")
@@ -238,7 +238,7 @@ def _generate(
     for entity in entities:
         import_vars = _import_vars(paths)
         vars = {"pascal": entity.pascal, "snake": entity.snake, **params, **import_vars}
-        base = paths.adapters_output / adapter
+        base = paths.adapters_outbound / adapter
         repo_dir = base / "repositories"
         repo_dir.mkdir(parents=True, exist_ok=True)
 

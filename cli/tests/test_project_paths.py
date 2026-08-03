@@ -12,12 +12,12 @@ def test_detect_project_paths_uses_src_package(tmp_path: Path):
     assert paths.package_root == package_root
     assert paths.package_name == "my_service"
     assert paths.domain_models == package_root / "domain" / "models"
-    assert paths.adapters_output == package_root / "adapters" / "output"
+    assert paths.adapters_outbound == package_root / "adapters" / "outbound"
     assert paths.containers == package_root / "infrastructure" / "containers"
     assert paths.import_path("domain", "models", "recipe") == "my_service.domain.models.recipe"
 
 
-def test_detect_project_paths_keeps_legacy_root_layout(tmp_path: Path):
+def test_detect_project_paths_supports_root_layout(tmp_path: Path):
     (tmp_path / "domain" / "models").mkdir(parents=True)
 
     paths = detect_project_paths(tmp_path)

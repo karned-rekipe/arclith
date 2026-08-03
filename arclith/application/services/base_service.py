@@ -3,8 +3,8 @@ from uuid6 import UUID
 
 from arclith.application.timing import log_duration
 from arclith.domain.models.entity import Entity
-from arclith.domain.ports.logger import Logger
-from arclith.domain.ports.repository import Repository
+from arclith.domain.ports.outbound.logger import Logger
+from arclith.domain.ports.outbound.repository import Repository
 from arclith.application.use_cases import (
     CreateUseCase,
     ReadUseCase,

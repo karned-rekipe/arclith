@@ -51,8 +51,8 @@ def scan_entities(project_dir: Path) -> list[EntityInfo]:
 
 
 def scan_installed_adapters(project_dir: Path) -> list[str]:
-    """Return adapter names found under adapters/output/ (subdirectory names)."""
-    output_dir = detect_project_paths(project_dir).adapters_output
+    """Return adapter names found under adapters/outbound/ (subdirectory names)."""
+    output_dir = detect_project_paths(project_dir).adapters_outbound
     if not output_dir.exists():
         return []
     return sorted(

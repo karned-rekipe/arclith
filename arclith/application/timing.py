@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from arclith.domain.ports.logger import Logger
+    from arclith.domain.ports.outbound.logger import Logger
 
 
 @asynccontextmanager

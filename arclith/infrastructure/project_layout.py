@@ -35,8 +35,6 @@ class ProjectLayout:
     adapters: PurePosixPath = field(init=False)
     inbound_adapters: PurePosixPath = field(init=False)
     outbound_adapters: PurePosixPath = field(init=False)
-    legacy_input_adapters: PurePosixPath = field(init=False)
-    legacy_output_adapters: PurePosixPath = field(init=False)
     infrastructure: PurePosixPath = field(init=False)
 
     def __post_init__(self) -> None:
@@ -69,8 +67,6 @@ class ProjectLayout:
         object.__setattr__(self, "adapters", package_root / "adapters")
         object.__setattr__(self, "inbound_adapters", package_root / "adapters" / "inbound")
         object.__setattr__(self, "outbound_adapters", package_root / "adapters" / "outbound")
-        object.__setattr__(self, "legacy_input_adapters", package_root / "adapters" / "input")
-        object.__setattr__(self, "legacy_output_adapters", package_root / "adapters" / "output")
         object.__setattr__(self, "infrastructure", package_root / "infrastructure")
 
     @classmethod

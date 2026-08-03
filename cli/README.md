@@ -57,10 +57,10 @@ arclith-cli add-adapter
 **Fichiers générés par entité :**
 
 ```
-config/adapters/output/<adapter>.yaml          # config scopée (mongodb/duckdb uniquement)
-src/<package>/adapters/output/<adapter>/__init__.py
-src/<package>/adapters/output/<adapter>/repository.py        # re-export
-src/<package>/adapters/output/<adapter>/repositories/<entity>_repository.py  # sous-classe à compléter
+config/adapters/outbound/<adapter>.yaml          # config scopée (mongodb/duckdb uniquement)
+src/<package>/adapters/outbound/<adapter>/__init__.py
+src/<package>/adapters/outbound/<adapter>/repository.py        # re-export
+src/<package>/adapters/outbound/<adapter>/repositories/<entity>_repository.py  # sous-classe à compléter
 src/<package>/infrastructure/containers/<entity>_container.py  # AdapterRegistry régénéré
 ```
 

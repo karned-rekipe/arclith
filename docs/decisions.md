@@ -121,7 +121,7 @@ transport stdio est supporté en production. Le debug local passe par HTTP (127.
 Keycloak JWKS, vérifier la licence, résoudre le tenant. La seule différence est la façon d'accéder aux headers HTTP
 (`Request` vs `fastmcp.Context`).
 
-**Décision :** extraire le cœur du pipeline dans `adapters/input/auth_pipeline.py` → `run_auth_pipeline(headers, ...)`.
+**Décision :** extraire le cœur du pipeline dans `adapters/inbound/auth_pipeline.py` → `run_auth_pipeline(headers, ...)`.
 Les adapters FastAPI et FastMCP sont de simples wrappers qui extraient les headers selon leur transport puis appellent
 `run_auth_pipeline`. Signatures identiques pour `make_inject_tenant_uri`.
 
@@ -135,7 +135,7 @@ devrait être appliqué deux fois.
 - `fastapi/dependencies.py` et `fastmcp/dependencies.py` : wrappers ~10 lignes.
 - `fastapi/auth.py` et `fastmcp/auth.py` : protection sélective opt-in (par route ou par tool).
 - `Arclith.auth_dependency(transport)` : factory qui construit le bon `require_auth` depuis la config.
-- Tests du pipeline mutualisé : un seul fichier `tests/units/adapters/input/test_auth_pipeline.py` (à créer — SK-AUTH-01).
+- Tests du pipeline mutualisé : un seul fichier `tests/units/adapters/inbound/test_auth_pipeline.py` (à créer — SK-AUTH-01).
 
 
 ---

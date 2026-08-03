@@ -4,7 +4,7 @@ import pytest
 from uuid6 import uuid7
 
 from arclith.application.services.base_service import BaseService
-from arclith.adapters.output.memory.repository import InMemoryRepository
+from arclith.adapters.outbound.memory.repository import InMemoryRepository
 from tests.units.conftest import DummyEntity, NullLogger
 
 

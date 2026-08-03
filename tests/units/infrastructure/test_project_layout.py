@@ -21,8 +21,6 @@ def test_canonical_project_layout_uses_namespaced_src_layout():
     assert layout.adapters == PurePosixPath("src/arclith_sample/adapters")
     assert layout.inbound_adapters == PurePosixPath("src/arclith_sample/adapters/inbound")
     assert layout.outbound_adapters == PurePosixPath("src/arclith_sample/adapters/outbound")
-    assert layout.legacy_input_adapters == PurePosixPath("src/arclith_sample/adapters/input")
-    assert layout.legacy_output_adapters == PurePosixPath("src/arclith_sample/adapters/output")
     assert layout.infrastructure == PurePosixPath("src/arclith_sample/infrastructure")
     assert layout.tests_root == PurePosixPath("tests")
     assert layout.config_root == PurePosixPath("config")

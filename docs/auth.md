@@ -32,14 +32,14 @@ config.yaml (keycloak / tenant / license / cache)
 
 | Fichier | Rôle |
 |---|---|
-| `adapters/input/auth_pipeline.py` | Cœur du pipeline — unique source de vérité |
-| `adapters/input/fastapi/auth.py` | Wrapper FastAPI : `make_require_auth()` |
-| `adapters/input/fastmcp/auth.py` | Wrapper FastMCP : `make_require_auth_tool()` |
-| `adapters/input/fastapi/dependencies.py` | Pipeline complet multitenant (FastAPI) |
-| `adapters/input/fastmcp/dependencies.py` | Pipeline complet multitenant (FastMCP) |
-| `adapters/input/jwt/decoder.py` | `JWTDecoder` — JWKS Keycloak avec cache |
-| `adapters/input/license/validator.py` | `RoleLicenseValidator` — vérifie un realm role |
-| `adapters/output/vault/tenant_adapter.py` | `VaultTenantResolver` — résout les coords tenant |
+| `adapters/inbound/auth_pipeline.py` | Cœur du pipeline — unique source de vérité |
+| `adapters/inbound/fastapi/auth.py` | Wrapper FastAPI : `make_require_auth()` |
+| `adapters/inbound/fastmcp/auth.py` | Wrapper FastMCP : `make_require_auth_tool()` |
+| `adapters/inbound/fastapi/dependencies.py` | Pipeline complet multitenant (FastAPI) |
+| `adapters/inbound/fastmcp/dependencies.py` | Pipeline complet multitenant (FastMCP) |
+| `adapters/inbound/jwt/decoder.py` | `JWTDecoder` — JWKS Keycloak avec cache |
+| `adapters/inbound/license/validator.py` | `RoleLicenseValidator` — vérifie un realm role |
+| `adapters/outbound/vault/tenant_adapter.py` | `VaultTenantResolver` — résout les coords tenant |
 | `adapters/context.py` | `ContextVar` tenant par requête |
 | `arclith.py` | `Arclith.auth_dependency(transport)` — factory depuis config |
 
@@ -148,10 +148,10 @@ Il n'est pas nécessaire de le répéter sur chaque route.
 
 ```python
 # infrastructure/recipe_container.py
-from arclith.adapters.input.fastapi.dependencies import make_inject_tenant_uri
-from arclith.adapters.input.jwt.decoder import JWTDecoder
-from arclith.adapters.input.license.validator import RoleLicenseValidator
-from arclith.adapters.output.vault.tenant_adapter import VaultTenantResolver
+from arclith.adapters.inbound.fastapi.dependencies import make_inject_tenant_uri
+from arclith.adapters.inbound.jwt.decoder import JWTDecoder
+from arclith.adapters.inbound.license.validator import RoleLicenseValidator
+from arclith.adapters.outbound.vault.tenant_adapter import VaultTenantResolver
 
 inject_tenant = make_inject_tenant_uri(
     config,
@@ -167,7 +167,7 @@ inject_tenant = make_inject_tenant_uri(
     ],
 )
 
-# adapters/input/fastapi/routers/recipe_router.py
+# adapters/inbound/fastapi/routers/recipe_router.py
 router = APIRouter(
     prefix="/v1/recipes",
     dependencies=[Depends(inject_tenant)],  # ✅ auth + licence + tenant par requête
@@ -253,7 +253,7 @@ async def create_recipe(
 ### 4. Pipeline complet multitenant (FastMCP)
 
 ```python
-from arclith.adapters.input.fastmcp.dependencies import make_inject_tenant_uri
+from arclith.adapters.inbound.fastmcp.dependencies import make_inject_tenant_uri
 
 inject_tenant_mcp = make_inject_tenant_uri(
     config,
@@ -517,9 +517,9 @@ adapters:
 
 ## Références
 
-- `arclith/adapters/input/auth_pipeline.py` — cœur du pipeline
-- `arclith/adapters/input/fastapi/auth.py` — wrapper FastAPI
-- `arclith/adapters/input/fastmcp/auth.py` — wrapper FastMCP
+- `arclith/adapters/inbound/auth_pipeline.py` — cœur du pipeline
+- `arclith/adapters/inbound/fastapi/auth.py` — wrapper FastAPI
+- `arclith/adapters/inbound/fastmcp/auth.py` — wrapper FastMCP
 - `docs/multitenant.md` — détail du pipeline multitenant
 - `docs/decisions.md` — ADR-007 (stdio), ADR-008 (pipeline mutualisé)
 - `SKILLS.md` → SK-F09 — recette pas-à-pas

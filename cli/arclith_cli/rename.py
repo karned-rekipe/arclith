@@ -112,16 +112,16 @@ def _patch_config(target_dir: Path, project_name: str, port: int) -> None:
         f'"{project_name} — built on arclith"',
     )
     _patch_yaml_field(
-        target_dir / "config" / "adapters" / "output" / "mongodb.yaml",
+        target_dir / "config" / "adapters" / "outbound" / "mongodb.yaml",
         "db_name",
         project_name,
     )
     _patch_section_port(
-        target_dir / "config" / "adapters" / "input" / "fastapi.yaml",
+        target_dir / "config" / "adapters" / "inbound" / "fastapi.yaml",
         port,
     )
     _patch_section_port(
-        target_dir / "config" / "adapters" / "input" / "fastmcp.yaml",
+        target_dir / "config" / "adapters" / "inbound" / "fastmcp.yaml",
         port + 1,
     )
 

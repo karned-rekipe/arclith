@@ -54,29 +54,29 @@ source = ["arclith"]
 branch = true
 omit = [
     # Adapters requiring real external services (MongoDB, DuckDB)
-    "arclith/adapters/output/mongodb/*",
-    "arclith/adapters/output/duckdb/*",
+    "arclith/adapters/outbound/mongodb/*",
+    "arclith/adapters/outbound/duckdb/*",
     # Bootstrap — wired via integration tests, not unit tests
     "arclith/arclith.py",
     "**/__init__.py",
     # Auth pipeline — unit tests pending (SK-AUTH-01)
-    "arclith/adapters/input/auth_pipeline.py",
-    "arclith/adapters/input/fastapi/auth.py",
-    "arclith/adapters/input/fastmcp/auth.py",
-    "arclith/adapters/input/fastmcp/dependencies.py",
+    "arclith/adapters/inbound/auth_pipeline.py",
+    "arclith/adapters/inbound/fastapi/auth.py",
+    "arclith/adapters/inbound/fastmcp/auth.py",
+    "arclith/adapters/inbound/fastmcp/dependencies.py",
     # Requires Keycloak JWKS endpoint (integration test)
-    "arclith/adapters/input/jwt/*",
-    "arclith/adapters/input/license/*",
+    "arclith/adapters/inbound/jwt/*",
+    "arclith/adapters/inbound/license/*",
     # Requires Redis (integration test)
-    "arclith/adapters/output/redis/*",
+    "arclith/adapters/outbound/redis/*",
     # Requires Vault (integration test)
-    "arclith/adapters/output/vault/*",
+    "arclith/adapters/outbound/vault/*",
     # Memory cache — tested implicitly through auth pipeline
-    "arclith/adapters/output/memory/cache_adapter.py",
+    "arclith/adapters/outbound/memory/cache_adapter.py",
     # Abstract ports (ABCs — no implementation to test)
-    "arclith/domain/ports/cache.py",
-    "arclith/domain/ports/license_validator.py",
-    "arclith/domain/ports/tenant_resolver.py",
+    "arclith/domain/ports/outbound/cache.py",
+    "arclith/domain/ports/outbound/license_validator.py",
+    "arclith/domain/ports/outbound/tenant_resolver.py",
 ]
 
 [tool.coverage.report]

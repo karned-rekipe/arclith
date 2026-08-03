@@ -7,11 +7,11 @@ from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, AsyncIterator, Literal, TypeVar, overload
 
 from arclith.domain.models.entity import Entity
-from arclith.domain.ports.logger import Logger, LogLevel
-from arclith.domain.ports.repository import Repository
+from arclith.domain.ports.outbound.logger import Logger, LogLevel
+from arclith.domain.ports.outbound.repository import Repository
 from arclith.infrastructure.config import AppConfig, load_config_dir, load_config_file
 from arclith.infrastructure.repository_factory import RepositoryRegistry
 
@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
 
 T = TypeVar("T", bound=Entity)
+R = TypeVar("R", bound=Repository[Any])
 _UVICORN_LOG_CONFIG: dict[str, Any] = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -64,14 +65,32 @@ class Arclith:
 
     @cached_property
     def logger(self) -> Logger:
-        from arclith.adapters.output.console.logger import ConsoleLogger
+        from arclith.adapters.outbound.console.logger import ConsoleLogger
         return ConsoleLogger()
+    @overload
     def repository(
         self,
         entity_class: type[T],
         *,
-        registry: RepositoryRegistry[T] | None = None,
-    ) -> "Repository[T]":
+        registry: None = None,
+    ) -> Repository[T]:
+        ...
+
+    @overload
+    def repository(
+        self,
+        entity_class: type[T],
+        *,
+        registry: RepositoryRegistry[T, R],
+    ) -> R:
+        ...
+
+    def repository(
+        self,
+        entity_class: type[T],
+        *,
+        registry: RepositoryRegistry[T, R] | None = None,
+    ) -> Repository[T] | R:
         from arclith.infrastructure.repository_factory import build_repository
 
         return build_repository(self.config, entity_class, self.logger, registry=registry)
@@ -126,7 +145,7 @@ class Arclith:
 
     def _add_fastapi_observability(self, app: "FastAPI") -> None:
         if self.config.probe.enabled:
-            from arclith.adapters.input.probes.metrics import ApiMetricsCollector
+            from arclith.adapters.inbound.probes.metrics import ApiMetricsCollector
             app.add_middleware(ApiMetricsCollector, registry=self._metrics_registry)
             self._probe_server.add_collector(
                 ApiMetricsCollector(app=None, registry=self._metrics_registry)  # type: ignore[arg-type]
@@ -134,10 +153,10 @@ class Arclith:
 
     def _add_fastapi_http_middlewares(self, app: "FastAPI") -> None:
         # Order matters: Starlette applies the last registered middleware first.
-        from arclith.adapters.input.fastapi.timing import TimingMiddleware
+        from arclith.adapters.inbound.fastapi.timing import TimingMiddleware
         app.add_middleware(TimingMiddleware, logger=self.logger)
 
-        from arclith.adapters.input.fastapi.cache_control import CacheControlMiddleware
+        from arclith.adapters.inbound.fastapi.cache_control import CacheControlMiddleware
         app.add_middleware(
             CacheControlMiddleware,
             logger = self.logger,
@@ -145,11 +164,11 @@ class Arclith:
             get_list_max_age = self.config.http.cache_control.get_list_max_age,
         )
 
-        from arclith.adapters.input.fastapi.etag import ETaggerMiddleware
+        from arclith.adapters.inbound.fastapi.etag import ETaggerMiddleware
         if self.config.http.etag.enabled:
             app.add_middleware(ETaggerMiddleware, logger = self.logger)
 
-        from arclith.adapters.input.fastapi.idempotency import IdempotencyMiddleware
+        from arclith.adapters.inbound.fastapi.idempotency import IdempotencyMiddleware
         if self.config.http.idempotency.enabled:
             app.add_middleware(
                 IdempotencyMiddleware,
@@ -246,8 +265,8 @@ class Arclith:
                 "config.keycloak est requis pour utiliser auth_dependency(). "
                 "Ajouter la section keycloak dans config.yaml."
             )
-        from arclith.adapters.input.jwt.decoder import JWTDecoder
-        from arclith.adapters.input.license.validator import RoleLicenseValidator
+        from arclith.adapters.inbound.jwt.decoder import JWTDecoder
+        from arclith.adapters.inbound.license.validator import RoleLicenseValidator
 
         kc = self.config.keycloak
         decoder = JWTDecoder(
@@ -261,10 +280,10 @@ class Arclith:
         )
 
         if transport == "mcp":
-            from arclith.adapters.input.fastmcp.auth import make_require_auth_tool
+            from arclith.adapters.inbound.fastmcp.auth import make_require_auth_tool
             return make_require_auth_tool(jwt_decoder=decoder, license_validator=license_validator)
 
-        from arclith.adapters.input.fastapi.auth import make_require_auth
+        from arclith.adapters.inbound.fastapi.auth import make_require_auth
         return make_require_auth(jwt_decoder=decoder, license_validator=license_validator)
 
     # ── probe helpers ─────────────────────────────────────────────────────────
@@ -368,19 +387,19 @@ class Arclith:
         and multi-replica deployments), falls back to in-process memory otherwise.
         """
         if self.config.cache.backend == "redis":
-            from arclith.adapters.output.redis.cache_adapter import RedisCacheAdapter
+            from arclith.adapters.outbound.redis.cache_adapter import RedisCacheAdapter
             return RedisCacheAdapter(self.config.cache.redis_url)
-        from arclith.adapters.output.memory.cache_adapter import MemoryCacheAdapter
+        from arclith.adapters.outbound.memory.cache_adapter import MemoryCacheAdapter
         return MemoryCacheAdapter()
 
     @cached_property
     def _metrics_registry(self) -> Any:
-        from arclith.adapters.input.probes.metrics import MetricsRegistry
+        from arclith.adapters.inbound.probes.metrics import MetricsRegistry
         return MetricsRegistry()
 
     @cached_property
     def _mcp_collector(self) -> Any:
-        from arclith.adapters.input.probes.metrics import McpMetricsCollector
+        from arclith.adapters.inbound.probes.metrics import McpMetricsCollector
         collector = McpMetricsCollector(self._metrics_registry, logger=self.logger)
         if self.config.probe.enabled:
             self._probe_server.add_collector(collector)
@@ -388,7 +407,7 @@ class Arclith:
 
     @cached_property
     def _probe_server(self) -> Any:
-        from arclith.adapters.input.probes.server import ProbeServer
+        from arclith.adapters.inbound.probes.server import ProbeServer
         probe = self.config.probe
         return ProbeServer(
             host=probe.host,

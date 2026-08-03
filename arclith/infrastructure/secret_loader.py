@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from arclith.domain.ports.secret_resolver import SecretResolver
+    from arclith.domain.ports.outbound.secret_resolver import SecretResolver
 
 
 def resolve_dict_secrets(data: dict, resolver: "SecretResolver") -> dict:

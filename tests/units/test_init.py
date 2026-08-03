@@ -5,7 +5,7 @@ import arclith
 
 def test_getattr_console_logger():
     cls = arclith.ConsoleLogger
-    from arclith.adapters.output.console.logger import ConsoleLogger
+    from arclith.adapters.outbound.console.logger import ConsoleLogger
     assert cls is ConsoleLogger
 
 

@@ -6,7 +6,7 @@
 
 ### Étapes
 
-1. **Créer** `arclith/adapters/output/<backend>/repository.py`
+1. **Créer** `arclith/adapters/outbound/<backend>/repository.py`
     - Sous-classer `Repository[T]` (ou `InMemoryRepository` pour partir d'une base)
     - Implémenter les 7 méthodes abstraites : `create`, `read`, `update`, `delete`, `find_all`, `find_deleted`,
       `duplicate`
@@ -14,7 +14,7 @@
 2. **Brancher** dans `arclith/infrastructure/repository_factory.py`
    ```python
    case "<backend>":
-       from arclith.adapters.output.<backend>.repository import <Backend>Repository
+       from arclith.adapters.outbound.<backend>.repository import <Backend>Repository
        return <Backend>Repository(...)
    ```
 
@@ -27,7 +27,7 @@
    <backend> = ["<package>==x.y.z"]
    ```
 
-5. **Tests** — `tests/units/adapters/output/<backend>/test_repository.py` : coverage ≥ 90 %
+5. **Tests** — `tests/units/adapters/outbound/<backend>/test_repository.py` : coverage ≥ 90 %
 
 ### Validation
 
@@ -87,7 +87,7 @@ make typecheck
 ### Étapes côté framework (déjà implémenté)
 
 - `arclith/adapters/context.py` : `set_tenant_uri(uri)` / `get_tenant_uri()`
-- `arclith/adapters/input/fastmcp/dependencies.py` : `make_inject_tenant_uri(config)`
+- `arclith/adapters/inbound/fastmcp/dependencies.py` : `make_inject_tenant_uri(config)`
 
 ### Étapes côté implémenteur
 
@@ -112,9 +112,9 @@ make typecheck
 ### Fichiers cibles
 
 ```
-tests/units/adapters/input/test_auth_pipeline.py    # run_auth_pipeline (tous cas)
-tests/units/adapters/input/test_fastapi_auth.py     # make_require_auth (FastAPI)
-tests/units/adapters/input/test_fastmcp_auth.py     # make_require_auth_tool (FastMCP)
+tests/units/adapters/inbound/test_auth_pipeline.py    # run_auth_pipeline (tous cas)
+tests/units/adapters/inbound/test_fastapi_auth.py     # make_require_auth (FastAPI)
+tests/units/adapters/inbound/test_fastmcp_auth.py     # make_require_auth_tool (FastMCP)
 ```
 
 ### Cas à couvrir dans `test_auth_pipeline.py`
@@ -131,7 +131,7 @@ tests/units/adapters/input/test_fastmcp_auth.py     # make_require_auth_tool (Fa
 
 ```python
 from unittest.mock import AsyncMock, MagicMock
-from arclith.adapters.input.auth_pipeline import AuthPipelineError, run_auth_pipeline
+from arclith.adapters.inbound.auth_pipeline import AuthPipelineError, run_auth_pipeline
 
 async def test_valid_token_returns_claims():
     decoder = AsyncMock()
@@ -248,7 +248,7 @@ make test
 
 1. **Lire** `docs/http-conventions.md` — connaître les status codes standards
 
-2. **Créer** `adapters/input/fastapi/routers/<entity>_router.py` :
+2. **Créer** `adapters/inbound/fastapi/routers/<entity>_router.py` :
    ```python
    class <Entity>Router:
        def __init__(self, service: <Entity>Service, logger: Logger) -> None:
@@ -336,16 +336,16 @@ make test
            )
    ```
 
-3. **Export** — ajouter dans `adapters/input/fastapi/routers/__init__.py` :
+3. **Export** — ajouter dans `adapters/inbound/fastapi/routers/__init__.py` :
    ```python
-   from adapters.input.fastapi.routers.<entity>_router import <Entity>Router
+   from adapters.inbound.fastapi.routers.<entity>_router import <Entity>Router
    
    __all__ = ["<Entity>Router", ...]
    ```
 
-4. **Register** — importer et enregistrer dans `adapters/input/fastapi/router.py` :
+4. **Register** — importer et enregistrer dans `adapters/inbound/fastapi/router.py` :
    ```python
-   from adapters.input.fastapi.routers import <Entity>Router
+   from adapters.inbound.fastapi.routers import <Entity>Router
    
    def register_routers(app: FastAPI, arclith: Arclith) -> None:
        service, logger = build_<entity>_service(arclith)
@@ -368,7 +368,7 @@ make test
 ### Références
 
 - `docs/http-conventions.md` — conventions complètes
-- `_sample/adapters/input/fastapi/routers/ingredient_router.py` — exemple de référence
+- `_sample/adapters/inbound/fastapi/routers/ingredient_router.py` — exemple de référence
 
 ---
 
@@ -415,50 +415,50 @@ adapters/
 
 1. **Créer les sous-dossiers** :
    ```bash
-   mkdir -p adapters/input/fastapi/routers
-   mkdir -p adapters/input/fastmcp/tools
-   mkdir -p adapters/input/fastmcp/prompts
-   mkdir -p adapters/input/fastmcp/resources
+   mkdir -p adapters/inbound/fastapi/routers
+   mkdir -p adapters/inbound/fastmcp/tools
+   mkdir -p adapters/inbound/fastmcp/prompts
+   mkdir -p adapters/inbound/fastmcp/resources
    ```
 
 2. **Déplacer les fichiers** :
    ```bash
-   mv adapters/input/fastapi/*_router.py adapters/input/fastapi/routers/
-   mv adapters/input/fastmcp/*_tools.py adapters/input/fastmcp/tools/
+   mv adapters/inbound/fastapi/*_router.py adapters/inbound/fastapi/routers/
+   mv adapters/inbound/fastmcp/*_tools.py adapters/inbound/fastmcp/tools/
    # Renommer et déplacer les fichiers prompts et resources
-   mv adapters/input/fastmcp/prompts.py adapters/input/fastmcp/prompts/ingredient_prompts.py
-   mv adapters/input/fastmcp/resources.py adapters/input/fastmcp/resources/ingredient_resources.py
+   mv adapters/inbound/fastmcp/prompts.py adapters/inbound/fastmcp/prompts/ingredient_prompts.py
+   mv adapters/inbound/fastmcp/resources.py adapters/inbound/fastmcp/resources/ingredient_resources.py
    ```
 
 3. **Créer les `__init__.py`** :
    ```python
-   # adapters/input/fastapi/routers/__init__.py
-   from adapters.input.fastapi.routers.ingredient_router import IngredientRouter
-   from adapters.input.fastapi.routers.recipe_router import RecipeRouter
+   # adapters/inbound/fastapi/routers/__init__.py
+   from adapters.inbound.fastapi.routers.ingredient_router import IngredientRouter
+   from adapters.inbound.fastapi.routers.recipe_router import RecipeRouter
    
    __all__ = ["IngredientRouter", "RecipeRouter"]
    ```
    
    ```python
-   # adapters/input/fastmcp/tools/__init__.py
-   from adapters.input.fastmcp.tools.ingredient_tools import IngredientMCP
-   from adapters.input.fastmcp.tools.recipe_tools import RecipeMCP
+   # adapters/inbound/fastmcp/tools/__init__.py
+   from adapters.inbound.fastmcp.tools.ingredient_tools import IngredientMCP
+   from adapters.inbound.fastmcp.tools.recipe_tools import RecipeMCP
    
    __all__ = ["IngredientMCP", "RecipeMCP"]
    ```
    
    ```python
-   # adapters/input/fastmcp/prompts/__init__.py
-   from adapters.input.fastmcp.prompts.ingredient_prompts import IngredientPrompts
-   from adapters.input.fastmcp.prompts.recipe_prompts import RecipePrompts
+   # adapters/inbound/fastmcp/prompts/__init__.py
+   from adapters.inbound.fastmcp.prompts.ingredient_prompts import IngredientPrompts
+   from adapters.inbound.fastmcp.prompts.recipe_prompts import RecipePrompts
    
    __all__ = ["IngredientPrompts", "RecipePrompts"]
    ```
    
    ```python
-   # adapters/input/fastmcp/resources/__init__.py
-   from adapters.input.fastmcp.resources.ingredient_resources import IngredientResources
-   from adapters.input.fastmcp.resources.recipe_resources import RecipeResources
+   # adapters/inbound/fastmcp/resources/__init__.py
+   from adapters.inbound.fastmcp.resources.ingredient_resources import IngredientResources
+   from adapters.inbound.fastmcp.resources.recipe_resources import RecipeResources
    
    __all__ = ["IngredientResources", "RecipeResources"]
    ```
@@ -466,42 +466,42 @@ adapters/
 4. **Mettre à jour les imports** dans `router.py`, `tools.py`, `main.py`, etc. :
    ```python
    # Avant
-   from adapters.input.fastapi.ingredient_router import IngredientRouter
-   from adapters.input.fastmcp.ingredient_tools import IngredientMCP
-   from adapters.input.fastmcp.prompts import IngredientPrompts
-   from adapters.input.fastmcp.resources import IngredientResources
+   from adapters.inbound.fastapi.ingredient_router import IngredientRouter
+   from adapters.inbound.fastmcp.ingredient_tools import IngredientMCP
+   from adapters.inbound.fastmcp.prompts import IngredientPrompts
+   from adapters.inbound.fastmcp.resources import IngredientResources
    
    # Après
-   from adapters.input.fastapi.routers import IngredientRouter
-   from adapters.input.fastmcp.tools import IngredientMCP
-   from adapters.input.fastmcp.prompts import IngredientPrompts
-   from adapters.input.fastmcp.resources import IngredientResources
+   from adapters.inbound.fastapi.routers import IngredientRouter
+   from adapters.inbound.fastmcp.tools import IngredientMCP
+   from adapters.inbound.fastmcp.prompts import IngredientPrompts
+   from adapters.inbound.fastmcp.resources import IngredientResources
    ```
 
 5. **Mettre à jour les tests** qui importent ces modules :
    ```python
    # Avant
-   from adapters.input.fastapi.ingredient_router import IngredientRouter
+   from adapters.inbound.fastapi.ingredient_router import IngredientRouter
    
    # Après
-   from adapters.input.fastapi.routers import IngredientRouter
+   from adapters.inbound.fastapi.routers import IngredientRouter
    ```
 
 6. **Corriger les `patch()` dans les tests MCP** :
    ```python
    # Avant
-   patch("adapters.input.fastmcp.ingredient_tools.inject_tenant_uri")
+   patch("adapters.inbound.fastmcp.ingredient_tools.inject_tenant_uri")
    
    # Après
-   patch("adapters.input.fastmcp.tools.ingredient_tools.inject_tenant_uri")
+   patch("adapters.inbound.fastmcp.tools.ingredient_tools.inject_tenant_uri")
    ```
 
 7. **Créer les fichiers register pour prompts et resources** :
    ```python
-   # adapters/input/fastmcp/prompts.py
+   # adapters/inbound/fastmcp/prompts.py
    import fastmcp
    from arclith import Arclith
-   from adapters.input.fastmcp.prompts import IngredientPrompts
+   from adapters.inbound.fastmcp.prompts import IngredientPrompts
    from infrastructure.ingredient_container import build_ingredient_service
    
    def register_prompts(mcp: fastmcp.FastMCP, arclith: Arclith) -> None:
@@ -510,10 +510,10 @@ adapters/
    ```
    
    ```python
-   # adapters/input/fastmcp/resources.py
+   # adapters/inbound/fastmcp/resources.py
    import fastmcp
    from arclith import Arclith
-   from adapters.input.fastmcp.resources import IngredientResources
+   from adapters.inbound.fastmcp.resources import IngredientResources
    from infrastructure.ingredient_container import build_ingredient_service
    
    def register_resources(mcp: fastmcp.FastMCP, arclith: Arclith) -> None:
@@ -524,9 +524,9 @@ adapters/
 8. **Mettre à jour main.py** :
    ```python
    # Imports
-   from adapters.input.fastmcp.tools import register_tools
-   from adapters.input.fastmcp.prompts import register_prompts
-   from adapters.input.fastmcp.resources import register_resources
+   from adapters.inbound.fastmcp.tools import register_tools
+   from adapters.inbound.fastmcp.prompts import register_prompts
+   from adapters.inbound.fastmcp.resources import register_resources
    
    # Dans la fonction MCP runner
    mcp = arclith.fastmcp("MyApp")
@@ -550,7 +550,7 @@ make test
 
 ### Références
 
-- `_sample/adapters/input/` — implémentation de référence
+- `_sample/adapters/inbound/` — implémentation de référence
 
 ---
 
