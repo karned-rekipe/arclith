@@ -13,11 +13,11 @@ from arclith.domain.models.entity import Entity
 from arclith.domain.ports.logger import Logger, LogLevel
 from arclith.domain.ports.repository import Repository
 from arclith.infrastructure.config import AppConfig, load_config_dir, load_config_file
+from arclith.infrastructure.repository_factory import RepositoryRegistry
 
 if TYPE_CHECKING:
     import fastmcp as _fastmcp
     from fastapi import FastAPI
-    from arclith.infrastructure.repository_factory import RepositoryRegistry
 
 T = TypeVar("T", bound=Entity)
 _UVICORN_LOG_CONFIG: dict[str, Any] = {
