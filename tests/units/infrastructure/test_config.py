@@ -24,6 +24,13 @@ def test_default_config_uses_memory():
     assert AppConfig().adapters.repository == "memory"
 
 
+def test_custom_repository_adapter_name_is_allowed():
+    config = AppConfig.model_validate({"adapters": {"repository": "mariadb"}})
+
+    assert config.adapters.repository == "mariadb"
+    assert config.adapters.multitenant is False
+
+
 def test_default_retention_is_none():
     assert AppConfig().soft_delete.retention_days is None
 
@@ -407,4 +414,3 @@ def test_adapters_lm_loaded_from_config_dir():
     config = load_config_dir(config_dir)
     assert config.adapters.lm is not None
     assert config.adapters.lm.provider == "anthropic"
-

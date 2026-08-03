@@ -169,6 +169,41 @@ aucun changement de contrainte dans `pyproject.toml`.
 
 ---
 
+## ADR-010 — Layout hexagonal inbound/outbound et adapters enregistrables
+
+**Date :** 2026-08-03
+
+**Contexte :** Arclith doit devenir une base générique pour des microservices et agents qui pourront
+utiliser FastAPI, FastMCP, LangGraph, Pydantic AI ou d'autres frameworks. Le coeur applicatif ne doit
+jamais dépendre de ces adapters. Côté persistence, MongoDB est déjà disponible, mais d'autres adapters
+comme MariaDB, PostgreSQL ou des event stores doivent pouvoir être ajoutés sans modifier le framework.
+
+**Décision :** formaliser le vocabulaire hexagonal cible:
+
+- `domain/ports/inbound` pour les capacités exposées par le coeur;
+- `domain/ports/outbound` pour les dépendances appelées par le coeur;
+- `adapters/inbound` pour HTTP, MCP, CLI, workers, agents;
+- `adapters/outbound` pour repositories, LLM, cache, secrets, events.
+
+Les noms historiques `input` et `output` restent tolérés pendant la migration. Les adapters de
+repositories ne sont plus sélectionnés par un `match` central fermé: ils passent par un
+`RepositoryRegistry` avec adapters built-in enregistrés par défaut.
+
+**Pourquoi pas l'alternative évidente (ajouter MariaDB dans le switch existant) :**
+Un switch central oblige Arclith à connaître chaque adapter concret. Cela casse l'extension naturelle
+du framework, mélange le coeur d'assemblage et les drivers, et recrée de la dette à chaque nouvelle
+technologie.
+
+**Conséquence sur le code :**
+
+- `AdaptersSettings.repository` accepte un nom libre.
+- `build_repository(..., registry=...)` peut recevoir un registry applicatif.
+- `Arclith.repository(..., registry=...)` expose ce point d'extension.
+- `ProjectLayout` expose les chemins canoniques inbound/outbound et les aliases legacy input/output.
+- Les futurs adapters MariaDB/PostgreSQL peuvent être livrés comme packages ou modules séparés.
+
+---
+
 **Contexte :** Exposer les services via le Model Context Protocol.
 
 **Décision :** `fastmcp>=3.1.0` avec trois transports : stdio, SSE, streamable-HTTP.

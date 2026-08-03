@@ -11,6 +11,7 @@ from arclith.domain.ports.repository import Repository
 from arclith.infrastructure.adapter_registry import AdapterRegistry
 from arclith.infrastructure.config import AppConfig, LMSettings, export_config_yaml, load_config, load_config_dir, load_config_file
 from arclith.infrastructure.project_layout import ProjectLayout, ProjectLayoutKind, canonical_project_layout
+from arclith.infrastructure.repository_factory import RepositoryRegistry, build_repository, default_repository_registry
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checkers only
     from arclith.adapters.output.console.logger import ConsoleLogger as _ConsoleLogger, ConsoleLogger  # noqa: F401
@@ -32,6 +33,9 @@ __all__ = [
     "load_config_file",
     "export_config_yaml",
     "AdapterRegistry",
+    "RepositoryRegistry",
+    "build_repository",
+    "default_repository_registry",
     "ProjectLayout",
     "ProjectLayoutKind",
     "canonical_project_layout",

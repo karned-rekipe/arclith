@@ -17,6 +17,7 @@ from arclith.infrastructure.config import AppConfig, load_config_dir, load_confi
 if TYPE_CHECKING:
     import fastmcp as _fastmcp
     from fastapi import FastAPI
+    from arclith.infrastructure.repository_factory import RepositoryRegistry
 
 T = TypeVar("T", bound=Entity)
 _UVICORN_LOG_CONFIG: dict[str, Any] = {
@@ -65,9 +66,15 @@ class Arclith:
     def logger(self) -> Logger:
         from arclith.adapters.output.console.logger import ConsoleLogger
         return ConsoleLogger()
-    def repository(self, entity_class: type[T]) -> "Repository[T]":
+    def repository(
+        self,
+        entity_class: type[T],
+        *,
+        registry: "RepositoryRegistry[T] | None" = None,
+    ) -> "Repository[T]":
         from arclith.infrastructure.repository_factory import build_repository
-        return build_repository(self.config, entity_class, self.logger)
+
+        return build_repository(self.config, entity_class, self.logger, registry=registry)
     def fastapi(self, **kwargs: Any) -> "FastAPI":
         from fastapi import FastAPI
 

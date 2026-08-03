@@ -19,3 +19,10 @@ def test_public_project_layout_exports():
 
     assert isinstance(layout, arclith.ProjectLayout)
     assert layout.kind is arclith.ProjectLayoutKind.SRC
+
+
+def test_public_repository_registry_exports():
+    registry = arclith.default_repository_registry()
+
+    assert isinstance(registry, arclith.RepositoryRegistry)
+    assert arclith.build_repository is not None

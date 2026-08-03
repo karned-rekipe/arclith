@@ -55,7 +55,7 @@ class SoftDeleteSettings(BaseModel):
 
 class AdaptersSettings(BaseModel):
     logger: Literal["console"] = "console"
-    repository: Literal["memory", "mongodb", "duckdb"] = "memory"
+    repository: str = "memory"
     mongodb: MongoDBSettings | None = None
     duckdb: DuckDBSettings | None = None
     lm: LMSettings | None = None

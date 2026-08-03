@@ -21,8 +21,16 @@ Le layout recommandé est namespacé dans `src/<package>/...`.
 ```text
 src/<package>/
   domain/
+    models/
+    ports/
+      inbound/
+      outbound/
   application/
+    use_cases/
+    services/
   adapters/
+    inbound/
+    outbound/
   infrastructure/
 config/
 tests/
@@ -30,6 +38,12 @@ main.py
 ```
 
 Le framework expose cette convention avec `canonical_project_layout(package_name)`. Le sample officiel `_sample` l'applique sous `src/arclith_sample/`.
+
+`input` et `output` restent tolérés comme noms historiques, mais le vocabulaire cible est
+`inbound` / `outbound`:
+
+- `inbound`: ce qui entre dans l'application et déclenche un cas d'usage (HTTP, MCP, CLI, jobs);
+- `outbound`: ce que le coeur appelle vers l'extérieur (repositories, LLM, event bus, mail, cache).
 
 ---
 
@@ -48,14 +62,26 @@ class Ingredient(Entity):
     unit: str | None = None
 ```
 
-### `domain/ports/`
+### `domain/ports/inbound/`
 
-Les interfaces (abstractions) que le domaine expose vers l'extérieur.
+Les ports offerts par le coeur. Ils décrivent les capacités appelables par les adapters entrants
+sans exposer FastAPI, FastMCP, LangGraph, Pydantic AI ou un autre framework.
+
+Exemples:
+
+- `CreateIngredientUseCasePort`
+- `ChatAgentPort`
+- `RunWorkflowPort`
+
+### `domain/ports/outbound/`
+
+Les interfaces que le coeur consomme pour parler au monde extérieur.
 
 - `Repository[T]` — contrat de persistance (create, read, update, delete, find_all…)
 - `Logger` — contrat de logging
 
-> C'est ici que tu définis aussi tes ports spécifiques (ex: `IngredientRepository` avec `find_by_name`).
+> C'est ici que tu définis aussi tes ports spécifiques (ex: `IngredientRepository` avec `find_by_name`,
+> `LLMPort`, `EventPublisherPort`, `SecretResolverPort`).
 
 ---
 
@@ -91,21 +117,24 @@ class IngredientService(BaseService[Ingredient]):
 
 Les implémentations concrètes des ports. Ils dépendent du domaine, jamais l'inverse.
 
-### `adapters/input/`
+### `adapters/inbound/`
 
 Points d'entrée de l'application (ce qui déclenche des actions).
 
 - Routeurs FastAPI
 - Outils MCP (FastMCP)
+- Commandes CLI
+- Workers planifiés
+- Adapters agent comme LangGraph ou Pydantic AI
 
-### `adapters/input/schemas/`
+### `adapters/inbound/schemas/`
 
 Les schémas Pydantic de validation des données entrantes/sortantes.
 Ils ne doivent pas fuiter dans le domaine.
 
 `BaseSchema` est fourni par le framework comme base commune.
 
-### `adapters/output/`
+### `adapters/outbound/`
 
 Implémentations des ports de persistance et de logging.
 
@@ -134,8 +163,6 @@ Configuration et assemblage. Ne contient pas de logique métier.
 
 | Dossier           | Rôle                          | Dépend de                 |
 |-------------------|-------------------------------|---------------------------|
-| Dossier                                  | Rôle                          | Dépend de                                           |
-|------------------------------------------|-------------------------------|-----------------------------------------------------|
 | `src/<package>/domain/`                  | Logique métier pure           | Rien                                                |
 | `src/<package>/application/`             | Orchestration des cas d'usage | `src/<package>/domain/`                             |
 | `src/<package>/adapters/`                | Implémentations concrètes     | `src/<package>/domain/`, `src/<package>/application/` |
