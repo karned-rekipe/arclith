@@ -61,7 +61,7 @@ config/adapters/outbound/<adapter>.yaml          # config scopée (mongodb/duckd
 src/<package>/adapters/outbound/<adapter>/__init__.py
 src/<package>/adapters/outbound/<adapter>/repository.py        # re-export
 src/<package>/adapters/outbound/<adapter>/repositories/<entity>_repository.py  # sous-classe à compléter
-src/<package>/infrastructure/containers/<entity>_container.py  # AdapterRegistry régénéré
+src/<package>/infrastructure/containers/<entity>_container.py  # RepositoryRegistry régénéré
 ```
 
 > ⚠️ `src/<package>/infrastructure/containers/<entity>_container.py` est **régénéré intégralement** si le fichier existe déjà — un avertissement est affiché dans le récapitulatif.

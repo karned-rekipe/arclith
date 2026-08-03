@@ -1,0 +1,221 @@
+# Quickstart Arclith
+
+Ce guide montre comment demarrer un projet concret avec Arclith, puis comment le faire evoluer par adapter sans modifier le code metier.
+
+Arclith doit rester une brique hexagonale stable:
+
+- le domaine et les cas d'usage portent le metier;
+- les adapters inbound exposent le metier via API, MCP, bus ou CLI;
+- les adapters outbound branchent MongoDB, DuckDB, cache, LLM, tracing ou secrets;
+- la CLI assemble ces briques et met a jour la configuration.
+
+## Prerequis
+
+- Python 3.13
+- `uv`
+- `git`
+
+Installer la CLI depuis le repository:
+
+```bash
+uv tool install "git+https://github.com/karned-rekipe/arclith.git#subdirectory=cli"
+arclith-cli version
+```
+
+Pour tester une branche de developpement avant merge:
+
+```bash
+uv tool install --force "git+https://github.com/karned-rekipe/arclith.git@feat/hexagonal-foundation#subdirectory=cli"
+```
+
+## 1. Creer un projet concret
+
+Exemple: un service `pantry-agent` qui gere une entite `Ingredient`.
+
+```bash
+mkdir -p ~/Perso/projets/demo
+cd ~/Perso/projets/demo
+
+arclith-cli new Ingredient pantry-agent --port 8100
+cd pantry-agent
+uv sync --frozen
+```
+
+Le projet genere suit le layout canonique:
+
+```text
+src/pantry_agent/
+  domain/
+    models/
+    ports/
+      inbound/
+      outbound/
+  application/
+  adapters/
+    inbound/
+    outbound/
+  infrastructure/
+config/
+tests/
+main.py
+```
+
+## 2. Lancer API, MCP et probes
+
+En developpement, le mode `all` lance l'API, MCP HTTP et les probes.
+
+```bash
+MODE=all uv run --frozen python main.py
+```
+
+Par convention:
+
+- API FastAPI: `http://127.0.0.1:8100`
+- MCP HTTP: `http://127.0.0.1:8101`
+- probes: `http://127.0.0.1:9000`
+
+Verifier l'etat:
+
+```bash
+curl -fsS http://127.0.0.1:9000/health
+curl -fsS http://127.0.0.1:9000/ready
+curl -fsS http://127.0.0.1:9000/info
+```
+
+Creer puis lire une ressource:
+
+```bash
+CREATE_RESPONSE=$(curl -fsS -X POST http://127.0.0.1:8100/v1/ingredients/ \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: demo-$(uv run --frozen python -c 'import uuid; print(uuid.uuid4())')" \
+  -d '{"name":"Farine de ble"}')
+
+echo "$CREATE_RESPONSE"
+
+INGREDIENT_ID=$(CREATE_RESPONSE="$CREATE_RESPONSE" uv run --frozen python - <<'PY'
+import json
+import os
+
+print(json.loads(os.environ["CREATE_RESPONSE"])["data"]["uuid"])
+PY
+)
+
+curl -fsS "http://127.0.0.1:8100/v1/ingredients/$INGREDIENT_ID"
+curl -fsS "http://127.0.0.1:8100/v1/ingredients/?name=farine"
+```
+
+## 3. Changer ou ajouter un adapter outbound
+
+L'adapter actif est declare dans:
+
+```text
+config/adapters/adapters.yaml
+```
+
+Exemple:
+
+```yaml
+logger: console
+repository: memory
+```
+
+Pour ajouter ou remplacer un adapter de repository:
+
+```bash
+arclith-cli add-adapter
+```
+
+Le wizard detecte les entites dans `src/<package>/domain/models/`, pose les questions necessaires, genere les fichiers de l'adapter et met a jour la configuration.
+
+### MongoDB
+
+Le wizard MongoDB doit produire une configuration scoped:
+
+```text
+config/adapters/outbound/mongodb.yaml
+```
+
+Exemple attendu:
+
+```yaml
+multitenant: false
+db_name: pantry_agent
+collection_name: ingredients
+```
+
+L'URI reste un secret et ne doit pas etre commitee. En local, utiliser `secrets.yaml` ou une variable d'environnement selon la recette active.
+
+### DuckDB
+
+Exemple:
+
+```yaml
+multitenant: false
+path: data/
+```
+
+## 4. Ajouter un autre inbound sans toucher au metier
+
+Le meme service applicatif peut etre expose par plusieurs adapters:
+
+- FastAPI pour HTTP;
+- FastMCP pour les outils MCP;
+- un bus plus tard pour RabbitMQ, Kafka ou autre.
+
+La regle a conserver: l'inbound transforme le protocole en appel de cas d'usage. Il ne contient pas le metier.
+
+## 5. Cas agent IA
+
+Pour un agent, le coeur doit rester testable sans LLM:
+
+```text
+Natural language
+  -> adapter inbound API / MCP / bus
+  -> use case application
+  -> planner port
+  -> command / DTO structure
+  -> service metier
+```
+
+Le LLM est un adapter outbound derriere un port. Il traduit une demande naturelle en donnees structurees, mais n'execute pas directement le metier.
+
+Exemple de ports applicatifs cibles:
+
+- `PlannerPort`: transforme une phrase en commande structuree;
+- `RepositoryPort`: persiste les entites;
+- `TracePort`: envoie les traces LangSmith ou autre;
+- `EventBusPort`: publie des evenements si besoin.
+
+## 6. Valider avant commit
+
+```bash
+make quality
+```
+
+Le sample officiel `_sample` sert de banc de test pour les evolutions Arclith. Avant de publier Arclith, verifier aussi:
+
+```bash
+cd /Users/killian/Perso/projets/Arclith/_sample
+make quality
+```
+
+Terminal 1:
+
+```bash
+cd /Users/killian/Perso/projets/Arclith/_sample
+MODE=all uv run --frozen python main.py
+```
+
+Terminal 2:
+
+```bash
+cd /Users/killian/Perso/projets/Arclith/_sample
+make demo-smoke
+```
+
+## Reference
+
+- Sample fonctionnel: `../_sample`
+- CLI: `cli/README.md`
+- Architecture: `arclith/docs/architecture.md`
+- Decisions: `docs/decisions.md`
