@@ -52,6 +52,8 @@ def _write_file(con: duckdb.DuckDBPyConnection, table: str, path: Path) -> None:
 
 
 class DuckDBRepository(repository_port.Repository[T], Generic[T]):
+    _repository_contract = repository_port.Repository
+
     def __init__(self, path: str | Path, entity_class: type[T], default_ext: str = ".csv") -> None:
         base = Path(path)
         is_dir_path = base.is_dir() or not base.suffix
