@@ -36,7 +36,7 @@ def _extract_bearer_token(headers: Mapping[str, str]) -> str:
 
 async def _resolve_and_set_tenant(
     claims: dict,
-    tenant_resolvers: "list[TenantResolver]",
+    tenant_resolvers: list[TenantResolver],
     tenant_claim: str,
 ) -> None:
     tenant_id: str | None = claims.get(tenant_claim)
@@ -57,9 +57,9 @@ async def _resolve_and_set_tenant(
 async def run_auth_pipeline(
     headers: Mapping[str, str],
     *,
-    jwt_decoder: "JWTDecoder",
-    license_validator: "LicenseValidator | None" = None,
-    tenant_resolvers: "list[TenantResolver] | None" = None,
+    jwt_decoder: JWTDecoder,
+    license_validator: LicenseValidator | None = None,
+    tenant_resolvers: list[TenantResolver] | None = None,
     tenant_claim: str = "sub",
 ) -> dict:
     """Core JWT auth pipeline — transport-agnostic.
@@ -92,4 +92,3 @@ async def run_auth_pipeline(
         await _resolve_and_set_tenant(claims, tenant_resolvers, tenant_claim)
 
     return claims
-

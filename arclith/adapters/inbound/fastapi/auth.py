@@ -20,8 +20,8 @@ _http_bearer = HTTPBearer(auto_error=False)
 
 def make_require_auth(
     *,
-    jwt_decoder: "JWTDecoder",
-    license_validator: "LicenseValidator | None" = None,
+    jwt_decoder: JWTDecoder,
+    license_validator: LicenseValidator | None = None,
 ) -> Callable:
     """Returns a FastAPI dependency that enforces authentication on specific routes.
 
@@ -57,4 +57,3 @@ def make_require_auth(
             raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
     return require_auth
-

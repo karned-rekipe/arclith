@@ -74,7 +74,7 @@ class Arclith:
         *,
         registry: None = None,
     ) -> Repository[T]:
-        ...
+        pass
 
     @overload
     def repository(
@@ -83,7 +83,7 @@ class Arclith:
         *,
         registry: RepositoryRegistry[T, R],
     ) -> R:
-        ...
+        pass
 
     def repository(
         self,

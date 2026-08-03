@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 
 def make_require_auth_tool(
     *,
-    jwt_decoder: "JWTDecoder",
-    license_validator: "LicenseValidator | None" = None,
+    jwt_decoder: JWTDecoder,
+    license_validator: LicenseValidator | None = None,
 ) -> Callable:
     """Returns a FastMCP dependency that enforces authentication on specific tools.
 
@@ -50,4 +50,3 @@ def make_require_auth_tool(
             raise PermissionError(f"{exc.status_code}: {exc.detail}") from exc
 
     return require_auth
-

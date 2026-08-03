@@ -45,7 +45,7 @@ def build_repository(
     *,
     registry: None = None,
 ) -> Repository[T]:
-    ...
+    pass
 
 
 @overload
@@ -56,7 +56,7 @@ def build_repository(
     *,
     registry: RepositoryRegistry[T, R],
 ) -> R:
-    ...
+    pass
 
 
 def build_repository(
