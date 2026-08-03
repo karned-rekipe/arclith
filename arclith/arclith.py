@@ -70,7 +70,7 @@ class Arclith:
         self,
         entity_class: type[T],
         *,
-        registry: "RepositoryRegistry[T] | None" = None,
+        registry: RepositoryRegistry[T] | None = None,
     ) -> "Repository[T]":
         from arclith.infrastructure.repository_factory import build_repository
 
