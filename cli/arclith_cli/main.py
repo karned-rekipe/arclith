@@ -115,9 +115,51 @@ def version() -> None:
 
 
 @app.command(name="add-adapter")
-def add_adapter() -> None:
-    """Wizard interactif pour scaffolder un nouvel [bold]adapter output[/bold] dans le projet courant."""
-    add_adapter_cmd()
+def add_adapter(
+    adapter: Annotated[
+        str | None,
+        typer.Option("--adapter", "-a", help="Adapter à générer: memory, mongodb ou duckdb"),
+    ] = None,
+    entity: Annotated[
+        str | None,
+        typer.Option("--entity", "-e", help="Entité cible. Liste séparée par virgule acceptée."),
+    ] = None,
+    all_entities: Annotated[
+        bool,
+        typer.Option("--all-entities", help="Générer l'adapter pour toutes les entités détectées"),
+    ] = False,
+    activate: Annotated[
+        bool,
+        typer.Option("--activate/--no-activate", help="Mettre à jour config/adapters/adapters.yaml"),
+    ] = True,
+    db_name: Annotated[
+        str | None,
+        typer.Option("--db-name", help="Nom de base MongoDB pour l'adapter mongodb"),
+    ] = None,
+    multitenant: Annotated[
+        bool | None,
+        typer.Option("--multitenant/--single-tenant", help="Mode multitenant MongoDB"),
+    ] = None,
+    path: Annotated[
+        str | None,
+        typer.Option("--path", help="Chemin de stockage pour l'adapter duckdb"),
+    ] = None,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Utiliser les valeurs fournies ou par défaut sans confirmation"),
+    ] = False,
+) -> None:
+    """Wizard ou mode direct pour scaffolder un nouvel [bold]adapter output[/bold] dans le projet courant."""
+    add_adapter_cmd(
+        adapter=adapter,
+        entity_names=_split_entity_option(entity),
+        all_entities=all_entities,
+        activate=activate,
+        db_name=db_name,
+        multitenant=multitenant,
+        duckdb_path=path,
+        yes=yes,
+    )
 
 
 @app.command(name="export-config")
@@ -167,6 +209,13 @@ def _prompt_project() -> str:
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _split_entity_option(value: str | None) -> list[str] | None:
+    if value is None:
+        return None
+    items = [item.strip() for item in value.split(",") if item.strip()]
+    return items or None
+
 
 def _print_summary(target_dir: Path, project_name: str, port: int) -> None:
     tree = Tree(f"[bold green]{project_name}/[/bold green]")

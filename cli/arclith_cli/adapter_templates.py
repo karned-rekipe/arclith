@@ -11,7 +11,7 @@ SUPPORTED_ADAPTERS = ["memory", "mongodb", "duckdb"]
 CONFIG_YAML: dict[str, str] = {
     "memory": "",  # memory needs no config file
     "mongodb": """\
-multitenant: false   # true = URI + db_name résolus par requête via JWT → Vault
+multitenant: {multitenant}   # true = URI + db_name résolus par requête via JWT → Vault
 db_name: {db_name}   # uri → secrets.yaml ou Vault (fallback single-tenant)
 """,
     "duckdb": """\

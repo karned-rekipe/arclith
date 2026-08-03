@@ -124,6 +124,30 @@ def test_scaffold_and_run(temp_workspace: Path):
     for fname in expected_files:
         assert (project_dir / fname).exists(), f"Missing expected file: {fname}"
 
+    # Step 6 — validate non-interactive adapter generation through the CLI entry point
+    result = subprocess.run(
+        [
+            "arclith-cli",
+            "add-adapter",
+            "--adapter",
+            "duckdb",
+            "--entity",
+            "Plan",
+            "--path",
+            "data/plans.csv",
+            "--yes",
+        ],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"add-adapter failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert (project_dir / "config" / "adapters" / "outbound" / "duckdb.yaml").exists()
+    assert "repository: duckdb" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
+
 
 def test_scaffold_with_custom_entity_formats(temp_workspace: Path):
     """Test entity name normalization (snake_case, kebab-case, PascalCase)."""

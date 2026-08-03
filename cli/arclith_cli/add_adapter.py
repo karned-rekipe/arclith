@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -24,23 +25,42 @@ console = Console()
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
-def add_adapter_cmd() -> None:
+def add_adapter_cmd(
+    *,
+    project_dir: Path | None = None,
+    adapter: str | None = None,
+    entity_names: list[str] | None = None,
+    all_entities: bool = False,
+    activate: bool = True,
+    db_name: str | None = None,
+    multitenant: bool | None = None,
+    duckdb_path: str | None = None,
+    yes: bool = False,
+) -> None:
     """Wizard interactif pour scaffolder un nouvel adapter output."""
-    project_dir = Path.cwd()
+    project_dir = project_dir or Path.cwd()
 
     _assert_arclith_project(project_dir)
 
-    adapter = _prompt_adapter_type()
-    entities = _prompt_entities(project_dir)
-    params = _prompt_adapter_params(adapter, project_dir)
-    activate = Confirm.ask(
-        f"\n  [bold]Activer[/bold] [green]{adapter}[/green] maintenant ?",
-        default=True,
+    adapter = _resolve_adapter_type(adapter)
+    entities = _resolve_entities(project_dir, entity_names, all_entities, yes=yes)
+    params = _resolve_adapter_params(
+        adapter,
+        project_dir,
+        db_name=db_name,
+        multitenant=multitenant,
+        duckdb_path=duckdb_path,
+        prompt_missing=not yes,
     )
+    if not yes:
+        activate = Confirm.ask(
+            f"\n  [bold]Activer[/bold] [green]{adapter}[/green] maintenant ?",
+            default=activate,
+        )
 
     _show_recap(project_dir, adapter, entities, params, activate)
 
-    if not Confirm.ask("\n  [bold]Confirmer la génération ?[/bold]", default=True):
+    if not yes and not Confirm.ask("\n  [bold]Confirmer la génération ?[/bold]", default=True):
         console.print("[yellow]Annulé.[/yellow]")
         raise typer.Exit(0)
 
@@ -83,6 +103,19 @@ def _prompt_adapter_type() -> str:
         console.print(f"  [red]Choix invalide.[/red] Entrez 1-{len(SUPPORTED_ADAPTERS)} ou le nom.")
 
 
+def _resolve_adapter_type(adapter: str | None) -> str:
+    if adapter is None:
+        return _prompt_adapter_type()
+
+    normalized = adapter.strip().lower()
+    if normalized in SUPPORTED_ADAPTERS:
+        return normalized
+
+    supported = ", ".join(SUPPORTED_ADAPTERS)
+    console.print(f"[red]✗[/red] Adapter inconnu: [bold]{adapter}[/bold]. Valeurs: {supported}.")
+    raise typer.Exit(1)
+
+
 # ── Step 2 : entity selection ─────────────────────────────────────────────────
 
 def _prompt_entities(project_dir: Path) -> list[EntityInfo]:
@@ -102,6 +135,41 @@ def _prompt_entities(project_dir: Path) -> list[EntityInfo]:
         if selected is not None:
             return selected
         console.print("  [red]Choix invalide.[/red]")
+
+
+def _resolve_entities(
+    project_dir: Path,
+    entity_names: list[str] | None,
+    all_entities: bool,
+    *,
+    yes: bool,
+) -> list[EntityInfo]:
+    entities = scan_entities(project_dir)
+    if not entities:
+        console.print("[red]✗[/red] Aucune entité trouvée dans [bold]src/<package>/domain/models/[/bold].")
+        raise typer.Exit(1)
+
+    if all_entities:
+        return list(entities)
+
+    if entity_names:
+        selected = _parse_entity_choice(",".join(entity_names), entities)
+        if selected is not None:
+            return selected
+        allowed = ", ".join(e.pascal for e in entities)
+        console.print(f"[red]✗[/red] Entité inconnue. Valeurs: {allowed}.")
+        raise typer.Exit(1)
+
+    if len(entities) == 1:
+        return [entities[0]]
+
+    if yes:
+        console.print(
+            "[red]✗[/red] Plusieurs entités détectées. Utilisez [bold]--entity[/bold] ou [bold]--all-entities[/bold]."
+        )
+        raise typer.Exit(1)
+
+    return _prompt_entities(project_dir)
 
 
 def _parse_entity_choice(raw: str, entities: list[EntityInfo]) -> list[EntityInfo] | None:
@@ -131,24 +199,47 @@ def _parse_entity_choice(raw: str, entities: list[EntityInfo]) -> list[EntityInf
 
 # ── Step 3 : adapter-specific params ─────────────────────────────────────────
 
-def _prompt_adapter_params(adapter: str, project_dir: Path) -> dict:
-    console.print(f"\n[bold]③ Paramètres [green]{adapter}[/green][/bold]")
+def _resolve_adapter_params(
+    adapter: str,
+    project_dir: Path,
+    *,
+    db_name: str | None,
+    multitenant: bool | None,
+    duckdb_path: str | None,
+    prompt_missing: bool,
+) -> dict[str, Any]:
+    if prompt_missing:
+        console.print(f"\n[bold]③ Paramètres [green]{adapter}[/green][/bold]")
 
     if adapter == "mongodb":
-        project_name = project_dir.name
-        db_name = Prompt.ask(
-            "  db_name",
-            default=project_name,
-        ).strip()
-        multitenant = Confirm.ask("  multitenant", default=False)
-        return {"db_name": db_name, "multitenant": multitenant}
+        resolved_db_name = db_name.strip() if db_name else ""
+        if not resolved_db_name and prompt_missing:
+            resolved_db_name = Prompt.ask("  db_name", default=project_dir.name).strip()
+        if not resolved_db_name:
+            resolved_db_name = project_dir.name
+
+        resolved_multitenant = multitenant
+        if resolved_multitenant is None and prompt_missing:
+            resolved_multitenant = Confirm.ask("  multitenant", default=False)
+
+        return {
+            "db_name": resolved_db_name,
+            "multitenant": _yaml_bool(bool(resolved_multitenant)),
+        }
 
     if adapter == "duckdb":
-        path = Prompt.ask("  path", default="data/").strip()
-        return {"path": path}
+        resolved_path = duckdb_path.strip() if duckdb_path else ""
+        if not resolved_path and prompt_missing:
+            resolved_path = Prompt.ask("  path", default="data/").strip()
+        return {"path": resolved_path or "data/"}
 
-    console.print("  [dim](aucun paramètre requis)[/dim]")
+    if prompt_missing:
+        console.print("  [dim](aucun paramètre requis)[/dim]")
     return {}
+
+
+def _yaml_bool(value: bool) -> str:
+    return "true" if value else "false"
 
 
 # ── Step 4 : recap ────────────────────────────────────────────────────────────
@@ -157,7 +248,7 @@ def _show_recap(
     project_dir: Path,
     adapter: str,
     entities: list[EntityInfo],
-    params: dict,
+    params: dict[str, Any],
     activate: bool,
 ) -> None:
     installed = scan_installed_adapters(project_dir)
@@ -218,7 +309,7 @@ def _generate(
     project_dir: Path,
     adapter: str,
     entities: list[EntityInfo],
-    params: dict,
+    params: dict[str, Any],
     activate: bool,
 ) -> None:
     installed = scan_installed_adapters(project_dir)
@@ -232,7 +323,7 @@ def _generate(
         if yaml_content:
             cfg_path = project_dir / "config" / "adapters" / "outbound" / f"{adapter}.yaml"
             cfg_path.parent.mkdir(parents=True, exist_ok=True)
-            cfg_path.write_text(render(yaml_content, params))
+            cfg_path.write_text(render(yaml_content, params), encoding="utf-8")
             console.print(f"[green]✓[/green] {cfg_path.relative_to(project_dir)}")
 
     for entity in entities:
@@ -245,28 +336,28 @@ def _generate(
         # __init__.py
         init_file = base / "__init__.py"
         if not init_file.exists():
-            init_file.write_text("")
+            init_file.write_text("", encoding="utf-8")
         # repositories/__init__.py
         repo_init_file = repo_dir / "__init__.py"
         if not repo_init_file.exists():
-            repo_init_file.write_text("")
+            repo_init_file.write_text("", encoding="utf-8")
             console.print(f"[green]✓[/green] {repo_init_file.relative_to(project_dir)}")
 
         # Repository subclass
         repo_file = repo_dir / f"{entity.snake}_repository.py"
-        repo_file.write_text(render(REPO_PYTHON[adapter], vars))
+        repo_file.write_text(render(REPO_PYTHON[adapter], vars), encoding="utf-8")
         console.print(f"[green]✓[/green] {repo_file.relative_to(project_dir)}")
 
         # Re-export
         reexport = base / "repository.py"
-        reexport.write_text(render(REPO_REEXPORT[adapter], vars))
+        reexport.write_text(render(REPO_REEXPORT[adapter], vars), encoding="utf-8")
         console.print(f"[green]✓[/green] {reexport.relative_to(project_dir)}")
 
         # Container (full regeneration)
         container = paths.containers / f"{entity.snake}_container.py"
         existed = container.exists()
         container.parent.mkdir(parents=True, exist_ok=True)
-        container.write_text(render_container(entity.pascal, entity.snake, installed, import_vars))
+        container.write_text(render_container(entity.pascal, entity.snake, installed, import_vars), encoding="utf-8")
         action = "[yellow]remplacé ⚠[/yellow]" if existed else "[green]créé[/green]"
         console.print(f"{action} {container.relative_to(project_dir)}")
 
@@ -291,12 +382,12 @@ def _update_active_adapter(project_dir: Path, adapter: str) -> None:
     cfg = project_dir / "config" / "adapters" / "adapters.yaml"
     if not cfg.exists():
         cfg.parent.mkdir(parents=True, exist_ok=True)
-        cfg.write_text(f"repository: {adapter}\n")
+        cfg.write_text(f"repository: {adapter}\n", encoding="utf-8")
     else:
-        text = cfg.read_text()
+        text = cfg.read_text(encoding="utf-8")
         if re.search(r"(?m)^repository:", text):
             text = re.sub(r"(?m)^(repository:\s*).*$", rf"\g<1>{adapter}", text)
         else:
             text = text.rstrip("\n") + f"\nrepository: {adapter}\n"
-        cfg.write_text(text)
+        cfg.write_text(text, encoding="utf-8")
     console.print(f"[cyan]↺[/cyan] config/adapters/adapters.yaml → repository: {adapter}")

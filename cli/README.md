@@ -43,6 +43,13 @@ cd my-recipe-service
 arclith-cli add-adapter
 ```
 
+Mode direct, utile pour CI, scripts de migration ou commandes reproductibles :
+
+```bash
+arclith-cli add-adapter --adapter mongodb --entity Recipe --db-name my_recipe_service --yes
+arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activate --yes
+```
+
 **Étapes du wizard :**
 
 1. **Type d'adapter** — `memory` · `mongodb` · `duckdb`
@@ -53,6 +60,17 @@ arclith-cli add-adapter
    - `memory` → aucun paramètre
 4. **Activation** — met à jour `config/adapters/adapters.yaml` (`repository: <adapter>`)
 5. **Récapitulatif** — liste des fichiers créés ou remplacés avant confirmation
+
+| Option | Défaut | Description |
+|--------|--------|-------------|
+| `--adapter` / `-a` | interactif | `memory`, `mongodb` ou `duckdb` |
+| `--entity` / `-e` | auto si une seule entité | Entité cible, liste séparée par virgule acceptée |
+| `--all-entities` | `false` | Génère l'adapter pour toutes les entités détectées |
+| `--activate/--no-activate` | `--activate` | Met à jour ou non `repository: <adapter>` |
+| `--db-name` | nom du projet | Nom de base pour MongoDB |
+| `--multitenant/--single-tenant` | `--single-tenant` | Mode MongoDB multitenant |
+| `--path` | `data/` | Chemin DuckDB |
+| `--yes` / `-y` | `false` | Skip la confirmation et utilise les valeurs fournies ou par défaut |
 
 **Fichiers générés par entité :**
 

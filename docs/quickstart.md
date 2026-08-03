@@ -127,6 +127,13 @@ arclith-cli add-adapter
 
 Le wizard detecte les entites dans `src/<package>/domain/models/`, pose les questions necessaires, genere les fichiers de l'adapter et met a jour la configuration.
 
+Le meme flux peut etre joue en mode direct:
+
+```bash
+arclith-cli add-adapter --adapter mongodb --entity Ingredient --db-name pantry_agent --yes
+arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activate --yes
+```
+
 ### MongoDB
 
 Le wizard MongoDB doit produire une configuration scoped:
