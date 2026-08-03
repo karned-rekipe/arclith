@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 import pytest
 from uuid6 import uuid7
 
-from arclith.adapters.outbound.memory.repository import InMemoryRepository
 from tests.units.conftest import DummyEntity
 
 
@@ -75,4 +74,3 @@ async def test_duplicate_deleted_raises(repo):
     await repo.create(e)
     with pytest.raises(KeyError):
         await repo.duplicate(e.uuid)
-

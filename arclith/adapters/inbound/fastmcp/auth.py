@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
 
 import fastmcp
 
 from arclith.adapters.inbound.auth_pipeline import AuthPipelineError, run_auth_pipeline
 from arclith.adapters.inbound.fastmcp.dependencies import _extract_headers
-
-if TYPE_CHECKING:
-    from arclith.adapters.inbound.jwt.decoder import JWTDecoder
-    from arclith.domain.ports.outbound.license_validator import LicenseValidator
+from arclith.adapters.inbound.jwt.decoder import JWTDecoder
+from arclith.domain.ports.outbound.license_validator import LicenseValidator
 
 
 def make_require_auth_tool(

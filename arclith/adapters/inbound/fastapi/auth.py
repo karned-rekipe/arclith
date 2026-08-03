@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from arclith.adapters.inbound.auth_pipeline import AuthPipelineError, run_auth_pipeline
-
-if TYPE_CHECKING:
-    from arclith.adapters.inbound.jwt.decoder import JWTDecoder
-    from arclith.domain.ports.outbound.license_validator import LicenseValidator
+from arclith.adapters.inbound.jwt.decoder import JWTDecoder
+from arclith.domain.ports.outbound.license_validator import LicenseValidator
 
 # Module-level bearer scheme instance — shared across all require_auth instances.
 # Registering it here ensures FastAPI adds "HTTPBearer" to the OpenAPI securitySchemes,

@@ -2,15 +2,12 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
-from typing import TYPE_CHECKING
 
 from arclith.adapters.context import set_tenant_context
+from arclith.adapters.inbound.jwt.decoder import JWTDecoder
 from arclith.domain.models.tenant import TenantContext
-
-if TYPE_CHECKING:
-    from arclith.adapters.inbound.jwt.decoder import JWTDecoder
-    from arclith.domain.ports.outbound.license_validator import LicenseValidator
-    from arclith.domain.ports.outbound.tenant_resolver import TenantResolver
+from arclith.domain.ports.outbound.license_validator import LicenseValidator
+from arclith.domain.ports.outbound.tenant_resolver import TenantResolver
 
 
 class AuthPipelineError(Exception):

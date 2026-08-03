@@ -2,7 +2,7 @@ from pathlib import Path
 
 import duckdb
 from arclith.domain.models.entity import Entity
-from arclith.domain.ports.outbound.repository import Repository
+from arclith.domain.ports.outbound import repository as repository_port
 from datetime import datetime
 from typing import Any, Generic, Optional, TypeVar
 from uuid6 import UUID, uuid7
@@ -51,7 +51,7 @@ def _write_file(con: duckdb.DuckDBPyConnection, table: str, path: Path) -> None:
             raise ValueError(f"Écriture non supportée pour le format : {ext}")
 
 
-class DuckDBRepository(Repository[T], Generic[T]):
+class DuckDBRepository(repository_port.Repository[T], Generic[T]):
     def __init__(self, path: str | Path, entity_class: type[T], default_ext: str = ".csv") -> None:
         base = Path(path)
         is_dir_path = base.is_dir() or not base.suffix

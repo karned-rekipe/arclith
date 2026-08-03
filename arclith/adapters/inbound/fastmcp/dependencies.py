@@ -1,25 +1,22 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
 
 import fastmcp
 
 from arclith.adapters.inbound.auth_pipeline import AuthPipelineError, run_auth_pipeline
+from arclith.adapters.inbound.jwt.decoder import JWTDecoder
+from arclith.domain.ports.outbound.license_validator import LicenseValidator
+from arclith.domain.ports.outbound.tenant_resolver import TenantResolver
 from arclith.infrastructure.config import AppConfig
-
-if TYPE_CHECKING:
-    from arclith.adapters.inbound.jwt.decoder import JWTDecoder
-    from arclith.domain.ports.outbound.license_validator import LicenseValidator
-    from arclith.domain.ports.outbound.tenant_resolver import TenantResolver
 
 
 def make_inject_tenant_uri(
     config: AppConfig,
     *,
-    jwt_decoder: "JWTDecoder | None" = None,
-    license_validator: "LicenseValidator | None" = None,
-    tenant_resolvers: "list[TenantResolver] | None" = None,
+    jwt_decoder: JWTDecoder | None = None,
+    license_validator: LicenseValidator | None = None,
+    tenant_resolvers: list[TenantResolver] | None = None,
 ) -> Callable:
     """Returns a FastMCP dependency that injects TenantContext for the current request.
 
