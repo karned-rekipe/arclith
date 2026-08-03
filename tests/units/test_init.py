@@ -22,7 +22,7 @@ def test_public_project_layout_exports():
 
 
 def test_public_repository_registry_exports():
-    registry = arclith.default_repository_registry()
+    registry = arclith.default_repository_registry(arclith.Entity)
 
     assert isinstance(registry, arclith.RepositoryRegistry)
     assert arclith.build_repository is not None

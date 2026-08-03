@@ -41,11 +41,11 @@ def build_repository(
     *,
     registry: RepositoryRegistry[T] | None = None,
 ) -> Repository[T]:
-    selected_registry = registry if registry is not None else default_repository_registry()
+    selected_registry = registry if registry is not None else default_repository_registry(entity_class)
     return selected_registry.build(config, entity_class, logger)
 
 
-def default_repository_registry() -> RepositoryRegistry[T]:
+def default_repository_registry(_entity_class: type[T]) -> RepositoryRegistry[T]:
     return (
         RepositoryRegistry[T]()
         .register("memory", _build_memory_repository)
