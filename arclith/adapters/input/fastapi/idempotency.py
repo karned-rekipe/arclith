@@ -67,7 +67,7 @@ class IdempotencyMiddleware:
             return
 
         if len(idempotency_key) > 255:
-            await self._send_error(send, status = 400, message = "Idempotency-Key exceeds 255 characters")
+            await self._send_error(send, status=400, message="Idempotency-Key exceeds 255 characters")
             return
 
         path = scope.get("path", "")

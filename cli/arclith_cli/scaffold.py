@@ -21,6 +21,7 @@ _DATA_FILES_TO_REMOVE = {"ingredient.csv"}
 
 def download_and_extract(target_dir: Path, *, ref: str = "main", template_dir: Path | None = None) -> None:
     if template_dir is not None:
+        target_dir.parent.mkdir(parents=True, exist_ok=True)
         _copy_template(template_dir, target_dir)
         _cleanup(target_dir)
         return
