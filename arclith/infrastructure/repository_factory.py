@@ -55,9 +55,9 @@ def default_repository_registry(_entity_class: type[T]) -> RepositoryRegistry[T]
 
 
 def _build_memory_repository(
-    config: AppConfig,
-    entity_class: type[T],
-    logger: Logger,
+    _config: AppConfig,
+    _entity_class: type[T],
+    _logger: Logger,
 ) -> Repository[T]:
     from arclith.adapters.output.memory.repository import InMemoryRepository
 
@@ -74,7 +74,7 @@ def _build_mongodb_repository(
 
     mongo = config.adapters.mongodb
     if mongo is None:
-        raise RuntimeError("MongoDB settings are required when repository=mongodb")
+        raise ValueError("MongoDB settings are required when repository=mongodb")
 
     return MongoDBRepository(
         MongoDBConfig(
@@ -90,12 +90,12 @@ def _build_mongodb_repository(
 def _build_duckdb_repository(
     config: AppConfig,
     entity_class: type[T],
-    logger: Logger,
+    _logger: Logger,
 ) -> Repository[T]:
     from arclith.adapters.output.duckdb.repository import DuckDBRepository
 
     duckdb = config.adapters.duckdb
     if duckdb is None:
-        raise RuntimeError("DuckDB settings are required when repository=duckdb")
+        raise ValueError("DuckDB settings are required when repository=duckdb")
 
     return DuckDBRepository(duckdb.path, entity_class)
