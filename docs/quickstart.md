@@ -122,6 +122,7 @@ repository: memory
 Pour ajouter ou remplacer un adapter de repository:
 
 ```bash
+arclith-cli capabilities
 arclith-cli add-adapter
 ```
 
@@ -224,5 +225,6 @@ make demo-smoke
 
 - Sample fonctionnel: `../_sample`
 - CLI: `cli/README.md`
+- Capacites standardisees: `docs/capabilities.md`
 - Architecture: `arclith/docs/architecture.md`
 - Decisions: `docs/decisions.md`

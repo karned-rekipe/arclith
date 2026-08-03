@@ -2,24 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-# ── Supported adapters ────────────────────────────────────────────────────────
-
-SUPPORTED_ADAPTERS = ["memory", "mongodb", "duckdb"]
-
-# ── Config YAML templates (scoped — no root key) ──────────────────────────────
-
-CONFIG_YAML: dict[str, str] = {
-    "memory": "",  # memory needs no config file
-    "mongodb": """\
-multitenant: {multitenant}   # true = URI + db_name résolus par requête via JWT → Vault
-db_name: {db_name}   # uri → secrets.yaml ou Vault (fallback single-tenant)
-""",
-    "duckdb": """\
-multitenant: false
-path: {path}
-""",
-}
-
 # ── Python repository subclass templates ─────────────────────────────────────
 
 REPO_PYTHON: dict[str, str] = {

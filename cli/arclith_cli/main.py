@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Annotated
@@ -8,10 +9,12 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
+from rich.table import Table
 from rich.tree import Tree
 
 from . import __version__
 from .add_adapter import add_adapter_cmd
+from .capabilities import CAPABILITY_CATALOG, capability_catalog_as_dict
 from .export_config import export_config_cmd
 from .rename import EntityNames, apply_rename
 from .scaffold import download_and_extract
@@ -116,6 +119,10 @@ def version() -> None:
 
 @app.command(name="add-adapter")
 def add_adapter(
+    capability: Annotated[
+        str,
+        typer.Option("--capability", help="Capacité cible. Actuellement: repository"),
+    ] = "repository",
     adapter: Annotated[
         str | None,
         typer.Option("--adapter", "-a", help="Adapter à générer: memory, mongodb ou duckdb"),
@@ -151,6 +158,7 @@ def add_adapter(
 ) -> None:
     """Wizard ou mode direct pour scaffolder un nouvel [bold]adapter output[/bold] dans le projet courant."""
     add_adapter_cmd(
+        capability_name=capability,
         adapter=adapter,
         entity_names=_split_entity_option(entity),
         all_entities=all_entities,
@@ -160,6 +168,38 @@ def add_adapter(
         duckdb_path=path,
         yes=yes,
     )
+
+
+@app.command(name="capabilities")
+def capabilities(
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Afficher le catalogue au format JSON"),
+    ] = False,
+) -> None:
+    """Lister les capacités standardisées supportées par [bold]arclith-cli[/bold]."""
+    if as_json:
+        typer.echo(json.dumps(capability_catalog_as_dict(), indent=2))
+        return
+
+    table = Table(show_header=True, header_style="bold blue", box=None, padding=(0, 2))
+    table.add_column("Capacité")
+    table.add_column("Layer")
+    table.add_column("Adapter")
+    table.add_column("Config")
+    table.add_column("Description")
+
+    for capability_spec in CAPABILITY_CATALOG:
+        for adapter_spec in capability_spec.adapters:
+            table.add_row(
+                capability_spec.name,
+                adapter_spec.layer,
+                adapter_spec.name,
+                adapter_spec.config_path or "-",
+                adapter_spec.description,
+            )
+
+    console.print(table)
 
 
 @app.command(name="export-config")

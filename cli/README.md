@@ -36,7 +36,7 @@ Le projet généré utilise un layout `src/<package>/...` pour le code applicati
 
 ### `add-adapter` — Ajouter un adapter output
 
-Wizard interactif à lancer **depuis la racine du projet cible**. Scaffold le code Python et le fichier de configuration pour un nouvel adapter de persistance.
+Wizard interactif à lancer **depuis la racine du projet cible**. Scaffold le code Python et le fichier de configuration pour un nouvel adapter de persistance. Par défaut, la capacité cible est `repository`.
 
 ```bash
 cd my-recipe-service
@@ -48,6 +48,7 @@ Mode direct, utile pour CI, scripts de migration ou commandes reproductibles :
 ```bash
 arclith-cli add-adapter --adapter mongodb --entity Recipe --db-name my_recipe_service --yes
 arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activate --yes
+arclith-cli add-adapter --capability repository --adapter memory --entity Recipe --yes
 ```
 
 **Étapes du wizard :**
@@ -63,6 +64,7 @@ arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activa
 
 | Option | Défaut | Description |
 |--------|--------|-------------|
+| `--capability` | `repository` | Capacité cible du catalogue standardisé |
 | `--adapter` / `-a` | interactif | `memory`, `mongodb` ou `duckdb` |
 | `--entity` / `-e` | auto si une seule entité | Entité cible, liste séparée par virgule acceptée |
 | `--all-entities` | `false` | Génère l'adapter pour toutes les entités détectées |
@@ -83,6 +85,19 @@ src/<package>/infrastructure/containers/<entity>_container.py  # RepositoryRegis
 ```
 
 > ⚠️ `src/<package>/infrastructure/containers/<entity>_container.py` est **régénéré intégralement** si le fichier existe déjà — un avertissement est affiché dans le récapitulatif.
+
+---
+
+### `capabilities` — Lister le catalogue standardisé
+
+Affiche les capacités et adapters connus par la CLI.
+
+```bash
+arclith-cli capabilities
+arclith-cli capabilities --json
+```
+
+Le catalogue est la source de vérité pour les adapters supportés, leurs paramètres, leur chemin de configuration et la clé d'activation.
 
 ---
 

@@ -129,6 +129,8 @@ def test_scaffold_and_run(temp_workspace: Path):
         [
             "arclith-cli",
             "add-adapter",
+            "--capability",
+            "repository",
             "--adapter",
             "duckdb",
             "--entity",
