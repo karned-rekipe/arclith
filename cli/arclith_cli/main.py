@@ -53,6 +53,10 @@ def new(
         str,
         typer.Option("--ref", help="Branche ou tag Git du template _sample"),
     ] = "main",
+    template_dir: Annotated[
+        Path | None,
+        typer.Option("--template-dir", help="Répertoire local du template _sample", hidden=True),
+    ] = None,
 ) -> None:
     """Créer un nouveau projet [bold]arclith[/bold] scaffoldé depuis le template officiel [dim]_sample[/dim]."""
     entity = entity or _prompt_entity()
@@ -77,9 +81,9 @@ def new(
         )
     )
 
-    with console.status("[bold]Téléchargement du template depuis GitHub…[/bold]"):
+    with console.status("[bold]Préparation du template…[/bold]"):
         try:
-            download_and_extract(target_dir, ref=repo_ref)
+            download_and_extract(target_dir, ref=repo_ref, template_dir=template_dir)
         except Exception as exc:
             console.print(f"[red]✗ Téléchargement échoué :[/red] {exc}")
             raise typer.Exit(1) from exc

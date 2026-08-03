@@ -57,56 +57,67 @@ class IdempotencyMiddleware:
         self._methods = methods or {"POST"}
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
-        if scope["type"] != "http":
+        if not self._should_handle(scope):
             await self._app(scope, receive, send)
             return
 
-        method = scope.get("method", "")
-        if method not in self._methods:
-            await self._app(scope, receive, send)
-            return
-
-        # Extract Idempotency-Key from headers
-        headers_dict = {k.decode(): v.decode() for k, v in scope.get("headers", [])}
-        idempotency_key = headers_dict.get("idempotency-key") or headers_dict.get("Idempotency-Key")
-
+        idempotency_key = self._get_idempotency_key(scope)
         if not idempotency_key:
-            if self._required:
-                # Reject request
-                await self._send_error(
-                    send,
-                    status = 400,
-                    message = "Idempotency-Key header is required for POST requests",
-                )
-                return
-            # Optional mode: continue without idempotency
-            await self._app(scope, receive, send)
+            await self._handle_missing_key(scope, receive, send)
             return
 
-        # Validate key length
         if len(idempotency_key) > 255:
-            await self._send_error(send, status = 400, message = "Idempotency-Key exceeds 255 characters")
+            await self._send_error(send, status=400, message="Idempotency-Key exceeds 255 characters")
             return
 
-        # Build cache key (namespace by path + tenant if available)
         path = scope.get("path", "")
         cache_key = f"idempotency:{path}:{idempotency_key}"
-
-        # Check cache
         cached = await self._cache.get(cache_key)
         if cached:
-            self._logger.info(
-                "🔁 Idempotent request (cache hit)",
-                key = idempotency_key,
-                path = path,
-            )
-            cached_data = json.loads(cached)
-            await self._send_cached_response(send, cached_data)
+            await self._send_cache_hit(send, cached, idempotency_key, path)
             return
 
-        # Cache miss → execute request and capture response
         response_data: dict[str, Any] = {"status": 500, "headers": [], "body": b""}
+        try:
+            await self._app(scope, receive, self._capture_response(response_data, send))
+        finally:
+            await self._cache_successful_response(cache_key, response_data, idempotency_key, path)
 
+    def _should_handle(self, scope: Any) -> bool:
+        return scope["type"] == "http" and scope.get("method", "") in self._methods
+
+    @staticmethod
+    def _get_idempotency_key(scope: Any) -> str | None:
+        for key, value in scope.get("headers", []):
+            if key.lower() == b"idempotency-key":
+                return value.decode()
+        return None
+
+    async def _handle_missing_key(self, scope: Any, receive: Any, send: Any) -> None:
+        if not self._required:
+            await self._app(scope, receive, send)
+            return
+        await self._send_error(
+            send,
+            status = 400,
+            message = "Idempotency-Key header is required for POST requests",
+        )
+
+    async def _send_cache_hit(
+            self,
+            send: Any,
+            cached: str,
+            idempotency_key: str,
+            path: str,
+    ) -> None:
+        self._logger.info(
+            "🔁 Idempotent request (cache hit)",
+            key = idempotency_key,
+            path = path,
+        )
+        await self._send_cached_response(send, json.loads(cached))
+
+    def _capture_response(self, response_data: dict[str, Any], send: Any) -> Any:
         async def _send_wrapper(message: Any) -> None:
             if message["type"] == "http.response.start":
                 response_data["status"] = message["status"]
@@ -115,30 +126,41 @@ class IdempotencyMiddleware:
                 response_data["body"] += message.get("body", b"")
             await send(message)
 
-        try:
-            await self._app(scope, receive, _send_wrapper)
-        finally:
-            # Cache successful responses only (2xx)
-            status = response_data["status"]
-            if 200 <= status < 300:
-                # Store response in cache
-                cache_value = json.dumps(
-                    {
-                        "status": status,
-                        "headers": [
-                            (k.decode() if isinstance(k, bytes) else k, v.decode() if isinstance(v, bytes) else v) for
-                            k, v in response_data["headers"]],
-                        "body": response_data["body"].decode("utf-8", errors = "replace"),
-                    }
-                )
-                await self._cache.set(cache_key, cache_value, ttl_s = self._ttl)
-                self._logger.info(
-                    "💾 Cached idempotent response",
-                    key = idempotency_key,
-                    path = path,
-                    status = status,
-                    ttl = self._ttl,
-                )
+        return _send_wrapper
+
+    async def _cache_successful_response(
+            self,
+            cache_key: str,
+            response_data: dict[str, Any],
+            idempotency_key: str,
+            path: str,
+    ) -> None:
+        status = response_data["status"]
+        if not 200 <= status < 300:
+            return
+        await self._cache.set(
+            cache_key,
+            json.dumps(self._cache_payload(status, response_data)),
+            ttl_s = self._ttl,
+        )
+        self._logger.info(
+            "💾 Cached idempotent response",
+            key = idempotency_key,
+            path = path,
+            status = status,
+            ttl = self._ttl,
+        )
+
+    @staticmethod
+    def _cache_payload(status: int, response_data: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "status": status,
+            "headers": [
+                (k.decode() if isinstance(k, bytes) else k, v.decode() if isinstance(v, bytes) else v)
+                for k, v in response_data["headers"]
+            ],
+            "body": response_data["body"].decode("utf-8", errors = "replace"),
+        }
 
     async def _send_cached_response(self, send: Any, cached_data: dict[str, Any]) -> None:
         """Replay cached response."""

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
 import pytest
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture
@@ -18,13 +21,43 @@ def temp_workspace():
     shutil.rmtree(tmp, ignore_errors=True)
 
 
+def _template_args() -> list[str]:
+    template_dir = os.environ.get("ARCLITH_TEMPLATE_DIR")
+    if template_dir:
+        return ["--template-dir", template_dir]
+
+    sibling_template = Path(__file__).resolve().parents[3] / "_sample"
+    if sibling_template.is_dir():
+        return ["--template-dir", str(sibling_template)]
+
+    return []
+
+
+def _inject_local_arclith_source(project_dir: Path) -> None:
+    pyproject = project_dir / "pyproject.toml"
+    pyproject.write_text(
+        pyproject.read_text().rstrip()
+        + f'\n\n[tool.uv.sources]\narclith = {{ path = "{_REPO_ROOT.as_posix()}", editable = true }}\n'
+    )
+
+
 def test_scaffold_and_run(temp_workspace: Path):
     """Test that scaffolded project installs and runs successfully."""
     project_dir = temp_workspace / "test-plan-service"
     
     # Step 1 — scaffold via CLI (non-interactive)
     result = subprocess.run(
-        ["arclith-cli", "new", "Plan", "test-plan-service", "--dir", str(temp_workspace), "--port", "9000"],
+        [
+            "arclith-cli",
+            "new",
+            "Plan",
+            "test-plan-service",
+            "--dir",
+            str(temp_workspace),
+            "--port",
+            "9000",
+            *_template_args(),
+        ],
         capture_output=True,
         text=True,
         timeout=120,
@@ -43,6 +76,7 @@ def test_scaffold_and_run(temp_workspace: Path):
         "it should use stable PyPI arclith"
     )
     assert "arclith[" in pyproject_content, "arclith dependency missing"
+    _inject_local_arclith_source(project_dir)
     
     # Step 3 — uv sync
     result = subprocess.run(
@@ -103,7 +137,17 @@ def test_scaffold_with_custom_entity_formats(temp_workspace: Path):
         project_dir = temp_workspace / project_name
         
         result = subprocess.run(
-            ["arclith-cli", "new", entity_input, project_name, "--dir", str(temp_workspace), "--port", "9100"],
+            [
+                "arclith-cli",
+                "new",
+                entity_input,
+                project_name,
+                "--dir",
+                str(temp_workspace),
+                "--port",
+                "9100",
+                *_template_args(),
+            ],
             capture_output=True,
             text=True,
             timeout=120,
@@ -131,10 +175,19 @@ def test_scaffold_runs_tests(temp_workspace: Path):
     
     # Scaffold
     subprocess.run(
-        ["arclith-cli", "new", "Widget", "test-validated-service", "--dir", str(temp_workspace)],
+        [
+            "arclith-cli",
+            "new",
+            "Widget",
+            "test-validated-service",
+            "--dir",
+            str(temp_workspace),
+            *_template_args(),
+        ],
         check=True,
         timeout=120,
     )
+    _inject_local_arclith_source(project_dir)
     
     # Install deps
     subprocess.run(["uv", "sync", "--group", "dev"], cwd=project_dir, check=True, timeout=180)

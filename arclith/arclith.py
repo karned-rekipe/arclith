@@ -71,38 +71,12 @@ class Arclith:
     def fastapi(self, **kwargs: Any) -> "FastAPI":
         from fastapi import FastAPI
 
-        # Inject title/version/description from config if not overridden
-        kwargs.setdefault("title", self.config.app.name)
-        kwargs.setdefault("version", self.config.app.version)
-        kwargs.setdefault("description", self.config.app.description)
-
-        # Pre-fill Swagger UI OAuth2 when Keycloak is configured
-        if self.config.keycloak:
-            if "swagger_ui_init_oauth" not in kwargs:
-                kc = self.config.keycloak
-                # Utiliser client_id si défini, sinon audience, sinon défaut
-                client_id = kc.client_id or kc.audience or "arclith-client"
-                kwargs["swagger_ui_init_oauth"] = {
-                    "clientId": client_id,
-                    "usePkceWithAuthorizationCodeGrant": True,
-                    "scopes": "openid profile",
-                    "additionalQueryStringParams": {"prompt": "login"},
-                }
-            # Définir explicitement l'URL de redirection OAuth2 pour Swagger UI
-            if "swagger_ui_oauth2_redirect_url" not in kwargs:
-                kwargs["swagger_ui_oauth2_redirect_url"] = "/docs/oauth2-redirect"
-            # Persister automatiquement l'autorisation OAuth2
-            if "swagger_ui_parameters" not in kwargs:
-                kwargs["swagger_ui_parameters"] = {
-                    "persistAuthorization": True,
-                }
-
+        self._configure_fastapi_kwargs(kwargs)
         user_lifespan = kwargs.pop("lifespan", None)
-        arclith_self = self
 
         @asynccontextmanager
         async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-            arclith_self._setup_uvicorn_logging()
+            self._setup_uvicorn_logging()
             if user_lifespan is not None:
                 async with AsyncExitStack() as stack:
                     await stack.enter_async_context(user_lifespan(app))
@@ -111,7 +85,39 @@ class Arclith:
                 yield
 
         app = FastAPI(lifespan=_lifespan, **kwargs)
+        self._add_fastapi_observability(app)
+        self._add_fastapi_http_middlewares(app)
 
+        if self.config.keycloak:
+            self._patch_openapi_keycloak(app)
+
+        return app
+
+    def _configure_fastapi_kwargs(self, kwargs: dict[str, Any]) -> None:
+        kwargs.setdefault("title", self.config.app.name)
+        kwargs.setdefault("version", self.config.app.version)
+        kwargs.setdefault("description", self.config.app.description)
+        if self.config.keycloak:
+            self._configure_keycloak_swagger(kwargs)
+
+    def _configure_keycloak_swagger(self, kwargs: dict[str, Any]) -> None:
+        kc = self.config.keycloak
+        if kc is None:
+            return
+        client_id = kc.client_id or kc.audience or "arclith-client"
+        kwargs.setdefault(
+            "swagger_ui_init_oauth",
+            {
+                "clientId": client_id,
+                "usePkceWithAuthorizationCodeGrant": True,
+                "scopes": "openid profile",
+                "additionalQueryStringParams": {"prompt": "login"},
+            },
+        )
+        kwargs.setdefault("swagger_ui_oauth2_redirect_url", "/docs/oauth2-redirect")
+        kwargs.setdefault("swagger_ui_parameters", {"persistAuthorization": True})
+
+    def _add_fastapi_observability(self, app: "FastAPI") -> None:
         if self.config.probe.enabled:
             from arclith.adapters.input.probes.metrics import ApiMetricsCollector
             app.add_middleware(ApiMetricsCollector, registry=self._metrics_registry)
@@ -119,12 +125,11 @@ class Arclith:
                 ApiMetricsCollector(app=None, registry=self._metrics_registry)  # type: ignore[arg-type]
             )
 
-        # SOTA HTTP middlewares — order matters (outermost to innermost)
-        # TimingMiddleware wraps all others → measures total request time
+    def _add_fastapi_http_middlewares(self, app: "FastAPI") -> None:
+        # Order matters: Starlette applies the last registered middleware first.
         from arclith.adapters.input.fastapi.timing import TimingMiddleware
         app.add_middleware(TimingMiddleware, logger=self.logger)
 
-        # CacheControlMiddleware — inject Cache-Control headers
         from arclith.adapters.input.fastapi.cache_control import CacheControlMiddleware
         app.add_middleware(
             CacheControlMiddleware,
@@ -133,12 +138,10 @@ class Arclith:
             get_list_max_age = self.config.http.cache_control.get_list_max_age,
         )
 
-        # ETaggerMiddleware — manage ETag/If-Match for optimistic locking
         from arclith.adapters.input.fastapi.etag import ETaggerMiddleware
         if self.config.http.etag.enabled:
             app.add_middleware(ETaggerMiddleware, logger = self.logger)
 
-        # IdempotencyMiddleware — prevent duplicate POST requests (critical for e-commerce)
         from arclith.adapters.input.fastapi.idempotency import IdempotencyMiddleware
         if self.config.http.idempotency.enabled:
             app.add_middleware(
@@ -148,12 +151,6 @@ class Arclith:
                 ttl = self.config.http.idempotency.ttl_seconds,
                 required = self.config.http.idempotency.required,
             )
-
-        # Inject Keycloak OAuth2 PKCE security scheme into the OpenAPI spec
-        if self.config.keycloak:
-            self._patch_openapi_keycloak(app)
-
-        return app
 
     def _patch_openapi_keycloak(self, app: "FastAPI") -> None:
         """Inject Keycloak OAuth2 PKCE security scheme into the OpenAPI spec.

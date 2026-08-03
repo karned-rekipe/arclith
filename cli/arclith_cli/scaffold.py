@@ -19,7 +19,13 @@ _FILES_TO_REMOVE = {
 _DATA_FILES_TO_REMOVE = {"ingredient.csv"}
 
 
-def download_and_extract(target_dir: Path, *, ref: str = "main") -> None:
+def download_and_extract(target_dir: Path, *, ref: str = "main", template_dir: Path | None = None) -> None:
+    if template_dir is not None:
+        target_dir.parent.mkdir(parents=True, exist_ok=True)
+        _copy_template(template_dir, target_dir)
+        _cleanup(target_dir)
+        return
+
     url = _TEMPLATE_URL.format(ref=ref)
     response = httpx.get(url, follow_redirects=True, timeout=60)
     response.raise_for_status()
@@ -39,6 +45,16 @@ def download_and_extract(target_dir: Path, *, ref: str = "main") -> None:
                 dest.write_bytes(zf.read(member.filename))
 
     _cleanup(target_dir)
+
+
+def _copy_template(source_dir: Path, target_dir: Path) -> None:
+    if not source_dir.is_dir():
+        raise FileNotFoundError(f"Template directory not found: {source_dir}")
+    shutil.copytree(
+        source_dir,
+        target_dir,
+        ignore=shutil.ignore_patterns(*_DIRS_TO_REMOVE, *_FILES_TO_REMOVE),
+    )
 
 
 def _zip_root(zf: zipfile.ZipFile) -> str:
@@ -62,4 +78,3 @@ def _cleanup(target_dir: Path) -> None:
             data_dir.rmdir()  # only succeeds if empty
         except OSError:
             pass
-

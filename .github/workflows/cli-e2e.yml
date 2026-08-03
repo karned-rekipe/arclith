@@ -14,51 +14,68 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.13"
+  ARCLITH_TEMPLATE_DIR: ${{ github.workspace }}/.templates/_sample
 
 jobs:
   e2e-scaffold:
     name: E2E — Scaffold & Validate
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
+      - uses: actions/checkout@v4
+        with:
+          repository: karned-rekipe/_sample
+          path: .templates/_sample
+
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
-      
+
       - name: Install CLI dependencies
         working-directory: cli
         run: uv sync --group dev
-      
+
       - name: Install arclith-cli tool
         working-directory: cli
         run: uv tool install .
-      
+
       - name: Run E2E tests
         working-directory: cli
         run: uv run pytest tests/ -v --tb=short
-        
+
       - name: Quick smoke test — scaffold real project
         run: |
           cd /tmp
-          arclith-cli new TestEntity test-smoke --port 9999
+          arclith-cli new TestEntity test-smoke --port 9999 --template-dir "$ARCLITH_TEMPLATE_DIR"
           cd test-smoke
-          
+
           # Verify stable PyPI dependency
           if grep -q '\[tool\.uv\.sources\]' pyproject.toml; then
             echo "❌ Generated project contains [tool.uv.sources] — template is broken"
             exit 1
           fi
-          
+
           # Verify arclith version
           grep "arclith\[" pyproject.toml
-          
+
+          # Validate the current repository version without waiting for PyPI propagation.
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          pyproject = Path("pyproject.toml")
+          pyproject.write_text(
+              pyproject.read_text().rstrip()
+              + f'\n\n[tool.uv.sources]\narclith = {{ path = "{os.environ["GITHUB_WORKSPACE"]}", editable = true }}\n'
+          )
+          PY
+
           # Install and validate
           uv sync --no-dev
-          uv run python main.py --help
-          
-          echo "✅ Smoke test passed"
+          uv run python -c "import main; from test_smoke.adapters.input.fastapi.dependencies import require_auth; from test_smoke.adapters.input.fastmcp.dependencies import require_auth_mcp; print('imports ok')"
 
+          echo "✅ Smoke test passed"
