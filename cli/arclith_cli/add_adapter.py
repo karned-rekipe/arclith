@@ -42,6 +42,7 @@ def add_adapter_cmd(
     db_name: str | None = None,
     multitenant: bool | None = None,
     duckdb_path: str | None = None,
+    adapter_params: dict[str, str] | None = None,
     yes: bool = False,
 ) -> None:
     """Wizard interactif pour scaffolder un nouvel adapter output."""
@@ -59,6 +60,7 @@ def add_adapter_cmd(
         db_name=db_name,
         multitenant=multitenant,
         duckdb_path=duckdb_path,
+        extra_params=adapter_params or {},
         prompt_missing=not yes,
     )
     if not yes:
@@ -230,27 +232,50 @@ def _resolve_adapter_params(
     db_name: str | None,
     multitenant: bool | None,
     duckdb_path: str | None,
+    extra_params: dict[str, str],
     prompt_missing: bool,
 ) -> dict[str, Any]:
     if prompt_missing:
         console.print(f"\n[bold]③ Paramètres [green]{adapter.name}[/green][/bold]")
+
+    _assert_supported_params(adapter, extra_params)
 
     if not adapter.parameters:
         if prompt_missing:
             console.print("  [dim](aucun paramètre requis)[/dim]")
         return {}
 
-    provided_values: dict[str, str | bool | None] = {
+    provided_values: dict[str, str | bool | None] = dict(extra_params)
+    convenience_values: dict[str, str | bool | None] = {
         "db_name": db_name,
         "multitenant": multitenant,
         "path": duckdb_path,
     }
+    for name, value in convenience_values.items():
+        if value is not None:
+            provided_values[name] = value
+
     resolved: dict[str, Any] = {}
     for parameter in adapter.parameters:
         value = _resolve_parameter(parameter, provided_values.get(parameter.name), project_dir, prompt_missing)
         resolved[parameter.name] = _render_parameter_value(parameter, value)
 
     return resolved
+
+
+def _assert_supported_params(adapter: AdapterSpec, extra_params: dict[str, str]) -> None:
+    supported = {parameter.name for parameter in adapter.parameters}
+    unknown = sorted(name for name in extra_params if name not in supported)
+    if not unknown:
+        return
+
+    allowed = ", ".join(sorted(supported)) or "(aucun)"
+    received = ", ".join(unknown)
+    console.print(
+        f"[red]✗[/red] Paramètre inconnu pour [bold]{adapter.name}[/bold]: {received}. "
+        f"Valeurs: {allowed}."
+    )
+    raise typer.Exit(1)
 
 
 def _resolve_parameter(
@@ -262,7 +287,16 @@ def _resolve_parameter(
     if parameter.kind == "boolean":
         if isinstance(provided_value, bool):
             return provided_value
-        default = bool(parameter.default)
+        if isinstance(provided_value, str) and provided_value.strip():
+            parsed = _parse_boolean_param(provided_value)
+            if parsed is not None:
+                return parsed
+            console.print(
+                f"[red]✗[/red] Valeur booléenne invalide pour [bold]{parameter.name}[/bold]: "
+                f"{provided_value}. Utilisez true/false."
+            )
+            raise typer.Exit(1)
+        default = _boolean_default(parameter)
         if prompt_missing:
             return Confirm.ask(f"  {parameter.prompt}", default=default)
         return default
@@ -280,6 +314,25 @@ def _default_string_value(parameter: ParameterSpec, project_dir: Path) -> str:
     if isinstance(parameter.default, str):
         return parameter.default
     return ""
+
+
+def _boolean_default(parameter: ParameterSpec) -> bool:
+    if isinstance(parameter.default, bool):
+        return parameter.default
+    if isinstance(parameter.default, str):
+        parsed = _parse_boolean_param(parameter.default)
+        if parsed is not None:
+            return parsed
+    return False
+
+
+def _parse_boolean_param(value: str) -> bool | None:
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    return None
 
 
 def _render_parameter_value(parameter: ParameterSpec, value: str | bool) -> str:

@@ -1,5 +1,25 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Adapter repository MariaDB** — extra optionnel `arclith[mariadb]`, settings `adapters.mariadb`, factory par defaut et repository generique JSON par entite.
+- **Parametres CLI generiques** — `arclith-cli add-adapter --param key=value` permet d'ajouter des adapters sans creer une option CLI specialisee par champ.
+
+### Changed
+
+- **Rupture nette pre-1.0** — suppression des chemins de normalisation `input`/`output` vers `inbound`/`outbound`; le template officiel doit deja respecter le layout canonique.
+- **Config explicite** — suppression de `load_config()`; utiliser `load_config_dir()` ou `load_config_file()` selon le format attendu.
+
+### Fixed
+
+- **MariaDB multitenant** — `adapters.mariadb` peut etre valide sans `url` ni `database` quand `multitenant=true`; les coordonnees viennent du contexte tenant.
+- **Parametres adapter CLI** — les `--param key=value` inconnus sont rejetes meme pour les adapters sans parametre catalogue.
+- **MariaDB tenant params** — le port tenant est trimme et borne a `1..65535`; les mots de passe sont preserves dans `with_tenant_params()`.
+
+---
+
 ## [0.10.0] — 2026-08-03
 
 ### Added

@@ -52,6 +52,20 @@ class DuckDB{pascal}Repository(DuckDBRepository[{pascal}], {pascal}Repository):
     #     )
     #     return [self._row_to_entity(r) for r in rows]
 """,
+    "mariadb": """\
+from arclith.adapters.outbound.mariadb.config import MariaDBConfig
+from arclith.adapters.outbound.mariadb.repository import MariaDBRepository
+from arclith.domain.ports.outbound.logger import Logger
+from {domain_import}.models.{snake} import {pascal}
+from {domain_import}.ports.outbound.{snake}_repository import {pascal}Repository
+
+
+class MariaDB{pascal}Repository(MariaDBRepository[{pascal}], {pascal}Repository):
+    def __init__(self, config: MariaDBConfig, logger: Logger) -> None:
+        super().__init__(config, {pascal}, logger)
+
+    # TODO: add custom query methods here
+""",
 }
 
 # ── repository.py re-export template ─────────────────────────────────────────
@@ -71,6 +85,11 @@ __all__ = ["MongoDB{pascal}Repository"]
 from {adapters_import}.outbound.duckdb.repositories.{snake}_repository import DuckDB{pascal}Repository
 
 __all__ = ["DuckDB{pascal}Repository"]
+""",
+    "mariadb": """\
+from {adapters_import}.outbound.mariadb.repositories.{snake}_repository import MariaDB{pascal}Repository
+
+__all__ = ["MariaDB{pascal}Repository"]
 """,
 }
 
@@ -110,6 +129,28 @@ def _build_duckdb(cfg: AppConfig, _entity_class: type[{pascal}], _log: Logger) -
     if duckdb is None:
         raise ValueError("DuckDB settings are required when repository=duckdb")
     return DuckDB{pascal}Repository(duckdb.path)
+
+""",
+    "mariadb": """\
+def _build_mariadb(cfg: AppConfig, _entity_class: type[{pascal}], log: Logger) -> {pascal}Repository:
+    from {adapters_import}.outbound.mariadb.repository import MariaDB{pascal}Repository
+    from arclith.adapters.outbound.mariadb.config import MariaDBConfig
+    mariadb = cfg.adapters.mariadb
+    if mariadb is None:
+        raise ValueError("MariaDB settings are required when repository=mariadb")
+    return MariaDB{pascal}Repository(
+        MariaDBConfig(
+            url=mariadb.url,
+            host=mariadb.host,
+            port=mariadb.port,
+            database=mariadb.database,
+            user=mariadb.user,
+            password=mariadb.password,
+            driver=mariadb.driver,
+            table_prefix=mariadb.table_prefix,
+        ),
+        log,
+    )
 
 """,
 }

@@ -48,16 +48,18 @@ Mode direct, utile pour CI, scripts de migration ou commandes reproductibles :
 ```bash
 arclith-cli add-adapter --adapter mongodb --entity Recipe --db-name my_recipe_service --yes
 arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activate --yes
+arclith-cli add-adapter --adapter mariadb --entity Recipe --param database=my_recipe_service --param user=app --yes
 arclith-cli add-adapter --capability repository --adapter memory --entity Recipe --yes
 ```
 
 **Étapes du wizard :**
 
-1. **Type d'adapter** — `memory` · `mongodb` · `duckdb`
+1. **Type d'adapter** — `memory` · `mongodb` · `duckdb` · `mariadb`
 2. **Entité(s) cible(s)** — détectées automatiquement depuis `src/<package>/domain/models/` via AST ; sélection individuelle ou « toutes »
 3. **Paramètres** — questions spécifiques à l'adapter :
    - `mongodb` → `db_name`, `multitenant`
    - `duckdb` → `path`
+   - `mariadb` → `host`, `port`, `database`, `user`, `driver`, `table_prefix`
    - `memory` → aucun paramètre
 4. **Activation** — met à jour `config/adapters/adapters.yaml` (`repository: <adapter>`)
 5. **Récapitulatif** — liste des fichiers créés ou remplacés avant confirmation
@@ -65,19 +67,20 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
 | Option | Défaut | Description |
 |--------|--------|-------------|
 | `--capability` | `repository` | Capacité cible du catalogue standardisé |
-| `--adapter` / `-a` | interactif | `memory`, `mongodb` ou `duckdb` |
+| `--adapter` / `-a` | interactif | `memory`, `mongodb`, `duckdb` ou `mariadb` |
 | `--entity` / `-e` | auto si une seule entité | Entité cible, liste séparée par virgule acceptée |
 | `--all-entities` | `false` | Génère l'adapter pour toutes les entités détectées |
 | `--activate/--no-activate` | `--activate` | Met à jour ou non `repository: <adapter>` |
 | `--db-name` | nom du projet | Nom de base pour MongoDB |
 | `--multitenant/--single-tenant` | `--single-tenant` | Mode MongoDB multitenant |
 | `--path` | `data/` | Chemin DuckDB |
+| `--param` | - | Paramètre adapter `key=value`, répétable pour les adapters du catalogue |
 | `--yes` / `-y` | `false` | Skip la confirmation et utilise les valeurs fournies ou par défaut |
 
 **Fichiers générés par entité :**
 
 ```
-config/adapters/outbound/<adapter>.yaml          # config scopée (mongodb/duckdb uniquement)
+config/adapters/outbound/<adapter>.yaml          # config scopée si l'adapter en a besoin
 src/<package>/adapters/outbound/<adapter>/__init__.py
 src/<package>/adapters/outbound/<adapter>/repository.py        # re-export
 src/<package>/adapters/outbound/<adapter>/repositories/<entity>_repository.py  # sous-classe à compléter
@@ -154,6 +157,7 @@ config/
     outbound/
       mongodb.yaml                # adapters.mongodb: { db_name, multitenant }
       duckdb.yaml                 # adapters.duckdb: { path, multitenant }
+      mariadb.yaml                # adapters.mariadb: { host, port, database, user, ... }
     inbound/
       fastapi.yaml                # api: { host, port, reload }
       fastmcp.yaml                # mcp: { host, port }
@@ -168,5 +172,7 @@ Pour changer l'adapter actif sans passer par le wizard :
 
 ```yaml
 # config/adapters/adapters.yaml
-repository: duckdb   # memory | mongodb | duckdb
+repository: duckdb   # memory | mongodb | duckdb | mariadb
 ```
+
+Pour MariaDB, ne committez pas le mot de passe. Mappez `adapters.mariadb.password` ou `adapters.mariadb.url` via `config/secrets.yaml`, un resolver `env` ou Vault.

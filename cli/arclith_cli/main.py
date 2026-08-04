@@ -125,7 +125,7 @@ def add_adapter(
     ] = "repository",
     adapter: Annotated[
         str | None,
-        typer.Option("--adapter", "-a", help="Adapter à générer: memory, mongodb ou duckdb"),
+        typer.Option("--adapter", "-a", help="Adapter à générer: memory, mongodb, duckdb ou mariadb"),
     ] = None,
     entity: Annotated[
         str | None,
@@ -151,6 +151,10 @@ def add_adapter(
         str | None,
         typer.Option("--path", help="Chemin de stockage pour l'adapter duckdb"),
     ] = None,
+    param: Annotated[
+        list[str] | None,
+        typer.Option("--param", help="Paramètre adapter key=value, répétable pour les adapters du catalogue"),
+    ] = None,
     yes: Annotated[
         bool,
         typer.Option("--yes", "-y", help="Utiliser les valeurs fournies ou par défaut sans confirmation"),
@@ -166,6 +170,7 @@ def add_adapter(
         db_name=db_name,
         multitenant=multitenant,
         duckdb_path=path,
+        adapter_params=_parse_param_options(param),
         yes=yes,
     )
 
@@ -255,6 +260,18 @@ def _split_entity_option(value: str | None) -> list[str] | None:
         return None
     items = [item.strip() for item in value.split(",") if item.strip()]
     return items or None
+
+
+def _parse_param_options(values: list[str] | None) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for raw in values or []:
+        key, separator, value = raw.partition("=")
+        key = key.strip()
+        if separator != "=" or not key:
+            console.print(f"[red]✗[/red] Paramètre invalide: [bold]{raw}[/bold]. Format attendu: key=value.")
+            raise typer.Exit(1)
+        result[key] = value.strip()
+    return result
 
 
 def _print_summary(target_dir: Path, project_name: str, port: int) -> None:
