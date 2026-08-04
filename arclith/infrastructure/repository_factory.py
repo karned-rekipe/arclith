@@ -77,6 +77,7 @@ def default_repository_registry(_entity_class: type[T]) -> RepositoryRegistry[T,
         .register("memory", _build_memory_repository)
         .register("mongodb", _build_mongodb_repository)
         .register("duckdb", _build_duckdb_repository)
+        .register("mariadb", _build_mariadb_repository)
     )
 
 
@@ -125,3 +126,31 @@ def _build_duckdb_repository(
         raise ValueError("DuckDB settings are required when repository=duckdb")
 
     return DuckDBRepository(duckdb.path, entity_class)
+
+
+def _build_mariadb_repository(
+    config: AppConfig,
+    entity_class: type[T],
+    logger: Logger,
+) -> Repository[T]:
+    from arclith.adapters.outbound.mariadb.config import MariaDBConfig
+    from arclith.adapters.outbound.mariadb.repository import MariaDBRepository
+
+    mariadb = config.adapters.mariadb
+    if mariadb is None:
+        raise ValueError("MariaDB settings are required when repository=mariadb")
+
+    return MariaDBRepository(
+        MariaDBConfig(
+            url=mariadb.url,
+            host=mariadb.host,
+            port=mariadb.port,
+            database=mariadb.database,
+            user=mariadb.user,
+            password=mariadb.password,
+            driver=mariadb.driver,
+            table_prefix=mariadb.table_prefix,
+        ),
+        entity_class,
+        logger,
+    )

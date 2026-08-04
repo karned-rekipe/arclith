@@ -3,7 +3,8 @@ from pathlib import Path
 import pytest
 import typer
 
-from arclith_cli.add_adapter import add_adapter_cmd
+from arclith_cli.add_adapter import _resolve_parameter, add_adapter_cmd
+from arclith_cli.capabilities import ParameterSpec
 
 
 def _write_model(project_dir: Path, package_name: str, class_name: str, file_name: str) -> None:
@@ -74,6 +75,69 @@ def test_add_mongodb_adapter_uses_non_interactive_params(tmp_path: Path) -> None
     assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     )
+
+
+def test_add_mariadb_adapter_uses_catalog_params(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        adapter="mariadb",
+        adapter_params={
+            "host": "mariadb.local",
+            "port": "3307",
+            "database": "demo_shared",
+            "user": "demo_app",
+            "driver": "asyncmy",
+            "table_prefix": "todo_",
+        },
+        yes=True,
+    )
+
+    package_root = project_dir / "src" / "demo_service"
+    repository_file = package_root / "adapters" / "outbound" / "mariadb" / "repositories" / "widget_repository.py"
+    assert repository_file.exists()
+    assert "class MariaDBWidgetRepository" in repository_file.read_text(encoding="utf-8")
+    assert 'register("mariadb", _build_mariadb)' in (
+        package_root / "infrastructure" / "containers" / "widget_container.py"
+    ).read_text(encoding="utf-8")
+    mariadb_config = (project_dir / "config" / "adapters" / "outbound" / "mariadb.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "host: mariadb.local" in mariadb_config
+    assert "port: 3307" in mariadb_config
+    assert "database: demo_shared" in mariadb_config
+    assert 'table_prefix: "todo_"' in mariadb_config
+
+
+def test_add_adapter_rejects_unknown_catalog_param(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            adapter="mariadb",
+            adapter_params={"database": "demo", "unknown": "value"},
+            yes=True,
+        )
+
+
+def test_add_memory_adapter_rejects_unknown_catalog_param(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            adapter="memory",
+            adapter_params={"unused": "value"},
+            yes=True,
+        )
+
+
+def test_boolean_string_default_false_is_false(tmp_path: Path) -> None:
+    parameter = ParameterSpec(name="multitenant", kind="boolean", prompt="multitenant", default="false")
+
+    assert _resolve_parameter(parameter, None, tmp_path, prompt_missing=False) is False
 
 
 def test_non_interactive_requires_entity_when_multiple_models(tmp_path: Path) -> None:

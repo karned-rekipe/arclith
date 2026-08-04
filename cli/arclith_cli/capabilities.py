@@ -137,6 +137,61 @@ path: {path}
                 ),
             ),
         ),
+        AdapterSpec(
+            name="mariadb",
+            capability="repository",
+            layer="outbound",
+            description="Repository MariaDB async optionnel, pilote par SQLAlchemy et asyncmy.",
+            config_path="config/adapters/outbound/mariadb.yaml",
+            config_template="""\
+host: {host}
+port: {port}
+database: {database}
+user: {user}
+password: null   # a mapper via config/secrets.yaml ou resolver env/vault
+driver: {driver}
+table_prefix: "{table_prefix}"
+multitenant: false
+""",
+            parameters=(
+                ParameterSpec(
+                    name="host",
+                    kind="string",
+                    prompt="host",
+                    default="127.0.0.1",
+                ),
+                ParameterSpec(
+                    name="port",
+                    kind="string",
+                    prompt="port",
+                    default="3306",
+                ),
+                ParameterSpec(
+                    name="database",
+                    kind="string",
+                    prompt="database",
+                    default_from_project_name=True,
+                ),
+                ParameterSpec(
+                    name="user",
+                    kind="string",
+                    prompt="user",
+                    default="app",
+                ),
+                ParameterSpec(
+                    name="driver",
+                    kind="string",
+                    prompt="driver",
+                    default="asyncmy",
+                ),
+                ParameterSpec(
+                    name="table_prefix",
+                    kind="string",
+                    prompt="table_prefix",
+                    default="",
+                ),
+            ),
+        ),
     ),
 )
 

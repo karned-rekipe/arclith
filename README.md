@@ -56,6 +56,7 @@ Pour creer un projet concret avec la CLI, lancer API/MCP/probes, puis faire evol
 ```bash
 pip install "arclith[mongodb]"
 pip install "arclith[duckdb]"
+pip install "arclith[mariadb]"
 pip install "arclith[fastapi]"
 pip install "arclith[mcp]"
 pip install "arclith[all]"

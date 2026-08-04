@@ -133,6 +133,7 @@ Le meme flux peut etre joue en mode direct:
 ```bash
 arclith-cli add-adapter --adapter mongodb --entity Ingredient --db-name pantry_agent --yes
 arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activate --yes
+arclith-cli add-adapter --adapter mariadb --entity Ingredient --param database=pantry_agent --param user=app --yes
 ```
 
 ### MongoDB
@@ -161,6 +162,42 @@ Exemple:
 multitenant: false
 path: data/
 ```
+
+### MariaDB
+
+Installer l'extra dans le projet qui utilise cet adapter:
+
+```bash
+uv add "arclith[mariadb]"
+```
+
+Generation directe:
+
+```bash
+arclith-cli add-adapter \
+  --adapter mariadb \
+  --entity Ingredient \
+  --param host=127.0.0.1 \
+  --param port=3306 \
+  --param database=pantry_agent \
+  --param user=app \
+  --yes
+```
+
+Exemple de configuration generee:
+
+```yaml
+host: 127.0.0.1
+port: 3306
+database: pantry_agent
+user: app
+password: null
+driver: asyncmy
+table_prefix: ""
+multitenant: false
+```
+
+Le mot de passe ou l'URL complete doivent rester dans un resolver de secrets, par exemple `config/secrets.yaml`, `env` ou Vault.
 
 ## 4. Ajouter un autre inbound sans toucher au metier
 

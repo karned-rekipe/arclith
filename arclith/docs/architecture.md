@@ -101,7 +101,7 @@ Fournis par le framework : `CreateUseCase`, `ReadUseCase`, `UpdateUseCase`, `Del
 ### `application/services/`
 
 Façade qui regroupe les use cases d'une entité sous une API cohérente.
-Les adapters input (FastAPI, MCP…) ne parlent qu'aux services.
+Les adapters inbound (FastAPI, MCP...) ne parlent qu'aux services.
 
 `BaseService` est fourni par le framework. Étends-le pour ajouter tes méthodes métier.
 
