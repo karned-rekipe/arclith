@@ -27,7 +27,7 @@ def test_builds_yaml_resolver(tmp_path: Path) -> None:
             "yaml": {"path": "secrets.yaml"},
         }
     }
-    from arclith.adapters.output.yaml.secret_adapter import YamlSecretAdapter
+    from arclith.adapters.outbound.yaml.secret_adapter import YamlSecretAdapter
     assert isinstance(build_secret_resolver(data), YamlSecretAdapter)
 
 
@@ -39,7 +39,7 @@ def test_yaml_resolver_defaults_to_secrets_yaml(tmp_path: Path) -> None:
             "mappings": {"adapters.mongodb.uri": "ignored"},
         }
     }
-    from arclith.adapters.output.yaml.secret_adapter import YamlSecretAdapter
+    from arclith.adapters.outbound.yaml.secret_adapter import YamlSecretAdapter
     assert isinstance(build_secret_resolver(data, tmp_path), YamlSecretAdapter)
 
 
@@ -50,7 +50,7 @@ def test_builds_env_resolver() -> None:
             "mappings": {"adapters.mongodb.uri": "ignored"},
         }
     }
-    from arclith.adapters.output.env.secret_adapter import EnvSecretAdapter
+    from arclith.adapters.outbound.env.secret_adapter import EnvSecretAdapter
     assert isinstance(build_secret_resolver(data), EnvSecretAdapter)
 
 
@@ -62,7 +62,7 @@ def test_builds_vault_resolver() -> None:
             "vault": {"addr": "http://127.0.0.1:8200", "mount": "kv"},
         }
     }
-    from arclith.adapters.output.vault.secret_adapter import VaultSecretAdapter
+    from arclith.adapters.outbound.vault.secret_adapter import VaultSecretAdapter
     assert isinstance(build_secret_resolver(data), VaultSecretAdapter)
 
 
@@ -75,7 +75,7 @@ def test_vault_addr_overridden_by_env(monkeypatch: pytest.MonkeyPatch) -> None:
             "vault": {"addr": "http://127.0.0.1:8200"},
         }
     }
-    from arclith.adapters.output.vault.secret_adapter import VaultSecretAdapter
+    from arclith.adapters.outbound.vault.secret_adapter import VaultSecretAdapter
     resolver = build_secret_resolver(data)
     assert isinstance(resolver, VaultSecretAdapter)
     assert resolver._addr == "http://custom:9999"
@@ -89,7 +89,7 @@ def test_builds_chain_resolver() -> None:
             "mappings": {"adapters.mongodb.uri": "ignored"},
         }
     }
-    from arclith.adapters.output.chain.secret_adapter import ChainSecretAdapter
+    from arclith.adapters.outbound.chain.secret_adapter import ChainSecretAdapter
     assert isinstance(build_secret_resolver(data), ChainSecretAdapter)
 
 
@@ -101,7 +101,7 @@ def test_chain_defaults_to_yaml_when_no_chain_key(tmp_path: Path) -> None:
             "mappings": {"x": "y"},
         }
     }
-    from arclith.adapters.output.chain.secret_adapter import ChainSecretAdapter
+    from arclith.adapters.outbound.chain.secret_adapter import ChainSecretAdapter
     assert isinstance(build_secret_resolver(data, tmp_path), ChainSecretAdapter)
 
 
@@ -119,7 +119,7 @@ def test_unknown_resolver_raises() -> None:
 # ── resolve_dict_secrets ──────────────────────────────────────────────────────
 
 def _make_resolver(values: dict[str, str | None]):
-    from arclith.domain.ports.secret_resolver import SecretResolver
+    from arclith.domain.ports.outbound.secret_resolver import SecretResolver
 
     class _Fixed(SecretResolver):
         def get(self, field_path: str, secret_key: str) -> str | None:

@@ -94,8 +94,8 @@ def test_scaffold_and_run(temp_workspace: Path):
         [
             "uv", "run", "python", "-c",
             "from arclith import load_config_dir, Arclith; "
-            "from test_plan_service.adapters.input.fastapi.dependencies import require_auth; "
-            "from test_plan_service.adapters.input.fastmcp.dependencies import require_auth_mcp; "
+            "from test_plan_service.adapters.inbound.fastapi.dependencies import require_auth; "
+            "from test_plan_service.adapters.inbound.fastmcp.dependencies import require_auth_mcp; "
             "print('✅ All imports OK')"
         ],
         cwd=project_dir,
@@ -123,6 +123,32 @@ def test_scaffold_and_run(temp_workspace: Path):
     expected_files = ["Dockerfile", "Makefile"]
     for fname in expected_files:
         assert (project_dir / fname).exists(), f"Missing expected file: {fname}"
+
+    # Step 6 — validate non-interactive adapter generation through the CLI entry point
+    result = subprocess.run(
+        [
+            "arclith-cli",
+            "add-adapter",
+            "--capability",
+            "repository",
+            "--adapter",
+            "duckdb",
+            "--entity",
+            "Plan",
+            "--path",
+            "data/plans.csv",
+            "--yes",
+        ],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"add-adapter failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert (project_dir / "config" / "adapters" / "outbound" / "duckdb.yaml").exists()
+    assert "repository: duckdb" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_scaffold_with_custom_entity_formats(temp_workspace: Path):

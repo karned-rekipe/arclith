@@ -42,8 +42,8 @@ echo "Step 4/5 — Validating critical imports..."
 uv run python -c "
 from pathlib import Path
 from arclith import load_config_dir, Arclith
-from e2e_test.adapters.input.fastapi.dependencies import require_auth
-from e2e_test.adapters.input.fastmcp.dependencies import require_auth_mcp
+from e2e_test.adapters.inbound.fastapi.dependencies import require_auth
+from e2e_test.adapters.inbound.fastmcp.dependencies import require_auth_mcp
 print('✅ All imports OK')
 " 2>&1 | grep "✅" || {
     echo -e "${RED}✗ FAIL: Import error${NC}"

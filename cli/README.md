@@ -36,11 +36,19 @@ Le projet généré utilise un layout `src/<package>/...` pour le code applicati
 
 ### `add-adapter` — Ajouter un adapter output
 
-Wizard interactif à lancer **depuis la racine du projet cible**. Scaffold le code Python et le fichier de configuration pour un nouvel adapter de persistance.
+Wizard interactif à lancer **depuis la racine du projet cible**. Scaffold le code Python et le fichier de configuration pour un nouvel adapter de persistance. Par défaut, la capacité cible est `repository`.
 
 ```bash
 cd my-recipe-service
 arclith-cli add-adapter
+```
+
+Mode direct, utile pour CI, scripts de migration ou commandes reproductibles :
+
+```bash
+arclith-cli add-adapter --adapter mongodb --entity Recipe --db-name my_recipe_service --yes
+arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activate --yes
+arclith-cli add-adapter --capability repository --adapter memory --entity Recipe --yes
 ```
 
 **Étapes du wizard :**
@@ -54,17 +62,42 @@ arclith-cli add-adapter
 4. **Activation** — met à jour `config/adapters/adapters.yaml` (`repository: <adapter>`)
 5. **Récapitulatif** — liste des fichiers créés ou remplacés avant confirmation
 
+| Option | Défaut | Description |
+|--------|--------|-------------|
+| `--capability` | `repository` | Capacité cible du catalogue standardisé |
+| `--adapter` / `-a` | interactif | `memory`, `mongodb` ou `duckdb` |
+| `--entity` / `-e` | auto si une seule entité | Entité cible, liste séparée par virgule acceptée |
+| `--all-entities` | `false` | Génère l'adapter pour toutes les entités détectées |
+| `--activate/--no-activate` | `--activate` | Met à jour ou non `repository: <adapter>` |
+| `--db-name` | nom du projet | Nom de base pour MongoDB |
+| `--multitenant/--single-tenant` | `--single-tenant` | Mode MongoDB multitenant |
+| `--path` | `data/` | Chemin DuckDB |
+| `--yes` / `-y` | `false` | Skip la confirmation et utilise les valeurs fournies ou par défaut |
+
 **Fichiers générés par entité :**
 
 ```
-config/adapters/output/<adapter>.yaml          # config scopée (mongodb/duckdb uniquement)
-src/<package>/adapters/output/<adapter>/__init__.py
-src/<package>/adapters/output/<adapter>/repository.py        # re-export
-src/<package>/adapters/output/<adapter>/repositories/<entity>_repository.py  # sous-classe à compléter
-src/<package>/infrastructure/containers/<entity>_container.py  # AdapterRegistry régénéré
+config/adapters/outbound/<adapter>.yaml          # config scopée (mongodb/duckdb uniquement)
+src/<package>/adapters/outbound/<adapter>/__init__.py
+src/<package>/adapters/outbound/<adapter>/repository.py        # re-export
+src/<package>/adapters/outbound/<adapter>/repositories/<entity>_repository.py  # sous-classe à compléter
+src/<package>/infrastructure/containers/<entity>_container.py  # RepositoryRegistry régénéré
 ```
 
 > ⚠️ `src/<package>/infrastructure/containers/<entity>_container.py` est **régénéré intégralement** si le fichier existe déjà — un avertissement est affiché dans le récapitulatif.
+
+---
+
+### `capabilities` — Lister le catalogue standardisé
+
+Affiche les capacités et adapters connus par la CLI.
+
+```bash
+arclith-cli capabilities
+arclith-cli capabilities --json
+```
+
+Le catalogue est la source de vérité pour les adapters supportés, leurs paramètres, leur chemin de configuration et la clé d'activation.
 
 ---
 
@@ -118,10 +151,10 @@ config/
   secrets.yaml                    # secrets: { resolver, mappings, vault, yaml }
   adapters/
     adapters.yaml                 # adapters: { logger, repository }   ← adapter actif
-    output/
+    outbound/
       mongodb.yaml                # adapters.mongodb: { db_name, multitenant }
       duckdb.yaml                 # adapters.duckdb: { path, multitenant }
-    input/
+    inbound/
       fastapi.yaml                # api: { host, port, reload }
       fastmcp.yaml                # mcp: { host, port }
       probe.yaml                  # probe: { host, port, enabled }

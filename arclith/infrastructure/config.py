@@ -55,7 +55,7 @@ class SoftDeleteSettings(BaseModel):
 
 class AdaptersSettings(BaseModel):
     logger: Literal["console"] = "console"
-    repository: Literal["memory", "mongodb", "duckdb"] = "memory"
+    repository: str = "memory"
     mongodb: MongoDBSettings | None = None
     duckdb: DuckDBSettings | None = None
     lm: LMSettings | None = None
@@ -163,7 +163,7 @@ class AppConfig(BaseModel):
     cache: CacheSettings = CacheSettings()
 
 
-_INPUT_ALIAS: dict[str, str] = {"fastapi": "api", "fastmcp": "mcp"}
+_INBOUND_ALIAS: dict[str, str] = {"fastapi": "api", "fastmcp": "mcp"}
 
 
 def _resolve_key_path(rel: Path) -> list[str]:
@@ -173,8 +173,8 @@ def _resolve_key_path(rel: Path) -> list[str]:
       config/app.yaml                      → ["app"]
       config/soft_delete.yaml              → ["soft_delete"]
       config/adapters/adapters.yaml        → ["adapters"]
-      config/adapters/output/<name>.yaml   → ["adapters", "<name>"]
-      config/adapters/input/<name>.yaml    → ["<alias>"] or ["<name>"]
+      config/adapters/outbound/<name>.yaml → ["adapters", "<name>"]
+      config/adapters/inbound/<name>.yaml  → ["<alias>"] or ["<name>"]
       config/<name>.yaml                   → ["<name>"]
     """
     parts = rel.with_suffix("").parts
@@ -189,12 +189,12 @@ def _resolve_key_path(rel: Path) -> list[str]:
             return ["adapters"]
         return []
     
-    # Three levels: config/adapters/{output|input}/<name>.yaml
+    # Three levels: config/adapters/{outbound|inbound}/<name>.yaml
     if len(parts) == 3 and parts[0] == "adapters":
-        if parts[1] == "output":
+        if parts[1] == "outbound":
             return ["adapters", parts[2]]
-        if parts[1] == "input":
-            return [_INPUT_ALIAS.get(parts[2], parts[2])]
+        if parts[1] == "inbound":
+            return [_INBOUND_ALIAS.get(parts[2], parts[2])]
     
     return []
 

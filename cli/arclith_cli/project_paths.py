@@ -13,8 +13,8 @@ class ProjectPaths:
         return self.package_root / "domain" / "models"
 
     @property
-    def adapters_output(self) -> Path:
-        return self.package_root / "adapters" / "output"
+    def adapters_outbound(self) -> Path:
+        return self.package_root / "adapters" / "outbound"
 
     @property
     def containers(self) -> Path:

@@ -17,7 +17,7 @@ def _config(repository: str) -> AppConfig:
 # ── register + build ──────────────────────────────────────────────────────────
 
 def test_register_and_build_memory():
-    from arclith.adapters.output.memory.repository import InMemoryRepository
+    from arclith.adapters.outbound.memory.repository import InMemoryRepository
 
     registry: AdapterRegistry[DummyEntity] = (
         AdapterRegistry()

@@ -25,8 +25,16 @@ class ProjectLayout:
     entrypoint: PurePosixPath = PurePosixPath("main.py")
     package_root: PurePosixPath = field(init=False)
     domain: PurePosixPath = field(init=False)
+    domain_models: PurePosixPath = field(init=False)
+    domain_ports: PurePosixPath = field(init=False)
+    inbound_ports: PurePosixPath = field(init=False)
+    outbound_ports: PurePosixPath = field(init=False)
     application: PurePosixPath = field(init=False)
+    application_use_cases: PurePosixPath = field(init=False)
+    application_services: PurePosixPath = field(init=False)
     adapters: PurePosixPath = field(init=False)
+    inbound_adapters: PurePosixPath = field(init=False)
+    outbound_adapters: PurePosixPath = field(init=False)
     infrastructure: PurePosixPath = field(init=False)
 
     def __post_init__(self) -> None:
@@ -41,8 +49,24 @@ class ProjectLayout:
         package_root = self.source_root / self.package_name
         object.__setattr__(self, "package_root", package_root)
         object.__setattr__(self, "domain", package_root / "domain")
+        object.__setattr__(self, "domain_models", package_root / "domain" / "models")
+        object.__setattr__(self, "domain_ports", package_root / "domain" / "ports")
+        object.__setattr__(self, "inbound_ports", package_root / "domain" / "ports" / "inbound")
+        object.__setattr__(self, "outbound_ports", package_root / "domain" / "ports" / "outbound")
         object.__setattr__(self, "application", package_root / "application")
+        object.__setattr__(
+            self,
+            "application_use_cases",
+            package_root / "application" / "use_cases",
+        )
+        object.__setattr__(
+            self,
+            "application_services",
+            package_root / "application" / "services",
+        )
         object.__setattr__(self, "adapters", package_root / "adapters")
+        object.__setattr__(self, "inbound_adapters", package_root / "adapters" / "inbound")
+        object.__setattr__(self, "outbound_adapters", package_root / "adapters" / "outbound")
         object.__setattr__(self, "infrastructure", package_root / "infrastructure")
 
     @classmethod
@@ -72,6 +96,24 @@ class ProjectLayout:
             "application": self.application,
             "adapters": self.adapters,
             "infrastructure": self.infrastructure,
+        }
+
+    def port_paths(self) -> dict[str, PurePosixPath]:
+        """Return canonical inbound/outbound port folders.
+
+        Inbound ports model use cases offered by the core. Outbound ports model dependencies the
+        core needs from the outside world, such as repositories, event buses, LLMs, or mailers.
+        """
+        return {
+            "inbound": self.inbound_ports,
+            "outbound": self.outbound_ports,
+        }
+
+    def adapter_paths(self) -> dict[str, PurePosixPath]:
+        """Return canonical inbound/outbound adapter folders."""
+        return {
+            "inbound": self.inbound_adapters,
+            "outbound": self.outbound_adapters,
         }
 
     def package_paths(self) -> tuple[PurePosixPath, ...]:

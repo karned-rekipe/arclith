@@ -1,8 +1,8 @@
 from typing import Generic, TypeVar
 
 from arclith.domain.models.entity import Entity
-from arclith.domain.ports.logger import Logger
-from arclith.domain.ports.repository import Repository
+from arclith.domain.ports.outbound.logger import Logger
+from arclith.domain.ports.outbound.repository import Repository
 
 T = TypeVar("T", bound=Entity)
 

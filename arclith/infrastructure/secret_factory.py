@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from arclith.domain.ports.secret_resolver import SecretResolver
+from arclith.domain.ports.outbound.secret_resolver import SecretResolver
 
 
 def build_secret_resolver(raw_config: dict, base_path: Path | None = None) -> SecretResolver | None:
@@ -25,23 +25,23 @@ def build_secret_resolver(raw_config: dict, base_path: Path | None = None) -> Se
                 vault_cfg: dict = secrets.get("vault") or {}
                 addr = os.environ.get("VAULT_ADDR") or vault_cfg.get("addr", "http://127.0.0.1:8200")
                 mount: str = vault_cfg.get("mount", "kv")
-                from arclith.adapters.output.vault.secret_adapter import VaultSecretAdapter
+                from arclith.adapters.outbound.vault.secret_adapter import VaultSecretAdapter
                 return VaultSecretAdapter(addr=addr, mount=mount)
             case "yaml":
                 yaml_cfg: dict = secrets.get("yaml") or {}
                 default_path = str(base_path / "secrets.yaml") if base_path else "secrets.yaml"
                 path: str = yaml_cfg.get("path", default_path)
-                from arclith.adapters.output.yaml.secret_adapter import YamlSecretAdapter
+                from arclith.adapters.outbound.yaml.secret_adapter import YamlSecretAdapter
                 return YamlSecretAdapter(path=path)
             case "env":
-                from arclith.adapters.output.env.secret_adapter import EnvSecretAdapter
+                from arclith.adapters.outbound.env.secret_adapter import EnvSecretAdapter
                 return EnvSecretAdapter()
             case _:
                 raise ValueError(f"Unknown secret resolver: '{name}'")
 
     if resolver_type == "chain":
         chain_names: list[str] = secrets.get("chain") or ["yaml"]
-        from arclith.adapters.output.chain.secret_adapter import ChainSecretAdapter
+        from arclith.adapters.outbound.chain.secret_adapter import ChainSecretAdapter
         return ChainSecretAdapter([_make(n) for n in chain_names])
 
     return _make(resolver_type)

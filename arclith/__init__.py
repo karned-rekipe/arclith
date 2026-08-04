@@ -1,19 +1,20 @@
 from typing import TYPE_CHECKING
 
-from arclith.adapters.input.schemas.base_schema import BaseSchema
-from arclith.adapters.output.memory.repository import InMemoryRepository
-from arclith.adapters.output.mongodb.config import MongoDBConfig
+from arclith.adapters.inbound.schemas.base_schema import BaseSchema
+from arclith.adapters.outbound.memory.repository import InMemoryRepository
+from arclith.adapters.outbound.mongodb.config import MongoDBConfig
 from arclith.application.services.base_service import BaseService
 from arclith.arclith import Arclith
 from arclith.domain.models.entity import Entity
-from arclith.domain.ports.logger import Logger, LogLevel
-from arclith.domain.ports.repository import Repository
+from arclith.domain.ports.outbound.logger import Logger, LogLevel
+from arclith.domain.ports.outbound.repository import Repository
 from arclith.infrastructure.adapter_registry import AdapterRegistry
 from arclith.infrastructure.config import AppConfig, LMSettings, export_config_yaml, load_config, load_config_dir, load_config_file
 from arclith.infrastructure.project_layout import ProjectLayout, ProjectLayoutKind, canonical_project_layout
+from arclith.infrastructure.repository_factory import RepositoryRegistry, build_repository, default_repository_registry
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checkers only
-    from arclith.adapters.output.console.logger import ConsoleLogger as _ConsoleLogger, ConsoleLogger  # noqa: F401
+    from arclith.adapters.outbound.console.logger import ConsoleLogger as _ConsoleLogger, ConsoleLogger  # noqa: F401
 
 __all__ = [
     "Entity",
@@ -32,6 +33,9 @@ __all__ = [
     "load_config_file",
     "export_config_yaml",
     "AdapterRegistry",
+    "RepositoryRegistry",
+    "build_repository",
+    "default_repository_registry",
     "ProjectLayout",
     "ProjectLayoutKind",
     "canonical_project_layout",
@@ -47,7 +51,7 @@ def __getattr__(name):
     configuration) from being imported merely by doing ``import arclith``.
     """
     if name == "ConsoleLogger":
-        from arclith.adapters.output.console.logger import ConsoleLogger as _ConsoleLoggerRuntime
+        from arclith.adapters.outbound.console.logger import ConsoleLogger as _ConsoleLoggerRuntime
 
         globals()["ConsoleLogger"] = _ConsoleLoggerRuntime
         return _ConsoleLoggerRuntime

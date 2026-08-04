@@ -121,7 +121,7 @@ transport stdio est supporté en production. Le debug local passe par HTTP (127.
 Keycloak JWKS, vérifier la licence, résoudre le tenant. La seule différence est la façon d'accéder aux headers HTTP
 (`Request` vs `fastmcp.Context`).
 
-**Décision :** extraire le cœur du pipeline dans `adapters/input/auth_pipeline.py` → `run_auth_pipeline(headers, ...)`.
+**Décision :** extraire le cœur du pipeline dans `adapters/inbound/auth_pipeline.py` → `run_auth_pipeline(headers, ...)`.
 Les adapters FastAPI et FastMCP sont de simples wrappers qui extraient les headers selon leur transport puis appellent
 `run_auth_pipeline`. Signatures identiques pour `make_inject_tenant_uri`.
 
@@ -135,7 +135,7 @@ devrait être appliqué deux fois.
 - `fastapi/dependencies.py` et `fastmcp/dependencies.py` : wrappers ~10 lignes.
 - `fastapi/auth.py` et `fastmcp/auth.py` : protection sélective opt-in (par route ou par tool).
 - `Arclith.auth_dependency(transport)` : factory qui construit le bon `require_auth` depuis la config.
-- Tests du pipeline mutualisé : un seul fichier `tests/units/adapters/input/test_auth_pipeline.py` (à créer — SK-AUTH-01).
+- Tests du pipeline mutualisé : un seul fichier `tests/units/adapters/inbound/test_auth_pipeline.py` (à créer — SK-AUTH-01).
 
 
 ---
@@ -166,6 +166,42 @@ aucun changement de contrainte dans `pyproject.toml`.
 - `Arclith.run_api()` — `uvicorn.run(..., ws="websockets-sansio")`
 - `ProbeServer.start_in_background()` — `uvicorn.Config(..., ws="websockets-sansio")`
 - `websockets_impl.py` (legacy) n'est jamais chargé par arclith.
+
+---
+
+## ADR-010 — Layout hexagonal inbound/outbound et adapters enregistrables
+
+**Date :** 2026-08-03
+
+**Contexte :** Arclith doit devenir une base générique pour des microservices et agents qui pourront
+utiliser FastAPI, FastMCP, LangGraph, Pydantic AI ou d'autres frameworks. Le coeur applicatif ne doit
+jamais dépendre de ces adapters. Côté persistence, MongoDB est déjà disponible, mais d'autres adapters
+comme MariaDB, PostgreSQL ou des event stores doivent pouvoir être ajoutés sans modifier le framework.
+
+**Décision :** formaliser le vocabulaire hexagonal cible:
+
+- `domain/ports/inbound` pour les capacités exposées par le coeur;
+- `domain/ports/outbound` pour les dépendances appelées par le coeur;
+- `adapters/inbound` pour HTTP, MCP, CLI, workers, agents;
+- `adapters/outbound` pour repositories, LLM, cache, secrets, events.
+
+Les anciens noms `input` et `output` ne sont pas conservés: Arclith est encore en phase
+initiale et cette refonte choisit une rupture nette plutôt qu'une compatibilité temporaire.
+Les adapters de repositories ne sont plus sélectionnés par un `match` central fermé: ils passent par un
+`RepositoryRegistry` avec adapters built-in enregistrés par défaut.
+
+**Pourquoi pas l'alternative évidente (ajouter MariaDB dans le switch existant) :**
+Un switch central oblige Arclith à connaître chaque adapter concret. Cela casse l'extension naturelle
+du framework, mélange le coeur d'assemblage et les drivers, et recrée de la dette à chaque nouvelle
+technologie.
+
+**Conséquence sur le code :**
+
+- `AdaptersSettings.repository` accepte un nom libre.
+- `build_repository(..., registry=...)` peut recevoir un registry applicatif.
+- `Arclith.repository(..., registry=...)` expose ce point d'extension.
+- `ProjectLayout` expose uniquement les chemins canoniques inbound/outbound.
+- Les futurs adapters MariaDB/PostgreSQL peuvent être livrés comme packages ou modules séparés.
 
 ---
 

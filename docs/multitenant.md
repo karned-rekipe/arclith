@@ -95,11 +95,11 @@ cache:
 ## Câblage dans le container
 
 ```python
-from arclith.adapters.input.fastapi.dependencies import make_inject_tenant_uri
-from arclith.adapters.input.jwt.decoder import JWTDecoder
-from arclith.adapters.input.license.validator import RoleLicenseValidator
-from arclith.adapters.output.memory.cache_adapter import MemoryCacheAdapter
-from arclith.adapters.output.vault.tenant_adapter import VaultTenantResolver
+from arclith.adapters.inbound.fastapi.dependencies import make_inject_tenant_uri
+from arclith.adapters.inbound.jwt.decoder import JWTDecoder
+from arclith.adapters.inbound.license.validator import RoleLicenseValidator
+from arclith.adapters.outbound.memory.cache_adapter import MemoryCacheAdapter
+from arclith.adapters.outbound.vault.tenant_adapter import VaultTenantResolver
 
 cache = MemoryCacheAdapter()  # ou RedisCacheAdapter(url)
 

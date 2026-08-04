@@ -1,4 +1,4 @@
-from arclith.domain.ports.logger import LogLevel
+from arclith.domain.ports.outbound.logger import LogLevel
 
 
 def test_debug(logger):

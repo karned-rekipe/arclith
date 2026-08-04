@@ -49,7 +49,7 @@
 
 ### Added
 
-- **JWT auth pipeline** — `run_auth_pipeline()` in `adapters/input/auth_pipeline.py` : seule source de vérité pour la logique JWT (Bearer extraction → JWKS decode → licence → tenant resolution). Partagé par FastAPI et FastMCP.
+- **JWT auth pipeline** — `run_auth_pipeline()` in `adapters/inbound/auth_pipeline.py` : seule source de vérité pour la logique JWT (Bearer extraction → JWKS decode → licence → tenant resolution). Partagé par FastAPI et FastMCP.
 - **`make_require_auth()`** — protection sélective opt-in des routes FastAPI (HTTPBearer → bouton Authorize Swagger). Exposé via `arclith.auth_dependency()`.
 - **`make_require_auth_tool()`** — protection sélective opt-in des tools MCP. Exposé via `arclith.auth_dependency(transport="mcp")`.
 - **Multitenant générique** — `TenantContext: dict[adapter_name → AdapterTenantCoords(params)]` : entièrement générique, sans hypothèse sur les clés (MongoDB, S3, MariaDB, Redis, …).
@@ -101,13 +101,13 @@
 ### Added
 
 - **ProbeServer** — Observabilité production-ready sur port dédié
-  - `adapters/input/probes/server.py` : Starlette app isolée (daemon thread + asyncio loop)
+  - `adapters/inbound/probes/server.py` : Starlette app isolée (daemon thread + asyncio loop)
   - Endpoints : `/health`, `/ready`, `/info`, `/metrics` (JSON)
   - `Arclith.add_readiness_check()` : health checks custom
   - `Arclith.run_with_probes(*runners, transports)` : orchestration multi-transport
 
 - **Transport-aware Metrics** — Métriques par transport avec latencies (P50/P95/P99)
-  - `adapters/input/probes/metrics.py` : `MetricsRegistry` (thread-safe)
+  - `adapters/inbound/probes/metrics.py` : `MetricsRegistry` (thread-safe)
   - `ApiMetricsCollector` : middleware Starlette ASGI (status/method/endpoint)
   - `McpMetricsCollector` : wrapper `FunctionTool.fn` (tool_name/success/error)
   - `EventBusCollectorProtocol` : Protocol pour futures implémentations
@@ -139,7 +139,7 @@
 ### Added
 
 - **Standardized API Response Wrappers** — Richardson Maturity Model niveau 2-3 (HTTP + HATEOAS)
-- `adapters/input/schemas/response_wrapper.py` : nouveaux schemas pour des réponses API cohérentes :
+- `adapters/inbound/schemas/response_wrapper.py` : nouveaux schemas pour des réponses API cohérentes :
   - `ApiResponse[T]` : wrapper générique avec `status`, `data`, `error`, `metadata`
   - `PaginatedResponse[T]` : wrapper pour listes paginées avec `PaginationInfo`
   - `ResponseMetadata` : `request_id` (UUID v4), `timestamp` (UTC), `version`, `duration_ms`, `links` (HATEOAS)
@@ -149,7 +149,7 @@
   - `success_response(data, metadata=None, links=None) -> ApiResponse[T]`
   - `error_response(error_type, message, field=None, metadata=None) -> ApiResponse[None]`
   - `paginated_response(data, total, page=1, per_page=20, ...) -> PaginatedResponse[T]`
-- `adapters/input/schemas/__init__.py` : exports des nouveaux types et factories
+- `adapters/inbound/schemas/__init__.py` : exports des nouveaux types et factories
 
 ### Standards
 
@@ -170,10 +170,10 @@
 - `domain/ports/secret_resolver.py` : port `SecretResolver` (ABC) — contrat pour tous les résolveurs de secrets.
 - `infrastructure/secret_factory.py` : `build_secret_resolver()` — construit le résolveur depuis le dict de config brut (avant validation Pydantic). Supporte `vault`, `yaml`, `env`, `chain`.
 - `infrastructure/secret_loader.py` : `resolve_dict_secrets()` — injecte les secrets dans le dict de config via leur chemin dot-notation avant la validation `AppConfig`.
-- `adapters/output/vault/secret_adapter.py` : `VaultSecretAdapter` — lit depuis HashiCorp Vault KV v2. Token via `VAULT_TOKEN` ou `~/.vault-token`. Retourne `None` silencieusement si Vault est injoignable (fallback possible via chain).
-- `adapters/output/yaml/secret_adapter.py` : `YamlSecretAdapter` — lit depuis un `secrets.yaml` gitignored (fallback dev local).
-- `adapters/output/env/secret_adapter.py` : `EnvSecretAdapter` — lit depuis les variables d'environnement (`field.path` → `FIELD_PATH`).
-- `adapters/output/chain/secret_adapter.py` : `ChainSecretAdapter` — tente chaque résolveur dans l'ordre, retourne la première valeur non-`None`.
+- `adapters/outbound/vault/secret_adapter.py` : `VaultSecretAdapter` — lit depuis HashiCorp Vault KV v2. Token via `VAULT_TOKEN` ou `~/.vault-token`. Retourne `None` silencieusement si Vault est injoignable (fallback possible via chain).
+- `adapters/outbound/yaml/secret_adapter.py` : `YamlSecretAdapter` — lit depuis un `secrets.yaml` gitignored (fallback dev local).
+- `adapters/outbound/env/secret_adapter.py` : `EnvSecretAdapter` — lit depuis les variables d'environnement (`field.path` → `FIELD_PATH`).
+- `adapters/outbound/chain/secret_adapter.py` : `ChainSecretAdapter` — tente chaque résolveur dans l'ordre, retourne la première valeur non-`None`.
 - `infrastructure/config.py` : `SecretsSettings` (section `secrets:` dans `config.yaml`) + intégration dans `load_config()`.
 - `pyproject.toml` : optional extra `vault = ["hvac>=2.3.0"]` ; `hvac` ajouté à l'extra `all`.
 - `arclith/__init__.py` : `SecretResolver`, `build_secret_resolver`, `resolve_dict_secrets` exportés.
@@ -238,7 +238,7 @@ secrets:
 ### Changed
 
 - `application/use_cases` (`create`, `update`, `delete`, `duplicate`) : `dataclasses.replace` remplacé par `model_copy`.
-- `adapters/output` (memory, mongodb, duckdb) : `asdict`, `fields`, `replace` remplacés par les équivalents Pydantic.
+- `adapters/outbound` (memory, mongodb, duckdb) : `asdict`, `fields`, `replace` remplacés par les équivalents Pydantic.
 - `MongoDBSettings` / `DuckDBSettings` dans `AppConfig` : `collection_name` optionnel, validator DuckDB accepte les répertoires.
 
 ---

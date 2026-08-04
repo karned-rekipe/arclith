@@ -25,9 +25,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve sample template ref
+        id: sample-ref
+        run: |
+          ref="${GITHUB_HEAD_REF:-main}"
+          if git ls-remote --exit-code --heads https://github.com/karned-rekipe/_sample.git "$ref" >/dev/null 2>&1; then
+            echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
         with:
           repository: karned-rekipe/_sample
+          ref: ${{ steps.sample-ref.outputs.ref }}
           path: .templates/_sample
 
       - uses: astral-sh/setup-uv@v5
@@ -76,6 +87,6 @@ jobs:
 
           # Install and validate
           uv sync --no-dev
-          uv run python -c "import main; from test_smoke.adapters.input.fastapi.dependencies import require_auth; from test_smoke.adapters.input.fastmcp.dependencies import require_auth_mcp; print('imports ok')"
+          uv run python -c "import main; from test_smoke.adapters.inbound.fastapi.dependencies import require_auth; from test_smoke.adapters.inbound.fastmcp.dependencies import require_auth_mcp; print('imports ok')"
 
           echo "✅ Smoke test passed"
