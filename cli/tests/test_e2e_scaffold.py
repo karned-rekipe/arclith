@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -11,6 +12,13 @@ from pathlib import Path
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _framework_version() -> str:
+    pyproject = (_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    match = re.search(r'(?m)^version\s*=\s*"([^"]+)"', pyproject)
+    assert match is not None, "Framework version missing from root pyproject.toml"
+    return match.group(1)
 
 
 @pytest.fixture
@@ -76,6 +84,10 @@ def test_scaffold_and_run(temp_workspace: Path):
         "it should use stable PyPI arclith"
     )
     assert "arclith[" in pyproject_content, "arclith dependency missing"
+    assert f">={_framework_version()}" in pyproject_content, (
+        "Generated project must require the current framework release. "
+        "Otherwise a fresh scaffold can resolve an older PyPI package that does not match the template."
+    )
     _inject_local_arclith_source(project_dir)
     
     # Step 3 — uv sync
