@@ -38,8 +38,12 @@ cd ~/Perso/projets/demo
 
 arclith-cli new Ingredient pantry-agent --port 8100
 cd pantry-agent
-uv sync --frozen
+uv sync
 ```
+
+Le premier `uv sync` cree `uv.lock` pour le projet genere. Ensuite, les commandes
+`uv run --frozen ...` peuvent etre utilisees pour garantir que l'environnement reste
+strictement conforme au lockfile.
 
 Le projet genere suit le layout canonique:
 

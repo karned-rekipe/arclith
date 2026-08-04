@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+---
+
+## [0.11.0] — 2026-08-04
+
 ### Added
 
 - **Adapter repository MariaDB** — extra optionnel `arclith[mariadb]`, settings `adapters.mariadb`, factory par defaut et repository generique JSON par entite.
@@ -17,6 +21,7 @@
 - **MariaDB multitenant** — `adapters.mariadb` peut etre valide sans `url` ni `database` quand `multitenant=true`; les coordonnees viennent du contexte tenant.
 - **Parametres adapter CLI** — les `--param key=value` inconnus sont rejetes meme pour les adapters sans parametre catalogue.
 - **MariaDB tenant params** — le port tenant est trimme et borne a `1..65535`; les mots de passe sont preserves dans `with_tenant_params()`.
+- **Quickstart scaffold** — le premier `uv sync` n'utilise plus `--frozen`, car `arclith-cli` supprime volontairement `uv.lock` dans les projets generes.
 
 ---
 
