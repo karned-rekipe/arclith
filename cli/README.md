@@ -111,6 +111,9 @@ son agent. Comme `fastapi` et `fastmcp`, LangGraph est configuré par son nom pr
 pour tester les agents. Une `LANGSMITH_API_KEY` déjà présente est conservée si aucune nouvelle valeur
 n'est fournie.
 
+Parcours complet avec entite, API, LangGraph, LangSmith et LM Studio:
+[`docs/agent-quickstart.md`](../docs/agent-quickstart.md).
+
 ---
 
 ### `capabilities` — Lister le catalogue standardisé
