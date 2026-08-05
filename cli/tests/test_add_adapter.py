@@ -194,14 +194,47 @@ def test_add_langsmith_skips_missing_empty_api_key(tmp_path: Path) -> None:
     assert "LANGSMITH_PROJECT=agent-tests" in env
 
 
+def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="agent",
+        adapter="langgraph",
+        adapter_params={"graph_name": "todo_agent"},
+        yes=True,
+    )
+
+    package_root = project_dir / "src" / "demo_service"
+    langgraph_json = (project_dir / "langgraph.json").read_text(encoding="utf-8")
+    langgraph_config = (project_dir / "config" / "adapters" / "inbound" / "langgraph.yaml").read_text(
+        encoding="utf-8"
+    )
+    agent_file = package_root / "adapters" / "inbound" / "langgraph" / "agent.py"
+
+    assert (project_dir / "config" / "adapters" / "inbound" / "langgraph.yaml").exists()
+    assert (package_root / "adapters" / "inbound" / "langgraph" / "__init__.py").exists()
+    assert agent_file.exists()
+    assert '"todo_agent": "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"' in langgraph_json
+    assert "agent: langgraph" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert 'name: "todo_agent"' in langgraph_config
+    assert 'entrypoint: "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"' in langgraph_config
+    assert "agent = arclith.langgraph(AgentState, register_agent, name=\"todo_agent\")" in agent_file.read_text(
+        encoding="utf-8"
+    )
+    assert not (package_root / "adapters" / "outbound" / "langgraph").exists()
+
+
 def test_add_non_entity_adapter_rejects_entity_selection(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
 
     with pytest.raises(typer.Exit):
         add_adapter_cmd(
             project_dir=project_dir,
-            capability_name="observability",
-            adapter="langsmith",
+            capability_name="agent",
+            adapter="langgraph",
             entity_names=["Widget"],
             yes=True,
         )

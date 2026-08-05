@@ -78,6 +78,13 @@ class LangSmithSettings(BaseModel):
     langgraph_api_min_version: str = "0.11.0"
 
 
+class LangGraphSettings(BaseModel):
+    name: str = "agent"
+    graph: str = "agent"
+    entrypoint: str
+    env: str = ".env"
+
+
 class SoftDeleteSettings(BaseModel):
     retention_days: float | None = None
 
@@ -92,6 +99,7 @@ class SoftDeleteSettings(BaseModel):
 class AdaptersSettings(BaseModel):
     logger: Literal["console"] = "console"
     repository: str = "memory"
+    agent: str = "none"
     observability: str = "none"
     mongodb: MongoDBSettings | None = None
     duckdb: DuckDBSettings | None = None
@@ -200,12 +208,19 @@ class AppConfig(BaseModel):
     soft_delete: SoftDeleteSettings = SoftDeleteSettings()
     api: ApiSettings = ApiSettings()
     mcp: McpSettings = McpSettings()
+    langgraph: LangGraphSettings | None = None
     probe: ProbeSettings = ProbeSettings()
     http: HttpSettings = HttpSettings()
     keycloak: KeycloakSettings | None = None
     tenant: TenantSettings | None = None
     license: LicenseSettings | None = None
     cache: CacheSettings = CacheSettings()
+
+    @model_validator(mode="after")
+    def validate_agent_config(self) -> "AppConfig":
+        if self.adapters.agent == "langgraph" and self.langgraph is None:
+            raise ValueError("agent=langgraph mais aucune section [langgraph] dans config.yaml")
+        return self
 
 
 _INBOUND_ALIAS: dict[str, str] = {"fastapi": "api", "fastmcp": "mcp"}

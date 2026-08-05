@@ -34,7 +34,7 @@ Le projet généré utilise un layout `src/<package>/...` pour le code applicati
 
 ---
 
-### `add-adapter` — Ajouter un adapter output
+### `add-adapter` — Ajouter un adapter
 
 Wizard interactif à lancer **depuis la racine du projet cible**. Scaffold le code Python et/ou les fichiers de configuration pour un nouvel adapter. Par défaut, la capacité cible est `repository`.
 
@@ -49,27 +49,29 @@ Mode direct, utile pour CI, scripts de migration ou commandes reproductibles :
 arclith-cli add-adapter --adapter mongodb --entity Recipe --db-name my_recipe_service --yes
 arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activate --yes
 arclith-cli add-adapter --adapter mariadb --entity Recipe --param database=my_recipe_service --param user=app --yes
+arclith-cli add-adapter --capability agent --adapter langgraph --param graph_name=recipe_agent --yes
 arclith-cli add-adapter --capability observability --adapter langsmith
 arclith-cli add-adapter --capability repository --adapter memory --entity Recipe --yes
 ```
 
 **Étapes du wizard :**
 
-1. **Type d'adapter** — selon la capacité : `memory` · `mongodb` · `duckdb` · `mariadb` · `langsmith`
-2. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour `observability/langsmith`
+1. **Type d'adapter** — selon la capacité : `memory` · `mongodb` · `duckdb` · `mariadb` · `langgraph` · `langsmith`
+2. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour `agent/langgraph` et `observability/langsmith`
 3. **Paramètres** — questions spécifiques à l'adapter :
    - `mongodb` → `db_name`, `multitenant`
    - `duckdb` → `path`
    - `mariadb` → `host`, `port`, `database`, `user`, `driver`, `table_prefix`
+   - `langgraph` → `graph_name`
    - `langsmith` → `tracing`, `project`, `endpoint`, `LANGSMITH_API_KEY`
    - `memory` → aucun paramètre
-4. **Activation** — met à jour `config/adapters/adapters.yaml` (`repository: <adapter>` ou `observability: langsmith`)
+4. **Activation** — met à jour `config/adapters/adapters.yaml` (`repository: <adapter>`, `agent: langgraph` ou `observability: langsmith`)
 5. **Récapitulatif** — liste des fichiers créés ou remplacés avant confirmation
 
 | Option | Défaut | Description |
 |--------|--------|-------------|
-| `--capability` | `repository` | Capacité cible du catalogue standardisé (`repository`, `observability`) |
-| `--adapter` / `-a` | interactif | Adapter du catalogue : `memory`, `mongodb`, `duckdb`, `mariadb`, `langsmith` |
+| `--capability` | `repository` | Capacité cible du catalogue standardisé (`repository`, `agent`, `observability`) |
+| `--adapter` / `-a` | interactif | Adapter du catalogue : `memory`, `mongodb`, `duckdb`, `mariadb`, `langgraph`, `langsmith` |
 | `--entity` / `-e` | auto si une seule entité | Entité cible, liste séparée par virgule acceptée |
 | `--all-entities` | `false` | Génère l'adapter pour toutes les entités détectées |
 | `--activate/--no-activate` | `--activate` | Met à jour ou non `repository: <adapter>` |
@@ -91,17 +93,21 @@ src/<package>/infrastructure/containers/<entity>_container.py  # RepositoryRegis
 
 > ⚠️ `src/<package>/infrastructure/containers/<entity>_container.py` est **régénéré intégralement** si le fichier existe déjà — un avertissement est affiché dans le récapitulatif.
 
-**LangSmith / tests agent :**
+**LangGraph / LangSmith :**
 
 ```bash
+uv add "arclith[langgraph]"
+arclith-cli add-adapter --capability agent --adapter langgraph
 arclith-cli add-adapter --capability observability --adapter langsmith
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
 
-La CLI génère `config/adapters/outbound/langsmith.yaml`, met à jour `.env` et ajoute `.env` au
-`.gitignore` si besoin. LangSmith Studio devient l'endroit standard pour tester les agents. Le
-serveur LangGraph doit lire `.env` via `langgraph.json`. Une `LANGSMITH_API_KEY` déjà présente est
-conservée si aucune nouvelle valeur n'est fournie.
+L'adapter `agent/langgraph` génère `langgraph.json`, `config/adapters/inbound/langgraph.yaml` et
+`src/<package>/adapters/inbound/langgraph/agent.py`. Le projet ne modifie ensuite que ce fichier pour
+son agent. L'adapter `observability/langsmith` génère `config/adapters/outbound/langsmith.yaml`, met
+à jour `.env` et ajoute `.env` au `.gitignore` si besoin. LangSmith Studio devient l'endroit standard
+pour tester les agents. Une `LANGSMITH_API_KEY` déjà présente est conservée si aucune nouvelle valeur
+n'est fournie.
 
 ---
 

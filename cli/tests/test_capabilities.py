@@ -37,6 +37,25 @@ def test_observability_capability_catalog_declares_langsmith() -> None:
     ]
 
 
+def test_agent_capability_catalog_declares_langgraph() -> None:
+    capability = get_capability("agent")
+
+    assert capability is not None
+    assert capability.layer == "inbound"
+    assert capability.activation_config_key == "agent"
+    assert capability.adapter_names() == ("langgraph",)
+    langgraph = capability.get_adapter("langgraph")
+    assert langgraph is not None
+    assert langgraph.config_path == "config/adapters/inbound/langgraph.yaml"
+    assert langgraph.entity_scoped is False
+    assert [file_template.path for file_template in langgraph.file_templates] == [
+        "langgraph.json",
+        "{package_path}/adapters/inbound/langgraph/__init__.py",
+        "{package_path}/adapters/inbound/langgraph/agent.py",
+    ]
+    assert [parameter.name for parameter in langgraph.parameters] == ["graph_name"]
+
+
 def test_repository_adapter_specs_include_config_and_parameters() -> None:
     capability = get_capability("repository")
     assert capability is not None
@@ -70,6 +89,8 @@ def test_capability_catalog_is_json_serializable() -> None:
 
     assert "repository" in encoded
     assert "mongodb" in encoded
+    assert "agent" in encoded
+    assert "langgraph" in encoded
     assert "observability" in encoded
     assert "langsmith" in encoded
 
@@ -86,5 +107,7 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     payload = json.loads(result.stdout)
     assert payload[0]["name"] == "repository"
     assert [adapter["name"] for adapter in payload[0]["adapters"]] == ["memory", "mongodb", "duckdb", "mariadb"]
-    assert payload[1]["name"] == "observability"
-    assert [adapter["name"] for adapter in payload[1]["adapters"]] == ["langsmith"]
+    assert payload[1]["name"] == "agent"
+    assert [adapter["name"] for adapter in payload[1]["adapters"]] == ["langgraph"]
+    assert payload[2]["name"] == "observability"
+    assert [adapter["name"] for adapter in payload[2]["adapters"]] == ["langsmith"]

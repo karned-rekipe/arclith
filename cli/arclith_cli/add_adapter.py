@@ -407,6 +407,11 @@ def _list_generated_files(
         gitignore = project_dir / ".gitignore"
         files.append((gitignore, "mis à jour" if gitignore.exists() else "créé"))
 
+    template_vars = _file_template_vars(project_dir, paths, adapter, params={})
+    for file_template in adapter.file_templates:
+        path = project_dir / render(file_template.path, template_vars)
+        files.append((path, "remplacé ⚠" if path.exists() else "créé"))
+
     for entity in entities:
         base = paths.adapters_outbound / adapter.name
         repo_dir = base / "repositories"
@@ -438,6 +443,8 @@ def _generate(
     if adapter.name not in installed:
         installed = sorted(installed + [adapter.name])
 
+    params = {**params, **_file_template_vars(project_dir, paths, adapter, params=params)}
+
     if adapter.has_config() and adapter.config_path:
         cfg_path = project_dir / adapter.config_path
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
@@ -449,6 +456,12 @@ def _generate(
         _merge_env_file(env_path, _parse_env_template(render(adapter.env_template, params)))
         _ensure_env_is_ignored(project_dir)
         console.print(f"[green]✓[/green] {env_path.relative_to(project_dir)}")
+
+    for file_template in adapter.file_templates:
+        generated_path = project_dir / render(file_template.path, params)
+        generated_path.parent.mkdir(parents=True, exist_ok=True)
+        generated_path.write_text(render(file_template.template, params), encoding="utf-8")
+        console.print(f"[green]✓[/green] {generated_path.relative_to(project_dir)}")
 
     import_vars = _import_vars(paths)
     for entity in entities:
@@ -498,6 +511,25 @@ def _import_vars(paths: ProjectPaths) -> dict[str, str]:
         "application_import": paths.import_path("application"),
         "adapters_import": paths.import_path("adapters"),
         "infrastructure_import": paths.import_path("infrastructure"),
+    }
+
+
+def _file_template_vars(
+    project_dir: Path,
+    paths: ProjectPaths,
+    adapter: AdapterSpec,
+    params: dict[str, Any],
+) -> dict[str, str]:
+    package_path = paths.package_root.relative_to(project_dir).as_posix()
+    if package_path == ".":
+        langgraph_entrypoint = f"./adapters/inbound/{adapter.name}/agent.py:agent"
+    else:
+        langgraph_entrypoint = f"./{package_path}/adapters/inbound/{adapter.name}/agent.py:agent"
+    graph_name = str(params.get("graph_name") or "agent")
+    return {
+        "package_path": package_path,
+        "langgraph_entrypoint": langgraph_entrypoint,
+        "graph_name": graph_name,
     }
 
 

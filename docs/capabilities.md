@@ -58,6 +58,31 @@ LangGraph doit lire `.env` via `langgraph.json`; `.env` contient `LANGSMITH_API_
 `LANGSMITH_TRACING`, `LANGSMITH_PROJECT` et `LANGSMITH_ENDPOINT`. La cle reste locale et ne doit pas
 etre commitee.
 
+### `agent`
+
+Capacite inbound pour exposer les cas d'usage metier via un runtime agent.
+
+Adapter disponible:
+
+- `langgraph`: entrypoint LangGraph Studio base sur la tuyauterie Arclith.
+
+Activation:
+
+```yaml
+agent: langgraph
+```
+
+L'adapter genere:
+
+- `langgraph.json`;
+- `config/adapters/inbound/langgraph.yaml`;
+- `src/<package>/adapters/inbound/langgraph/agent.py`.
+
+Le fichier `agent.py` est le seul point a modifier pour un nouveau projet agent: l'etat, les noeuds,
+les transitions et les appels aux cas d'usage applicatifs. Arclith garde le cablage recurrent:
+chargement de configuration, creation du `StateGraph`, compilation, entrypoint Studio et lecture de
+`.env`.
+
 ## Ajouter un adapter
 
 Le chemin standard est:
@@ -89,6 +114,10 @@ arclith-cli add-adapter
 Pour brancher le banc de test agent LangSmith:
 
 ```bash
+arclith-cli add-adapter \
+  --capability agent \
+  --adapter langgraph
+
 arclith-cli add-adapter \
   --capability observability \
   --adapter langsmith

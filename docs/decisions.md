@@ -214,10 +214,12 @@ Le coeur applicatif enregistre des donnees deterministes via des cas d'usage; l'
 intention en commande structuree a la frontiere. Le POC todo a montre qu'une UI dediee n'est pas
 necessaire si LangGraph Studio et LangSmith couvrent les tests conversationnels et les traces.
 
-**Decision :** declarer l'observabilite agent comme une capacite outbound `observability`, avec un
-adapter standard `langsmith`. La CLI demande les informations LangSmith au moment du
-`add-adapter`, genere `config/adapters/outbound/langsmith.yaml`, met a jour `.env`, et ignore `.env`
-dans Git. LangSmith Studio devient l'endroit standard pour tester les agents.
+**Decision :** declarer le runtime agent comme une capacite inbound `agent`, avec un adapter
+standard `langgraph`, et declarer l'observabilite agent comme une capacite outbound
+`observability`, avec un adapter standard `langsmith`. La CLI genere le point d'entree LangGraph,
+`langgraph.json` et le cablage `Arclith.langgraph(...)`, puis demande les informations LangSmith au
+moment du `add-adapter`, genere `config/adapters/outbound/langsmith.yaml`, met a jour `.env`, et
+ignore `.env` dans Git. LangSmith Studio devient l'endroit standard pour tester les agents.
 
 **Pourquoi pas l'alternative evidente (une UI de test generee par Arclith) :**
 Une UI de test serait une surface produit supplementaire a maintenir, sans porter le metier. Elle
@@ -228,10 +230,14 @@ tests agent.
 **Consequence sur le code :**
 
 - `CapabilitySpec` supporte les adapters non scopes par entite et les templates `.env`.
+- `arclith-cli add-adapter --capability agent --adapter langgraph` genere l'entrypoint agent
+  inbound et laisse le code specifique dans `src/<package>/adapters/inbound/langgraph/agent.py`.
 - `arclith-cli add-adapter --capability observability --adapter langsmith` demande les parametres
   LangSmith et n'essaie pas de generer un repository par entite.
 - `AdaptersSettings.observability` active l'observabilite sans coupler le coeur aux SDK agent.
-- Le serveur LangGraph local doit lire `.env` via `langgraph.json`.
+- `Arclith.langgraph(...)` standardise la creation et la compilation du graphe sans exposer cette
+  plomberie a chaque projet.
+- Le serveur LangGraph local lit `.env` via le `langgraph.json` genere.
 
 ---
 
