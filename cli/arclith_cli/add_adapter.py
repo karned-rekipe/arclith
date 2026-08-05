@@ -538,12 +538,13 @@ def _merge_env_file(env_path: Path, updates: dict[str, str]) -> None:
 
     for line in existing_lines:
         stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "=" not in line:
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
             merged_lines.append(line)
             continue
-        key, _value = line.split("=", 1)
+        key_raw, existing_value = stripped.split("=", 1)
+        key = key_raw.strip()
         if key in updates:
-            if not updates[key] and _value:
+            if not updates[key] and existing_value.strip():
                 merged_lines.append(line)
             else:
                 merged_lines.append(f"{key}={updates[key]}")
@@ -552,7 +553,7 @@ def _merge_env_file(env_path: Path, updates: dict[str, str]) -> None:
             merged_lines.append(line)
 
     for key, value in updates.items():
-        if key not in seen:
+        if key not in seen and value:
             merged_lines.append(f"{key}={value}")
 
     env_path.write_text("\n".join(merged_lines).rstrip("\n") + "\n", encoding="utf-8")

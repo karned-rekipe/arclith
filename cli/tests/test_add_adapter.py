@@ -152,7 +152,10 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(tmp_path: Path)
 
 def test_add_langsmith_preserves_existing_api_key_when_missing(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
-    (project_dir / ".env").write_text("LANGSMITH_API_KEY=existing-key\n", encoding="utf-8")
+    (project_dir / ".env").write_text(
+        "LANGSMITH_API_KEY=existing-key\nLANGSMITH_PROJECT = old-project\n",
+        encoding="utf-8",
+    )
 
     add_adapter_cmd(
         project_dir=project_dir,
@@ -167,6 +170,27 @@ def test_add_langsmith_preserves_existing_api_key_when_missing(tmp_path: Path) -
 
     env = (project_dir / ".env").read_text(encoding="utf-8")
     assert "LANGSMITH_API_KEY=existing-key" in env
+    assert "LANGSMITH_PROJECT=agent-tests" in env
+    assert "LANGSMITH_PROJECT = old-project" not in env
+    assert env.count("LANGSMITH_PROJECT") == 1
+
+
+def test_add_langsmith_skips_missing_empty_api_key(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="observability",
+        adapter="langsmith",
+        adapter_params={
+            "project": "agent-tests",
+            "endpoint": "https://api.smith.langchain.com",
+        },
+        yes=True,
+    )
+
+    env = (project_dir / ".env").read_text(encoding="utf-8")
+    assert "LANGSMITH_API_KEY=" not in env
     assert "LANGSMITH_PROJECT=agent-tests" in env
 
 
