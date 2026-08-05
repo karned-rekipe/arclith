@@ -110,6 +110,79 @@ def test_add_mariadb_adapter_uses_catalog_params(tmp_path: Path) -> None:
     assert 'table_prefix: "todo_"' in mariadb_config
 
 
+def test_add_langsmith_observability_adapter_uses_catalog_params(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+    (project_dir / ".env").write_text("EXISTING=value\nLANGSMITH_PROJECT=old\n", encoding="utf-8")
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="observability",
+        adapter="langsmith",
+        adapter_params={
+            "tracing": "true",
+            "project": "agent-tests",
+            "endpoint": "https://eu.api.smith.langchain.com",
+            "api_key": "test-key",
+        },
+        yes=True,
+    )
+
+    config = (project_dir / "config" / "adapters" / "outbound" / "langsmith.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "tracing: true" in config
+    assert 'project: "agent-tests"' in config
+    assert 'endpoint: "https://eu.api.smith.langchain.com"' in config
+    assert "api_key_env: LANGSMITH_API_KEY" in config
+    assert 'langgraph_api_min_version: "0.11.0"' in config
+    assert "observability: langsmith" in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
+
+    env = (project_dir / ".env").read_text(encoding="utf-8")
+    assert "EXISTING=value" in env
+    assert "LANGSMITH_TRACING=true" in env
+    assert "LANGSMITH_PROJECT=agent-tests" in env
+    assert "LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com" in env
+    assert "LANGSMITH_API_KEY=test-key" in env
+    assert ".env" in (project_dir / ".gitignore").read_text(encoding="utf-8")
+    package_root = project_dir / "src" / "demo_service"
+    assert not (package_root / "adapters" / "outbound" / "langsmith").exists()
+
+
+def test_add_langsmith_preserves_existing_api_key_when_missing(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+    (project_dir / ".env").write_text("LANGSMITH_API_KEY=existing-key\n", encoding="utf-8")
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="observability",
+        adapter="langsmith",
+        adapter_params={
+            "project": "agent-tests",
+            "endpoint": "https://api.smith.langchain.com",
+        },
+        yes=True,
+    )
+
+    env = (project_dir / ".env").read_text(encoding="utf-8")
+    assert "LANGSMITH_API_KEY=existing-key" in env
+    assert "LANGSMITH_PROJECT=agent-tests" in env
+
+
+def test_add_non_entity_adapter_rejects_entity_selection(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="observability",
+            adapter="langsmith",
+            entity_names=["Widget"],
+            yes=True,
+        )
+
+
 def test_add_adapter_rejects_unknown_catalog_param(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
 

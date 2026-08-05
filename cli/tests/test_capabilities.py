@@ -17,6 +17,26 @@ def test_repository_capability_catalog_declares_standard_adapters() -> None:
     assert repository_adapter_names() == ("memory", "mongodb", "duckdb", "mariadb")
 
 
+def test_observability_capability_catalog_declares_langsmith() -> None:
+    capability = get_capability("observability")
+
+    assert capability is not None
+    assert capability.layer == "outbound"
+    assert capability.activation_config_key == "observability"
+    assert capability.adapter_names() == ("langsmith",)
+    langsmith = capability.get_adapter("langsmith")
+    assert langsmith is not None
+    assert langsmith.config_path == "config/adapters/outbound/langsmith.yaml"
+    assert langsmith.env_path == ".env"
+    assert langsmith.entity_scoped is False
+    assert [parameter.name for parameter in langsmith.parameters] == [
+        "tracing",
+        "project",
+        "endpoint",
+        "api_key",
+    ]
+
+
 def test_repository_adapter_specs_include_config_and_parameters() -> None:
     capability = get_capability("repository")
     assert capability is not None
@@ -50,6 +70,8 @@ def test_capability_catalog_is_json_serializable() -> None:
 
     assert "repository" in encoded
     assert "mongodb" in encoded
+    assert "observability" in encoded
+    assert "langsmith" in encoded
 
 
 def test_capabilities_command_outputs_json_catalog() -> None:
@@ -64,3 +86,5 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     payload = json.loads(result.stdout)
     assert payload[0]["name"] == "repository"
     assert [adapter["name"] for adapter in payload[0]["adapters"]] == ["memory", "mongodb", "duckdb", "mariadb"]
+    assert payload[1]["name"] == "observability"
+    assert [adapter["name"] for adapter in payload[1]["adapters"]] == ["langsmith"]

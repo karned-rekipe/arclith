@@ -205,6 +205,36 @@ technologie.
 
 ---
 
+## ADR-011 — LangSmith Studio comme banc de test agent
+
+**Date :** 2026-08-05
+
+**Contexte :** Arclith doit servir de base commune pour des services exposes par API, MCP ou agents.
+Le coeur applicatif enregistre des donnees deterministes via des cas d'usage; l'agent traduit une
+intention en commande structuree a la frontiere. Le POC todo a montre qu'une UI dediee n'est pas
+necessaire si LangGraph Studio et LangSmith couvrent les tests conversationnels et les traces.
+
+**Decision :** declarer l'observabilite agent comme une capacite outbound `observability`, avec un
+adapter standard `langsmith`. La CLI demande les informations LangSmith au moment du
+`add-adapter`, genere `config/adapters/outbound/langsmith.yaml`, met a jour `.env`, et ignore `.env`
+dans Git. LangSmith Studio devient l'endroit standard pour tester les agents.
+
+**Pourquoi pas l'alternative evidente (une UI de test generee par Arclith) :**
+Une UI de test serait une surface produit supplementaire a maintenir, sans porter le metier. Elle
+dupliquerait les fonctions de LangSmith Studio: execution locale, conversation, traces, inspection et
+debug agent. Arclith doit plutot standardiser le branchement et laisser l'outil specialise porter les
+tests agent.
+
+**Consequence sur le code :**
+
+- `CapabilitySpec` supporte les adapters non scopes par entite et les templates `.env`.
+- `arclith-cli add-adapter --capability observability --adapter langsmith` demande les parametres
+  LangSmith et n'essaie pas de generer un repository par entite.
+- `AdaptersSettings.observability` active l'observabilite sans coupler le coeur aux SDK agent.
+- Le serveur LangGraph local doit lire `.env` via `langgraph.json`.
+
+---
+
 **Contexte :** Exposer les services via le Model Context Protocol.
 
 **Décision :** `fastmcp>=3.1.0` avec trois transports : stdio, SSE, streamable-HTTP.

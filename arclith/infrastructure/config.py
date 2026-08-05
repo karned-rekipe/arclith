@@ -69,6 +69,15 @@ class LMSettings(BaseModel):
     base_url: str | None = None  # requis si provider="openai" (LLM local/custom)
 
 
+class LangSmithSettings(BaseModel):
+    tracing: bool = True
+    project: str
+    endpoint: str = "https://api.smith.langchain.com"
+    api_key_env: str = "LANGSMITH_API_KEY"
+    studio: Literal["langgraph"] = "langgraph"
+    langgraph_api_min_version: str = "0.11.0"
+
+
 class SoftDeleteSettings(BaseModel):
     retention_days: float | None = None
 
@@ -83,10 +92,12 @@ class SoftDeleteSettings(BaseModel):
 class AdaptersSettings(BaseModel):
     logger: Literal["console"] = "console"
     repository: str = "memory"
+    observability: str = "none"
     mongodb: MongoDBSettings | None = None
     duckdb: DuckDBSettings | None = None
     mariadb: MariaDBSettings | None = None
     lm: LMSettings | None = None
+    langsmith: LangSmithSettings | None = None
 
     @property
     def multitenant(self) -> bool:
@@ -109,6 +120,8 @@ class AdaptersSettings(BaseModel):
             raise ValueError("repository=duckdb mais aucune section [adapters.duckdb] dans config.yaml")
         elif self.repository == "mariadb" and self.mariadb is None:
             raise ValueError("repository=mariadb mais aucune section [adapters.mariadb] dans config.yaml")
+        if self.observability == "langsmith" and self.langsmith is None:
+            raise ValueError("observability=langsmith mais aucune section [adapters.langsmith] dans config.yaml")
         return self
 
 

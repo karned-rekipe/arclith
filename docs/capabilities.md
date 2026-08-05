@@ -39,6 +39,25 @@ Activation:
 repository: mongodb
 ```
 
+### `observability`
+
+Capacite outbound pour brancher l'observabilite et le banc de test agent.
+
+Adapter disponible:
+
+- `langsmith`: tracing LangSmith et execution locale dans LangGraph Studio.
+
+Activation:
+
+```yaml
+observability: langsmith
+```
+
+Arclith considere LangSmith Studio comme l'endroit standard pour tester un agent. Le serveur local
+LangGraph doit lire `.env` via `langgraph.json`; `.env` contient `LANGSMITH_API_KEY`,
+`LANGSMITH_TRACING`, `LANGSMITH_PROJECT` et `LANGSMITH_ENDPOINT`. La cle reste locale et ne doit pas
+etre commitee.
+
 ## Ajouter un adapter
 
 Le chemin standard est:
@@ -65,6 +84,27 @@ Le mode interactif reste disponible:
 
 ```bash
 arclith-cli add-adapter
+```
+
+Pour brancher le banc de test agent LangSmith:
+
+```bash
+arclith-cli add-adapter \
+  --capability observability \
+  --adapter langsmith
+```
+
+En mode interactif, la CLI demande aussi `LANGSMITH_API_KEY` et l'ecrit dans `.env`. Le mode direct
+reste possible pour les scripts:
+
+```bash
+arclith-cli add-adapter \
+  --capability observability \
+  --adapter langsmith \
+  --param project=my-agent-dev \
+  --param endpoint=https://api.smith.langchain.com \
+  --param api_key="$LANGSMITH_API_KEY" \
+  --yes
 ```
 
 ## Regle d'evolution

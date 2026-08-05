@@ -53,7 +53,7 @@ def add_adapter_cmd(
     capability = _resolve_capability(capability_name)
     adapter_spec = _resolve_adapter_type(capability, adapter)
     adapter = adapter_spec.name
-    entities = _resolve_entities(project_dir, entity_names, all_entities, yes=yes)
+    entities = _resolve_entities(project_dir, entity_names, all_entities, yes=yes, adapter=adapter_spec)
     params = _resolve_adapter_params(
         adapter_spec,
         project_dir,
@@ -169,7 +169,17 @@ def _resolve_entities(
     all_entities: bool,
     *,
     yes: bool,
+    adapter: AdapterSpec,
 ) -> list[EntityInfo]:
+    if not adapter.entity_scoped:
+        if all_entities or entity_names:
+            console.print(
+                f"[red]✗[/red] L'adapter [bold]{adapter.name}[/bold] n'est pas lié aux entités. "
+                "Retirez [bold]--entity[/bold] et [bold]--all-entities[/bold]."
+            )
+            raise typer.Exit(1)
+        return []
+
     entities = scan_entities(project_dir)
     if not entities:
         console.print("[red]✗[/red] Aucune entité trouvée dans [bold]src/<package>/domain/models/[/bold].")
@@ -296,16 +306,16 @@ def _resolve_parameter(
                 f"{provided_value}. Utilisez true/false."
             )
             raise typer.Exit(1)
-        default = _boolean_default(parameter)
+        boolean_default = _boolean_default(parameter)
         if prompt_missing:
-            return Confirm.ask(f"  {parameter.prompt}", default=default)
-        return default
+            return Confirm.ask(f"  {parameter.prompt}", default=boolean_default)
+        return boolean_default
 
     resolved = provided_value.strip() if isinstance(provided_value, str) else ""
-    default = _default_string_value(parameter, project_dir)
+    string_default = _default_string_value(parameter, project_dir)
     if not resolved and prompt_missing:
-        resolved = Prompt.ask(f"  {parameter.prompt}", default=default).strip()
-    return resolved or default
+        resolved = Prompt.ask(f"  {parameter.prompt}", default=string_default, password=parameter.secret).strip()
+    return resolved or string_default
 
 
 def _default_string_value(parameter: ParameterSpec, project_dir: Path) -> str:
@@ -391,6 +401,12 @@ def _list_generated_files(
         cfg = project_dir / adapter.config_path
         files.append((cfg, "remplacé ⚠" if cfg.exists() else "créé"))
 
+    if adapter.has_env() and adapter.env_path:
+        env_file = project_dir / adapter.env_path
+        files.append((env_file, "mis à jour" if env_file.exists() else "créé"))
+        gitignore = project_dir / ".gitignore"
+        files.append((gitignore, "mis à jour" if gitignore.exists() else "créé"))
+
     for entity in entities:
         base = paths.adapters_outbound / adapter.name
         repo_dir = base / "repositories"
@@ -428,8 +444,14 @@ def _generate(
         cfg_path.write_text(render(adapter.config_template, params), encoding="utf-8")
         console.print(f"[green]✓[/green] {cfg_path.relative_to(project_dir)}")
 
+    if adapter.has_env() and adapter.env_path:
+        env_path = project_dir / adapter.env_path
+        _merge_env_file(env_path, _parse_env_template(render(adapter.env_template, params)))
+        _ensure_env_is_ignored(project_dir)
+        console.print(f"[green]✓[/green] {env_path.relative_to(project_dir)}")
+
+    import_vars = _import_vars(paths)
     for entity in entities:
-        import_vars = _import_vars(paths)
         vars = {"pascal": entity.pascal, "snake": entity.snake, **params, **import_vars}
         base = paths.adapters_outbound / adapter.name
         repo_dir = base / "repositories"
@@ -494,3 +516,57 @@ def _update_active_capability(project_dir: Path, capability: CapabilitySpec, ada
             text = text.rstrip("\n") + f"\n{key}: {adapter.name}\n"
         cfg.write_text(text, encoding="utf-8")
     console.print(f"[cyan]↺[/cyan] config/adapters/adapters.yaml → {key}: {adapter.name}")
+
+
+def _parse_env_template(rendered: str) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for line in rendered.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        if key:
+            values[key] = value
+    return values
+
+
+def _merge_env_file(env_path: Path, updates: dict[str, str]) -> None:
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    existing_lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+    merged_lines: list[str] = []
+    seen: set[str] = set()
+
+    for line in existing_lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            merged_lines.append(line)
+            continue
+        key, _value = line.split("=", 1)
+        if key in updates:
+            if not updates[key] and _value:
+                merged_lines.append(line)
+            else:
+                merged_lines.append(f"{key}={updates[key]}")
+            seen.add(key)
+        else:
+            merged_lines.append(line)
+
+    for key, value in updates.items():
+        if key not in seen:
+            merged_lines.append(f"{key}={value}")
+
+    env_path.write_text("\n".join(merged_lines).rstrip("\n") + "\n", encoding="utf-8")
+
+
+def _ensure_env_is_ignored(project_dir: Path) -> None:
+    gitignore = project_dir / ".gitignore"
+    if gitignore.exists():
+        lines = gitignore.read_text(encoding="utf-8").splitlines()
+    else:
+        lines = []
+    if ".env" in {line.strip() for line in lines}:
+        return
+    if lines and lines[-1].strip():
+        lines.append("")
+    lines.append(".env")
+    gitignore.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")

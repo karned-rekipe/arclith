@@ -36,7 +36,7 @@ Le projet généré utilise un layout `src/<package>/...` pour le code applicati
 
 ### `add-adapter` — Ajouter un adapter output
 
-Wizard interactif à lancer **depuis la racine du projet cible**. Scaffold le code Python et le fichier de configuration pour un nouvel adapter de persistance. Par défaut, la capacité cible est `repository`.
+Wizard interactif à lancer **depuis la racine du projet cible**. Scaffold le code Python et/ou les fichiers de configuration pour un nouvel adapter. Par défaut, la capacité cible est `repository`.
 
 ```bash
 cd my-recipe-service
@@ -49,25 +49,27 @@ Mode direct, utile pour CI, scripts de migration ou commandes reproductibles :
 arclith-cli add-adapter --adapter mongodb --entity Recipe --db-name my_recipe_service --yes
 arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activate --yes
 arclith-cli add-adapter --adapter mariadb --entity Recipe --param database=my_recipe_service --param user=app --yes
+arclith-cli add-adapter --capability observability --adapter langsmith
 arclith-cli add-adapter --capability repository --adapter memory --entity Recipe --yes
 ```
 
 **Étapes du wizard :**
 
-1. **Type d'adapter** — `memory` · `mongodb` · `duckdb` · `mariadb`
-2. **Entité(s) cible(s)** — détectées automatiquement depuis `src/<package>/domain/models/` via AST ; sélection individuelle ou « toutes »
+1. **Type d'adapter** — selon la capacité : `memory` · `mongodb` · `duckdb` · `mariadb` · `langsmith`
+2. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour `observability/langsmith`
 3. **Paramètres** — questions spécifiques à l'adapter :
    - `mongodb` → `db_name`, `multitenant`
    - `duckdb` → `path`
    - `mariadb` → `host`, `port`, `database`, `user`, `driver`, `table_prefix`
+   - `langsmith` → `tracing`, `project`, `endpoint`, `LANGSMITH_API_KEY`
    - `memory` → aucun paramètre
-4. **Activation** — met à jour `config/adapters/adapters.yaml` (`repository: <adapter>`)
+4. **Activation** — met à jour `config/adapters/adapters.yaml` (`repository: <adapter>` ou `observability: langsmith`)
 5. **Récapitulatif** — liste des fichiers créés ou remplacés avant confirmation
 
 | Option | Défaut | Description |
 |--------|--------|-------------|
-| `--capability` | `repository` | Capacité cible du catalogue standardisé |
-| `--adapter` / `-a` | interactif | `memory`, `mongodb`, `duckdb` ou `mariadb` |
+| `--capability` | `repository` | Capacité cible du catalogue standardisé (`repository`, `observability`) |
+| `--adapter` / `-a` | interactif | Adapter du catalogue : `memory`, `mongodb`, `duckdb`, `mariadb`, `langsmith` |
 | `--entity` / `-e` | auto si une seule entité | Entité cible, liste séparée par virgule acceptée |
 | `--all-entities` | `false` | Génère l'adapter pour toutes les entités détectées |
 | `--activate/--no-activate` | `--activate` | Met à jour ou non `repository: <adapter>` |
@@ -88,6 +90,18 @@ src/<package>/infrastructure/containers/<entity>_container.py  # RepositoryRegis
 ```
 
 > ⚠️ `src/<package>/infrastructure/containers/<entity>_container.py` est **régénéré intégralement** si le fichier existe déjà — un avertissement est affiché dans le récapitulatif.
+
+**LangSmith / tests agent :**
+
+```bash
+arclith-cli add-adapter --capability observability --adapter langsmith
+uv run langgraph dev --no-browser --allow-blocking --port 2024
+```
+
+La CLI génère `config/adapters/outbound/langsmith.yaml`, met à jour `.env` et ajoute `.env` au
+`.gitignore` si besoin. LangSmith Studio devient l'endroit standard pour tester les agents. Le
+serveur LangGraph doit lire `.env` via `langgraph.json`. Une `LANGSMITH_API_KEY` déjà présente est
+conservée si aucune nouvelle valeur n'est fournie.
 
 ---
 
@@ -158,6 +172,7 @@ config/
       mongodb.yaml                # adapters.mongodb: { db_name, multitenant }
       duckdb.yaml                 # adapters.duckdb: { path, multitenant }
       mariadb.yaml                # adapters.mariadb: { host, port, database, user, ... }
+      langsmith.yaml              # adapters.langsmith: { tracing, project, endpoint, ... }
     inbound/
       fastapi.yaml                # api: { host, port, reload }
       fastmcp.yaml                # mcp: { host, port }
@@ -173,6 +188,7 @@ Pour changer l'adapter actif sans passer par le wizard :
 ```yaml
 # config/adapters/adapters.yaml
 repository: duckdb   # memory | mongodb | duckdb | mariadb
+observability: langsmith
 ```
 
 Pour MariaDB, ne committez pas le mot de passe. Mappez `adapters.mariadb.password` ou `adapters.mariadb.url` via `config/secrets.yaml`, un resolver `env` ou Vault.

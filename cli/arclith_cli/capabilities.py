@@ -35,11 +35,16 @@ class AdapterSpec:
     description: str
     config_path: str | None = None
     config_template: str = ""
+    env_path: str | None = None
+    env_template: str = ""
     parameters: tuple[ParameterSpec, ...] = ()
     entity_scoped: bool = True
 
     def has_config(self) -> bool:
         return self.config_path is not None and bool(self.config_template)
+
+    def has_env(self) -> bool:
+        return self.env_path is not None and bool(self.env_template)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -48,6 +53,7 @@ class AdapterSpec:
             "layer": self.layer,
             "description": self.description,
             "config_path": self.config_path,
+            "env_path": self.env_path,
             "parameters": [parameter.to_dict() for parameter in self.parameters],
             "entity_scoped": self.entity_scoped,
         }
@@ -195,7 +201,66 @@ multitenant: false
     ),
 )
 
-CAPABILITY_CATALOG = (REPOSITORY_CAPABILITY,)
+OBSERVABILITY_CAPABILITY = CapabilitySpec(
+    name="observability",
+    layer="outbound",
+    description="Observabilite et boucle de test agent via LangSmith Studio.",
+    activation_config_key="observability",
+    adapters=(
+        AdapterSpec(
+            name="langsmith",
+            capability="observability",
+            layer="outbound",
+            description="Tracing LangSmith et tests agent dans LangGraph Studio.",
+            config_path="config/adapters/outbound/langsmith.yaml",
+            config_template="""\
+tracing: {tracing}
+project: "{project}"
+endpoint: "{endpoint}"
+api_key_env: LANGSMITH_API_KEY
+studio: langgraph
+langgraph_api_min_version: "0.11.0"
+""",
+            env_path=".env",
+            env_template="""\
+LANGSMITH_TRACING={tracing}
+LANGSMITH_PROJECT={project}
+LANGSMITH_ENDPOINT={endpoint}
+LANGSMITH_API_KEY={api_key}
+""",
+            parameters=(
+                ParameterSpec(
+                    name="tracing",
+                    kind="boolean",
+                    prompt="Activer LANGSMITH_TRACING",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="project",
+                    kind="string",
+                    prompt="Projet LangSmith",
+                    default_from_project_name=True,
+                ),
+                ParameterSpec(
+                    name="endpoint",
+                    kind="string",
+                    prompt="Endpoint LangSmith",
+                    default="https://api.smith.langchain.com",
+                ),
+                ParameterSpec(
+                    name="api_key",
+                    kind="string",
+                    prompt="LANGSMITH_API_KEY",
+                    default="",
+                    secret=True,
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
+CAPABILITY_CATALOG = (REPOSITORY_CAPABILITY, OBSERVABILITY_CAPABILITY)
 
 
 def get_capability(name: str) -> CapabilitySpec | None:

@@ -235,6 +235,24 @@ Exemple de ports applicatifs cibles:
 - `TracePort`: envoie les traces LangSmith ou autre;
 - `EventBusPort`: publie des evenements si besoin.
 
+### LangSmith comme banc de test
+
+Arclith ne genere pas d'UI dediee pour tester un agent. Le chemin standard est LangGraph Studio
+branche sur LangSmith, avec la configuration locale dans `.env`:
+
+```bash
+uv add "arclith[agent]"
+arclith-cli add-adapter --capability observability --adapter langsmith
+uv run langgraph dev --no-browser --allow-blocking --port 2024
+```
+
+La commande `add-adapter` demande le projet LangSmith, l'endpoint, l'activation du tracing et
+`LANGSMITH_API_KEY`. Elle genere `config/adapters/outbound/langsmith.yaml`, met a jour `.env`,
+et ajoute `.env` au `.gitignore` si besoin.
+
+`langgraph.json` doit pointer vers `.env` pour que le serveur local charge les variables LangSmith.
+Les tests conversationnels et traces agent se font ensuite dans LangSmith Studio.
+
 ## 6. Valider avant commit
 
 ```bash
