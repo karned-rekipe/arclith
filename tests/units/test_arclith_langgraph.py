@@ -1,8 +1,12 @@
 from typing import Any, TypedDict
 
-from langgraph.graph import END, START
+import pytest
 
 from arclith import Arclith
+
+langgraph_graph = pytest.importorskip("langgraph.graph")
+END = langgraph_graph.END
+START = langgraph_graph.START
 
 
 class AgentState(TypedDict, total=False):
