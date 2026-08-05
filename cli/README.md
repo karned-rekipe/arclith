@@ -96,11 +96,19 @@ src/<package>/infrastructure/containers/<entity>_container.py  # RepositoryRegis
 **LangGraph / LangSmith :**
 
 ```bash
-uv add "arclith[langgraph]"
+uv add \
+  "langgraph>=1.0.8" \
+  "langgraph-api>=0.11.0" \
+  "langgraph-cli[inmem]>=0.4.31" \
+  "langsmith>=0.4.0" \
+  "pydantic-ai-slim[anthropic,openai]>=2.24.0,<3.0.0"
 arclith-cli add-adapter --capability agent --adapter langgraph
 arclith-cli add-adapter --capability observability --adapter langsmith
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
+
+`arclith==0.11.0` publie sur PyPI ne declare pas encore l'extra `langgraph`. Quand une release
+Arclith publie cet extra, la premiere commande pourra redevenir `uv add "arclith[langgraph]"`.
 
 L'adapter `agent/langgraph` génère `langgraph.json`, `config/adapters/inbound/langgraph.yaml` et
 `src/<package>/adapters/inbound/langgraph/agent.py`. Le projet ne modifie ensuite que ce fichier pour

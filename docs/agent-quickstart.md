@@ -86,11 +86,19 @@ curl -fsS -X POST http://127.0.0.1:8100/v1/ingredients/ \
 
 ## 3. Ajouter LangGraph et LangSmith
 
-Installer l'extra agent dans le projet genere:
+Installer les dependances agent dans le projet genere:
 
 ```bash
-uv add "arclith[langgraph]"
+uv add \
+  "langgraph>=1.0.8" \
+  "langgraph-api>=0.11.0" \
+  "langgraph-cli[inmem]>=0.4.31" \
+  "langsmith>=0.4.0" \
+  "pydantic-ai-slim[anthropic,openai]>=2.24.0,<3.0.0"
 ```
+
+`arclith==0.11.0` publie sur PyPI ne declare pas encore l'extra `langgraph`. Quand une release
+Arclith publie cet extra, cette etape pourra redevenir `uv add "arclith[langgraph]"`.
 
 Generer l'entrypoint LangGraph:
 
