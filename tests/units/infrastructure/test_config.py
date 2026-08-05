@@ -8,7 +8,8 @@ from pydantic import ValidationError
 from arclith.infrastructure.config import (
     AppConfig,
     DuckDBSettings,
-    LMSettings,
+    LangGraphSettings,
+    LangSmithSettings,
     MariaDBSettings,
     SoftDeleteSettings,
     _deep_merge,
@@ -23,6 +24,7 @@ from arclith.infrastructure.config import (
 
 def test_default_config_uses_memory():
     assert AppConfig().adapters.repository == "memory"
+    assert AppConfig().adapters.observability == "none"
 
 
 def test_custom_repository_adapter_name_is_allowed():
@@ -66,6 +68,10 @@ def test_resolve_input_alias_fastapi():
 
 def test_resolve_input_alias_fastmcp():
     assert _resolve_key_path(Path("adapters/inbound/fastmcp.yaml")) == ["mcp"]
+
+
+def test_resolve_input_langgraph():
+    assert _resolve_key_path(Path("adapters/inbound/langgraph.yaml")) == ["langgraph"]
 
 
 def test_resolve_input_no_alias():
@@ -178,6 +184,65 @@ def test_load_config_dir_mariadb_scoped():
     assert config.adapters.mariadb is not None
     assert config.adapters.mariadb.database == "demo"
     assert config.adapters.mariadb.user == "app"
+
+
+def test_load_config_dir_langsmith_scoped():
+    path = _make_config_dir({
+        "adapters/adapters.yaml": {"observability": "langsmith"},
+        "adapters/outbound/langsmith.yaml": {
+            "tracing": True,
+            "project": "agent-tests",
+            "endpoint": "https://eu.api.smith.langchain.com",
+            "api_key_env": "LANGSMITH_API_KEY",
+            "studio": "langgraph",
+            "langgraph_api_min_version": "0.11.0",
+        },
+    })
+    config = load_config_dir(path)
+    assert config.adapters.observability == "langsmith"
+    assert config.adapters.langsmith is not None
+    assert config.adapters.langsmith.project == "agent-tests"
+    assert config.adapters.langsmith.endpoint == "https://eu.api.smith.langchain.com"
+
+
+def test_load_config_dir_langgraph_scoped():
+    path = _make_config_dir({
+        "adapters/inbound/langgraph.yaml": {
+            "name": "todo_agent",
+            "graph": "todo_agent",
+            "entrypoint": "./src/demo_service/adapters/inbound/langgraph/agent.py:agent",
+            "env": ".env",
+        },
+    })
+    config = load_config_dir(path)
+    assert config.langgraph is not None
+    assert config.langgraph.name == "todo_agent"
+    assert config.langgraph.graph == "todo_agent"
+    assert config.langgraph.entrypoint == "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"
+    assert config.langgraph.env == ".env"
+
+
+def test_langsmith_observability_requires_scoped_config():
+    with pytest.raises(ValidationError, match="observability=langsmith"):
+        AppConfig.model_validate({"adapters": {"observability": "langsmith"}})
+
+
+def test_langgraph_settings_defaults():
+    settings = LangGraphSettings(entrypoint="./src/demo_service/adapters/inbound/langgraph/agent.py:agent")
+
+    assert settings.name == "agent"
+    assert settings.graph == "agent"
+    assert settings.env == ".env"
+
+
+def test_langsmith_settings_defaults():
+    settings = LangSmithSettings(project="agent-tests")
+
+    assert settings.tracing is True
+    assert settings.endpoint == "https://api.smith.langchain.com"
+    assert settings.api_key_env == "LANGSMITH_API_KEY"
+    assert settings.studio == "langgraph"
+    assert settings.langgraph_api_min_version == "0.11.0"
 
 
 def test_load_config_dir_soft_delete():

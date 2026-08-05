@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import threading
 import traceback
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 from functools import cached_property
 from pathlib import Path
@@ -357,6 +357,43 @@ class Arclith:
     def fastmcp(self, name: str, **kwargs: Any) -> "_fastmcp.FastMCP":
         import fastmcp
         return fastmcp.FastMCP(name, **kwargs)
+
+    def langgraph(
+        self,
+        state_schema: type[Any],
+        register_graph: Callable[[Any, "Arclith"], None],
+        *,
+        context_schema: type[Any] | None = None,
+        input_schema: type[Any] | None = None,
+        output_schema: type[Any] | None = None,
+        name: str = "agent",
+        checkpointer: Any = None,
+        cache: Any = None,
+        store: Any = None,
+        interrupt_before: Any = None,
+        interrupt_after: Any = None,
+        debug: bool = False,
+        transformers: Sequence[Callable[[tuple[str, ...]], Any]] | None = None,
+    ) -> Any:
+        from langgraph.graph import StateGraph
+
+        builder = StateGraph(
+            state_schema,
+            context_schema=context_schema,
+            input_schema=input_schema,
+            output_schema=output_schema,
+        )
+        register_graph(builder, self)
+        return builder.compile(
+            checkpointer=checkpointer,
+            cache=cache,
+            store=store,
+            interrupt_before=interrupt_before,
+            interrupt_after=interrupt_after,
+            debug=debug,
+            name=name,
+            transformers=transformers,
+        )
 
     def run_api(self, app: "FastAPI | str") -> None:
         import uvicorn

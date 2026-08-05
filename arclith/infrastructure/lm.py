@@ -7,7 +7,7 @@ def build_pydantic_ai_model(settings: LMSettings):
     """Factory qui retourne un modèle PydanticAI à partir de LMSettings.
 
     Les imports pydantic_ai sont lazy pour ne pas casser les projets
-    qui n'installent pas l'extra [agent].
+    qui n'installent pas l'extra [langgraph].
     """
     if settings.provider == "anthropic":
         from pydantic_ai.models.anthropic import AnthropicModel
@@ -33,4 +33,3 @@ def build_pydantic_ai_model(settings: LMSettings):
             openai_chat_send_back_thinking_parts=False,
         ),
     )
-

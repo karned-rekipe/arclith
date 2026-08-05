@@ -2,7 +2,7 @@
 
 Python 3.13 framework for building microservices with Hexagonal Architecture and Clean Architecture.
 
-Arclith provides reusable domain models, use cases, repositories, adapters, FastAPI/FastMCP bootstrap, configuration, probes, and service wiring.
+Arclith provides reusable domain models, use cases, repositories, adapters, FastAPI/FastMCP/LangGraph bootstrap, configuration, probes, and service wiring.
 
 ## Canonical Service Layout
 
@@ -59,8 +59,21 @@ pip install "arclith[duckdb]"
 pip install "arclith[mariadb]"
 pip install "arclith[fastapi]"
 pip install "arclith[mcp]"
+pip install "arclith[langgraph]"
 pip install "arclith[all]"
 ```
+
+`arclith[langgraph]` installe le socle local pour exposer un agent via LangGraph Studio et LangSmith.
+Le chemin standard est ensuite:
+
+```bash
+arclith-cli add-adapter --capability agent --adapter langgraph
+arclith-cli add-adapter --capability observability --adapter langsmith
+uv run langgraph dev --no-browser --allow-blocking --port 2024
+```
+
+Arclith genere `langgraph.json`, le point d'entree LangGraph et le cablage `Arclith.langgraph(...)`.
+Le code specifique du projet reste dans `src/<package>/adapters/inbound/langgraph/agent.py`.
 
 ## Development
 

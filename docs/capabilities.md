@@ -11,7 +11,8 @@ Une capacite decrit:
 - les adapters disponibles;
 - les parametres requis par adapter;
 - le chemin de configuration;
-- la cle d'activation dans `config/adapters/adapters.yaml`.
+- la cle d'activation dans `config/adapters/adapters.yaml`, quand la capacite a besoin d'un
+  selecteur actif.
 
 Le code metier reste dans `domain/` et `application/`. Les capacites ne doivent generer que du cablage, des ports, des schemas ou des adapters autour de ce coeur.
 
@@ -39,6 +40,50 @@ Activation:
 repository: mongodb
 ```
 
+### `observability`
+
+Capacite outbound pour brancher l'observabilite et le banc de test agent.
+
+Adapter disponible:
+
+- `langsmith`: tracing LangSmith et execution locale dans LangGraph Studio.
+
+Activation:
+
+```yaml
+observability: langsmith
+```
+
+Arclith considere LangSmith Studio comme l'endroit standard pour tester un agent. Le serveur local
+LangGraph doit lire `.env` via `langgraph.json`; `.env` contient `LANGSMITH_API_KEY`,
+`LANGSMITH_TRACING`, `LANGSMITH_PROJECT` et `LANGSMITH_ENDPOINT`. La cle reste locale et ne doit pas
+etre commitee.
+
+### `agent`
+
+Capacite inbound pour exposer les cas d'usage metier via un runtime agent.
+
+Adapter disponible:
+
+- `langgraph`: entrypoint LangGraph Studio base sur la tuyauterie Arclith.
+
+Configuration runtime:
+
+L'adapter `langgraph` suit la convention produit des adapters inbound comme `fastapi` et `fastmcp`:
+`config/adapters/inbound/langgraph.yaml` est charge dans `AppConfig.langgraph`. Il n'ajoute pas de
+cle generique `adapters.agent` dans `config/adapters/adapters.yaml`.
+
+L'adapter genere:
+
+- `langgraph.json`;
+- `config/adapters/inbound/langgraph.yaml`;
+- `src/<package>/adapters/inbound/langgraph/agent.py`.
+
+Le fichier `agent.py` est le seul point a modifier pour un nouveau projet agent: l'etat, les noeuds,
+les transitions et les appels aux cas d'usage applicatifs. Arclith garde le cablage recurrent:
+chargement de configuration, creation du `StateGraph`, compilation, entrypoint Studio et lecture de
+`.env`.
+
 ## Ajouter un adapter
 
 Le chemin standard est:
@@ -65,6 +110,31 @@ Le mode interactif reste disponible:
 
 ```bash
 arclith-cli add-adapter
+```
+
+Pour brancher le banc de test agent LangSmith:
+
+```bash
+arclith-cli add-adapter \
+  --capability agent \
+  --adapter langgraph
+
+arclith-cli add-adapter \
+  --capability observability \
+  --adapter langsmith
+```
+
+En mode interactif, la CLI demande aussi `LANGSMITH_API_KEY` et l'ecrit dans `.env`. Le mode direct
+reste possible pour les scripts:
+
+```bash
+arclith-cli add-adapter \
+  --capability observability \
+  --adapter langsmith \
+  --param project=my-agent-dev \
+  --param endpoint=https://api.smith.langchain.com \
+  --param api_key="$LANGSMITH_API_KEY" \
+  --yes
 ```
 
 ## Regle d'evolution

@@ -17,6 +17,10 @@ class ProjectPaths:
         return self.package_root / "adapters" / "outbound"
 
     @property
+    def adapters_inbound(self) -> Path:
+        return self.package_root / "adapters" / "inbound"
+
+    @property
     def containers(self) -> Path:
         return self.package_root / "infrastructure" / "containers"
 

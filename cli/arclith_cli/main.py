@@ -121,11 +121,11 @@ def version() -> None:
 def add_adapter(
     capability: Annotated[
         str,
-        typer.Option("--capability", help="Capacité cible. Actuellement: repository"),
+        typer.Option("--capability", help="Capacité cible: repository, agent ou observability"),
     ] = "repository",
     adapter: Annotated[
         str | None,
-        typer.Option("--adapter", "-a", help="Adapter à générer: memory, mongodb, duckdb ou mariadb"),
+        typer.Option("--adapter", "-a", help="Adapter à générer depuis le catalogue"),
     ] = None,
     entity: Annotated[
         str | None,
@@ -137,7 +137,10 @@ def add_adapter(
     ] = False,
     activate: Annotated[
         bool,
-        typer.Option("--activate/--no-activate", help="Mettre à jour config/adapters/adapters.yaml"),
+        typer.Option(
+            "--activate/--no-activate",
+            help="Mettre à jour config/adapters/adapters.yaml quand la capacité expose une clé d'activation",
+        ),
     ] = True,
     db_name: Annotated[
         str | None,
@@ -160,7 +163,7 @@ def add_adapter(
         typer.Option("--yes", "-y", help="Utiliser les valeurs fournies ou par défaut sans confirmation"),
     ] = False,
 ) -> None:
-    """Wizard ou mode direct pour scaffolder un nouvel [bold]adapter output[/bold] dans le projet courant."""
+    """Wizard ou mode direct pour scaffolder un nouvel [bold]adapter[/bold] dans le projet courant."""
     add_adapter_cmd(
         capability_name=capability,
         adapter=adapter,
