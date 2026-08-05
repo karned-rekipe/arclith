@@ -24,7 +24,6 @@ from arclith.infrastructure.config import (
 
 def test_default_config_uses_memory():
     assert AppConfig().adapters.repository == "memory"
-    assert AppConfig().adapters.agent == "none"
     assert AppConfig().adapters.observability == "none"
 
 
@@ -208,7 +207,6 @@ def test_load_config_dir_langsmith_scoped():
 
 def test_load_config_dir_langgraph_scoped():
     path = _make_config_dir({
-        "adapters/adapters.yaml": {"agent": "langgraph"},
         "adapters/inbound/langgraph.yaml": {
             "name": "todo_agent",
             "graph": "todo_agent",
@@ -217,7 +215,6 @@ def test_load_config_dir_langgraph_scoped():
         },
     })
     config = load_config_dir(path)
-    assert config.adapters.agent == "langgraph"
     assert config.langgraph is not None
     assert config.langgraph.name == "todo_agent"
     assert config.langgraph.graph == "todo_agent"
@@ -228,11 +225,6 @@ def test_load_config_dir_langgraph_scoped():
 def test_langsmith_observability_requires_scoped_config():
     with pytest.raises(ValidationError, match="observability=langsmith"):
         AppConfig.model_validate({"adapters": {"observability": "langsmith"}})
-
-
-def test_langgraph_agent_requires_scoped_config():
-    with pytest.raises(ValidationError, match="agent=langgraph"):
-        AppConfig.model_validate({"adapters": {"agent": "langgraph"}})
 
 
 def test_langgraph_settings_defaults():

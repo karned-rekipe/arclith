@@ -42,7 +42,7 @@ def test_agent_capability_catalog_declares_langgraph() -> None:
 
     assert capability is not None
     assert capability.layer == "inbound"
-    assert capability.activation_config_key == "agent"
+    assert capability.activation_config_key is None
     assert capability.adapter_names() == ("langgraph",)
     langgraph = capability.get_adapter("langgraph")
     assert langgraph is not None

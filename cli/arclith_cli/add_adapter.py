@@ -45,7 +45,7 @@ def add_adapter_cmd(
     adapter_params: dict[str, str] | None = None,
     yes: bool = False,
 ) -> None:
-    """Wizard interactif pour scaffolder un nouvel adapter output."""
+    """Wizard interactif pour scaffolder un adapter du catalogue."""
     project_dir = project_dir or Path.cwd()
 
     _assert_arclith_project(project_dir)
@@ -63,7 +63,9 @@ def add_adapter_cmd(
         extra_params=adapter_params or {},
         prompt_missing=not yes,
     )
-    if not yes:
+    if capability.activation_config_key is None:
+        activate = False
+    elif not yes:
         activate = Confirm.ask(
             f"\n  [bold]Activer[/bold] [green]{adapter}[/green] maintenant ?",
             default=activate,
@@ -378,7 +380,7 @@ def _show_recap(
         style = "yellow" if action == "remplacé ⚠" else "green"
         table.add_row(str(path.relative_to(project_dir)), f"[{style}]{action}[/{style}]")
 
-    if activate:
+    if activate and capability.activation_config_key is not None:
         cfg_path = project_dir / "config" / "adapters" / "adapters.yaml"
         table.add_row(
             str(cfg_path.relative_to(project_dir)),
@@ -498,7 +500,7 @@ def _generate(
         action = "[yellow]remplacé ⚠[/yellow]" if existed else "[green]créé[/green]"
         console.print(f"{action} {container.relative_to(project_dir)}")
 
-    # Activate: update config/adapters/adapters.yaml
+    # Activate selector-based capabilities in config/adapters/adapters.yaml.
     if activate:
         _update_active_capability(project_dir, capability, adapter)
 
@@ -534,6 +536,8 @@ def _file_template_vars(
 
 
 def _update_active_capability(project_dir: Path, capability: CapabilitySpec, adapter: AdapterSpec) -> None:
+    if capability.activation_config_key is None:
+        return
     cfg = project_dir / "config" / "adapters" / "adapters.yaml"
     key = capability.activation_config_key
     escaped_key = re.escape(key)

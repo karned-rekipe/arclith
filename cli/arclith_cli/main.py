@@ -137,7 +137,10 @@ def add_adapter(
     ] = False,
     activate: Annotated[
         bool,
-        typer.Option("--activate/--no-activate", help="Mettre à jour config/adapters/adapters.yaml"),
+        typer.Option(
+            "--activate/--no-activate",
+            help="Mettre à jour config/adapters/adapters.yaml quand la capacité expose une clé d'activation",
+        ),
     ] = True,
     db_name: Annotated[
         str | None,

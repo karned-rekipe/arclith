@@ -80,7 +80,7 @@ class CapabilitySpec:
     name: str
     layer: LayerKind
     description: str
-    activation_config_key: str
+    activation_config_key: str | None
     adapters: tuple[AdapterSpec, ...]
 
     def adapter_names(self) -> tuple[str, ...]:
@@ -221,7 +221,7 @@ AGENT_CAPABILITY = CapabilitySpec(
     name="agent",
     layer="inbound",
     description="Adapter agent qui expose les cas d'usage metier via un runtime IA.",
-    activation_config_key="agent",
+    activation_config_key=None,
     adapters=(
         AdapterSpec(
             name="langgraph",

@@ -216,9 +216,11 @@ def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(tmp_path: Path
     assert (package_root / "adapters" / "inbound" / "langgraph" / "__init__.py").exists()
     assert agent_file.exists()
     assert '"todo_agent": "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"' in langgraph_json
-    assert "agent: langgraph" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+    adapters_yaml = (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     )
+    assert "repository: memory" in adapters_yaml
+    assert "agent:" not in adapters_yaml
     assert 'name: "todo_agent"' in langgraph_config
     assert 'entrypoint: "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"' in langgraph_config
     assert "agent = arclith.langgraph(AgentState, register_agent, name=\"todo_agent\")" in agent_file.read_text(

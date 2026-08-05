@@ -11,7 +11,8 @@ Une capacite decrit:
 - les adapters disponibles;
 - les parametres requis par adapter;
 - le chemin de configuration;
-- la cle d'activation dans `config/adapters/adapters.yaml`.
+- la cle d'activation dans `config/adapters/adapters.yaml`, quand la capacite a besoin d'un
+  selecteur actif.
 
 Le code metier reste dans `domain/` et `application/`. Les capacites ne doivent generer que du cablage, des ports, des schemas ou des adapters autour de ce coeur.
 
@@ -66,11 +67,11 @@ Adapter disponible:
 
 - `langgraph`: entrypoint LangGraph Studio base sur la tuyauterie Arclith.
 
-Activation:
+Configuration runtime:
 
-```yaml
-agent: langgraph
-```
+L'adapter `langgraph` suit la convention produit des adapters inbound comme `fastapi` et `fastmcp`:
+`config/adapters/inbound/langgraph.yaml` est charge dans `AppConfig.langgraph`. Il n'ajoute pas de
+cle generique `adapters.agent` dans `config/adapters/adapters.yaml`.
 
 L'adapter genere:
 
