@@ -59,11 +59,11 @@ pip install "arclith[duckdb]"
 pip install "arclith[mariadb]"
 pip install "arclith[fastapi]"
 pip install "arclith[mcp]"
-pip install "arclith[agent]"
+pip install "arclith[langgraph]"
 pip install "arclith[all]"
 ```
 
-`arclith[agent]` installe le socle local pour tester un agent via LangGraph Studio et LangSmith.
+`arclith[langgraph]` installe le socle local pour tester un agent via LangGraph Studio et LangSmith.
 Le chemin standard est ensuite:
 
 ```bash

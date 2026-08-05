@@ -241,7 +241,7 @@ Arclith ne genere pas d'UI dediee pour tester un agent. Le chemin standard est L
 branche sur LangSmith, avec la configuration locale dans `.env`:
 
 ```bash
-uv add "arclith[agent]"
+uv add "arclith[langgraph]"
 arclith-cli add-adapter --capability observability --adapter langsmith
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
