@@ -47,6 +47,7 @@ pip install arclith
 Pour creer un projet concret avec la CLI, lancer API/MCP/probes, puis faire evoluer les adapters:
 
 - [Quickstart Arclith](docs/quickstart.md)
+- [Quickstart agent Arclith from scratch](docs/agent-quickstart.md)
 - [Capacites standardisees](docs/capabilities.md)
 - [CLI](cli/README.md)
 - [Sample fonctionnel](https://github.com/karned-rekipe/_sample)

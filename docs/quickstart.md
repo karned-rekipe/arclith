@@ -260,6 +260,11 @@ et ajoute `.env` au `.gitignore` si besoin.
 Le `langgraph.json` genere pointe vers `.env` pour que le serveur local charge les variables LangSmith.
 Les tests conversationnels et traces agent se font ensuite dans LangSmith Studio.
 
+Pour un parcours complet depuis un projet vide, avec creation d'entite, API FastAPI, adapter
+LangGraph, LangSmith et LLM local LM Studio, suivre:
+
+- [Quickstart agent Arclith from scratch](agent-quickstart.md)
+
 ## 6. Valider avant commit
 
 ```bash
