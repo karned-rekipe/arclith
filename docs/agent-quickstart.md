@@ -328,7 +328,7 @@ Avant commit:
 
 ```bash
 uv run --frozen python -m json.tool langgraph.json
-uv run --frozen pytest
+uv run --frozen python -m pytest
 uv run --frozen ruff check .
 uv run --frozen mypy src tests
 ```
