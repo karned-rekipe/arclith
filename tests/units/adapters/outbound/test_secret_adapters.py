@@ -71,6 +71,13 @@ def test_env_key_derivation(monkeypatch: pytest.MonkeyPatch) -> None:
     assert EnvSecretAdapter().get("lm.planner.api_key", "ignored") == "sk-test"
 
 
+def test_env_uses_explicit_secret_key_before_derived_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
+    monkeypatch.setenv("ADAPTERS_LM_API_KEY", "sk-derived")
+
+    assert EnvSecretAdapter().get("adapters.lm.api_key", "OPENAI_API_KEY") == "sk-openai"
+
+
 def test_env_empty_string_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ADAPTERS_MONGODB_URI", "")
     assert EnvSecretAdapter().get("adapters.mongodb.uri", "ignored") is None
@@ -196,4 +203,3 @@ def test_vault_returns_none_if_value_field_absent(monkeypatch: pytest.MonkeyPatc
     mock_hvac.Client.return_value = mock_client
     with patch.dict("sys.modules", {"hvac": mock_hvac}):
         assert VaultSecretAdapter(addr="http://127.0.0.1:8200").get("p", "k") is None
-

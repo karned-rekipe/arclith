@@ -1,20 +1,22 @@
-# Capacites standardisees
+# Capacités standardisées
 
-Arclith doit fournir une base stable pour assembler rapidement des services hexagonaux. La CLI s'appuie donc sur un catalogue de capacites plutot que sur des chemins codes au cas par cas.
+Arclith doit fournir une base stable pour assembler rapidement des services hexagonaux. La CLI
+s'appuie donc sur un catalogue de capacités plutôt que sur des chemins codés au cas par cas.
 
 ## Principe
 
-Une capacite decrit:
+Une capacité décrit:
 
-- le role architectural expose par la CLI;
+- le rôle architectural exposé par la CLI;
 - le layer hexagonal concerne, `inbound` ou `outbound`;
 - les adapters disponibles;
-- les parametres requis par adapter;
+- les paramètres requis par adapter;
 - le chemin de configuration;
-- la cle d'activation dans `config/adapters/adapters.yaml`, quand la capacite a besoin d'un
-  selecteur actif.
+- la clé d'activation dans `config/adapters/adapters.yaml`, quand la capacité a besoin d'un
+  sélecteur actif.
 
-Le code metier reste dans `domain/` et `application/`. Les capacites ne doivent generer que du cablage, des ports, des schemas ou des adapters autour de ce coeur.
+Le code métier reste dans `domain/` et `application/`. Les capacités ne doivent générer que du
+câblage, des ports, des schémas ou des adapters autour de ce cœur.
 
 ## Scaffold du cœur métier
 
@@ -25,6 +27,7 @@ automatique vers FastAPI, FastMCP, LangGraph ou un repository.
 ```bash
 arclith-cli add-entity ShoppingItem
 arclith-cli add-usecase PlanShoppingList
+arclith-cli add-planner ShoppingIntent
 ```
 
 Fichiers générés :
@@ -32,6 +35,7 @@ Fichiers générés :
 ```text
 src/<package>/domain/models/shopping_item.py
 src/<package>/application/use_cases/plan_shopping_list.py
+src/<package>/application/planners/shopping_intent.py
 ```
 
 Le développeur garde la responsabilité de définir les champs, invariants, ports et orchestration
@@ -46,14 +50,14 @@ arclith-cli capabilities --json
 
 ### `repository`
 
-Capacite outbound pour la persistance des entites metier derriere un port repository.
+Capacité outbound pour la persistance des entités métier derrière un port repository.
 
 Adapters disponibles:
 
 - `memory`: stockage volatile pour dev, tests et smoke locaux;
 - `mongodb`: repository async MongoDB, single-tenant ou multitenant;
-- `duckdb`: repository fichier local pour SQL analytique et demos sans serveur;
-- `mariadb`: repository MariaDB async optionnel, avec stockage generique JSON par entite.
+- `duckdb`: repository fichier local pour SQL analytique et démos sans serveur;
+- `mariadb`: repository MariaDB async optionnel, avec stockage générique JSON par entité.
 
 Activation:
 
@@ -63,11 +67,11 @@ repository: mongodb
 
 ### `api`
 
-Capacite inbound pour exposer les cas d'usage via HTTP REST.
+Capacité inbound pour exposer les cas d'usage via HTTP REST.
 
 Adapter disponible:
 
-- `fastapi`: application FastAPI configuree par `Arclith.fastapi()`.
+- `fastapi`: application FastAPI configurée par `Arclith.fastapi()`.
 
 Configuration runtime:
 
@@ -78,16 +82,16 @@ port: 8000
 reload: true
 ```
 
-Cette capacite n'a pas de cle d'activation dans `config/adapters/adapters.yaml`: le chemin
-`config/adapters/inbound/fastapi.yaml` est charge directement dans `AppConfig.api`.
+Cette capacité n'a pas de clé d'activation dans `config/adapters/adapters.yaml`: le chemin
+`config/adapters/inbound/fastapi.yaml` est chargé directement dans `AppConfig.api`.
 
 ### `mcp`
 
-Capacite inbound pour exposer les cas d'usage via MCP.
+Capacité inbound pour exposer les cas d'usage via MCP.
 
 Adapter disponible:
 
-- `fastmcp`: serveur FastMCP configure par `Arclith.fastmcp()`, `run_mcp_sse()` et
+- `fastmcp`: serveur FastMCP configuré par `Arclith.fastmcp()`, `run_mcp_sse()` et
   `run_mcp_http()`.
 
 Configuration runtime:
@@ -98,16 +102,43 @@ host: 127.0.0.1
 port: 8001
 ```
 
-Cette capacite n'a pas de cle d'activation dans `config/adapters/adapters.yaml`: le chemin
-`config/adapters/inbound/fastmcp.yaml` est charge directement dans `AppConfig.mcp`.
+Cette capacité n'a pas de clé d'activation dans `config/adapters/adapters.yaml`: le chemin
+`config/adapters/inbound/fastmcp.yaml` est chargé directement dans `AppConfig.mcp`.
 
-### `observability`
+### `llm`
 
-Capacite outbound pour brancher l'observabilite et le banc de test agent.
+Capacité outbound pour configurer le modèle utilisé par les planners et agents.
 
 Adapters disponibles:
 
-- `langsmith`: tracing LangSmith et execution locale dans LangGraph Studio;
+- `lmstudio`: LLM local exposé par LM Studio via endpoint OpenAI-compatible;
+- `openai`: modèle OpenAI via protocole OpenAI-compatible;
+- `anthropic`: modèle Anthropic.
+
+Configuration runtime:
+
+```yaml
+# config/adapters/outbound/lm.yaml
+provider: openai
+model_name: "qwen/qwen3.5-9b"
+api_key: "lm-studio"
+base_url: "http://127.0.0.1:1234/v1"
+```
+
+Cette capacité n'a pas de clé d'activation dans `config/adapters/adapters.yaml`: le chemin
+`config/adapters/outbound/lm.yaml` est chargé directement dans `AppConfig.adapters.lm`.
+
+Pour OpenAI et Anthropic, la CLI génère `config/secrets.yaml` avec un resolver `env`, afin que
+`adapters.lm.api_key` soit alimenté par `OPENAI_API_KEY` ou `ANTHROPIC_API_KEY` sans écrire la clé
+dans `lm.yaml`.
+
+### `observability`
+
+Capacité outbound pour brancher l'observabilité et le banc de test agent.
+
+Adapters disponibles:
+
+- `langsmith`: tracing LangSmith et exécution locale dans LangGraph Studio;
 - `opentelemetry`: export OTLP traces/metrics et instrumentation FastAPI.
 
 Activation:
@@ -118,10 +149,10 @@ observability: langsmith
 observability: opentelemetry
 ```
 
-Arclith considere LangSmith Studio comme l'endroit standard pour tester un agent. Le serveur local
+Arclith considère LangSmith Studio comme l'endroit standard pour tester un agent. Le serveur local
 LangGraph doit lire `.env` via `langgraph.json`; `.env` contient `LANGSMITH_API_KEY`,
-`LANGSMITH_TRACING`, `LANGSMITH_PROJECT` et `LANGSMITH_ENDPOINT`. La cle reste locale et ne doit pas
-etre commitee.
+`LANGSMITH_TRACING`, `LANGSMITH_PROJECT` et `LANGSMITH_ENDPOINT`. La clé reste locale et ne doit pas
+être commitée.
 
 OpenTelemetry se configure avec:
 
@@ -146,7 +177,7 @@ uv add "arclith[opentelemetry]"
 
 ### `agent`
 
-Capacite inbound pour exposer les cas d'usage metier via un runtime agent.
+Capacité inbound pour exposer les cas d'usage métier via un runtime agent.
 
 Adapter disponible:
 
@@ -155,18 +186,18 @@ Adapter disponible:
 Configuration runtime:
 
 L'adapter `langgraph` suit la convention produit des adapters inbound comme `fastapi` et `fastmcp`:
-`config/adapters/inbound/langgraph.yaml` est charge dans `AppConfig.langgraph`. Il n'ajoute pas de
-cle generique `adapters.agent` dans `config/adapters/adapters.yaml`.
+`config/adapters/inbound/langgraph.yaml` est chargé dans `AppConfig.langgraph`. Il n'ajoute pas de
+clé générique `adapters.agent` dans `config/adapters/adapters.yaml`.
 
-L'adapter genere:
+L'adapter génère:
 
 - `langgraph.json`;
 - `config/adapters/inbound/langgraph.yaml`;
 - `src/<package>/adapters/inbound/langgraph/agent.py`.
 
-Le fichier `agent.py` est le seul point a modifier pour un nouveau projet agent: l'etat, les noeuds,
-les transitions et les appels aux cas d'usage applicatifs. Arclith garde le cablage recurrent:
-chargement de configuration, creation du `StateGraph`, compilation, entrypoint Studio et lecture de
+Le fichier `agent.py` est le seul point à modifier pour un nouveau projet agent: l'état, les nœuds,
+les transitions et les appels aux cas d'usage applicatifs. Arclith garde le câblage récurrent:
+chargement de configuration, création du `StateGraph`, compilation, entrypoint Studio et lecture de
 `.env`.
 
 ## Ajouter un adapter
@@ -177,7 +208,7 @@ Le chemin standard est:
 arclith-cli add-adapter --capability repository --adapter mongodb --entity Ingredient --yes
 ```
 
-Les parametres d'adapter peuvent etre fournis de maniere generique:
+Les paramètres d'adapter peuvent être fournis de manière générique:
 
 ```bash
 arclith-cli add-adapter \
@@ -201,6 +232,12 @@ Pour brancher le banc de test agent LangSmith:
 
 ```bash
 arclith-cli add-adapter \
+  --capability llm \
+  --adapter lmstudio \
+  --param model_name=qwen/qwen3.5-9b \
+  --yes
+
+arclith-cli add-adapter \
   --capability agent \
   --adapter langgraph
 
@@ -221,7 +258,7 @@ arclith-cli add-adapter \
   --adapter langsmith
 ```
 
-En mode interactif, la CLI demande aussi `LANGSMITH_API_KEY` et l'ecrit dans `.env`. Le mode direct
+En mode interactif, la CLI demande aussi `LANGSMITH_API_KEY` et l'écrit dans `.env`. Le mode direct
 reste possible pour les scripts:
 
 ```bash
@@ -246,10 +283,27 @@ arclith-cli add-adapter \
   --yes
 ```
 
-## Regle d'evolution
+Pour OpenAI:
 
-Chaque nouvelle capacite doit d'abord etre ajoutee au catalogue, puis consommee par la CLI. Cela garde les futures briques, par exemple MariaDB, bus, planner LLM, tracing ou observability, declaratives et testables.
+```bash
+arclith-cli add-adapter \
+  --capability llm \
+  --adapter openai \
+  --param model_name=gpt-4o-mini \
+  --param api_key="$OPENAI_API_KEY" \
+  --yes
+```
 
-Une capacite ne doit pas introduire de dependance du core vers un adapter. Elle doit uniquement generer ou cabler les elements externes necessaires.
+## Règle d'évolution
 
-Les secrets ne doivent pas etre generes dans les fichiers d'adapter. Pour MariaDB, mapper `adapters.mariadb.password` ou `adapters.mariadb.url` via `config/secrets.yaml`, un resolver `env` ou Vault.
+Chaque nouvelle capacité technique doit d'abord être ajoutée au catalogue, puis consommée par la CLI.
+Cela garde les futures briques, par exemple MariaDB, bus, tracing ou observability, déclaratives et
+testables.
+
+Une capacité ne doit pas introduire de dépendance du core vers un adapter. Elle doit uniquement
+générer ou câbler les éléments externes nécessaires.
+
+Les secrets ne doivent pas être générés dans les fichiers d'adapter. Pour MariaDB, mapper
+`adapters.mariadb.password` ou `adapters.mariadb.url` via `config/secrets.yaml`, un resolver `env`
+ou Vault. Pour les LLMs distants, mapper `adapters.lm.api_key` vers `OPENAI_API_KEY`,
+`ANTHROPIC_API_KEY` ou la variable cible.

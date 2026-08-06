@@ -65,6 +65,36 @@ def test_mcp_capability_catalog_declares_fastmcp() -> None:
     assert [parameter.name for parameter in fastmcp.parameters] == ["host", "port"]
 
 
+def test_llm_capability_catalog_declares_model_adapters() -> None:
+    capability = get_capability("llm")
+
+    assert capability is not None
+    assert capability.layer == "outbound"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("lmstudio", "openai", "anthropic")
+
+    lmstudio = capability.get_adapter("lmstudio")
+    openai = capability.get_adapter("openai")
+    anthropic = capability.get_adapter("anthropic")
+
+    assert lmstudio is not None
+    assert lmstudio.config_path == "config/adapters/outbound/lm.yaml"
+    assert lmstudio.entity_scoped is False
+    assert [parameter.name for parameter in lmstudio.parameters] == ["model_name", "base_url", "api_key"]
+
+    assert openai is not None
+    assert openai.config_path == "config/adapters/outbound/lm.yaml"
+    assert openai.env_path == ".env"
+    assert openai.entity_scoped is False
+    assert [mapping.field_path for mapping in openai.secret_mappings] == ["adapters.lm.api_key"]
+
+    assert anthropic is not None
+    assert anthropic.config_path == "config/adapters/outbound/lm.yaml"
+    assert anthropic.env_path == ".env"
+    assert anthropic.entity_scoped is False
+    assert [mapping.secret_key for mapping in anthropic.secret_mappings] == ["ANTHROPIC_API_KEY"]
+
+
 def test_observability_capability_catalog_declares_opentelemetry() -> None:
     capability = get_capability("observability")
 
@@ -143,6 +173,8 @@ def test_capability_catalog_is_json_serializable() -> None:
     assert "fastapi" in encoded
     assert "mcp" in encoded
     assert "fastmcp" in encoded
+    assert "llm" in encoded
+    assert "lmstudio" in encoded
     assert "agent" in encoded
     assert "langgraph" in encoded
     assert "observability" in encoded
@@ -166,7 +198,9 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert [adapter["name"] for adapter in payload[1]["adapters"]] == ["fastapi"]
     assert payload[2]["name"] == "mcp"
     assert [adapter["name"] for adapter in payload[2]["adapters"]] == ["fastmcp"]
-    assert payload[3]["name"] == "agent"
-    assert [adapter["name"] for adapter in payload[3]["adapters"]] == ["langgraph"]
-    assert payload[4]["name"] == "observability"
-    assert [adapter["name"] for adapter in payload[4]["adapters"]] == ["langsmith", "opentelemetry"]
+    assert payload[3]["name"] == "llm"
+    assert [adapter["name"] for adapter in payload[3]["adapters"]] == ["lmstudio", "openai", "anthropic"]
+    assert payload[4]["name"] == "agent"
+    assert [adapter["name"] for adapter in payload[4]["adapters"]] == ["langgraph"]
+    assert payload[5]["name"] == "observability"
+    assert [adapter["name"] for adapter in payload[5]["adapters"]] == ["langsmith", "opentelemetry"]

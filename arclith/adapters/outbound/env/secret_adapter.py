@@ -15,6 +15,24 @@ class EnvSecretAdapter(SecretResolver):
     """
 
     def get(self, field_path: str, secret_key: str) -> str | None:
-        env_key = field_path.replace(".", "_").upper()
-        return os.environ.get(env_key) or None
+        for env_key in _env_key_candidates(field_path, secret_key):
+            value = os.environ.get(env_key)
+            if value:
+                return value
+        return None
 
+
+def _env_key_candidates(field_path: str, secret_key: str) -> tuple[str, ...]:
+    candidates: list[str] = []
+    explicit_key = secret_key.strip()
+    if explicit_key:
+        candidates.append(explicit_key)
+        upper_key = explicit_key.upper()
+        if upper_key != explicit_key:
+            candidates.append(upper_key)
+
+    derived_key = field_path.replace(".", "_").upper()
+    if derived_key not in candidates:
+        candidates.append(derived_key)
+
+    return tuple(candidates)

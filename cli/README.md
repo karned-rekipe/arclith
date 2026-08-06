@@ -75,6 +75,28 @@ Comme `add-entity`, cette commande ne câble pas FastAPI, FastMCP, LangGraph, un
 
 ---
 
+### `add-planner` — Ajouter un planner applicatif
+
+Crée uniquement le fichier minimal d'un planner dans `src/<package>/application/planners/`.
+
+```bash
+cd my-recipe-service
+arclith-cli add-planner IngredientIntent
+arclith-cli add-planner command-router
+```
+
+Fichier généré :
+
+```text
+src/<package>/application/planners/ingredient_intent.py
+```
+
+Le planner est le composant applicatif qui transforme une demande naturelle en commande ou DTO
+structuré. Il ne remplace pas LangGraph : LangGraph orchestre les nœuds, tandis que le planner porte
+la traduction d'intention. Le fichier généré reste volontairement vide de logique métier.
+
+---
+
 ### `add-adapter` — Ajouter un adapter
 
 Wizard interactif à lancer **depuis la racine du projet cible**. Scaffold le code Python et/ou les fichiers de configuration pour un nouvel adapter. Par défaut, la capacité cible est `repository`.
@@ -92,6 +114,7 @@ arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activa
 arclith-cli add-adapter --adapter mariadb --entity Recipe --param database=my_recipe_service --param user=app --yes
 arclith-cli add-adapter --capability api --adapter fastapi --param port=8080 --yes
 arclith-cli add-adapter --capability mcp --adapter fastmcp --param port=8081 --yes
+arclith-cli add-adapter --capability llm --adapter lmstudio --param model_name=qwen/qwen3.5-9b --yes
 arclith-cli add-adapter --capability agent --adapter langgraph --param graph_name=recipe_agent --yes
 arclith-cli add-adapter --capability observability --adapter langsmith
 arclith-cli add-adapter --capability observability --adapter opentelemetry --param service_name=my_recipe_service --yes
@@ -100,25 +123,28 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
 
 **Étapes du wizard :**
 
-1. **Type d'adapter** — selon la capacité : `memory` · `mongodb` · `duckdb` · `mariadb` · `fastapi` · `fastmcp` · `langgraph` · `langsmith` · `opentelemetry`
-2. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour les transports globaux, `agent/langgraph` et les adapters d'observability
+1. **Type d'adapter** — selon la capacité : `memory` · `mongodb` · `duckdb` · `mariadb` · `fastapi` · `fastmcp` · `lmstudio` · `openai` · `anthropic` · `langgraph` · `langsmith` · `opentelemetry`
+2. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour les transports globaux, `llm/*`, `agent/langgraph` et les adapters d'observability
 3. **Paramètres** — questions spécifiques à l'adapter :
    - `mongodb` → `db_name`, `multitenant`
    - `duckdb` → `path`
    - `mariadb` → `host`, `port`, `database`, `user`, `driver`, `table_prefix`
    - `fastapi` → `host`, `port`, `reload`
    - `fastmcp` → `host`, `port`
+   - `lmstudio` → `model_name`, `base_url`, `api_key`
+   - `openai` → `model_name`, `base_url`, `OPENAI_API_KEY`
+   - `anthropic` → `model_name`, `ANTHROPIC_API_KEY`
    - `langgraph` → `graph_name`
    - `langsmith` → `tracing`, `project`, `endpoint`, `LANGSMITH_API_KEY`
    - `opentelemetry` → `service_name`, `endpoint`, `protocol`, `traces`, `metrics`, `instrument_fastapi`
    - `memory` → aucun paramètre
-4. **Activation** — met à jour `config/adapters/adapters.yaml` pour les capacités à sélecteur (`repository: <adapter>` ou `observability: <adapter>`) ; `api/fastapi`, `mcp/fastmcp` et `agent/langgraph` sont exposés par leurs fichiers `config/adapters/inbound/*.yaml`
+4. **Activation** — met à jour `config/adapters/adapters.yaml` pour les capacités à sélecteur (`repository: <adapter>` ou `observability: <adapter>`) ; `api/fastapi`, `mcp/fastmcp`, `llm/*` et `agent/langgraph` sont exposés par leurs fichiers de configuration scopés
 5. **Récapitulatif** — liste des fichiers créés ou remplacés avant confirmation
 
 | Option | Défaut | Description |
 |--------|--------|-------------|
-| `--capability` | `repository` | Capacité cible du catalogue standardisé (`repository`, `api`, `mcp`, `agent`, `observability`) |
-| `--adapter` / `-a` | interactif | Adapter du catalogue : `memory`, `mongodb`, `duckdb`, `mariadb`, `fastapi`, `fastmcp`, `langgraph`, `langsmith`, `opentelemetry` |
+| `--capability` | `repository` | Capacité cible du catalogue standardisé (`repository`, `api`, `mcp`, `llm`, `agent`, `observability`) |
+| `--adapter` / `-a` | interactif | Adapter du catalogue : `memory`, `mongodb`, `duckdb`, `mariadb`, `fastapi`, `fastmcp`, `lmstudio`, `openai`, `anthropic`, `langgraph`, `langsmith`, `opentelemetry` |
 | `--entity` / `-e` | auto si une seule entité | Entité cible, liste séparée par virgule acceptée |
 | `--all-entities` | `false` | Génère l'adapter pour toutes les entités détectées |
 | `--activate/--no-activate` | `--activate` | Met à jour `config/adapters/adapters.yaml` quand la capacité expose une clé d'activation |
@@ -144,10 +170,15 @@ src/<package>/infrastructure/containers/<entity>_container.py  # RepositoryRegis
 
 ```bash
 uv add "arclith[langgraph]"
+arclith-cli add-adapter --capability llm --adapter lmstudio --param model_name=qwen/qwen3.5-9b --yes
 arclith-cli add-adapter --capability agent --adapter langgraph
 arclith-cli add-adapter --capability observability --adapter langsmith
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
+
+L'adapter `llm/lmstudio` génère `config/adapters/outbound/lm.yaml`, chargé dans
+`AppConfig.adapters.lm`. Les adapters `llm/openai` et `llm/anthropic` génèrent aussi un mapping
+`config/secrets.yaml` vers `OPENAI_API_KEY` ou `ANTHROPIC_API_KEY`.
 
 L'adapter `agent/langgraph` génère `langgraph.json`, `config/adapters/inbound/langgraph.yaml` et
 `src/<package>/adapters/inbound/langgraph/agent.py`. Le projet ne modifie ensuite que ce fichier pour
@@ -241,6 +272,7 @@ config/
       mongodb.yaml                # adapters.mongodb: { db_name, multitenant }
       duckdb.yaml                 # adapters.duckdb: { path, multitenant }
       mariadb.yaml                # adapters.mariadb: { host, port, database, user, ... }
+      lm.yaml                     # adapters.lm: { provider, model_name, api_key, base_url }
       langsmith.yaml              # adapters.langsmith: { tracing, project, endpoint, ... }
       opentelemetry.yaml          # adapters.opentelemetry: { endpoint, protocol, traces, metrics, ... }
     inbound/

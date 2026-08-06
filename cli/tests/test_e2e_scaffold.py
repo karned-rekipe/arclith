@@ -169,11 +169,28 @@ def test_scaffold_and_run(temp_workspace: Path):
         project_dir / "src" / "test_plan_service" / "application" / "use_cases" / "plan_shopping_list.py"
     ).exists()
 
+    result = subprocess.run(
+        [
+            "arclith-cli",
+            "add-planner",
+            "ShoppingIntent",
+        ],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"add-planner failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert (
+        project_dir / "src" / "test_plan_service" / "application" / "planners" / "shopping_intent.py"
+    ).exists()
+
     import_script = "\n".join(
         [
             "from test_plan_service.domain.models.shopping_item import ShoppingItem",
             "from test_plan_service.application.use_cases.plan_shopping_list import PlanShoppingListUseCase",
-            "print(ShoppingItem.__name__, PlanShoppingListUseCase.__name__)",
+            "from test_plan_service.application.planners.shopping_intent import ShoppingIntentPlanner",
+            "print(ShoppingItem.__name__, PlanShoppingListUseCase.__name__, ShoppingIntentPlanner.__name__)",
         ]
     )
     result = subprocess.run(
@@ -190,7 +207,7 @@ def test_scaffold_and_run(temp_workspace: Path):
         timeout=30,
     )
     assert result.returncode == 0, f"Core scaffold import failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-    assert "ShoppingItem PlanShoppingListUseCase" in result.stdout
+    assert "ShoppingItem PlanShoppingListUseCase ShoppingIntentPlanner" in result.stdout
 
     # Step 7 — validate non-interactive adapter generation through the CLI entry point
     result = subprocess.run(
@@ -217,6 +234,26 @@ def test_scaffold_and_run(temp_workspace: Path):
     assert "repository: duckdb" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     )
+
+    result = subprocess.run(
+        [
+            "arclith-cli",
+            "add-adapter",
+            "--capability",
+            "llm",
+            "--adapter",
+            "lmstudio",
+            "--param",
+            "model_name=qwen/qwen3.5-9b",
+            "--yes",
+        ],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"add-adapter llm failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert (project_dir / "config" / "adapters" / "outbound" / "lm.yaml").exists()
 
 
 def test_scaffold_with_custom_entity_formats(temp_workspace: Path):
