@@ -15,6 +15,7 @@ secrets.yaml
 # artefacts de test / qualité
 .coverage
 htmlcov/
+site/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/

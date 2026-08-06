@@ -105,3 +105,6 @@ dev = [
     "langgraph-api>=0.11.0",
     "pydantic-ai-slim[anthropic,openai]>=2.24.0,<3.0.0",
 ]
+docs = [
+    "mkdocs>=1.6.1",
+]

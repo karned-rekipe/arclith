@@ -10,6 +10,25 @@ uv tool install "git+https://github.com/karned-rekipe/arclith.git#subdirectory=c
 
 ## Commandes
 
+### `init` — Initialiser un projet minimal
+
+Crée un projet Arclith vide de métier, avec le layout canonique `src/<package>/...`, une
+configuration minimale et un `main.py` prêt à recevoir les adapters.
+
+```bash
+# Mode interactif
+arclith-cli init
+
+# Mode direct
+arclith-cli init todo-list-service
+arclith-cli init todo-list-service --dir ~/projects
+```
+
+Cette commande ne crée aucune entité, aucun CRUD et aucun endpoint métier. Elle sert quand on veut
+construire le projet étape par étape avec `add-entity`, `add-usecase`, puis `add-adapter`.
+
+---
+
 ### `new` — Créer un projet
 
 Scaffold un nouveau projet arclith depuis le template officiel `_sample`.

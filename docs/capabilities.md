@@ -20,11 +20,13 @@ câblage, des ports, des schémas ou des adapters autour de ce cœur.
 
 ## Scaffold du cœur métier
 
-Les entités et les use cases ne sont pas des capacités du catalogue : ils appartiennent au cœur
+`arclith-cli init` initialise un projet vide de métier. Les entités et les use cases ne sont pas des capacités du catalogue : ils appartiennent au cœur
 métier. La CLI peut seulement poser les fichiers minimaux, sans CRUD par défaut et sans câblage
 automatique vers FastAPI, FastMCP, LangGraph ou un repository.
 
 ```bash
+arclith-cli init todo-list-service
+cd todo-list-service
 arclith-cli add-entity ShoppingItem
 arclith-cli add-usecase PlanShoppingList
 arclith-cli add-planner ShoppingIntent
