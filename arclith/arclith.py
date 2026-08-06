@@ -113,6 +113,8 @@ class Arclith:
         app = FastAPI(lifespan=_lifespan, **kwargs)
         self._add_fastapi_observability(app)
         self._add_fastapi_http_middlewares(app)
+        if self.config.adapters.observability == "opentelemetry":
+            self._instrument_fastapi_opentelemetry(app)
 
         if self.config.keycloak:
             self._patch_openapi_keycloak(app)
@@ -144,8 +146,6 @@ class Arclith:
         kwargs.setdefault("swagger_ui_parameters", {"persistAuthorization": True})
 
     def _add_fastapi_observability(self, app: "FastAPI") -> None:
-        if self.config.adapters.observability == "opentelemetry":
-            self._instrument_fastapi_opentelemetry(app)
         if self.config.probe.enabled:
             from arclith.adapters.inbound.probes.metrics import ApiMetricsCollector
             app.add_middleware(ApiMetricsCollector, registry=self._metrics_registry)

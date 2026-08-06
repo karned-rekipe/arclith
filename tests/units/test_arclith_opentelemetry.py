@@ -53,3 +53,24 @@ def test_opentelemetry_hook_uses_configured_adapter(tmp_path: Path, monkeypatch)
     assert calls[0]["service_name"] == "demo-api"
     assert calls[0]["service_version"] == "1.2.3"
     assert calls[0]["settings"].instrument_fastapi is True
+
+
+def test_fastapi_instruments_opentelemetry_after_middlewares(tmp_path: Path, monkeypatch) -> None:
+    events: list[str] = []
+
+    def fake_add_fastapi_observability(self: Arclith, app: Any) -> None:
+        events.append("observability")
+
+    def fake_add_fastapi_http_middlewares(self: Arclith, app: Any) -> None:
+        events.append("http")
+
+    def fake_instrument_fastapi_opentelemetry(self: Arclith, app: Any) -> None:
+        events.append("opentelemetry")
+
+    monkeypatch.setattr(Arclith, "_add_fastapi_observability", fake_add_fastapi_observability)
+    monkeypatch.setattr(Arclith, "_add_fastapi_http_middlewares", fake_add_fastapi_http_middlewares)
+    monkeypatch.setattr(Arclith, "_instrument_fastapi_opentelemetry", fake_instrument_fastapi_opentelemetry)
+
+    Arclith(_make_config_dir(tmp_path)).fastapi()
+
+    assert events == ["observability", "http", "opentelemetry"]

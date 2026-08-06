@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -6,7 +7,12 @@ if TYPE_CHECKING:
 
     from arclith.infrastructure.config import OpenTelemetrySettings
 
-_CONFIGURED = False
+@dataclass
+class _ConfigurationState:
+    configured: bool = False
+
+
+_CONFIGURATION_STATE = _ConfigurationState()
 
 
 def instrument_fastapi_app(
@@ -37,8 +43,7 @@ def _configure_opentelemetry(
     service_name: str,
     service_version: str,
 ) -> None:
-    global _CONFIGURED
-    if _CONFIGURED or not (settings.traces or settings.metrics):
+    if _CONFIGURATION_STATE.configured or not (settings.traces or settings.metrics):
         return
 
     try:
@@ -58,7 +63,7 @@ def _configure_opentelemetry(
         _configure_metrics(settings, resource)
 
     LoggingInstrumentor().instrument(set_logging_format=False)
-    _CONFIGURED = True
+    _CONFIGURATION_STATE.configured = True
 
 
 def _configure_traces(settings: "OpenTelemetrySettings", resource: Any) -> None:
