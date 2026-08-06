@@ -49,29 +49,35 @@ Mode direct, utile pour CI, scripts de migration ou commandes reproductibles :
 arclith-cli add-adapter --adapter mongodb --entity Recipe --db-name my_recipe_service --yes
 arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activate --yes
 arclith-cli add-adapter --adapter mariadb --entity Recipe --param database=my_recipe_service --param user=app --yes
+arclith-cli add-adapter --capability api --adapter fastapi --param port=8080 --yes
+arclith-cli add-adapter --capability mcp --adapter fastmcp --param port=8081 --yes
 arclith-cli add-adapter --capability agent --adapter langgraph --param graph_name=recipe_agent --yes
 arclith-cli add-adapter --capability observability --adapter langsmith
+arclith-cli add-adapter --capability observability --adapter opentelemetry --param service_name=my_recipe_service --yes
 arclith-cli add-adapter --capability repository --adapter memory --entity Recipe --yes
 ```
 
 **Étapes du wizard :**
 
-1. **Type d'adapter** — selon la capacité : `memory` · `mongodb` · `duckdb` · `mariadb` · `langgraph` · `langsmith`
-2. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour `agent/langgraph` et `observability/langsmith`
+1. **Type d'adapter** — selon la capacité : `memory` · `mongodb` · `duckdb` · `mariadb` · `fastapi` · `fastmcp` · `langgraph` · `langsmith` · `opentelemetry`
+2. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour les transports globaux, `agent/langgraph` et les adapters d'observability
 3. **Paramètres** — questions spécifiques à l'adapter :
    - `mongodb` → `db_name`, `multitenant`
    - `duckdb` → `path`
    - `mariadb` → `host`, `port`, `database`, `user`, `driver`, `table_prefix`
+   - `fastapi` → `host`, `port`, `reload`
+   - `fastmcp` → `host`, `port`
    - `langgraph` → `graph_name`
    - `langsmith` → `tracing`, `project`, `endpoint`, `LANGSMITH_API_KEY`
+   - `opentelemetry` → `service_name`, `endpoint`, `protocol`, `traces`, `metrics`, `instrument_fastapi`
    - `memory` → aucun paramètre
-4. **Activation** — met à jour `config/adapters/adapters.yaml` pour les capacités à sélecteur (`repository: <adapter>` ou `observability: langsmith`) ; `agent/langgraph` est exposé par `langgraph.json` et `config/adapters/inbound/langgraph.yaml`
+4. **Activation** — met à jour `config/adapters/adapters.yaml` pour les capacités à sélecteur (`repository: <adapter>` ou `observability: <adapter>`) ; `api/fastapi`, `mcp/fastmcp` et `agent/langgraph` sont exposés par leurs fichiers `config/adapters/inbound/*.yaml`
 5. **Récapitulatif** — liste des fichiers créés ou remplacés avant confirmation
 
 | Option | Défaut | Description |
 |--------|--------|-------------|
-| `--capability` | `repository` | Capacité cible du catalogue standardisé (`repository`, `agent`, `observability`) |
-| `--adapter` / `-a` | interactif | Adapter du catalogue : `memory`, `mongodb`, `duckdb`, `mariadb`, `langgraph`, `langsmith` |
+| `--capability` | `repository` | Capacité cible du catalogue standardisé (`repository`, `api`, `mcp`, `agent`, `observability`) |
+| `--adapter` / `-a` | interactif | Adapter du catalogue : `memory`, `mongodb`, `duckdb`, `mariadb`, `fastapi`, `fastmcp`, `langgraph`, `langsmith`, `opentelemetry` |
 | `--entity` / `-e` | auto si une seule entité | Entité cible, liste séparée par virgule acceptée |
 | `--all-entities` | `false` | Génère l'adapter pour toutes les entités détectées |
 | `--activate/--no-activate` | `--activate` | Met à jour `config/adapters/adapters.yaml` quand la capacité expose une clé d'activation |
@@ -110,6 +116,17 @@ son agent. Comme `fastapi` et `fastmcp`, LangGraph est configuré par son nom pr
 à jour `.env` et ajoute `.env` au `.gitignore` si besoin. LangSmith Studio devient l'endroit standard
 pour tester les agents. Une `LANGSMITH_API_KEY` déjà présente est conservée si aucune nouvelle valeur
 n'est fournie.
+
+**OpenTelemetry :**
+
+```bash
+uv add "arclith[opentelemetry]"
+arclith-cli add-adapter --capability observability --adapter opentelemetry --param service_name=my-recipe-service --yes
+```
+
+L'adapter `observability/opentelemetry` génère `config/adapters/outbound/opentelemetry.yaml`, met à
+jour `.env`, active `observability: opentelemetry` et branche l'instrumentation FastAPI quand
+`Arclith.fastapi()` construit l'application.
 
 Parcours complet avec entité, API, LangGraph, LangSmith et LM Studio:
 [`docs/agent-quickstart.md`](../docs/agent-quickstart.md).
@@ -184,6 +201,7 @@ config/
       duckdb.yaml                 # adapters.duckdb: { path, multitenant }
       mariadb.yaml                # adapters.mariadb: { host, port, database, user, ... }
       langsmith.yaml              # adapters.langsmith: { tracing, project, endpoint, ... }
+      opentelemetry.yaml          # adapters.opentelemetry: { endpoint, protocol, traces, metrics, ... }
     inbound/
       fastapi.yaml                # api: { host, port, reload }
       fastmcp.yaml                # mcp: { host, port }
@@ -199,7 +217,7 @@ Pour changer l'adapter actif sans passer par le wizard :
 ```yaml
 # config/adapters/adapters.yaml
 repository: duckdb   # memory | mongodb | duckdb | mariadb
-observability: langsmith
+observability: langsmith   # none | langsmith | opentelemetry
 ```
 
 Pour MariaDB, ne committez pas le mot de passe. Mappez `adapters.mariadb.password` ou `adapters.mariadb.url` via `config/secrets.yaml`, un resolver `env` ou Vault.

@@ -61,6 +61,7 @@ pip install "arclith[mariadb]"
 pip install "arclith[fastapi]"
 pip install "arclith[mcp]"
 pip install "arclith[langgraph]"
+pip install "arclith[opentelemetry]"
 pip install "arclith[all]"
 ```
 

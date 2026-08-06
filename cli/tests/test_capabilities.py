@@ -23,7 +23,7 @@ def test_observability_capability_catalog_declares_langsmith() -> None:
     assert capability is not None
     assert capability.layer == "outbound"
     assert capability.activation_config_key == "observability"
-    assert capability.adapter_names() == ("langsmith",)
+    assert capability.adapter_names() == ("langsmith", "opentelemetry")
     langsmith = capability.get_adapter("langsmith")
     assert langsmith is not None
     assert langsmith.config_path == "config/adapters/outbound/langsmith.yaml"
@@ -34,6 +34,56 @@ def test_observability_capability_catalog_declares_langsmith() -> None:
         "project",
         "endpoint",
         "api_key",
+    ]
+
+
+def test_api_capability_catalog_declares_fastapi() -> None:
+    capability = get_capability("api")
+
+    assert capability is not None
+    assert capability.layer == "inbound"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("fastapi",)
+    fastapi = capability.get_adapter("fastapi")
+    assert fastapi is not None
+    assert fastapi.config_path == "config/adapters/inbound/fastapi.yaml"
+    assert fastapi.entity_scoped is False
+    assert [parameter.name for parameter in fastapi.parameters] == ["host", "port", "reload"]
+
+
+def test_mcp_capability_catalog_declares_fastmcp() -> None:
+    capability = get_capability("mcp")
+
+    assert capability is not None
+    assert capability.layer == "inbound"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("fastmcp",)
+    fastmcp = capability.get_adapter("fastmcp")
+    assert fastmcp is not None
+    assert fastmcp.config_path == "config/adapters/inbound/fastmcp.yaml"
+    assert fastmcp.entity_scoped is False
+    assert [parameter.name for parameter in fastmcp.parameters] == ["host", "port"]
+
+
+def test_observability_capability_catalog_declares_opentelemetry() -> None:
+    capability = get_capability("observability")
+
+    assert capability is not None
+    opentelemetry = capability.get_adapter("opentelemetry")
+    assert opentelemetry is not None
+    assert opentelemetry.config_path == "config/adapters/outbound/opentelemetry.yaml"
+    assert opentelemetry.env_path == ".env"
+    assert opentelemetry.entity_scoped is False
+    assert [parameter.name for parameter in opentelemetry.parameters] == [
+        "enabled",
+        "service_name",
+        "endpoint",
+        "protocol",
+        "traces",
+        "metrics",
+        "instrument_fastapi",
+        "metrics_export_interval_millis",
+        "headers",
     ]
 
 
@@ -89,10 +139,15 @@ def test_capability_catalog_is_json_serializable() -> None:
 
     assert "repository" in encoded
     assert "mongodb" in encoded
+    assert "api" in encoded
+    assert "fastapi" in encoded
+    assert "mcp" in encoded
+    assert "fastmcp" in encoded
     assert "agent" in encoded
     assert "langgraph" in encoded
     assert "observability" in encoded
     assert "langsmith" in encoded
+    assert "opentelemetry" in encoded
 
 
 def test_capabilities_command_outputs_json_catalog() -> None:
@@ -107,7 +162,11 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     payload = json.loads(result.stdout)
     assert payload[0]["name"] == "repository"
     assert [adapter["name"] for adapter in payload[0]["adapters"]] == ["memory", "mongodb", "duckdb", "mariadb"]
-    assert payload[1]["name"] == "agent"
-    assert [adapter["name"] for adapter in payload[1]["adapters"]] == ["langgraph"]
-    assert payload[2]["name"] == "observability"
-    assert [adapter["name"] for adapter in payload[2]["adapters"]] == ["langsmith"]
+    assert payload[1]["name"] == "api"
+    assert [adapter["name"] for adapter in payload[1]["adapters"]] == ["fastapi"]
+    assert payload[2]["name"] == "mcp"
+    assert [adapter["name"] for adapter in payload[2]["adapters"]] == ["fastmcp"]
+    assert payload[3]["name"] == "agent"
+    assert [adapter["name"] for adapter in payload[3]["adapters"]] == ["langgraph"]
+    assert payload[4]["name"] == "observability"
+    assert [adapter["name"] for adapter in payload[4]["adapters"]] == ["langsmith", "opentelemetry"]

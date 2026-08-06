@@ -21,7 +21,7 @@ Fournir les primitives réutilisables pour construire des services en architectu
 - `domain/` n'importe que `pydantic` et `uuid6`.
 - Tout nouveau adaptateur doit être branché dans `build_repository()`.
 - Dépendances groupées : installer uniquement ce qui est nécessaire (`[mongodb]`, `[duckdb]`, `[mariadb]`, `[fastapi]`, `[mcp]`,
-  `[all]`).
+  `[vault]`, `[cache]`, `[auth]`, `[langgraph]`, `[opentelemetry]`, `[all]`).
 - Coverage **≥ 90 %** : `make coverage`.
 - Pre-commit gate : `make precommit` (lint + typecheck + security).
 - **HTTP Status Codes** : toujours déclarer explicitement `status_code` et `responses` dans FastAPI. Voir `docs/http-conventions.md`.

@@ -194,6 +194,106 @@ def test_add_langsmith_skips_missing_empty_api_key(tmp_path: Path) -> None:
     assert "LANGSMITH_PROJECT=agent-tests" in env
 
 
+def test_add_fastapi_api_adapter_generates_inbound_config_only(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="api",
+        adapter="fastapi",
+        adapter_params={
+            "host": "127.0.0.1",
+            "port": "8080",
+            "reload": "false",
+        },
+        yes=True,
+    )
+
+    config = (project_dir / "config" / "adapters" / "inbound" / "fastapi.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "host: 127.0.0.1" in config
+    assert "port: 8080" in config
+    assert "reload: false" in config
+    assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
+    package_root = project_dir / "src" / "demo_service"
+    assert not (package_root / "adapters" / "outbound" / "fastapi").exists()
+
+
+def test_add_fastmcp_mcp_adapter_generates_inbound_config_only(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="mcp",
+        adapter="fastmcp",
+        adapter_params={
+            "host": "127.0.0.1",
+            "port": "9001",
+        },
+        yes=True,
+    )
+
+    config = (project_dir / "config" / "adapters" / "inbound" / "fastmcp.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "host: 127.0.0.1" in config
+    assert "port: 9001" in config
+    assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
+    package_root = project_dir / "src" / "demo_service"
+    assert not (package_root / "adapters" / "outbound" / "fastmcp").exists()
+
+
+def test_add_opentelemetry_observability_adapter_uses_catalog_params(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+    (project_dir / ".env").write_text("EXISTING=value\n", encoding="utf-8")
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="observability",
+        adapter="opentelemetry",
+        adapter_params={
+            "service_name": "demo-api",
+            "endpoint": "http://otel-collector:4318",
+            "protocol": "http/protobuf",
+            "traces": "true",
+            "metrics": "true",
+            "instrument_fastapi": "true",
+            "metrics_export_interval_millis": "15000",
+            "headers": "authorization=Bearer test",
+        },
+        yes=True,
+    )
+
+    config = (project_dir / "config" / "adapters" / "outbound" / "opentelemetry.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "enabled: true" in config
+    assert 'service_name: "demo-api"' in config
+    assert 'endpoint: "http://otel-collector:4318"' in config
+    assert 'protocol: "http/protobuf"' in config
+    assert "headers_env: OTEL_EXPORTER_OTLP_HEADERS" in config
+    assert "traces: true" in config
+    assert "metrics: true" in config
+    assert "instrument_fastapi: true" in config
+    assert "metrics_export_interval_millis: 15000" in config
+    assert "observability: opentelemetry" in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
+
+    env = (project_dir / ".env").read_text(encoding="utf-8")
+    assert "EXISTING=value" in env
+    assert "OTEL_SERVICE_NAME=demo-api" in env
+    assert "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318" in env
+    assert "OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf" in env
+    assert "OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer test" in env
+    assert ".env" in (project_dir / ".gitignore").read_text(encoding="utf-8")
+
+
 def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
 
@@ -237,6 +337,19 @@ def test_add_non_entity_adapter_rejects_entity_selection(tmp_path: Path) -> None
             project_dir=project_dir,
             capability_name="agent",
             adapter="langgraph",
+            entity_names=["Widget"],
+            yes=True,
+        )
+
+
+def test_add_transport_adapter_rejects_entity_selection(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="api",
+            adapter="fastapi",
             entity_names=["Widget"],
             yes=True,
         )
