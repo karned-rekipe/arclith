@@ -54,6 +54,7 @@ jobs:
     environment: pypi
     permissions:
       actions: read
+      contents: read
       id-token: write  # Required for OIDC Trusted Publishing
     steps:
       - uses: actions/download-artifact@v4
@@ -71,6 +72,7 @@ jobs:
     environment: pypi-cli
     permissions:
       actions: read
+      contents: read
       id-token: write  # Required for OIDC Trusted Publishing
     steps:
       - uses: actions/download-artifact@v4
