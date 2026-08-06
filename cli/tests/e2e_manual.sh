@@ -6,6 +6,18 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+version_lt() {
+    local left_major left_minor left_patch right_major right_minor right_patch
+    IFS=. read -r left_major left_minor left_patch <<< "$1"
+    IFS=. read -r right_major right_minor right_patch <<< "$2"
+
+    ((left_major < right_major)) && return 0
+    ((left_major > right_major)) && return 1
+    ((left_minor < right_minor)) && return 0
+    ((left_minor > right_minor)) && return 1
+    ((left_patch < right_patch))
+}
+
 echo "🧪 Test E2E — arclith-cli scaffold"
 echo ""
 
@@ -27,11 +39,12 @@ if grep -q '\[tool\.uv\.sources\]' pyproject.toml; then
 fi
 
 ARCLITH_VERSION=$(grep 'arclith\[' pyproject.toml | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
-if [[ "$ARCLITH_VERSION" < "0.11.0" ]]; then
-    echo -e "${RED}✗ FAIL: arclith version < 0.11.0 (found: $ARCLITH_VERSION)${NC}"
+MIN_ARCLITH_VERSION="0.12.0"
+if version_lt "$ARCLITH_VERSION" "$MIN_ARCLITH_VERSION"; then
+    echo -e "${RED}✗ FAIL: arclith version < $MIN_ARCLITH_VERSION (found: $ARCLITH_VERSION)${NC}"
     exit 1
 fi
-echo -e "${GREEN}✓${NC} arclith>=$ARCLITH_VERSION from PyPI"
+echo -e "${GREEN}✓${NC} arclith>=$MIN_ARCLITH_VERSION from PyPI (found: $ARCLITH_VERSION)"
 
 # Step 3 — Install
 echo "Step 3/5 — Installing dependencies (uv sync)..."

@@ -4,6 +4,25 @@
 
 ---
 
+## [0.12.0] — 2026-08-06
+
+### Added
+
+- **Extra `arclith[langgraph]` publié** — installe LangGraph, LangGraph CLI/API, LangSmith et
+  PydanticAI OpenAI/Anthropic pour les projets agents.
+- **Publication `arclith-cli`** — le workflow PyPI publie maintenant le framework et la CLI depuis
+  le même tag release.
+
+### Changed
+
+- **Extra agent renommé** — `arclith[langgraph]` remplace l'ancien extra public `arclith[agent]`
+  pour aligner la dépendance optionnelle avec le runtime produit.
+- **Version CLI** — `arclith-cli` passe à `0.9.0` et dépend de `arclith>=0.12.0`.
+- **Extra auth** — `PyJWT[crypto]` remplace `PyJWT[cryptography]` dans `arclith[auth]` et
+  `arclith[all]`, conformément aux métadonnées PyJWT actuelles.
+
+---
+
 ## [0.11.0] — 2026-08-04
 
 ### Added
