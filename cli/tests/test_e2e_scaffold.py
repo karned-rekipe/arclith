@@ -136,7 +136,63 @@ def test_scaffold_and_run(temp_workspace: Path):
     for fname in expected_files:
         assert (project_dir / fname).exists(), f"Missing expected file: {fname}"
 
-    # Step 6 — validate non-interactive adapter generation through the CLI entry point
+    # Step 6 — validate core scaffolding through the CLI entry point
+    result = subprocess.run(
+        [
+            "arclith-cli",
+            "add-entity",
+            "ShoppingItem",
+        ],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"add-entity failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert (
+        project_dir / "src" / "test_plan_service" / "domain" / "models" / "shopping_item.py"
+    ).exists()
+
+    result = subprocess.run(
+        [
+            "arclith-cli",
+            "add-usecase",
+            "PlanShoppingList",
+        ],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"add-usecase failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert (
+        project_dir / "src" / "test_plan_service" / "application" / "use_cases" / "plan_shopping_list.py"
+    ).exists()
+
+    import_script = "\n".join(
+        [
+            "from test_plan_service.domain.models.shopping_item import ShoppingItem",
+            "from test_plan_service.application.use_cases.plan_shopping_list import PlanShoppingListUseCase",
+            "print(ShoppingItem.__name__, PlanShoppingListUseCase.__name__)",
+        ]
+    )
+    result = subprocess.run(
+        [
+            "uv",
+            "run",
+            "python",
+            "-c",
+            import_script,
+        ],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"Core scaffold import failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert "ShoppingItem PlanShoppingListUseCase" in result.stdout
+
+    # Step 7 — validate non-interactive adapter generation through the CLI entry point
     result = subprocess.run(
         [
             "arclith-cli",

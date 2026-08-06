@@ -15,6 +15,7 @@ from rich.tree import Tree
 from . import __version__
 from .add_adapter import add_adapter_cmd
 from .capabilities import CAPABILITY_CATALOG, capability_catalog_as_dict
+from .core_scaffold import add_entity_cmd, add_usecase_cmd
 from .export_config import export_config_cmd
 from .rename import EntityNames, apply_rename
 from .scaffold import download_and_extract
@@ -178,6 +179,32 @@ def add_adapter(
     )
 
 
+@app.command(name="add-entity")
+def add_entity(
+    entity: Annotated[
+        str | None,
+        typer.Argument(
+            help="Nom de l'entité métier au singulier. Exemple : Recipe, recipe_step, meal-plan",
+        ),
+    ] = None,
+) -> None:
+    """Créer uniquement le fichier minimal d'une entité métier dans domain/models."""
+    add_entity_cmd(entity_name=entity or _prompt_entity())
+
+
+@app.command(name="add-usecase")
+def add_usecase(
+    usecase: Annotated[
+        str | None,
+        typer.Argument(
+            help="Nom du cas d'usage. Exemple : PlanShoppingList, find_by_name, import-catalog",
+        ),
+    ] = None,
+) -> None:
+    """Créer uniquement le fichier minimal d'un cas d'usage dans application/use_cases."""
+    add_usecase_cmd(usecase_name=usecase or _prompt_usecase())
+
+
 @app.command(name="capabilities")
 def capabilities(
     as_json: Annotated[
@@ -248,6 +275,21 @@ def _prompt_project() -> str:
         if not value:
             console.print("  [red]Le nom ne peut pas être vide.[/red]")
         elif not _PROJECT_RE.match(value):
+            console.print(
+                "  [red]Caractères invalides.[/red] "
+                "[dim]Lettres, chiffres, _ et - uniquement. Doit commencer par une lettre.[/dim]"
+            )
+        else:
+            return value
+
+
+def _prompt_usecase() -> str:
+    console.print("\n[bold]Cas d'usage[/bold] [dim](ex : PlanShoppingList, find_by_name)[/dim]")
+    while True:
+        value = Prompt.ask("  [bold green]Nom du cas d'usage[/bold green]").strip()
+        if not value:
+            console.print("  [red]Le nom ne peut pas être vide.[/red]")
+        elif not _ENTITY_RE.match(value):
             console.print(
                 "  [red]Caractères invalides.[/red] "
                 "[dim]Lettres, chiffres, _ et - uniquement. Doit commencer par une lettre.[/dim]"

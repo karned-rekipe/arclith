@@ -16,6 +16,27 @@ Une capacite decrit:
 
 Le code metier reste dans `domain/` et `application/`. Les capacites ne doivent generer que du cablage, des ports, des schemas ou des adapters autour de ce coeur.
 
+## Scaffold du cœur métier
+
+Les entités et les use cases ne sont pas des capacités du catalogue : ils appartiennent au cœur
+métier. La CLI peut seulement poser les fichiers minimaux, sans CRUD par défaut et sans câblage
+automatique vers FastAPI, FastMCP, LangGraph ou un repository.
+
+```bash
+arclith-cli add-entity ShoppingItem
+arclith-cli add-usecase PlanShoppingList
+```
+
+Fichiers générés :
+
+```text
+src/<package>/domain/models/shopping_item.py
+src/<package>/application/use_cases/plan_shopping_list.py
+```
+
+Le développeur garde la responsabilité de définir les champs, invariants, ports et orchestration
+métier. Les adapters se branchent ensuite explicitement via `add-adapter`.
+
 ## Catalogue actuel
 
 ```bash
