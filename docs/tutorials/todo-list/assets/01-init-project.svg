@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="420" viewBox="0 0 1120 420" role="img" aria-labelledby="title desc">
+  <title id="title">Capture terminal - arclith-cli init</title>
+  <desc id="desc">Initialisation interactive d'un projet Arclith minimal.</desc>
+  <rect width="1120" height="420" rx="8" fill="#1f2933"/>
+  <rect y="0" width="1120" height="36" rx="8" fill="#111827"/>
+  <circle cx="22" cy="18" r="6" fill="#f87171"/>
+  <circle cx="44" cy="18" r="6" fill="#fbbf24"/>
+  <circle cx="66" cy="18" r="6" fill="#34d399"/>
+  <text x="24" y="72" fill="#d1d5db" font-family="Menlo, Consolas, monospace" font-size="18">$ arclith-cli init</text>
+  <text x="24" y="112" fill="#f9fafb" font-family="Menlo, Consolas, monospace" font-size="18">Projet (ex : my-recipe-service, meal-planner)</text>
+  <text x="24" y="146" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">Nom du projet: todo-list-service</text>
+  <text x="24" y="198" fill="#93c5fd" font-family="Menlo, Consolas, monospace" font-size="18">Projet minimal</text>
+  <text x="24" y="236" fill="#f9fafb" font-family="Menlo, Consolas, monospace" font-size="18">Projet   todo-list-service</text>
+  <text x="24" y="270" fill="#f9fafb" font-family="Menlo, Consolas, monospace" font-size="18">Package  todo_list_service</text>
+  <text x="24" y="304" fill="#f9fafb" font-family="Menlo, Consolas, monospace" font-size="18">Metier   vide, a creer avec add-entity et add-usecase</text>
+  <text x="24" y="358" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">Next steps: uv sync, arclith-cli add-entity, arclith-cli add-usecase</text>
+</svg>

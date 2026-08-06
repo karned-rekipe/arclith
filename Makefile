@@ -1,4 +1,4 @@
-.PHONY: lint typecheck security complexity test coverage quality precommit setup
+.PHONY: lint typecheck security complexity test coverage docs docs-serve quality precommit setup
 
 SRC := arclith
 UV  := uv run --frozen
@@ -25,6 +25,12 @@ test:
 
 coverage:
 	uv run --frozen --extra all python -m pytest --cov --cov-report=term-missing --cov-report=html
+
+docs:
+	uv run --frozen --group docs mkdocs build --strict
+
+docs-serve:
+	uv run --group docs mkdocs serve
 
 quality: lint security complexity typecheck coverage
 

@@ -23,6 +23,16 @@ uv tool install "git+https://github.com/karned-rekipe/arclith.git#subdirectory=c
 arclith-cli version
 ```
 
+Pour partir d'un projet vide de métier, utiliser `init`, puis ajouter explicitement les fichiers
+du cœur:
+
+```bash
+arclith-cli init todo-list-service
+cd todo-list-service
+arclith-cli add-entity Todo
+arclith-cli add-usecase CreateTodo
+```
+
 Pour tester une branche de développement avant merge:
 
 ```bash

@@ -57,6 +57,8 @@ Pour créer un projet concret avec la CLI, lancer API/MCP/probes, puis faire év
 Pour poser uniquement le cœur métier minimal après création d'un projet :
 
 ```bash
+arclith-cli init todo-list-service
+cd todo-list-service
 arclith-cli add-entity ShoppingItem
 arclith-cli add-usecase PlanShoppingList
 ```

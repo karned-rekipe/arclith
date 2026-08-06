@@ -49,6 +49,52 @@ def _inject_local_arclith_source(project_dir: Path) -> None:
     )
 
 
+def test_init_scaffold_creates_blank_project_then_core_files(temp_workspace: Path):
+    project_dir = temp_workspace / "todo-list-service"
+
+    result = subprocess.run(
+        [
+            "arclith-cli",
+            "init",
+            "todo-list-service",
+            "--dir",
+            str(temp_workspace),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, f"init failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert (project_dir / "src" / "todo_list_service" / "domain" / "models" / "__init__.py").exists()
+    assert not (project_dir / "src" / "todo_list_service" / "domain" / "models" / "todo.py").exists()
+    assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
+
+    result = subprocess.run(
+        ["arclith-cli", "add-entity", "Todo"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"add-entity failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+
+    result = subprocess.run(
+        ["arclith-cli", "add-usecase", "CreateTodo"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"add-usecase failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert (project_dir / "src" / "todo_list_service" / "domain" / "models" / "todo.py").exists()
+    assert (
+        project_dir / "src" / "todo_list_service" / "application" / "use_cases" / "create_todo.py"
+    ).exists()
+
+
 def test_scaffold_and_run(temp_workspace: Path):
     """Test that scaffolded project installs and runs successfully."""
     project_dir = temp_workspace / "test-plan-service"

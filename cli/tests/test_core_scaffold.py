@@ -4,6 +4,7 @@ import pytest
 import typer
 
 from arclith_cli.core_scaffold import add_entity_cmd, add_planner_cmd, add_usecase_cmd
+from arclith_cli.init_project import init_project_cmd
 
 
 def _src_project(tmp_path: Path, package_name: str = "demo_service") -> Path:
@@ -31,6 +32,33 @@ def test_add_entity_creates_minimal_entity_in_src_package(tmp_path: Path) -> Non
     assert (project_dir / "src" / "demo_service" / "domain" / "__init__.py").exists()
     assert (project_dir / "src" / "demo_service" / "domain" / "models" / "__init__.py").exists()
     assert not (project_dir / "src" / "demo_service" / "adapters").exists()
+
+
+def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) -> None:
+    generated = init_project_cmd(project_name="todo-list-service", directory=tmp_path)
+
+    package_root = generated / "src" / "todo_list_service"
+    assert generated == tmp_path / "todo-list-service"
+    assert (generated / "pyproject.toml").exists()
+    assert (generated / "main.py").exists()
+    assert (generated / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8") == (
+        "logger: console\n"
+        "repository: memory\n"
+        "observability: none\n"
+    )
+    assert (package_root / "domain" / "models" / "__init__.py").exists()
+    assert (package_root / "application" / "use_cases" / "__init__.py").exists()
+    assert (package_root / "adapters" / "inbound" / "__init__.py").exists()
+    assert (package_root / "infrastructure" / "containers" / "__init__.py").exists()
+    assert sorted(path.name for path in (package_root / "domain" / "models").glob("*.py")) == ["__init__.py"]
+
+
+def test_init_project_refuses_existing_directory(tmp_path: Path) -> None:
+    project_dir = tmp_path / "todo-list-service"
+    project_dir.mkdir()
+
+    with pytest.raises(typer.Exit):
+        init_project_cmd(project_name="todo-list-service", directory=tmp_path)
 
 
 def test_add_usecase_creates_minimal_usecase_in_src_package(tmp_path: Path) -> None:

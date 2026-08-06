@@ -17,6 +17,7 @@ from .add_adapter import add_adapter_cmd
 from .capabilities import CAPABILITY_CATALOG, capability_catalog_as_dict
 from .core_scaffold import add_entity_cmd, add_planner_cmd, add_usecase_cmd
 from .export_config import export_config_cmd
+from .init_project import init_project_cmd
 from .rename import EntityNames, apply_rename
 from .scaffold import download_and_extract
 from .updater import run_update
@@ -31,6 +32,21 @@ console = Console()
 
 _ENTITY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
 _PROJECT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
+
+
+@app.command()
+def init(
+    project_name: Annotated[
+        str | None,
+        typer.Argument(help="Nom du répertoire du projet. Exemple : todo-list-service"),
+    ] = None,
+    directory: Annotated[
+        Path,
+        typer.Option("--dir", "-d", help="Répertoire parent où le projet sera créé"),
+    ] = Path("."),
+) -> None:
+    """Initialiser un projet arclith minimal sans entité métier."""
+    init_project_cmd(project_name=project_name or _prompt_project(), directory=directory)
 
 
 @app.command()
