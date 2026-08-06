@@ -144,12 +144,28 @@ class Arclith:
         kwargs.setdefault("swagger_ui_parameters", {"persistAuthorization": True})
 
     def _add_fastapi_observability(self, app: "FastAPI") -> None:
+        if self.config.adapters.observability == "opentelemetry":
+            self._instrument_fastapi_opentelemetry(app)
         if self.config.probe.enabled:
             from arclith.adapters.inbound.probes.metrics import ApiMetricsCollector
             app.add_middleware(ApiMetricsCollector, registry=self._metrics_registry)
             self._probe_server.add_collector(
                 ApiMetricsCollector(app=None, registry=self._metrics_registry)  # type: ignore[arg-type]
             )
+
+    def _instrument_fastapi_opentelemetry(self, app: "FastAPI") -> None:
+        settings = self.config.adapters.opentelemetry
+        if settings is None:
+            return
+
+        from arclith.adapters.outbound.opentelemetry.fastapi import instrument_fastapi_app
+
+        instrument_fastapi_app(
+            app,
+            settings,
+            service_name=self.config.app.name,
+            service_version=self.config.app.version,
+        )
 
     def _add_fastapi_http_middlewares(self, app: "FastAPI") -> None:
         # Order matters: Starlette applies the last registered middleware first.

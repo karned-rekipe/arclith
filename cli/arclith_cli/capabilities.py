@@ -217,6 +217,83 @@ multitenant: false
     ),
 )
 
+API_CAPABILITY = CapabilitySpec(
+    name="api",
+    layer="inbound",
+    description="Transport HTTP REST expose via FastAPI.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="fastapi",
+            capability="api",
+            layer="inbound",
+            description="Application FastAPI configuree par Arclith.fastapi().",
+            config_path="config/adapters/inbound/fastapi.yaml",
+            config_template="""\
+host: {host}
+port: {port}
+reload: {reload}
+""",
+            parameters=(
+                ParameterSpec(
+                    name="host",
+                    kind="string",
+                    prompt="Host FastAPI",
+                    default="0.0.0.0",
+                ),
+                ParameterSpec(
+                    name="port",
+                    kind="string",
+                    prompt="Port FastAPI",
+                    default="8000",
+                ),
+                ParameterSpec(
+                    name="reload",
+                    kind="boolean",
+                    prompt="Activer le reload FastAPI",
+                    default=True,
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
+MCP_CAPABILITY = CapabilitySpec(
+    name="mcp",
+    layer="inbound",
+    description="Transport MCP expose via FastMCP.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="fastmcp",
+            capability="mcp",
+            layer="inbound",
+            description="Serveur FastMCP configure par Arclith.fastmcp() et les runners MCP.",
+            config_path="config/adapters/inbound/fastmcp.yaml",
+            config_template="""\
+host: {host}
+port: {port}
+""",
+            parameters=(
+                ParameterSpec(
+                    name="host",
+                    kind="string",
+                    prompt="Host FastMCP",
+                    default="127.0.0.1",
+                ),
+                ParameterSpec(
+                    name="port",
+                    kind="string",
+                    prompt="Port FastMCP",
+                    default="8001",
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
 AGENT_CAPABILITY = CapabilitySpec(
     name="agent",
     layer="inbound",
@@ -351,10 +428,99 @@ LANGSMITH_API_KEY={api_key}
             ),
             entity_scoped=False,
         ),
+        AdapterSpec(
+            name="opentelemetry",
+            capability="observability",
+            layer="outbound",
+            description="Export OTLP traces/metrics et instrumentation FastAPI.",
+            config_path="config/adapters/outbound/opentelemetry.yaml",
+            config_template="""\
+enabled: {enabled}
+service_name: "{service_name}"
+endpoint: "{endpoint}"
+protocol: "{protocol}"
+headers_env: OTEL_EXPORTER_OTLP_HEADERS
+traces: {traces}
+metrics: {metrics}
+instrument_fastapi: {instrument_fastapi}
+metrics_export_interval_millis: {metrics_export_interval_millis}
+""",
+            env_path=".env",
+            env_template="""\
+OTEL_SERVICE_NAME={service_name}
+OTEL_EXPORTER_OTLP_ENDPOINT={endpoint}
+OTEL_EXPORTER_OTLP_PROTOCOL={protocol}
+OTEL_EXPORTER_OTLP_HEADERS={headers}
+""",
+            parameters=(
+                ParameterSpec(
+                    name="enabled",
+                    kind="boolean",
+                    prompt="Activer OpenTelemetry",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="service_name",
+                    kind="string",
+                    prompt="OTEL_SERVICE_NAME",
+                    default_from_project_name=True,
+                ),
+                ParameterSpec(
+                    name="endpoint",
+                    kind="string",
+                    prompt="OTLP endpoint",
+                    default="http://localhost:4318",
+                ),
+                ParameterSpec(
+                    name="protocol",
+                    kind="string",
+                    prompt="OTLP protocol",
+                    default="http/protobuf",
+                ),
+                ParameterSpec(
+                    name="traces",
+                    kind="boolean",
+                    prompt="Exporter les traces",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="metrics",
+                    kind="boolean",
+                    prompt="Exporter les metriques",
+                    default=False,
+                ),
+                ParameterSpec(
+                    name="instrument_fastapi",
+                    kind="boolean",
+                    prompt="Instrumenter FastAPI",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="metrics_export_interval_millis",
+                    kind="string",
+                    prompt="Intervalle export metriques en ms",
+                    default="60000",
+                ),
+                ParameterSpec(
+                    name="headers",
+                    kind="string",
+                    prompt="OTEL_EXPORTER_OTLP_HEADERS",
+                    default="",
+                    secret=True,
+                ),
+            ),
+            entity_scoped=False,
+        ),
     ),
 )
 
-CAPABILITY_CATALOG = (REPOSITORY_CAPABILITY, AGENT_CAPABILITY, OBSERVABILITY_CAPABILITY)
+CAPABILITY_CATALOG = (
+    REPOSITORY_CAPABILITY,
+    API_CAPABILITY,
+    MCP_CAPABILITY,
+    AGENT_CAPABILITY,
+    OBSERVABILITY_CAPABILITY,
+)
 
 
 def get_capability(name: str) -> CapabilitySpec | None:

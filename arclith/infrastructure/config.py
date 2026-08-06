@@ -78,11 +78,43 @@ class LangSmithSettings(BaseModel):
     langgraph_api_min_version: str = "0.11.0"
 
 
+class OpenTelemetrySettings(BaseModel):
+    enabled: bool = True
+    service_name: str | None = None
+    endpoint: str = "http://localhost:4318"
+    traces_endpoint: str | None = None
+    metrics_endpoint: str | None = None
+    protocol: Literal["http/protobuf", "grpc"] = "http/protobuf"
+    headers_env: str = "OTEL_EXPORTER_OTLP_HEADERS"
+    traces: bool = True
+    metrics: bool = False
+    instrument_fastapi: bool = True
+    metrics_export_interval_millis: int = 60000
+
+    @field_validator("metrics_export_interval_millis")
+    @classmethod
+    def must_be_positive_interval(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("metrics_export_interval_millis doit etre > 0")
+        return v
+
+
 class LangGraphSettings(BaseModel):
     name: str = "agent"
     graph: str = "agent"
     entrypoint: str
     env: str = ".env"
+
+
+_REPOSITORY_CONFIG_SECTIONS: dict[str, str] = {
+    "mongodb": "mongodb",
+    "duckdb": "duckdb",
+    "mariadb": "mariadb",
+}
+_OBSERVABILITY_CONFIG_SECTIONS: dict[str, str] = {
+    "langsmith": "langsmith",
+    "opentelemetry": "opentelemetry",
+}
 
 
 class SoftDeleteSettings(BaseModel):
@@ -105,6 +137,7 @@ class AdaptersSettings(BaseModel):
     mariadb: MariaDBSettings | None = None
     lm: LMSettings | None = None
     langsmith: LangSmithSettings | None = None
+    opentelemetry: OpenTelemetrySettings | None = None
 
     @property
     def multitenant(self) -> bool:
@@ -120,15 +153,18 @@ class AdaptersSettings(BaseModel):
 
     @model_validator(mode="after")
     def validate_repository_config(self) -> "AdaptersSettings":
-        if self.repository == "mongodb":
-            if self.mongodb is None:
-                raise ValueError("repository=mongodb mais aucune section [adapters.mongodb] dans config.yaml")
-        elif self.repository == "duckdb" and self.duckdb is None:
-            raise ValueError("repository=duckdb mais aucune section [adapters.duckdb] dans config.yaml")
-        elif self.repository == "mariadb" and self.mariadb is None:
-            raise ValueError("repository=mariadb mais aucune section [adapters.mariadb] dans config.yaml")
-        if self.observability == "langsmith" and self.langsmith is None:
-            raise ValueError("observability=langsmith mais aucune section [adapters.langsmith] dans config.yaml")
+        repository_section = _REPOSITORY_CONFIG_SECTIONS.get(self.repository)
+        if repository_section is not None and getattr(self, repository_section) is None:
+            raise ValueError(
+                f"repository={self.repository} mais aucune section [adapters.{repository_section}] dans config.yaml"
+            )
+
+        observability_section = _OBSERVABILITY_CONFIG_SECTIONS.get(self.observability)
+        if observability_section is not None and getattr(self, observability_section) is None:
+            raise ValueError(
+                f"observability={self.observability} mais aucune section [adapters.{observability_section}] "
+                "dans config.yaml"
+            )
         return self
 
 

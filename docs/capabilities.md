@@ -40,24 +40,88 @@ Activation:
 repository: mongodb
 ```
 
+### `api`
+
+Capacite inbound pour exposer les cas d'usage via HTTP REST.
+
+Adapter disponible:
+
+- `fastapi`: application FastAPI configuree par `Arclith.fastapi()`.
+
+Configuration runtime:
+
+```yaml
+# config/adapters/inbound/fastapi.yaml
+host: 0.0.0.0
+port: 8000
+reload: true
+```
+
+Cette capacite n'a pas de cle d'activation dans `config/adapters/adapters.yaml`: le chemin
+`config/adapters/inbound/fastapi.yaml` est charge directement dans `AppConfig.api`.
+
+### `mcp`
+
+Capacite inbound pour exposer les cas d'usage via MCP.
+
+Adapter disponible:
+
+- `fastmcp`: serveur FastMCP configure par `Arclith.fastmcp()`, `run_mcp_sse()` et
+  `run_mcp_http()`.
+
+Configuration runtime:
+
+```yaml
+# config/adapters/inbound/fastmcp.yaml
+host: 127.0.0.1
+port: 8001
+```
+
+Cette capacite n'a pas de cle d'activation dans `config/adapters/adapters.yaml`: le chemin
+`config/adapters/inbound/fastmcp.yaml` est charge directement dans `AppConfig.mcp`.
+
 ### `observability`
 
 Capacite outbound pour brancher l'observabilite et le banc de test agent.
 
-Adapter disponible:
+Adapters disponibles:
 
-- `langsmith`: tracing LangSmith et execution locale dans LangGraph Studio.
+- `langsmith`: tracing LangSmith et execution locale dans LangGraph Studio;
+- `opentelemetry`: export OTLP traces/metrics et instrumentation FastAPI.
 
 Activation:
 
 ```yaml
 observability: langsmith
+# ou
+observability: opentelemetry
 ```
 
 Arclith considere LangSmith Studio comme l'endroit standard pour tester un agent. Le serveur local
 LangGraph doit lire `.env` via `langgraph.json`; `.env` contient `LANGSMITH_API_KEY`,
 `LANGSMITH_TRACING`, `LANGSMITH_PROJECT` et `LANGSMITH_ENDPOINT`. La cle reste locale et ne doit pas
 etre commitee.
+
+OpenTelemetry se configure avec:
+
+```yaml
+# config/adapters/outbound/opentelemetry.yaml
+enabled: true
+service_name: "my-service"
+endpoint: "http://localhost:4318"
+protocol: "http/protobuf"
+headers_env: OTEL_EXPORTER_OTLP_HEADERS
+traces: true
+metrics: false
+instrument_fastapi: true
+metrics_export_interval_millis: 60000
+```
+
+Installer l'extra avant d'activer l'adapter:
+
+```bash
+uv add "arclith[opentelemetry]"
+```
 
 ### `agent`
 
@@ -120,6 +184,18 @@ arclith-cli add-adapter \
   --adapter langgraph
 
 arclith-cli add-adapter \
+  --capability api \
+  --adapter fastapi \
+  --param port=8080 \
+  --yes
+
+arclith-cli add-adapter \
+  --capability mcp \
+  --adapter fastmcp \
+  --param port=8081 \
+  --yes
+
+arclith-cli add-adapter \
   --capability observability \
   --adapter langsmith
 ```
@@ -134,6 +210,18 @@ arclith-cli add-adapter \
   --param project=my-agent-dev \
   --param endpoint=https://api.smith.langchain.com \
   --param api_key="$LANGSMITH_API_KEY" \
+  --yes
+```
+
+Pour OpenTelemetry:
+
+```bash
+arclith-cli add-adapter \
+  --capability observability \
+  --adapter opentelemetry \
+  --param service_name=my-service \
+  --param endpoint=http://localhost:4318 \
+  --param metrics=true \
   --yes
 ```
 

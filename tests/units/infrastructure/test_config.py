@@ -11,6 +11,7 @@ from arclith.infrastructure.config import (
     LangGraphSettings,
     LangSmithSettings,
     MariaDBSettings,
+    OpenTelemetrySettings,
     SoftDeleteSettings,
     _deep_merge,
     _resolve_key_path,
@@ -205,6 +206,29 @@ def test_load_config_dir_langsmith_scoped():
     assert config.adapters.langsmith.endpoint == "https://eu.api.smith.langchain.com"
 
 
+def test_load_config_dir_opentelemetry_scoped():
+    path = _make_config_dir({
+        "adapters/adapters.yaml": {"observability": "opentelemetry"},
+        "adapters/outbound/opentelemetry.yaml": {
+            "enabled": True,
+            "service_name": "demo-api",
+            "endpoint": "http://otel-collector:4318",
+            "protocol": "http/protobuf",
+            "traces": True,
+            "metrics": True,
+            "instrument_fastapi": True,
+            "metrics_export_interval_millis": 15000,
+        },
+    })
+    config = load_config_dir(path)
+    assert config.adapters.observability == "opentelemetry"
+    assert config.adapters.opentelemetry is not None
+    assert config.adapters.opentelemetry.service_name == "demo-api"
+    assert config.adapters.opentelemetry.endpoint == "http://otel-collector:4318"
+    assert config.adapters.opentelemetry.metrics is True
+    assert config.adapters.opentelemetry.metrics_export_interval_millis == 15000
+
+
 def test_load_config_dir_langgraph_scoped():
     path = _make_config_dir({
         "adapters/inbound/langgraph.yaml": {
@@ -227,6 +251,11 @@ def test_langsmith_observability_requires_scoped_config():
         AppConfig.model_validate({"adapters": {"observability": "langsmith"}})
 
 
+def test_opentelemetry_observability_requires_scoped_config():
+    with pytest.raises(ValidationError, match="observability=opentelemetry"):
+        AppConfig.model_validate({"adapters": {"observability": "opentelemetry"}})
+
+
 def test_langgraph_settings_defaults():
     settings = LangGraphSettings(entrypoint="./src/demo_service/adapters/inbound/langgraph/agent.py:agent")
 
@@ -243,6 +272,27 @@ def test_langsmith_settings_defaults():
     assert settings.api_key_env == "LANGSMITH_API_KEY"
     assert settings.studio == "langgraph"
     assert settings.langgraph_api_min_version == "0.11.0"
+
+
+def test_opentelemetry_settings_defaults():
+    settings = OpenTelemetrySettings()
+
+    assert settings.enabled is True
+    assert settings.service_name is None
+    assert settings.endpoint == "http://localhost:4318"
+    assert settings.traces_endpoint is None
+    assert settings.metrics_endpoint is None
+    assert settings.protocol == "http/protobuf"
+    assert settings.headers_env == "OTEL_EXPORTER_OTLP_HEADERS"
+    assert settings.traces is True
+    assert settings.metrics is False
+    assert settings.instrument_fastapi is True
+    assert settings.metrics_export_interval_millis == 60000
+
+
+def test_opentelemetry_settings_validates_interval():
+    with pytest.raises(ValidationError):
+        OpenTelemetrySettings(metrics_export_interval_millis=0)
 
 
 def test_load_config_dir_soft_delete():
