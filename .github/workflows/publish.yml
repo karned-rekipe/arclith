@@ -53,6 +53,7 @@ jobs:
     needs: build
     environment: pypi
     permissions:
+      actions: read
       id-token: write  # Required for OIDC Trusted Publishing
     steps:
       - uses: actions/download-artifact@v4
@@ -69,6 +70,7 @@ jobs:
     needs: build
     environment: pypi-cli
     permissions:
+      actions: read
       id-token: write  # Required for OIDC Trusted Publishing
     steps:
       - uses: actions/download-artifact@v4

@@ -106,6 +106,8 @@ def _patch_pyproject(target_dir: Path, project_name: str) -> None:
 
 def _patch_arclith_dependency(text: str) -> str:
     framework_version = _installed_arclith_version()
+    if framework_version is None:
+        return text
     return re.sub(
         r'("arclith(?:\[[^"]+\])?>=)[^"]+(")',
         lambda match: f"{match.group(1)}{framework_version}{match.group(2)}",
@@ -114,11 +116,11 @@ def _patch_arclith_dependency(text: str) -> str:
     )
 
 
-def _installed_arclith_version() -> str:
+def _installed_arclith_version() -> str | None:
     try:
         return version("arclith")
     except PackageNotFoundError:
-        return "0.13.0"
+        return None
 
 
 # ── config/ directory patching ────────────────────────────────────────────────

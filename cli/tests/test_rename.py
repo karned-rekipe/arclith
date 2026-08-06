@@ -1,7 +1,7 @@
-from pathlib import Path
 from importlib.metadata import version
+from pathlib import Path
 
-from arclith_cli.rename import EntityNames, apply_rename
+from arclith_cli.rename import EntityNames, _patch_arclith_dependency, apply_rename
 
 
 def test_apply_rename_updates_src_package_and_imports(tmp_path: Path):
@@ -33,3 +33,11 @@ def test_apply_rename_updates_src_package_and_imports(tmp_path: Path):
     assert 'packages = ["src/my_recipe_service"]' in patched_pyproject
     assert f'"arclith[all]>={version("arclith")}"' in patched_pyproject
     assert "[tool.uv.sources]" not in patched_pyproject
+
+
+def test_patch_arclith_dependency_keeps_template_requirement_when_version_is_unknown(monkeypatch):
+    monkeypatch.setattr("arclith_cli.rename._installed_arclith_version", lambda: None)
+
+    text = 'dependencies = ["arclith[all]>=0.12.0"]\n'
+
+    assert _patch_arclith_dependency(text) == text
