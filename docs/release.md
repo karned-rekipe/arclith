@@ -42,10 +42,15 @@ Les dossiers `dist/` sont ignorés par Git. Ils peuvent être supprimés après 
 Chaque projet PyPI doit déclarer son propre Trusted Publisher, car le jeton OIDC est borné au
 projet PyPI ciblé.
 
-| Projet PyPI | Owner GitHub | Repository | Workflow | Environment |
+| Projet PyPI | Owner GitHub | Repository | Workflow filename | Environment |
 | --- | --- | --- | --- | --- |
-| `arclith` | `karned-rekipe` | `arclith` | `.github/workflows/publish.yml` | `pypi` |
-| `arclith-cli` | `karned-rekipe` | `arclith` | `.github/workflows/publish.yml` | `pypi-cli` |
+| `arclith` | `karned-rekipe` | `arclith` | `publish.yml` | `pypi` |
+| `arclith-cli` | `karned-rekipe` | `arclith` | `publish.yml` | `pypi-cli` |
+
+Le fichier correspondant dans le dépôt est `.github/workflows/publish.yml`. Le champ PyPI demande
+le nom du fichier workflow, pas un token GitHub. GitHub fournit un jeton OIDC court-vivant au job
+grâce à la permission `id-token: write`, puis PyPI l'échange contre un jeton de publication limité
+au projet ciblé.
 
 Si `arclith-cli` utilise l'environnement `pypi` au lieu de `pypi-cli`, PyPI rejette la publication
 avec une erreur `Invalid API Token: OIDC scoped token is not valid for project 'arclith-cli'`.
