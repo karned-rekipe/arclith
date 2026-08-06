@@ -35,10 +35,10 @@ class UseCaseNames:
     @classmethod
     def from_input(cls, raw: str) -> UseCaseNames:
         names = EntityNames.from_input(raw)
-        pascal = _strip_pascal_suffix(names.pascal, "UseCase")
+        pascal = _strip_pascal_suffix(names.pascal)
         snake = _strip_snake_suffix(names.snake)
         if not pascal or not snake:
-            console.print(f"[red]x[/red] Nom de use case invalide: [bold]{raw}[/bold].")
+            console.print(f"[red]✗[/red] Nom de cas d'usage invalide : [bold]{raw}[/bold].")
             raise typer.Exit(1)
         return cls(pascal=pascal, snake=snake)
 
@@ -47,7 +47,7 @@ def add_entity_cmd(*, project_dir: Path | None = None, entity_name: str) -> Path
     project_dir = project_dir or Path.cwd()
     entity_name = entity_name.strip()
     _assert_project_root(project_dir, command="add-entity")
-    _assert_valid_name(entity_name, label="entite")
+    _assert_valid_name(entity_name, label="entité")
 
     paths = detect_project_paths(project_dir)
     names = EntityNames.from_input(entity_name)
@@ -57,7 +57,7 @@ def add_entity_cmd(*, project_dir: Path | None = None, entity_name: str) -> Path
     _ensure_package_dirs(paths, "domain", "models")
     entity_file.write_text(_ENTITY_TEMPLATE.format(class_name=names.pascal), encoding="utf-8")
     console.print(
-        f"[green]OK[/green] Entite {names.pascal} creee: "
+        f"[green]✓[/green] Entité {names.pascal} créée : "
         f"[bold]{entity_file.relative_to(project_dir)}[/bold]"
     )
     return entity_file
@@ -67,7 +67,7 @@ def add_usecase_cmd(*, project_dir: Path | None = None, usecase_name: str) -> Pa
     project_dir = project_dir or Path.cwd()
     usecase_name = usecase_name.strip()
     _assert_project_root(project_dir, command="add-usecase")
-    _assert_valid_name(usecase_name, label="use case")
+    _assert_valid_name(usecase_name, label="cas d'usage")
 
     paths = detect_project_paths(project_dir)
     names = UseCaseNames.from_input(usecase_name)
@@ -77,7 +77,7 @@ def add_usecase_cmd(*, project_dir: Path | None = None, usecase_name: str) -> Pa
     _ensure_package_dirs(paths, "application", "use_cases")
     usecase_file.write_text(_USE_CASE_TEMPLATE.format(class_name=names.pascal), encoding="utf-8")
     console.print(
-        f"[green]OK[/green] Use case {names.pascal}UseCase cree: "
+        f"[green]✓[/green] Cas d'usage {names.pascal}UseCase créé : "
         f"[bold]{usecase_file.relative_to(project_dir)}[/bold]"
     )
     return usecase_file
@@ -85,7 +85,7 @@ def add_usecase_cmd(*, project_dir: Path | None = None, usecase_name: str) -> Pa
 
 def _assert_project_root(project_dir: Path, *, command: str) -> None:
     if not project_dir.exists() or not project_dir.is_dir():
-        console.print(f"[red]x[/red] Repertoire introuvable: [bold]{project_dir}[/bold].")
+        console.print(f"[red]✗[/red] Répertoire introuvable : [bold]{project_dir}[/bold].")
         raise typer.Exit(1)
 
     has_project_marker = (
@@ -97,8 +97,8 @@ def _assert_project_root(project_dir: Path, *, command: str) -> None:
         return
 
     console.print(
-        f"[red]x[/red] Aucun projet arclith detecte.\n"
-        f"    Executez [bold]arclith-cli {command}[/bold] depuis la racine du projet."
+        f"[red]✗[/red] Aucun projet arclith détecté.\n"
+        f"    Exécutez [bold]arclith-cli {command}[/bold] depuis la racine du projet."
     )
     raise typer.Exit(1)
 
@@ -108,7 +108,7 @@ def _assert_valid_name(raw: str, *, label: str) -> None:
         return
 
     console.print(
-        f"[red]x[/red] Nom de {label} invalide: [bold]{raw}[/bold]. "
+        f"[red]✗[/red] Nom de {label} invalide : [bold]{raw}[/bold]. "
         "Lettres, chiffres, _ et - uniquement. Doit commencer par une lettre."
     )
     raise typer.Exit(1)
@@ -118,7 +118,7 @@ def _assert_missing(path: Path, project_dir: Path) -> None:
     if not path.exists():
         return
 
-    console.print(f"[red]x[/red] Le fichier existe deja: [bold]{path.relative_to(project_dir)}[/bold].")
+    console.print(f"[red]✗[/red] Le fichier existe déjà : [bold]{path.relative_to(project_dir)}[/bold].")
     raise typer.Exit(1)
 
 
@@ -139,14 +139,27 @@ def _ensure_package_dirs(paths: ProjectPaths, *relative_parts: str) -> None:
             init_file.write_text("", encoding="utf-8")
 
 
-def _strip_pascal_suffix(value: str, suffix: str) -> str:
-    if value.endswith(suffix):
-        return value[: -len(suffix)]
-    return value
+def _strip_pascal_suffix(value: str) -> str:
+    suffixes = ("UseCase", "Usecase")
+    while True:
+        stripped = value
+        for suffix in suffixes:
+            if stripped.endswith(suffix):
+                stripped = stripped[: -len(suffix)]
+                break
+        if stripped == value:
+            return value
+        value = stripped
 
 
 def _strip_snake_suffix(value: str) -> str:
-    for suffix in ("_use_case", "_usecase"):
-        if value.endswith(suffix):
-            return value[: -len(suffix)]
-    return value
+    suffixes = ("_use_case", "_usecase")
+    while True:
+        stripped = value
+        for suffix in suffixes:
+            if stripped.endswith(suffix):
+                stripped = stripped[: -len(suffix)]
+                break
+        if stripped == value:
+            return value
+        value = stripped

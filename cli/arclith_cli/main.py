@@ -284,9 +284,9 @@ def _prompt_project() -> str:
 
 
 def _prompt_usecase() -> str:
-    console.print("\n[bold]Use case[/bold] [dim](ex : PlanShoppingList, find_by_name)[/dim]")
+    console.print("\n[bold]Cas d'usage[/bold] [dim](ex : PlanShoppingList, find_by_name)[/dim]")
     while True:
-        value = Prompt.ask("  [bold green]Nom du use case[/bold green]").strip()
+        value = Prompt.ask("  [bold green]Nom du cas d'usage[/bold green]").strip()
         if not value:
             console.print("  [red]Le nom ne peut pas être vide.[/red]")
         elif not _ENTITY_RE.match(value):

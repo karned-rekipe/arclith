@@ -52,14 +52,14 @@ Pour creer un projet concret avec la CLI, lancer API/MCP/probes, puis faire evol
 - [CLI](cli/README.md)
 - [Sample fonctionnel](https://github.com/karned-rekipe/_sample)
 
-Pour poser uniquement le coeur metier minimal apres creation d'un projet:
+Pour poser uniquement le cœur métier minimal après création d'un projet :
 
 ```bash
 arclith-cli add-entity ShoppingItem
 arclith-cli add-usecase PlanShoppingList
 ```
 
-Ces commandes ne generent pas de CRUD ni de wiring adapter par defaut.
+Ces commandes ne génèrent pas de CRUD ni de wiring adapter par défaut.
 
 ### Optional dependencies
 

@@ -49,10 +49,10 @@ def test_add_usecase_creates_minimal_usecase_in_src_package(tmp_path: Path) -> N
     assert not (project_dir / "src" / "demo_service" / "adapters").exists()
 
 
-def test_add_usecase_does_not_duplicate_usecase_suffix(tmp_path: Path) -> None:
+def test_add_usecase_strips_repeated_usecase_suffix(tmp_path: Path) -> None:
     project_dir = _src_project(tmp_path)
 
-    generated = add_usecase_cmd(project_dir=project_dir, usecase_name="plan-shopping-list-use-case")
+    generated = add_usecase_cmd(project_dir=project_dir, usecase_name="plan-shopping-list-use-case-usecase")
 
     assert generated.name == "plan_shopping_list.py"
     assert "class PlanShoppingListUseCase:" in generated.read_text(encoding="utf-8")

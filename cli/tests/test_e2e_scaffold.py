@@ -169,12 +169,20 @@ def test_scaffold_and_run(temp_workspace: Path):
         project_dir / "src" / "test_plan_service" / "application" / "use_cases" / "plan_shopping_list.py"
     ).exists()
 
+    import_script = "\n".join(
+        [
+            "from test_plan_service.domain.models.shopping_item import ShoppingItem",
+            "from test_plan_service.application.use_cases.plan_shopping_list import PlanShoppingListUseCase",
+            "print(ShoppingItem.__name__, PlanShoppingListUseCase.__name__)",
+        ]
+    )
     result = subprocess.run(
         [
-            "uv", "run", "python", "-c",
-            "from test_plan_service.domain.models.shopping_item import ShoppingItem; "
-            "from test_plan_service.application.use_cases.plan_shopping_list import PlanShoppingListUseCase; "
-            "print(ShoppingItem.__name__, PlanShoppingListUseCase.__name__)"
+            "uv",
+            "run",
+            "python",
+            "-c",
+            import_script,
         ],
         cwd=project_dir,
         capture_output=True,
