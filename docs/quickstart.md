@@ -110,6 +110,17 @@ curl -fsS "http://127.0.0.1:8100/v1/ingredients/?name=farine"
 
 ## 3. Changer ou ajouter un adapter outbound
 
+Pour ajouter seulement du coeur metier, sans CRUD ni adapter automatique:
+
+```bash
+arclith-cli add-entity ShoppingItem
+arclith-cli add-usecase PlanShoppingList
+```
+
+Ces commandes creent des fichiers minimaux dans `src/<package>/domain/models/` et
+`src/<package>/application/use_cases/`. Les champs, invariants, ports et appels aux adapters restent
+du code metier a ecrire dans le projet.
+
 L'adapter actif est declare dans:
 
 ```text
