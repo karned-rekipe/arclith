@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import typer
+import yaml
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
@@ -20,6 +21,7 @@ from .capabilities import (
     AdapterSpec,
     CapabilitySpec,
     ParameterSpec,
+    SecretMappingSpec,
     capability_names,
     get_capability,
 )
@@ -409,6 +411,10 @@ def _list_generated_files(
         gitignore = project_dir / ".gitignore"
         files.append((gitignore, "mis à jour" if gitignore.exists() else "créé"))
 
+    if adapter.has_secret_mappings():
+        secrets_file = project_dir / "config" / "secrets.yaml"
+        files.append((secrets_file, "mis à jour" if secrets_file.exists() else "créé"))
+
     template_vars = _file_template_vars(project_dir, paths, adapter, params={})
     for file_template in adapter.file_templates:
         path = project_dir / render(file_template.path, template_vars)
@@ -458,6 +464,11 @@ def _generate(
         _merge_env_file(env_path, _parse_env_template(render(adapter.env_template, params)))
         _ensure_env_is_ignored(project_dir)
         console.print(f"[green]✓[/green] {env_path.relative_to(project_dir)}")
+
+    if adapter.has_secret_mappings():
+        secrets_path = project_dir / "config" / "secrets.yaml"
+        _merge_secrets_file(secrets_path, adapter.secret_mappings)
+        console.print(f"[green]✓[/green] {secrets_path.relative_to(project_dir)}")
 
     for file_template in adapter.file_templates:
         generated_path = project_dir / render(file_template.path, params)
@@ -593,6 +604,36 @@ def _merge_env_file(env_path: Path, updates: dict[str, str]) -> None:
             merged_lines.append(f"{key}={value}")
 
     env_path.write_text("\n".join(merged_lines).rstrip("\n") + "\n", encoding="utf-8")
+
+
+def _merge_secrets_file(secrets_path: Path, mappings: tuple[SecretMappingSpec, ...]) -> None:
+    secrets_path.parent.mkdir(parents=True, exist_ok=True)
+    data = _read_yaml_mapping(secrets_path)
+    resolver = data.get("resolver")
+    if not isinstance(resolver, str) or not resolver.strip():
+        data["resolver"] = "env"
+
+    existing_mappings = data.get("mappings")
+    if not isinstance(existing_mappings, dict):
+        existing_mappings = {}
+
+    merged_mappings = dict(existing_mappings)
+    for mapping in mappings:
+        merged_mappings[mapping.field_path] = mapping.secret_key
+    data["mappings"] = merged_mappings
+
+    rendered = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
+    secrets_path.write_text(rendered, encoding="utf-8")
+
+
+def _read_yaml_mapping(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+
+    loaded = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if isinstance(loaded, dict):
+        return dict(loaded)
+    return {}
 
 
 def _ensure_env_is_ignored(project_dir: Path) -> None:

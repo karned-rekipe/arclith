@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 import typer
 
-from arclith_cli.core_scaffold import add_entity_cmd, add_usecase_cmd
+from arclith_cli.core_scaffold import add_entity_cmd, add_planner_cmd, add_usecase_cmd
 
 
 def _src_project(tmp_path: Path, package_name: str = "demo_service") -> Path:
@@ -49,6 +49,22 @@ def test_add_usecase_creates_minimal_usecase_in_src_package(tmp_path: Path) -> N
     assert not (project_dir / "src" / "demo_service" / "adapters").exists()
 
 
+def test_add_planner_creates_minimal_planner_in_src_package(tmp_path: Path) -> None:
+    project_dir = _src_project(tmp_path)
+
+    generated = add_planner_cmd(project_dir=project_dir, planner_name="IngredientIntent")
+
+    assert generated == project_dir / "src" / "demo_service" / "application" / "planners" / "ingredient_intent.py"
+    assert generated.read_text(encoding="utf-8") == (
+        "class IngredientIntentPlanner:\n"
+        "    async def plan(self, prompt: str) -> None:\n"
+        '        raise NotImplementedError("Implement IngredientIntentPlanner.plan")\n'
+    )
+    assert (project_dir / "src" / "demo_service" / "application" / "__init__.py").exists()
+    assert (project_dir / "src" / "demo_service" / "application" / "planners" / "__init__.py").exists()
+    assert not (project_dir / "src" / "demo_service" / "adapters").exists()
+
+
 def test_add_usecase_strips_repeated_usecase_suffix(tmp_path: Path) -> None:
     project_dir = _src_project(tmp_path)
 
@@ -57,6 +73,16 @@ def test_add_usecase_strips_repeated_usecase_suffix(tmp_path: Path) -> None:
     assert generated.name == "plan_shopping_list.py"
     assert "class PlanShoppingListUseCase:" in generated.read_text(encoding="utf-8")
     assert "UseCaseUseCase" not in generated.read_text(encoding="utf-8")
+
+
+def test_add_planner_strips_repeated_planner_suffix(tmp_path: Path) -> None:
+    project_dir = _src_project(tmp_path)
+
+    generated = add_planner_cmd(project_dir=project_dir, planner_name="ingredient-intent-planner-planner")
+
+    assert generated.name == "ingredient_intent.py"
+    assert "class IngredientIntentPlanner:" in generated.read_text(encoding="utf-8")
+    assert "PlannerPlanner" not in generated.read_text(encoding="utf-8")
 
 
 def test_add_entity_supports_legacy_root_layout(tmp_path: Path) -> None:
@@ -89,3 +115,10 @@ def test_add_usecase_rejects_invalid_name(tmp_path: Path) -> None:
 
     with pytest.raises(typer.Exit):
         add_usecase_cmd(project_dir=project_dir, usecase_name="123-import")
+
+
+def test_add_planner_rejects_invalid_name(tmp_path: Path) -> None:
+    project_dir = _src_project(tmp_path)
+
+    with pytest.raises(typer.Exit):
+        add_planner_cmd(project_dir=project_dir, planner_name="123-planner")

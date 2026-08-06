@@ -26,6 +26,11 @@ _USE_CASE_TEMPLATE = """class {class_name}UseCase:
         raise NotImplementedError("Implement {class_name}UseCase.execute")
 """
 
+_PLANNER_TEMPLATE = """class {class_name}Planner:
+    async def plan(self, prompt: str) -> None:
+        raise NotImplementedError("Implement {class_name}Planner.plan")
+"""
+
 
 @dataclass(frozen=True)
 class UseCaseNames:
@@ -39,6 +44,22 @@ class UseCaseNames:
         snake = _strip_snake_suffix(names.snake)
         if not pascal or not snake:
             console.print(f"[red]✗[/red] Nom de cas d'usage invalide : [bold]{raw}[/bold].")
+            raise typer.Exit(1)
+        return cls(pascal=pascal, snake=snake)
+
+
+@dataclass(frozen=True)
+class PlannerNames:
+    pascal: str
+    snake: str
+
+    @classmethod
+    def from_input(cls, raw: str) -> PlannerNames:
+        names = EntityNames.from_input(raw)
+        pascal = _strip_pascal_planner_suffix(names.pascal)
+        snake = _strip_snake_planner_suffix(names.snake)
+        if not pascal or not snake:
+            console.print(f"[red]✗[/red] Nom de planner invalide : [bold]{raw}[/bold].")
             raise typer.Exit(1)
         return cls(pascal=pascal, snake=snake)
 
@@ -81,6 +102,26 @@ def add_usecase_cmd(*, project_dir: Path | None = None, usecase_name: str) -> Pa
         f"[bold]{usecase_file.relative_to(project_dir)}[/bold]"
     )
     return usecase_file
+
+
+def add_planner_cmd(*, project_dir: Path | None = None, planner_name: str) -> Path:
+    project_dir = project_dir or Path.cwd()
+    planner_name = planner_name.strip()
+    _assert_project_root(project_dir, command="add-planner")
+    _assert_valid_name(planner_name, label="planner")
+
+    paths = detect_project_paths(project_dir)
+    names = PlannerNames.from_input(planner_name)
+    planner_file = paths.application_planners / f"{names.snake}.py"
+    _assert_missing(planner_file, project_dir)
+
+    _ensure_package_dirs(paths, "application", "planners")
+    planner_file.write_text(_PLANNER_TEMPLATE.format(class_name=names.pascal), encoding="utf-8")
+    console.print(
+        f"[green]✓[/green] Planner {names.pascal}Planner créé : "
+        f"[bold]{planner_file.relative_to(project_dir)}[/bold]"
+    )
+    return planner_file
 
 
 def _assert_project_root(project_dir: Path, *, command: str) -> None:
@@ -154,6 +195,32 @@ def _strip_pascal_suffix(value: str) -> str:
 
 def _strip_snake_suffix(value: str) -> str:
     suffixes = ("_use_case", "_usecase")
+    while True:
+        stripped = value
+        for suffix in suffixes:
+            if stripped.endswith(suffix):
+                stripped = stripped[: -len(suffix)]
+                break
+        if stripped == value:
+            return value
+        value = stripped
+
+
+def _strip_pascal_planner_suffix(value: str) -> str:
+    suffixes = ("Planner",)
+    while True:
+        stripped = value
+        for suffix in suffixes:
+            if stripped.endswith(suffix):
+                stripped = stripped[: -len(suffix)]
+                break
+        if stripped == value:
+            return value
+        value = stripped
+
+
+def _strip_snake_planner_suffix(value: str) -> str:
+    suffixes = ("_planner",)
     while True:
         stripped = value
         for suffix in suffixes:

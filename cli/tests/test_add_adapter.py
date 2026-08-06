@@ -248,6 +248,74 @@ def test_add_fastmcp_mcp_adapter_generates_inbound_config_only(tmp_path: Path) -
     assert not (package_root / "adapters" / "outbound" / "fastmcp").exists()
 
 
+def test_add_lmstudio_llm_adapter_generates_lm_config_only(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="llm",
+        adapter="lmstudio",
+        adapter_params={
+            "model_name": "qwen/qwen3.5-9b",
+            "base_url": "http://127.0.0.1:1234/v1",
+            "api_key": "lm-studio",
+        },
+        yes=True,
+    )
+
+    config = (project_dir / "config" / "adapters" / "outbound" / "lm.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "provider: openai" in config
+    assert 'model_name: "qwen/qwen3.5-9b"' in config
+    assert 'api_key: "lm-studio"' in config
+    assert 'base_url: "http://127.0.0.1:1234/v1"' in config
+    assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert not (project_dir / "config" / "secrets.yaml").exists()
+
+    package_root = project_dir / "src" / "demo_service"
+    assert not (package_root / "adapters" / "outbound" / "lmstudio").exists()
+
+
+def test_add_openai_llm_adapter_generates_secret_mapping(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+    (project_dir / ".env").write_text("EXISTING=value\n", encoding="utf-8")
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="llm",
+        adapter="openai",
+        adapter_params={
+            "model_name": "gpt-4o-mini",
+            "base_url": "https://api.openai.com/v1",
+            "api_key": "sk-test",
+        },
+        yes=True,
+    )
+
+    config = (project_dir / "config" / "adapters" / "outbound" / "lm.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "provider: openai" in config
+    assert 'model_name: "gpt-4o-mini"' in config
+    assert 'api_key: ""' in config
+    assert 'base_url: "https://api.openai.com/v1"' in config
+
+    secrets = (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
+    assert "resolver: env" in secrets
+    assert "adapters.lm.api_key: OPENAI_API_KEY" in secrets
+
+    env = (project_dir / ".env").read_text(encoding="utf-8")
+    assert "EXISTING=value" in env
+    assert "OPENAI_API_KEY=sk-test" in env
+    assert ".env" in (project_dir / ".gitignore").read_text(encoding="utf-8")
+    assert "llm:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
+
+
 def test_add_opentelemetry_observability_adapter_uses_catalog_params(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
     (project_dir / ".env").write_text("EXISTING=value\n", encoding="utf-8")

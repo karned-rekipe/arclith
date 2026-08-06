@@ -544,3 +544,27 @@ def test_adapters_lm_loaded_from_config_dir():
     config = load_config_dir(config_dir)
     assert config.adapters.lm is not None
     assert config.adapters.lm.provider == "anthropic"
+
+
+def test_adapters_lm_api_key_loaded_from_env_mapping(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
+    config_dir = _make_config_dir({
+        "adapters/adapters.yaml": {"repository": "memory"},
+        "adapters/outbound/lm.yaml": {
+            "provider": "openai",
+            "model_name": "gpt-4o-mini",
+            "api_key": "",
+            "base_url": "https://api.openai.com/v1",
+        },
+        "secrets.yaml": {
+            "resolver": "env",
+            "mappings": {
+                "adapters.lm.api_key": "OPENAI_API_KEY",
+            },
+        },
+    })
+
+    config = load_config_dir(config_dir)
+
+    assert config.adapters.lm is not None
+    assert config.adapters.lm.api_key == "sk-openai"

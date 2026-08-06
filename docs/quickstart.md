@@ -1,15 +1,16 @@
 # Quickstart Arclith
 
-Ce guide montre comment demarrer un projet concret avec Arclith, puis comment le faire evoluer par adapter sans modifier le code metier.
+Ce guide montre comment démarrer un projet concret avec Arclith, puis comment le faire évoluer par
+adapter sans modifier le code métier.
 
 Arclith doit rester une brique hexagonale stable:
 
-- le domaine et les cas d'usage portent le metier;
-- les adapters inbound exposent le metier via API, MCP, bus ou CLI;
+- le domaine et les cas d'usage portent le métier;
+- les adapters inbound exposent le métier via API, MCP, bus ou CLI;
 - les adapters outbound branchent MongoDB, DuckDB, cache, LLM, tracing ou secrets;
 - la CLI assemble ces briques et met a jour la configuration.
 
-## Prerequis
+## Prérequis
 
 - Python 3.13
 - `uv`
@@ -22,15 +23,15 @@ uv tool install "git+https://github.com/karned-rekipe/arclith.git#subdirectory=c
 arclith-cli version
 ```
 
-Pour tester une branche de developpement avant merge:
+Pour tester une branche de développement avant merge:
 
 ```bash
 uv tool install --force "git+https://github.com/karned-rekipe/arclith.git@feat/hexagonal-foundation#subdirectory=cli"
 ```
 
-## 1. Creer un projet concret
+## 1. Créer un projet concret
 
-Exemple: un service `pantry-agent` qui gere une entite `Ingredient`.
+Exemple: un service `pantry-agent` qui gère une entité `Ingredient`.
 
 ```bash
 mkdir -p ~/Perso/projets/demo
@@ -41,11 +42,11 @@ cd pantry-agent
 uv sync
 ```
 
-Le premier `uv sync` cree `uv.lock` pour le projet genere. Ensuite, les commandes
-`uv run --frozen ...` peuvent etre utilisees pour garantir que l'environnement reste
+Le premier `uv sync` crée `uv.lock` pour le projet généré. Ensuite, les commandes
+`uv run --frozen ...` peuvent être utilisées pour garantir que l'environnement reste
 strictement conforme au lockfile.
 
-Le projet genere suit le layout canonique:
+Le projet généré suit le layout canonique:
 
 ```text
 src/pantry_agent/
@@ -66,7 +67,7 @@ main.py
 
 ## 2. Lancer API, MCP et probes
 
-En developpement, le mode `all` lance l'API, MCP HTTP et les probes.
+En développement, le mode `all` lance l'API, MCP HTTP et les probes.
 
 ```bash
 MODE=all uv run --frozen python main.py
@@ -78,7 +79,7 @@ Par convention:
 - MCP HTTP: `http://127.0.0.1:8101`
 - probes: `http://127.0.0.1:9000`
 
-Verifier l'etat:
+Vérifier l'état:
 
 ```bash
 curl -fsS http://127.0.0.1:9000/health
@@ -86,7 +87,7 @@ curl -fsS http://127.0.0.1:9000/ready
 curl -fsS http://127.0.0.1:9000/info
 ```
 
-Creer puis lire une ressource:
+Créer puis lire une ressource:
 
 ```bash
 CREATE_RESPONSE=$(curl -fsS -X POST http://127.0.0.1:8100/v1/ingredients/ \
@@ -115,13 +116,14 @@ Pour ajouter seulement du cœur métier, sans CRUD ni adapter automatique :
 ```bash
 arclith-cli add-entity ShoppingItem
 arclith-cli add-usecase PlanShoppingList
+arclith-cli add-planner ShoppingIntent
 ```
 
 Ces commandes créent des fichiers minimaux dans `src/<package>/domain/models/` et
-`src/<package>/application/use_cases/`. Les champs, invariants, ports et appels aux adapters restent
-du code métier à écrire dans le projet.
+`src/<package>/application/use_cases/` ou `src/<package>/application/planners/`. Les champs,
+invariants, ports et appels aux adapters restent du code métier à écrire dans le projet.
 
-L'adapter actif est declare dans:
+L'adapter actif est déclaré dans:
 
 ```text
 config/adapters/adapters.yaml
@@ -141,9 +143,10 @@ arclith-cli capabilities
 arclith-cli add-adapter
 ```
 
-Le wizard detecte les entites dans `src/<package>/domain/models/`, pose les questions necessaires, genere les fichiers de l'adapter et met a jour la configuration.
+Le wizard détecte les entités dans `src/<package>/domain/models/`, pose les questions nécessaires,
+génère les fichiers de l'adapter et met à jour la configuration.
 
-Le meme flux peut etre joue en mode direct:
+Le même flux peut être joué en mode direct:
 
 ```bash
 arclith-cli add-adapter --adapter mongodb --entity Ingredient --db-name pantry_agent --yes
@@ -167,7 +170,8 @@ db_name: pantry_agent
 collection_name: ingredients
 ```
 
-L'URI reste un secret et ne doit pas etre commitee. En local, utiliser `secrets.yaml` ou une variable d'environnement selon la recette active.
+L'URI reste un secret et ne doit pas être commitée. En local, utiliser `secrets.yaml` ou une variable
+d'environnement selon la recette active.
 
 ### DuckDB
 
@@ -186,7 +190,7 @@ Installer l'extra dans le projet qui utilise cet adapter:
 uv add "arclith[mariadb]"
 ```
 
-Generation directe:
+Génération directe:
 
 ```bash
 arclith-cli add-adapter \
@@ -199,7 +203,7 @@ arclith-cli add-adapter \
   --yes
 ```
 
-Exemple de configuration generee:
+Exemple de configuration générée:
 
 ```yaml
 host: 127.0.0.1
@@ -212,21 +216,23 @@ table_prefix: ""
 multitenant: false
 ```
 
-Le mot de passe ou l'URL complete doivent rester dans un resolver de secrets, par exemple `config/secrets.yaml`, `env` ou Vault.
+Le mot de passe ou l'URL complète doivent rester dans un resolver de secrets, par exemple
+`config/secrets.yaml`, `env` ou Vault.
 
-## 4. Ajouter un autre inbound sans toucher au metier
+## 4. Ajouter un autre inbound sans toucher au métier
 
-Le meme service applicatif peut etre expose par plusieurs adapters:
+Le même service applicatif peut être exposé par plusieurs adapters:
 
 - FastAPI pour HTTP;
 - FastMCP pour les outils MCP;
 - un bus plus tard pour RabbitMQ, Kafka ou autre.
 
-La regle a conserver: l'inbound transforme le protocole en appel de cas d'usage. Il ne contient pas le metier.
+La règle à conserver: l'inbound transforme le protocole en appel de cas d'usage. Il ne contient pas
+le métier.
 
 ## 5. Cas agent IA
 
-Pour un agent, le coeur doit rester testable sans LLM:
+Pour un agent, le cœur doit rester testable sans LLM:
 
 ```text
 Natural language
@@ -234,44 +240,50 @@ Natural language
   -> use case application
   -> planner port
   -> command / DTO structure
-  -> service metier
+  -> service métier
 ```
 
-Le LLM est un adapter outbound derriere un port. Il traduit une demande naturelle en donnees structurees, mais n'execute pas directement le metier.
+Le LLM est un adapter outbound derrière un port. Il traduit une demande naturelle en données
+structurées, mais n'exécute pas directement le métier.
 
 Exemple de ports applicatifs cibles:
 
-- `PlannerPort`: transforme une phrase en commande structuree;
-- `RepositoryPort`: persiste les entites;
+- `PlannerPort`: transforme une phrase en commande structurée;
+- `RepositoryPort`: persiste les entités;
 - `TracePort`: envoie les traces LangSmith ou autre;
-- `EventBusPort`: publie des evenements si besoin.
+- `EventBusPort`: publie des événements si besoin.
 
 ### LangSmith comme banc de test
 
-Arclith ne genere pas d'UI dediee pour tester un agent. Le chemin standard est un adapter
-`agent/langgraph` teste dans LangGraph Studio, avec les traces branchees sur LangSmith:
+Arclith ne génère pas d'UI dédiée pour tester un agent. Le chemin standard est un adapter
+`agent/langgraph` testé dans LangGraph Studio, avec les traces branchées sur LangSmith:
 
 ```bash
 uv add "arclith[langgraph]"
+arclith-cli add-adapter --capability llm --adapter lmstudio --param "model_name=<model-id-lm-studio>" --yes
 arclith-cli add-adapter --capability agent --adapter langgraph
 arclith-cli add-adapter --capability observability --adapter langsmith
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
 
-L'adapter `agent/langgraph` genere `langgraph.json`, `config/adapters/inbound/langgraph.yaml` et
-`src/<package>/adapters/inbound/langgraph/agent.py`. Le projet n'a plus qu'a modifier ce fichier
-pour definir l'etat, les noeuds et les transitions de son agent. Comme `fastapi` et `fastmcp`,
-LangGraph est configure par son nom produit dans `AppConfig.langgraph`, sans cle generique
+L'adapter `agent/langgraph` génère `langgraph.json`, `config/adapters/inbound/langgraph.yaml` et
+`src/<package>/adapters/inbound/langgraph/agent.py`. Le projet n'a plus qu'à modifier ce fichier
+pour définir l'état, les nœuds et les transitions de son agent. Comme `fastapi` et `fastmcp`,
+LangGraph est configuré par son nom produit dans `AppConfig.langgraph`, sans clé générique
 `adapters.agent`.
 
 L'adapter `observability/langsmith` demande le projet LangSmith, l'endpoint, l'activation du tracing et
-`LANGSMITH_API_KEY`. Elle genere `config/adapters/outbound/langsmith.yaml`, met a jour `.env`,
+`LANGSMITH_API_KEY`. Elle génère `config/adapters/outbound/langsmith.yaml`, met à jour `.env`,
 et ajoute `.env` au `.gitignore` si besoin.
 
-Le `langgraph.json` genere pointe vers `.env` pour que le serveur local charge les variables LangSmith.
+L'adapter `llm/lmstudio` génère `config/adapters/outbound/lm.yaml`, chargé dans
+`AppConfig.adapters.lm`. Le planner applicatif consomme ensuite un `LLMPort`; LangGraph ne fait
+qu'orchestrer les nœuds et injecter l'adapter outbound.
+
+Le `langgraph.json` généré pointe vers `.env` pour que le serveur local charge les variables LangSmith.
 Les tests conversationnels et traces agent se font ensuite dans LangSmith Studio.
 
-Pour un parcours complet depuis un projet vide, avec creation d'entite, API FastAPI, adapter
+Pour un parcours complet depuis un projet vide, avec création d'entité, API FastAPI, adapter
 LangGraph, LangSmith et LLM local LM Studio, suivre:
 
 - [Quickstart agent Arclith from scratch](agent-quickstart.md)
@@ -282,7 +294,8 @@ LangGraph, LangSmith et LLM local LM Studio, suivre:
 make quality
 ```
 
-Le sample officiel `_sample` sert de banc de test pour les evolutions Arclith. Avant de publier Arclith, verifier aussi:
+Le sample officiel `_sample` sert de banc de test pour les évolutions Arclith. Avant de publier
+Arclith, vérifier aussi:
 
 ```bash
 cd /Users/killian/Perso/projets/Arclith/_sample
@@ -307,6 +320,6 @@ make demo-smoke
 
 - Sample fonctionnel: `../_sample`
 - CLI: `cli/README.md`
-- Capacites standardisees: `docs/capabilities.md`
+- Capacités standardisées: `docs/capabilities.md`
 - Architecture: `arclith/docs/architecture.md`
 - Decisions: `docs/decisions.md`

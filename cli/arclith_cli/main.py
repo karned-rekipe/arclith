@@ -15,7 +15,7 @@ from rich.tree import Tree
 from . import __version__
 from .add_adapter import add_adapter_cmd
 from .capabilities import CAPABILITY_CATALOG, capability_catalog_as_dict
-from .core_scaffold import add_entity_cmd, add_usecase_cmd
+from .core_scaffold import add_entity_cmd, add_planner_cmd, add_usecase_cmd
 from .export_config import export_config_cmd
 from .rename import EntityNames, apply_rename
 from .scaffold import download_and_extract
@@ -122,7 +122,7 @@ def version() -> None:
 def add_adapter(
     capability: Annotated[
         str,
-        typer.Option("--capability", help="Capacité cible: repository, api, mcp, agent ou observability"),
+        typer.Option("--capability", help="Capacité cible: repository, api, mcp, llm, agent ou observability"),
     ] = "repository",
     adapter: Annotated[
         str | None,
@@ -203,6 +203,19 @@ def add_usecase(
 ) -> None:
     """Créer uniquement le fichier minimal d'un cas d'usage dans application/use_cases."""
     add_usecase_cmd(usecase_name=usecase or _prompt_usecase())
+
+
+@app.command(name="add-planner")
+def add_planner(
+    planner: Annotated[
+        str | None,
+        typer.Argument(
+            help="Nom du planner applicatif. Exemple : IngredientIntent, todo_planner, command-router",
+        ),
+    ] = None,
+) -> None:
+    """Créer uniquement le fichier minimal d'un planner dans application/planners."""
+    add_planner_cmd(planner_name=planner or _prompt_planner())
 
 
 @app.command(name="capabilities")
@@ -287,6 +300,21 @@ def _prompt_usecase() -> str:
     console.print("\n[bold]Cas d'usage[/bold] [dim](ex : PlanShoppingList, find_by_name)[/dim]")
     while True:
         value = Prompt.ask("  [bold green]Nom du cas d'usage[/bold green]").strip()
+        if not value:
+            console.print("  [red]Le nom ne peut pas être vide.[/red]")
+        elif not _ENTITY_RE.match(value):
+            console.print(
+                "  [red]Caractères invalides.[/red] "
+                "[dim]Lettres, chiffres, _ et - uniquement. Doit commencer par une lettre.[/dim]"
+            )
+        else:
+            return value
+
+
+def _prompt_planner() -> str:
+    console.print("\n[bold]Planner[/bold] [dim](ex : IngredientIntent, todo_planner)[/dim]")
+    while True:
+        value = Prompt.ask("  [bold green]Nom du planner[/bold green]").strip()
         if not value:
             console.print("  [red]Le nom ne peut pas être vide.[/red]")
         elif not _ENTITY_RE.match(value):

@@ -39,6 +39,18 @@ class FileTemplateSpec:
 
 
 @dataclass(frozen=True)
+class SecretMappingSpec:
+    field_path: str
+    secret_key: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "field_path": self.field_path,
+            "secret_key": self.secret_key,
+        }
+
+
+@dataclass(frozen=True)
 class AdapterSpec:
     name: str
     capability: str
@@ -49,6 +61,7 @@ class AdapterSpec:
     env_path: str | None = None
     env_template: str = ""
     file_templates: tuple[FileTemplateSpec, ...] = ()
+    secret_mappings: tuple[SecretMappingSpec, ...] = ()
     parameters: tuple[ParameterSpec, ...] = ()
     entity_scoped: bool = True
 
@@ -61,6 +74,9 @@ class AdapterSpec:
     def has_file_templates(self) -> bool:
         return bool(self.file_templates)
 
+    def has_secret_mappings(self) -> bool:
+        return bool(self.secret_mappings)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
@@ -70,6 +86,7 @@ class AdapterSpec:
             "config_path": self.config_path,
             "env_path": self.env_path,
             "file_templates": [file_template.to_dict() for file_template in self.file_templates],
+            "secret_mappings": [secret_mapping.to_dict() for secret_mapping in self.secret_mappings],
             "parameters": [parameter.to_dict() for parameter in self.parameters],
             "entity_scoped": self.entity_scoped,
         }
@@ -106,14 +123,14 @@ class CapabilitySpec:
 REPOSITORY_CAPABILITY = CapabilitySpec(
     name="repository",
     layer="outbound",
-    description="Persistance des entites metier derriere un port repository.",
+    description="Persistance des entités métier derrière un port repository.",
     activation_config_key="repository",
     adapters=(
         AdapterSpec(
             name="memory",
             capability="repository",
             layer="outbound",
-            description="Stockage volatile en memoire pour dev, tests et smoke locaux.",
+            description="Stockage volatile en mémoire pour dev, tests et smoke locaux.",
         ),
         AdapterSpec(
             name="mongodb",
@@ -144,7 +161,7 @@ db_name: {db_name}   # uri -> secrets.yaml ou Vault (fallback single-tenant)
             name="duckdb",
             capability="repository",
             layer="outbound",
-            description="Repository fichier local pour SQL analytique et demos sans serveur.",
+            description="Repository fichier local pour SQL analytique et démos sans serveur.",
             config_path="config/adapters/outbound/duckdb.yaml",
             config_template="""\
 multitenant: false
@@ -227,7 +244,7 @@ API_CAPABILITY = CapabilitySpec(
             name="fastapi",
             capability="api",
             layer="inbound",
-            description="Application FastAPI configuree par Arclith.fastapi().",
+            description="Application FastAPI configurée par Arclith.fastapi().",
             config_path="config/adapters/inbound/fastapi.yaml",
             config_template="""\
 host: {host}
@@ -269,7 +286,7 @@ MCP_CAPABILITY = CapabilitySpec(
             name="fastmcp",
             capability="mcp",
             layer="inbound",
-            description="Serveur FastMCP configure par Arclith.fastmcp() et les runners MCP.",
+            description="Serveur FastMCP configuré par Arclith.fastmcp() et les runners MCP.",
             config_path="config/adapters/inbound/fastmcp.yaml",
             config_template="""\
 host: {host}
@@ -294,17 +311,144 @@ port: {port}
     ),
 )
 
+LLM_CAPABILITY = CapabilitySpec(
+    name="llm",
+    layer="outbound",
+    description="Configuration LLM pour planners et agents via une factory Arclith.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="lmstudio",
+            capability="llm",
+            layer="outbound",
+            description="LLM local LM Studio exposé par l'API OpenAI-compatible.",
+            config_path="config/adapters/outbound/lm.yaml",
+            config_template="""\
+provider: openai
+model_name: "{model_name}"
+api_key: "{api_key}"
+base_url: "{base_url}"
+""",
+            parameters=(
+                ParameterSpec(
+                    name="model_name",
+                    kind="string",
+                    prompt="Model ID LM Studio",
+                    default="remplacer-par-le-model-id-lm-studio",
+                ),
+                ParameterSpec(
+                    name="base_url",
+                    kind="string",
+                    prompt="Endpoint OpenAI-compatible LM Studio",
+                    default="http://127.0.0.1:1234/v1",
+                ),
+                ParameterSpec(
+                    name="api_key",
+                    kind="string",
+                    prompt="API key LM Studio",
+                    default="lm-studio",
+                    secret=True,
+                ),
+            ),
+            entity_scoped=False,
+        ),
+        AdapterSpec(
+            name="openai",
+            capability="llm",
+            layer="outbound",
+            description="Modèle OpenAI via protocole OpenAI-compatible.",
+            config_path="config/adapters/outbound/lm.yaml",
+            config_template="""\
+provider: openai
+model_name: "{model_name}"
+api_key: ""
+base_url: "{base_url}"
+""",
+            env_path=".env",
+            env_template="""\
+OPENAI_API_KEY={api_key}
+""",
+            secret_mappings=(
+                SecretMappingSpec(
+                    field_path="adapters.lm.api_key",
+                    secret_key="OPENAI_API_KEY",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="model_name",
+                    kind="string",
+                    prompt="Modèle OpenAI",
+                    default="gpt-4o-mini",
+                ),
+                ParameterSpec(
+                    name="base_url",
+                    kind="string",
+                    prompt="Endpoint OpenAI-compatible",
+                    default="https://api.openai.com/v1",
+                ),
+                ParameterSpec(
+                    name="api_key",
+                    kind="string",
+                    prompt="OPENAI_API_KEY",
+                    default="",
+                    secret=True,
+                ),
+            ),
+            entity_scoped=False,
+        ),
+        AdapterSpec(
+            name="anthropic",
+            capability="llm",
+            layer="outbound",
+            description="Modèle Anthropic pour planners et agents.",
+            config_path="config/adapters/outbound/lm.yaml",
+            config_template="""\
+provider: anthropic
+model_name: "{model_name}"
+api_key: ""
+""",
+            env_path=".env",
+            env_template="""\
+ANTHROPIC_API_KEY={api_key}
+""",
+            secret_mappings=(
+                SecretMappingSpec(
+                    field_path="adapters.lm.api_key",
+                    secret_key="ANTHROPIC_API_KEY",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="model_name",
+                    kind="string",
+                    prompt="Modèle Anthropic",
+                    default="claude-sonnet-4-5",
+                ),
+                ParameterSpec(
+                    name="api_key",
+                    kind="string",
+                    prompt="ANTHROPIC_API_KEY",
+                    default="",
+                    secret=True,
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
 AGENT_CAPABILITY = CapabilitySpec(
     name="agent",
     layer="inbound",
-    description="Adapter agent qui expose les cas d'usage metier via un runtime IA.",
+    description="Adapter agent qui expose les cas d'usage métier via un runtime IA.",
     activation_config_key=None,
     adapters=(
         AdapterSpec(
             name="langgraph",
             capability="agent",
             layer="inbound",
-            description="Entrypoint LangGraph Studio base sur la tuyauterie Arclith.",
+            description="Entrypoint LangGraph Studio basé sur la tuyauterie Arclith.",
             config_path="config/adapters/inbound/langgraph.yaml",
             config_template="""\
 name: "{graph_name}"
@@ -375,7 +519,7 @@ agent = arclith.langgraph(AgentState, register_agent, name="{graph_name}")
 OBSERVABILITY_CAPABILITY = CapabilitySpec(
     name="observability",
     layer="outbound",
-    description="Observabilite et boucle de test agent via LangSmith Studio.",
+    description="Observabilité et boucle de test agent via LangSmith Studio.",
     activation_config_key="observability",
     adapters=(
         AdapterSpec(
@@ -486,7 +630,7 @@ OTEL_EXPORTER_OTLP_HEADERS={headers}
                 ParameterSpec(
                     name="metrics",
                     kind="boolean",
-                    prompt="Exporter les metriques",
+                    prompt="Exporter les métriques",
                     default=False,
                 ),
                 ParameterSpec(
@@ -498,7 +642,7 @@ OTEL_EXPORTER_OTLP_HEADERS={headers}
                 ParameterSpec(
                     name="metrics_export_interval_millis",
                     kind="string",
-                    prompt="Intervalle export metriques en ms",
+                    prompt="Intervalle export métriques en ms",
                     default="60000",
                 ),
                 ParameterSpec(
@@ -518,6 +662,7 @@ CAPABILITY_CATALOG = (
     REPOSITORY_CAPABILITY,
     API_CAPABILITY,
     MCP_CAPABILITY,
+    LLM_CAPABILITY,
     AGENT_CAPABILITY,
     OBSERVABILITY_CAPABILITY,
 )
