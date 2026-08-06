@@ -27,8 +27,8 @@ if grep -q '\[tool\.uv\.sources\]' pyproject.toml; then
 fi
 
 ARCLITH_VERSION=$(grep 'arclith\[' pyproject.toml | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
-if [[ "$ARCLITH_VERSION" < "0.11.0" ]]; then
-    echo -e "${RED}✗ FAIL: arclith version < 0.11.0 (found: $ARCLITH_VERSION)${NC}"
+if [[ "$ARCLITH_VERSION" < "0.12.0" ]]; then
+    echo -e "${RED}✗ FAIL: arclith version < 0.12.0 (found: $ARCLITH_VERSION)${NC}"
     exit 1
 fi
 echo -e "${GREEN}✓${NC} arclith>=$ARCLITH_VERSION from PyPI"
