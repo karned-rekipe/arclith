@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 _SOURCE_PASCAL = "Ingredient"
@@ -89,9 +90,10 @@ def _patch_pyproject(target_dir: Path, project_name: str) -> None:
     p = target_dir / "pyproject.toml"
     if not p.exists():
         return
-    text = p.read_text()
+    text = p.read_text(encoding="utf-8")
     # Update project name (first occurrence)
     text = re.sub(r'(?m)^name\s*=\s*"[^"]*"', f'name = "{project_name}"', text, count=1)
+    text = _patch_arclith_dependency(text)
     # Remove [tool.uv.sources] block (editable arclith path)
     text = re.sub(
         r"\[tool\.uv\.sources\]\n(?:[^\[]*)",
@@ -99,7 +101,26 @@ def _patch_pyproject(target_dir: Path, project_name: str) -> None:
         text,
         flags=re.DOTALL,
     )
-    p.write_text(text.strip() + "\n")
+    p.write_text(text.strip() + "\n", encoding="utf-8")
+
+
+def _patch_arclith_dependency(text: str) -> str:
+    framework_version = _installed_arclith_version()
+    if framework_version is None:
+        return text
+    return re.sub(
+        r'("arclith(?:\[[^"]+\])?>=)[^"]+(")',
+        lambda match: f"{match.group(1)}{framework_version}{match.group(2)}",
+        text,
+        count=1,
+    )
+
+
+def _installed_arclith_version() -> str | None:
+    try:
+        return version("arclith")
+    except PackageNotFoundError:
+        return None
 
 
 # ── config/ directory patching ────────────────────────────────────────────────

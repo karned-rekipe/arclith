@@ -35,6 +35,7 @@ print(layout.domain)  # src/my_service/domain
 - GitHub Project: [Arclith backlog](https://github.com/orgs/karned-rekipe/projects/5)
 - Issues: [Arclith issues](https://github.com/karned-rekipe/arclith/issues)
 - PyPI: [arclith](https://pypi.org/project/arclith/)
+- PyPI CLI: [arclith-cli](https://pypi.org/project/arclith-cli/)
 
 ## Installation
 
@@ -44,12 +45,13 @@ pip install arclith
 
 ## Quickstart
 
-Pour creer un projet concret avec la CLI, lancer API/MCP/probes, puis faire evoluer les adapters:
+Pour créer un projet concret avec la CLI, lancer API/MCP/probes, puis faire évoluer les adapters :
 
 - [Quickstart Arclith](docs/quickstart.md)
 - [Quickstart agent Arclith from scratch](docs/agent-quickstart.md)
-- [Capacites standardisees](docs/capabilities.md)
+- [Capacités standardisées](docs/capabilities.md)
 - [CLI](cli/README.md)
+- [Release PyPI](docs/release.md)
 - [Sample fonctionnel](https://github.com/karned-rekipe/_sample)
 
 Pour poser uniquement le cœur métier minimal après création d'un projet :
@@ -83,8 +85,8 @@ arclith-cli add-adapter --capability observability --adapter langsmith
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
 
-Arclith genere `langgraph.json`, le point d'entree LangGraph et le cablage `Arclith.langgraph(...)`.
-Le code specifique du projet reste dans `src/<package>/adapters/inbound/langgraph/agent.py`.
+Arclith génère `langgraph.json`, le point d'entrée LangGraph et le câblage `Arclith.langgraph(...)`.
+Le code spécifique du projet reste dans `src/<package>/adapters/inbound/langgraph/agent.py`.
 
 ## Development
 
