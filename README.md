@@ -60,26 +60,18 @@ pip install "arclith[duckdb]"
 pip install "arclith[mariadb]"
 pip install "arclith[fastapi]"
 pip install "arclith[mcp]"
+pip install "arclith[langgraph]"
 pip install "arclith[all]"
 ```
 
-`arclith==0.11.0` publie sur PyPI ne declare pas encore l'extra `langgraph`. Avec cette release,
-installer les dependances agent directement dans le projet applicatif:
+Pour ajouter LangGraph et LangSmith à un projet généré:
 
 ```bash
-uv add \
-  "langgraph>=1.0.8" \
-  "langgraph-api>=0.11.0" \
-  "langgraph-cli[inmem]>=0.4.31" \
-  "langsmith>=0.4.0" \
-  "pydantic-ai-slim[anthropic,openai]>=2.24.0,<3.0.0"
+uv add "arclith[langgraph]"
 arclith-cli add-adapter --capability agent --adapter langgraph
 arclith-cli add-adapter --capability observability --adapter langsmith
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
-
-Quand une release Arclith publie l'extra `langgraph`, la premiere commande pourra redevenir
-`uv add "arclith[langgraph]"` ou `pip install "arclith[langgraph]"`.
 
 Arclith genere `langgraph.json`, le point d'entree LangGraph et le cablage `Arclith.langgraph(...)`.
 Le code specifique du projet reste dans `src/<package>/adapters/inbound/langgraph/agent.py`.
