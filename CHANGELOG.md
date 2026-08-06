@@ -4,6 +4,24 @@
 
 ---
 
+## [0.13.0] — 2026-08-06
+
+### Added
+
+- **Scaffold du cœur métier** — `arclith-cli add-entity` et `arclith-cli add-usecase`
+  créent les fichiers minimaux sans générer de CRUD, d'adapter ou de wiring implicite.
+- **Documentation de release** — ajout d'une procédure de publication PyPI avec les Trusted
+  Publishers attendus pour `arclith` et `arclith-cli`.
+
+### Changed
+
+- **Publication PyPI séparée** — le workflow publie `arclith` et `arclith-cli` dans deux jobs
+  OIDC distincts, chacun rattaché à son environnement PyPI.
+- **Versions release** — `arclith` passe à `0.13.0`; `arclith-cli` passe à `0.10.0` et dépend
+  de `arclith>=0.13.0`.
+
+---
+
 ## [0.12.0] — 2026-08-06
 
 ### Added
