@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="fr" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://karned-rekipe.github.io/arclith/auth/">
+        <link rel="shortcut icon" href="../img/favicon.ico">
+        <title>Auth - Arclith</title>
+        <link href="../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../css/brands.min.css" rel="stylesheet">
+        <link href="../css/solid.min.css" rel="stylesheet">
+        <link href="../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="..">Arclith</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href=".." class="nav-link">Accueil</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Quickstarts</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../quickstart/" class="dropdown-item">Quickstart Arclith</a>
+</li>
+                                    
+<li>
+    <a href="../agent-quickstart/" class="dropdown-item">Quickstart Agent</a>
+</li>
+                                    
+<li>
+    <a href="../capabilities/" class="dropdown-item">Capacités</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Tutoriel Todo</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../tutorials/todo-list/" class="dropdown-item">Vue d'ensemble</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/01-init-project/" class="dropdown-item">1. Initialiser le projet</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/02-create-entity/" class="dropdown-item">2. Créer l'entité</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/03-create-usecase/" class="dropdown-item">3. Créer le use case</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/04-api/" class="dropdown-item">4. Exposer une API</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/05-mcp/" class="dropdown-item">5. Exposer un MCP</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/06-agent/" class="dropdown-item">6. Ajouter un agent</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Référence</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Auth</a>
+</li>
+                                    
+<li>
+    <a href="../http-conventions/" class="dropdown-item">HTTP</a>
+</li>
+                                    
+<li>
+    <a href="../idempotency/" class="dropdown-item">Idempotence</a>
+</li>
+                                    
+<li>
+    <a href="../multitenant/" class="dropdown-item">Multitenant</a>
+</li>
+                                    
+<li>
+    <a href="../caching/" class="dropdown-item">Cache</a>
+</li>
+                                    
+<li>
+    <a href="../decisions/" class="dropdown-item">Décisions</a>
+</li>
+                                    
+<li>
+    <a href="../release/" class="dropdown-item">Release</a>
+</li>
+                                    
+<li>
+    <a href="../oauth2-troubleshooting/" class="dropdown-item">OAuth2 Troubleshooting</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../tutorials/todo-list/06-agent/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../http-conventions/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/karned-rekipe/arclith/edit/master/docs/auth.md" class="nav-link">Edit on karned-rekipe/arclith
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#authentification-autorisation-arclith" class="nav-link">Authentification &amp; Autorisation — arclith</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#architecture" class="nav-link">Architecture</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#configuration" class="nav-link">Configuration</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#fastapi-cas-dusage" class="nav-link">FastAPI — Cas d'usage</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#fastmcp-cas-dusage" class="nav-link">FastMCP — Cas d'usage</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#depends-vs-decorateur-python" class="nav-link">Depends vs décorateur Python</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#swagger-ui-tester-avec-un-bearer-token" class="nav-link">Swagger UI — tester avec un Bearer Token</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#granularite-par-role-patterns-avances" class="nav-link">Granularité par rôle — patterns avancés</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#limitations-et-points-de-vigilance" class="nav-link">Limitations et points de vigilance</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#recapitulatif-des-patterns" class="nav-link">Récapitulatif des patterns</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#references" class="nav-link">Références</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="authentification-autorisation-arclith">Authentification &amp; Autorisation — arclith<a class="headerlink" href="#authentification-autorisation-arclith" title="Permanent link">&para;</a></h1>
+<p>Pipeline JWT Keycloak mutualisé FastAPI + FastMCP. Un seul cœur (<code>auth_pipeline.py</code>), deux wrappers minces.</p>
+<hr />
+<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
+<pre><code>config.yaml (keycloak / tenant / license / cache)
+    │
+    └─► Arclith.auth_dependency(transport)
+            │
+            ├─► JWTDecoder          ← valide signature RS256 via JWKS Keycloak (cache)
+            ├─► RoleLicenseValidator ← vérifie realm_access.roles (optionnel)
+            └─► VaultTenantResolver  ← résout les credentials tenant (optionnel, multitenant)
+                        │
+                        ▼
+              run_auth_pipeline(headers, ...)          ← transport-agnostique
+                        │
+            ┌───────────┴───────────┐
+            ▼                       ▼
+  fastapi/auth.py           fastmcp/auth.py
+  make_require_auth()        make_require_auth_tool()
+  → HTTPException(401/403)   → PermissionError(&quot;401: ...&quot;)
+            │
+            ▼
+  TenantContext injecté dans ContextVar (mode multitenant uniquement)
+</code></pre>
+<h3 id="composants-cles">Composants clés<a class="headerlink" href="#composants-cles" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Fichier</th>
+<th>Rôle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>adapters/inbound/auth_pipeline.py</code></td>
+<td>Cœur du pipeline — unique source de vérité</td>
+</tr>
+<tr>
+<td><code>adapters/inbound/fastapi/auth.py</code></td>
+<td>Wrapper FastAPI : <code>make_require_auth()</code></td>
+</tr>
+<tr>
+<td><code>adapters/inbound/fastmcp/auth.py</code></td>
+<td>Wrapper FastMCP : <code>make_require_auth_tool()</code></td>
+</tr>
+<tr>
+<td><code>adapters/inbound/fastapi/dependencies.py</code></td>
+<td>Pipeline complet multitenant (FastAPI)</td>
+</tr>
+<tr>
+<td><code>adapters/inbound/fastmcp/dependencies.py</code></td>
+<td>Pipeline complet multitenant (FastMCP)</td>
+</tr>
+<tr>
+<td><code>adapters/inbound/jwt/decoder.py</code></td>
+<td><code>JWTDecoder</code> — JWKS Keycloak avec cache</td>
+</tr>
+<tr>
+<td><code>adapters/inbound/license/validator.py</code></td>
+<td><code>RoleLicenseValidator</code> — vérifie un realm role</td>
+</tr>
+<tr>
+<td><code>adapters/outbound/vault/tenant_adapter.py</code></td>
+<td><code>VaultTenantResolver</code> — résout les coords tenant</td>
+</tr>
+<tr>
+<td><code>adapters/context.py</code></td>
+<td><code>ContextVar</code> tenant par requête</td>
+</tr>
+<tr>
+<td><code>arclith.py</code></td>
+<td><code>Arclith.auth_dependency(transport)</code> — factory depuis config</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<pre><code class="language-yaml"># config.yaml
+
+keycloak:
+  url: http://keycloak:8080        # URL de base Keycloak
+  realm: rekipe                    # Realm cible
+  audience: rekipe-api             # Vérification aud dans le JWT (null = désactivé)
+
+license:
+  role: rekipe:licensed            # Realm role requis — omis = pas de vérification licence
+
+tenant:
+  vault_addr: http://vault:8200
+  vault_mount: kv
+  vault_path_prefix: rekipe/tenants
+  tenant_claim: sub                # Claim JWT utilisé comme tenant_id (défaut: sub)
+
+cache:
+  backend: memory                  # memory (dev/mono-worker) | redis (prod/multi-worker)
+  redis_url: redis://redis:6379
+  jwks_ttl: 3600                   # TTL cache JWKS en secondes
+  tenant_uri_ttl: 300              # TTL cache coords tenant en secondes
+</code></pre>
+<blockquote>
+<p><strong>Multi-worker / Kubernetes :</strong> toujours <code>cache.backend: redis</code> en production.
+Chaque worker avec <code>memory</code> maintient son propre cache — le JWKS sera re-fetché à chaque restart.</p>
+</blockquote>
+<hr />
+<h2 id="fastapi-cas-dusage">FastAPI — Cas d'usage<a class="headerlink" href="#fastapi-cas-dusage" title="Permanent link">&para;</a></h2>
+<h3 id="1-proteger-un-router-entier">1. Protéger un router entier<a class="headerlink" href="#1-proteger-un-router-entier" title="Permanent link">&para;</a></h3>
+<p>Toutes les routes du router exigent un token valide.</p>
+<pre><code class="language-python">from fastapi import APIRouter, Depends
+from arclith import Arclith
+
+arclith = Arclith(&quot;config.yaml&quot;)
+require_auth = arclith.auth_dependency()  # transport=&quot;api&quot; par défaut
+
+router = APIRouter(
+    prefix=&quot;/v1/recipes&quot;,
+    tags=[&quot;recipes&quot;],
+    dependencies=[Depends(require_auth)],  # ✅ toutes les routes protégées
+)
+</code></pre>
+<h3 id="2-proteger-une-route-individuelle">2. Protéger une route individuelle<a class="headerlink" href="#2-proteger-une-route-individuelle" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python">router = APIRouter(prefix=&quot;/v1/recipes&quot;, tags=[&quot;recipes&quot;])
+
+# Route publique
+router.add_api_route(methods=[&quot;GET&quot;], path=&quot;/public&quot;, endpoint=self.public_endpoint)
+
+# Route protégée
+router.add_api_route(
+    methods=[&quot;POST&quot;],
+    path=&quot;/&quot;,
+    endpoint=self.create_recipe,
+    dependencies=[Depends(require_auth)],  # ✅ cette route uniquement
+    status_code=201,
+)
+</code></pre>
+<h3 id="3-injecter-les-claims-dans-un-endpoint">3. Injecter les claims dans un endpoint<a class="headerlink" href="#3-injecter-les-claims-dans-un-endpoint" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python">from typing import Annotated
+
+async def create_recipe(
+    payload: RecipeCreateSchema,
+    claims: Annotated[dict, Depends(require_auth)],  # ✅ claims injectés
+) -&gt; RecipeCreatedSchema:
+    created_by = claims.get(&quot;sub&quot;)
+    ...
+</code></pre>
+<h3 id="4-verifier-un-role-specifique-dans-un-endpoint">4. Vérifier un rôle spécifique dans un endpoint<a class="headerlink" href="#4-verifier-un-role-specifique-dans-un-endpoint" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python">from fastapi import HTTPException
+
+async def admin_endpoint(
+    claims: Annotated[dict, Depends(require_auth)],
+) -&gt; ...:
+    roles = claims.get(&quot;realm_access&quot;, {}).get(&quot;roles&quot;, [])
+    if &quot;rekipe:admin&quot; not in roles:
+        raise HTTPException(status_code=403, detail=&quot;Rôle admin requis&quot;)
+    ...
+</code></pre>
+<h3 id="5-pipeline-complet-auth-licence-tenant-multitenant">5. Pipeline complet — auth + licence + tenant (multitenant)<a class="headerlink" href="#5-pipeline-complet-auth-licence-tenant-multitenant" title="Permanent link">&para;</a></h3>
+<p>Le pipeline multitenant est câblé <strong>une seule fois</strong> dans le container, via un middleware global sur le router.
+Il n'est pas nécessaire de le répéter sur chaque route.</p>
+<pre><code class="language-python"># infrastructure/recipe_container.py
+from arclith.adapters.inbound.fastapi.dependencies import make_inject_tenant_uri
+from arclith.adapters.inbound.jwt.decoder import JWTDecoder
+from arclith.adapters.inbound.license.validator import RoleLicenseValidator
+from arclith.adapters.outbound.vault.tenant_adapter import VaultTenantResolver
+
+inject_tenant = make_inject_tenant_uri(
+    config,
+    jwt_decoder=JWTDecoder(
+        jwks_uri=f&quot;{config.keycloak.url}/realms/{config.keycloak.realm}/protocol/openid-connect/certs&quot;,
+        audience=config.keycloak.audience,
+        cache=cache,
+        ttl_s=config.cache.jwks_ttl,
+    ),
+    license_validator=RoleLicenseValidator(config.license.role),
+    tenant_resolvers=[
+        VaultTenantResolver(&quot;mongodb&quot;, addr=config.tenant.vault_addr, ...),
+    ],
+)
+
+# adapters/inbound/fastapi/routers/recipe_router.py
+router = APIRouter(
+    prefix=&quot;/v1/recipes&quot;,
+    dependencies=[Depends(inject_tenant)],  # ✅ auth + licence + tenant par requête
+)
+</code></pre>
+<h3 id="6-router-protege-sans-tenant-auth-seule">6. Router protégé sans tenant (auth seule)<a class="headerlink" href="#6-router-protege-sans-tenant-auth-seule" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python"># Protéger sans résoudre le tenant (service sans multitenant)
+require_auth = arclith.auth_dependency()
+
+router = APIRouter(
+    prefix=&quot;/v1/ingredients&quot;,
+    dependencies=[Depends(require_auth)],
+)
+</code></pre>
+<hr />
+<h2 id="fastmcp-cas-dusage">FastMCP — Cas d'usage<a class="headerlink" href="#fastmcp-cas-dusage" title="Permanent link">&para;</a></h2>
+<h3 id="1-proteger-un-tool-individuellement">1. Protéger un tool individuellement<a class="headerlink" href="#1-proteger-un-tool-individuellement" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python">from typing import Annotated
+import fastmcp
+from fastmcp import Context
+
+require_auth_mcp = arclith.auth_dependency(transport=&quot;mcp&quot;)
+
+@mcp.tool
+async def create_recipe(
+    name: str,
+    ctx: Context,
+    _auth: Annotated[dict, Depends(require_auth_mcp)],  # ✅ tool protégé
+) -&gt; dict:
+    ...
+</code></pre>
+<h3 id="2-proteger-tous-les-tools-dune-classe">2. Protéger tous les tools d'une classe<a class="headerlink" href="#2-proteger-tous-les-tools-dune-classe" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python">class RecipeMCP:
+    def __init__(self, service: RecipeService, logger: Logger, mcp: FastMCP, require_auth) -&gt; None:
+        self._service = service
+        self._logger = logger
+        self._require_auth = require_auth
+        self._register_tools(mcp)
+
+    def _register_tools(self, mcp: FastMCP) -&gt; None:
+        require_auth = self._require_auth
+
+        @mcp.tool
+        async def create_recipe(
+            name: str,
+            ctx: Context,
+            _auth: Annotated[dict, Depends(require_auth)],
+        ) -&gt; dict:
+            ...
+
+        @mcp.tool
+        async def list_recipes(
+            ctx: Context,
+            _auth: Annotated[dict, Depends(require_auth)],
+        ) -&gt; list[dict]:
+            ...
+</code></pre>
+<h3 id="3-injecter-les-claims-dans-un-tool">3. Injecter les claims dans un tool<a class="headerlink" href="#3-injecter-les-claims-dans-un-tool" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python">@mcp.tool
+async def create_recipe(
+    name: str,
+    ctx: Context,
+    claims: Annotated[dict, Depends(require_auth_mcp)],  # claims nommés
+) -&gt; dict:
+    created_by = claims.get(&quot;sub&quot;)
+    ...
+</code></pre>
+<h3 id="4-pipeline-complet-multitenant-fastmcp">4. Pipeline complet multitenant (FastMCP)<a class="headerlink" href="#4-pipeline-complet-multitenant-fastmcp" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python">from arclith.adapters.inbound.fastmcp.dependencies import make_inject_tenant_uri
+
+inject_tenant_mcp = make_inject_tenant_uri(
+    config,
+    jwt_decoder=jwt_decoder,
+    license_validator=license_validator,
+    tenant_resolvers=[VaultTenantResolver(&quot;mongodb&quot;, ...)],
+)
+
+@mcp.tool
+async def create_recipe(
+    name: str,
+    ctx: Context,
+    _tenant: Annotated[None, Depends(inject_tenant_mcp)],  # ✅ injecte TenantContext
+) -&gt; dict:
+    # TenantContext disponible via get_adapter_tenant_context(&quot;mongodb&quot;)
+    ...
+</code></pre>
+<h3 id="5-auth-seule-vs-auth-tenant-choisir-le-bon">5. Auth seule vs auth + tenant — choisir le bon<a class="headerlink" href="#5-auth-seule-vs-auth-tenant-choisir-le-bon" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Besoin</th>
+<th>FastAPI</th>
+<th>FastMCP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Auth seule</td>
+<td><code>arclith.auth_dependency()</code></td>
+<td><code>arclith.auth_dependency(transport="mcp")</code></td>
+</tr>
+<tr>
+<td>Auth + licence</td>
+<td><code>arclith.auth_dependency()</code> (licence configurée)</td>
+<td>Idem</td>
+</tr>
+<tr>
+<td>Auth + licence + tenant</td>
+<td><code>make_inject_tenant_uri(config, ...)</code></td>
+<td><code>make_inject_tenant_uri(config, ...)</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>La licence est automatiquement incluse dans <code>auth_dependency()</code> si <code>config.license</code> est défini.
+Elle est également incluse dans <code>make_inject_tenant_uri</code> si <code>license_validator</code> est passé.</p>
+</blockquote>
+<hr />
+<h2 id="depends-vs-decorateur-python"><code>Depends</code> vs décorateur Python<a class="headerlink" href="#depends-vs-decorateur-python" title="Permanent link">&para;</a></h2>
+<h3 id="pourquoi-depends-et-non-decorator">Pourquoi <code>Depends</code> et non <code>@decorator</code><a class="headerlink" href="#pourquoi-depends-et-non-decorator" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python"># ❌ Décorateur Python classique — NE PAS UTILISER
+def require_auth_decorator(fn):
+    async def wrapper(*args, **kwargs):
+        # Pas d'accès au Request FastAPI
+        # Swagger UI ne détecte pas le schéma de sécurité
+        # Le typage des arguments est perdu
+        # Pas d'injection native dans FastMCP
+        ...
+    return wrapper
+
+@require_auth_decorator
+async def my_endpoint():
+    ...
+</code></pre>
+<pre><code class="language-python"># ✅ Depends — approche canonique
+async def my_endpoint(
+    claims: Annotated[dict, Depends(require_auth)],
+) -&gt; ...:
+    # Swagger UI détecte HTTPBearer → bouton &quot;Authorize&quot; actif
+    # claims typé : dict — mypy/pyright satisfaits
+    # FastAPI injecte automatiquement depuis le schéma OpenAPI
+    # FastMCP idem via son propre système de dépendances
+    ...
+</code></pre>
+<p><strong>Avantages de <code>Depends</code> :</strong></p>
+<ol>
+<li><strong>Swagger UI</strong> — <code>HTTPBearer</code> est automatiquement détecté par FastAPI, le bouton "Authorize" apparaît.</li>
+<li><strong>Typage complet</strong> — <code>Annotated[dict, Depends(...)]</code> est visible par mypy/pyright.</li>
+<li><strong>Composabilité</strong> — plusieurs <code>Depends</code> peuvent se chaîner (<code>inject_tenant</code> dépend lui-même du JWT).</li>
+<li><strong>Testabilité</strong> — <code>app.dependency_overrides[require_auth] = lambda: {"sub": "test-user"}</code> pour les tests.</li>
+<li><strong>Unification FastAPI / FastMCP</strong> — même mécanique de dépendances dans les deux frameworks.</li>
+</ol>
+<h3 id="surcharge-avec-dependency_overrides-tests">Surcharge avec <code>dependency_overrides</code> (tests)<a class="headerlink" href="#surcharge-avec-dependency_overrides-tests" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python"># Dans les tests FastAPI
+app.dependency_overrides[require_auth] = lambda: {&quot;sub&quot;: &quot;test-user-id&quot;}
+
+# Dans les tests FastMCP
+# Mocker inject_tenant ou require_auth selon le cas
+</code></pre>
+<hr />
+<h2 id="swagger-ui-tester-avec-un-bearer-token">Swagger UI — tester avec un Bearer Token<a class="headerlink" href="#swagger-ui-tester-avec-un-bearer-token" title="Permanent link">&para;</a></h2>
+<p>Quand <code>config.keycloak</code> est présent, <code>Arclith.fastapi()</code> :
+1. Injecte le schéma OAuth2 PKCE dans l'OpenAPI spec (<code>/openapi.json</code>)
+2. Pré-configure <code>swagger_ui_init_oauth</code> avec <code>clientId</code> et PKCE
+3. Ajoute <code>bearerAuth</code> via <code>_http_bearer</code> (détecté automatiquement par FastAPI)</p>
+<p>Le bouton <strong>"Authorize"</strong> apparaît dans Swagger UI (<code>/docs</code>). Deux options :</p>
+<p><strong>Option A — OAuth2 PKCE (recommandé en dev)</strong> :
+1. Cliquer "Authorize"
+2. Sélectionner le schéma <code>keycloak (OAuth2, authorizationCode)</code>
+3. Scopes : <code>openid profile</code>
+4. Keycloak redirige → login → token automatiquement injecté</p>
+<p><strong>Option B — Bearer manuel</strong> :
+1. Obtenir un token via <code>curl</code> ou Postman
+2. Cliquer "Authorize" → <code>bearerAuth (HTTP, Bearer)</code>
+3. Coller le token JWT brut (sans <code>Bearer</code>)</p>
+<pre><code class="language-bash"># Obtenir un token Keycloak (client_credentials pour M2M)
+curl -s -X POST \
+  &quot;http://keycloak:8080/realms/rekipe/protocol/openid-connect/token&quot; \
+  -d &quot;grant_type=client_credentials&amp;client_id=my-service&amp;client_secret=$SECRET&quot; \
+  | jq -r .access_token
+</code></pre>
+<hr />
+<h2 id="granularite-par-role-patterns-avances">Granularité par rôle — patterns avancés<a class="headerlink" href="#granularite-par-role-patterns-avances" title="Permanent link">&para;</a></h2>
+<h3 id="verification-inline-dans-un-endpoint">Vérification inline dans un endpoint<a class="headerlink" href="#verification-inline-dans-un-endpoint" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python">async def my_endpoint(
+    claims: Annotated[dict, Depends(require_auth)],
+) -&gt; ...:
+    roles: list[str] = claims.get(&quot;realm_access&quot;, {}).get(&quot;roles&quot;, [])
+    if &quot;rekipe:admin&quot; not in roles:
+        raise HTTPException(403, &quot;Rôle admin requis&quot;)
+</code></pre>
+<h3 id="dependency-reutilisable-par-role">Dependency réutilisable par rôle<a class="headerlink" href="#dependency-reutilisable-par-role" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python">def require_role(role: str) -&gt; Callable:
+    &quot;&quot;&quot;Factory — retourne un Depends vérifiant un rôle Keycloak spécifique.&quot;&quot;&quot;
+    require_auth = arclith.auth_dependency()
+
+    async def _check(claims: Annotated[dict, Depends(require_auth)]) -&gt; dict:
+        roles: list[str] = claims.get(&quot;realm_access&quot;, {}).get(&quot;roles&quot;, [])
+        if role not in roles:
+            raise HTTPException(403, f&quot;Rôle requis : {role}&quot;)
+        return claims
+
+    return _check
+
+# Usage
+require_admin = require_role(&quot;rekipe:admin&quot;)
+require_premium = require_role(&quot;rekipe:premium&quot;)
+
+router.add_api_route(
+    methods=[&quot;DELETE&quot;],
+    path=&quot;/purge&quot;,
+    endpoint=self.purge,
+    dependencies=[Depends(require_admin)],  # admin uniquement
+    status_code=200,
+)
+</code></pre>
+<h3 id="roles-disponibles-exemple-rekipe">Rôles disponibles (exemple Rekipe)<a class="headerlink" href="#roles-disponibles-exemple-rekipe" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Rôle</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rekipe:licensed</code></td>
+<td>Accès de base (vérifié automatiquement si <code>config.license.role</code> est défini)</td>
+</tr>
+<tr>
+<td><code>rekipe:premium</code></td>
+<td>Fonctionnalités avancées</td>
+</tr>
+<tr>
+<td><code>rekipe:admin</code></td>
+<td>Administration (purge, management)</td>
+</tr>
+<tr>
+<td><code>rekipe:trial</code></td>
+<td>Accès limité (durée, quota)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="limitations-et-points-de-vigilance">Limitations et points de vigilance<a class="headerlink" href="#limitations-et-points-de-vigilance" title="Permanent link">&para;</a></h2>
+<h3 id="transport-stdio-incompatible-avec-lauth">Transport stdio — incompatible avec l'auth<a class="headerlink" href="#transport-stdio-incompatible-avec-lauth" title="Permanent link">&para;</a></h3>
+<p>Le transport MCP <code>stdio</code> ne supporte pas les headers HTTP. Toute authentification JWT est impossible.
+<strong>Ne pas utiliser stdio en production.</strong> Voir ADR-007 dans <code>docs/decisions.md</code>.</p>
+<pre><code>✅ streamable-http   → headers disponibles, auth JWT fonctionnelle
+✅ SSE               → headers disponibles, auth JWT fonctionnelle
+❌ stdio             → pas de headers, auth impossible
+</code></pre>
+<h3 id="traitements-longs-et-expiration-de-token">Traitements longs et expiration de token<a class="headerlink" href="#traitements-longs-et-expiration-de-token" title="Permanent link">&para;</a></h3>
+<p>Les JWT Keycloak ont une durée de vie courte (5–15 minutes par défaut).
+Pour les traitements longs passant par un event bus (Kafka, RabbitMQ) :</p>
+<p><strong>⚠️ Ne jamais transmettre le JWT brut dans la payload d'un message.</strong></p>
+<p>Raisons :
+- Le token expirera avant ou pendant le traitement
+- Le consumer n'a pas de mécanisme de refresh (pas de <code>refresh_token</code> en M2M)
+- Le token peut être révoqué entre l'émission et la consommation</p>
+<p><strong>Pattern correct — extraire le <code>tenant_id</code> avant l'envoi :</strong></p>
+<pre><code class="language-python"># Dans le service producteur (API FastAPI)
+async def schedule_long_task(
+    payload: TaskPayload,
+    claims: Annotated[dict, Depends(require_auth)],
+) -&gt; ...:
+    tenant_id = claims[&quot;sub&quot;]  # ✅ extraire l'identifiant stable
+    # Passer tenant_id dans le message, pas le JWT
+    await event_bus.publish(&quot;tasks&quot;, {&quot;tenant_id&quot;: tenant_id, **payload.model_dump()})
+</code></pre>
+<pre><code class="language-python"># Dans le service consommateur (worker)
+async def process_task(message: dict) -&gt; None:
+    tenant_id = message[&quot;tenant_id&quot;]
+    # Résoudre les credentials via Vault directement (pas de JWT)
+    coords = await vault_resolver.resolve(tenant_id)
+    ...
+</code></pre>
+<h3 id="multi-worker-kubernetes-cache-redis-obligatoire">Multi-worker / Kubernetes — cache Redis obligatoire<a class="headerlink" href="#multi-worker-kubernetes-cache-redis-obligatoire" title="Permanent link">&para;</a></h3>
+<p>En mode single-worker (dev), <code>cache.backend: memory</code> suffit.
+En production (plusieurs replicas), chaque worker a son propre cache mémoire :
+- Le JWKS est re-fetché par chaque worker à son démarrage
+- Les coords tenant ne sont pas partagées entre workers</p>
+<pre><code class="language-yaml"># Production obligatoire
+cache:
+  backend: redis
+  redis_url: redis://redis:6379
+  jwks_ttl: 3600
+  tenant_uri_ttl: 300
+</code></pre>
+<h3 id="single-tenant-sans-keycloak">Single-tenant sans Keycloak<a class="headerlink" href="#single-tenant-sans-keycloak" title="Permanent link">&para;</a></h3>
+<p>Si <code>config.keycloak</code> est absent :
+- <code>Arclith.auth_dependency()</code> lève <code>RuntimeError</code>
+- <code>make_inject_tenant_uri</code> avec <code>multitenant: false</code> est un no-op (aucune vérification)
+- Les services internes (appelés uniquement par des couches supérieures déjà authentifiées) peuvent omettre <code>config.keycloak</code></p>
+<pre><code class="language-yaml"># Service interne sans auth directe
+adapters:
+  repository: mongodb
+  mongodb:
+    multitenant: false  # mono-tenant, pas de Keycloak requis
+# Pas de section keycloak — les appels arrivent déjà authentifiés depuis la couche supérieure
+</code></pre>
+<hr />
+<h2 id="recapitulatif-des-patterns">Récapitulatif des patterns<a class="headerlink" href="#recapitulatif-des-patterns" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Scénario</th>
+<th>FastAPI</th>
+<th>FastMCP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Auth seule, router entier</td>
+<td><code>APIRouter(dependencies=[Depends(require_auth)])</code></td>
+<td>Depends sur chaque tool</td>
+</tr>
+<tr>
+<td>Auth seule, route unique</td>
+<td><code>add_api_route(..., dependencies=[Depends(require_auth)])</code></td>
+<td><code>_auth: Annotated[dict, Depends(require_auth_mcp)]</code></td>
+</tr>
+<tr>
+<td>Claims dans handler</td>
+<td><code>claims: Annotated[dict, Depends(require_auth)]</code></td>
+<td>Idem avec <code>ctx: Context</code> en plus</td>
+</tr>
+<tr>
+<td>Auth + licence</td>
+<td><code>auth_dependency()</code> avec <code>config.license</code> défini</td>
+<td>Idem</td>
+</tr>
+<tr>
+<td>Auth + licence + tenant</td>
+<td><code>Depends(make_inject_tenant_uri(...))</code> sur le router</td>
+<td><code>Depends(make_inject_tenant_uri(...))</code> dans le tool</td>
+</tr>
+<tr>
+<td>Vérif rôle custom</td>
+<td><code>require_role("rekipe:admin")</code> inline ou factory</td>
+<td>Idem, vérif inline après <code>Depends</code></td>
+</tr>
+<tr>
+<td>Tests unitaires</td>
+<td><code>app.dependency_overrides[fn] = lambda: {...}</code></td>
+<td>Mock <code>inject_tenant_uri</code></td>
+</tr>
+<tr>
+<td>Service interne sans auth</td>
+<td>Omettre <code>config.keycloak</code>, <code>multitenant: false</code></td>
+<td>Idem</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="references">Références<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>arclith/adapters/inbound/auth_pipeline.py</code> — cœur du pipeline</li>
+<li><code>arclith/adapters/inbound/fastapi/auth.py</code> — wrapper FastAPI</li>
+<li><code>arclith/adapters/inbound/fastmcp/auth.py</code> — wrapper FastMCP</li>
+<li><code>docs/multitenant.md</code> — détail du pipeline multitenant</li>
+<li><code>docs/decisions.md</code> — ADR-007 (stdio), ADR-008 (pipeline mutualisé)</li>
+<li><code>SKILLS.md</code> → SK-F09 — recette pas-à-pas</li>
+</ul></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../js/base.js"></script>
+        <script src="../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

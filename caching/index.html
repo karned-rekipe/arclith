@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="fr" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://karned-rekipe.github.io/arclith/caching/">
+        <link rel="shortcut icon" href="../img/favicon.ico">
+        <title>Cache - Arclith</title>
+        <link href="../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../css/brands.min.css" rel="stylesheet">
+        <link href="../css/solid.min.css" rel="stylesheet">
+        <link href="../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="..">Arclith</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href=".." class="nav-link">Accueil</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Quickstarts</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../quickstart/" class="dropdown-item">Quickstart Arclith</a>
+</li>
+                                    
+<li>
+    <a href="../agent-quickstart/" class="dropdown-item">Quickstart Agent</a>
+</li>
+                                    
+<li>
+    <a href="../capabilities/" class="dropdown-item">Capacités</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Tutoriel Todo</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../tutorials/todo-list/" class="dropdown-item">Vue d'ensemble</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/01-init-project/" class="dropdown-item">1. Initialiser le projet</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/02-create-entity/" class="dropdown-item">2. Créer l'entité</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/03-create-usecase/" class="dropdown-item">3. Créer le use case</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/04-api/" class="dropdown-item">4. Exposer une API</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/05-mcp/" class="dropdown-item">5. Exposer un MCP</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/06-agent/" class="dropdown-item">6. Ajouter un agent</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Référence</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../auth/" class="dropdown-item">Auth</a>
+</li>
+                                    
+<li>
+    <a href="../http-conventions/" class="dropdown-item">HTTP</a>
+</li>
+                                    
+<li>
+    <a href="../idempotency/" class="dropdown-item">Idempotence</a>
+</li>
+                                    
+<li>
+    <a href="../multitenant/" class="dropdown-item">Multitenant</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Cache</a>
+</li>
+                                    
+<li>
+    <a href="../decisions/" class="dropdown-item">Décisions</a>
+</li>
+                                    
+<li>
+    <a href="../release/" class="dropdown-item">Release</a>
+</li>
+                                    
+<li>
+    <a href="../oauth2-troubleshooting/" class="dropdown-item">OAuth2 Troubleshooting</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../multitenant/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../decisions/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/karned-rekipe/arclith/edit/master/docs/caching.md" class="nav-link">Edit on karned-rekipe/arclith
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#http-caching-strategy" class="nav-link">HTTP Caching Strategy</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#vue-densemble" class="nav-link">Vue d'ensemble</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#architecture" class="nav-link">Architecture</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#middleware-cachecontrolmiddleware" class="nav-link">Middleware: CacheControlMiddleware</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#directives-cache-control" class="nav-link">Directives Cache-Control</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#integration-avec-etag" class="nav-link">Intégration avec ETag</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#configuration-par-environnement" class="nav-link">Configuration par environnement</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#cdn-reverse-proxy-nginx" class="nav-link">CDN / Reverse Proxy (nginx)</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#monitoring" class="nav-link">Monitoring</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#cas-dusage-e-commerce" class="nav-link">Cas d'usage E-commerce</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#desactivation-selective" class="nav-link">Désactivation sélective</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#references" class="nav-link">Références</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="http-caching-strategy">HTTP Caching Strategy<a class="headerlink" href="#http-caching-strategy" title="Permanent link">&para;</a></h1>
+<h2 id="vue-densemble">Vue d'ensemble<a class="headerlink" href="#vue-densemble" title="Permanent link">&para;</a></h2>
+<p>Stratégie de cache HTTP multi-niveaux pour optimiser la bande passante, réduire la latence et améliorer l'expérience
+utilisateur.</p>
+<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
+<pre><code>Client (Browser/App)
+    ↓ Cache-Control, ETag, If-None-Match
+CDN / Reverse Proxy (nginx, CloudFlare)
+    ↓ Cache-Control (public/private)
+API Gateway / Load Balancer
+    ↓
+FastAPI + CacheControlMiddleware
+    ↓
+Application Service
+    ↓
+Database / Repository
+</code></pre>
+<h2 id="middleware-cachecontrolmiddleware">Middleware: CacheControlMiddleware<a class="headerlink" href="#middleware-cachecontrolmiddleware" title="Permanent link">&para;</a></h2>
+<p>Injecte automatiquement les headers <code>Cache-Control</code> selon le verbe HTTP et le type de ressource.</p>
+<p><strong>Configuration (_sample/config/http.yaml):</strong></p>
+<pre><code class="language-yaml">cache_control:
+  get_single_max_age: 300  # 5 minutes - GET /{uuid}
+  get_list_max_age: 60     # 1 minute - GET /
+</code></pre>
+<h3 id="strategie-par-verbe">Stratégie par verbe<a class="headerlink" href="#strategie-par-verbe" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Verbe</th>
+<th>Ressource</th>
+<th>Directive</th>
+<th>Raison</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GET</strong></td>
+<td>Single (<code>/{uuid}</code>)</td>
+<td><code>private, max-age=300</code></td>
+<td>Cacheable 5min par le client, pas le CDN (données potentiellement user-specific)</td>
+</tr>
+<tr>
+<td><strong>GET</strong></td>
+<td>Collection (<code>/</code>)</td>
+<td><code>private, max-age=60</code></td>
+<td>Shorter TTL (1min) car changements fréquents</td>
+</tr>
+<tr>
+<td><strong>POST</strong></td>
+<td>Create</td>
+<td><code>no-cache, no-store</code></td>
+<td>Jamais cacher les mutations</td>
+</tr>
+<tr>
+<td><strong>PUT/PATCH</strong></td>
+<td>Update</td>
+<td><code>no-cache, no-store</code></td>
+<td>Jamais cacher les mutations</td>
+</tr>
+<tr>
+<td><strong>DELETE</strong></td>
+<td>Delete</td>
+<td><code>no-cache, no-store</code></td>
+<td>Jamais cacher les mutations</td>
+</tr>
+<tr>
+<td><strong>HEAD/OPTIONS</strong></td>
+<td>Metadata</td>
+<td><code>public, max-age=86400</code></td>
+<td>Cacheable 24h par tout le monde</td>
+</tr>
+</tbody>
+</table>
+<h3 id="heuristique-ressource-unique-vs-collection">Heuristique ressource unique vs collection<a class="headerlink" href="#heuristique-ressource-unique-vs-collection" title="Permanent link">&para;</a></h3>
+<p>Le middleware détecte automatiquement le type de ressource via le path:</p>
+<ul>
+<li><code>/v1/ingredients/01951234-5678-7abc</code> → <strong>Single</strong> (UUID pattern)</li>
+<li><code>/v1/ingredients</code> → <strong>Collection</strong></li>
+<li><code>/v1/ingredients/search</code> → <strong>Collection</strong> (action/filter)</li>
+</ul>
+<p><strong>Code:</strong></p>
+<pre><code class="language-python">def _is_single_resource_path(self, path: str) -&gt; bool:
+    &quot;&quot;&quot;UUID-like pattern detection.&quot;&quot;&quot;
+    parts = path.split(&quot;/&quot;)
+    last_part = parts[-1]
+    # UUID format: 32+ hex chars
+    return len(last_part) &gt;= 32 and all(c in &quot;0123456789abcdefABCDEF-&quot; for c in last_part)
+</code></pre>
+<h2 id="directives-cache-control">Directives Cache-Control<a class="headerlink" href="#directives-cache-control" title="Permanent link">&para;</a></h2>
+<h3 id="private-vs-public"><code>private</code> vs <code>public</code><a class="headerlink" href="#private-vs-public" title="Permanent link">&para;</a></h3>
+<p><strong><code>private</code></strong> — Cacheable uniquement par le client (browser/app), pas par les proxies intermédiaires.</p>
+<ul>
+<li>Utilisé quand: données user-specific (commandes, profil utilisateur)</li>
+<li>Example: <code>Cache-Control: private, max-age=300</code></li>
+</ul>
+<p><strong><code>public</code></strong> — Cacheable par tout le monde (client, CDN, reverse proxy).</p>
+<ul>
+<li>Utilisé quand: données statiques/publiques (produits, assets)</li>
+<li>Example: <code>Cache-Control: public, max-age=3600</code></li>
+</ul>
+<p><strong>Dans _sample:</strong> Toutes les ressources utilisent <code>private</code> car potentiellement multi-tenant.</p>
+<h3 id="max-age-ttl-en-secondes"><code>max-age</code> — TTL en secondes<a class="headerlink" href="#max-age-ttl-en-secondes" title="Permanent link">&para;</a></h3>
+<p>Durée pendant laquelle la réponse est considérée "fraîche" sans revalidation.</p>
+<p><strong>Recommandations par type:</strong>
+| Type | TTL | Justification |
+|---|---|---|
+| Entité mutable (ingredient, recipe) | 300s (5min) | Balance fraîcheur/performance |
+| Collection filtrée | 60s (1min) | Changements fréquents |
+| Metadata statique (OPTIONS) | 86400s (24h) | Rarement modifié |
+| Assets statiques (non géré par FastAPI) | 31536000s (1 an) | Immutable |</p>
+<h3 id="no-cache-vs-no-store"><code>no-cache</code> vs <code>no-store</code><a class="headerlink" href="#no-cache-vs-no-store" title="Permanent link">&para;</a></h3>
+<p><strong><code>no-cache</code></strong> — Doit revalider avant utilisation (If-None-Match).</p>
+<ul>
+<li>Header: <code>Cache-Control: no-cache</code></li>
+<li>Utilisé quand: données sensibles mais cacheable avec revalidation</li>
+</ul>
+<p><strong><code>no-store</code></strong> — Jamais stocker en cache (même pas localement).</p>
+<ul>
+<li>Header: <code>Cache-Control: no-cache, no-store, must-revalidate</code></li>
+<li>Utilisé quand: mutations (POST/PUT/PATCH/DELETE)</li>
+</ul>
+<p><strong>Dans _sample:</strong> Mutations utilisent <code>no-cache, no-store</code> pour éviter tout cache.</p>
+<h2 id="integration-avec-etag">Intégration avec ETag<a class="headerlink" href="#integration-avec-etag" title="Permanent link">&para;</a></h2>
+<p>Le cache HTTP est plus efficace couplé avec ETag (RFC 7232).</p>
+<p><strong>Workflow:</strong></p>
+<ol>
+<li><strong>Première requête:</strong>
+   ```
+   GET /v1/ingredients/01234...</li>
+</ol>
+<p>200 OK
+   Cache-Control: private, max-age=300
+   ETag: "v1"
+   { "uuid": "...", "name": "Farine", "version": 1 }
+   ```</p>
+<ol>
+<li>
+<p><strong>Requête dans les 5min (cache fresh):</strong></p>
+<ul>
+<li>Client utilise la réponse cachée localement (aucune requête réseau)</li>
+</ul>
+</li>
+<li>
+<p><strong>Requête après 5min (cache stale):</strong>
+   ```
+   GET /v1/ingredients/01234...
+   If-None-Match: "v1"</p>
+</li>
+</ol>
+<p>304 Not Modified  (si version inchangée)
+   Cache-Control: private, max-age=300
+   ETag: "v1"
+   (pas de body)</p>
+<p>OU</p>
+<p>200 OK  (si version modifiée)
+   Cache-Control: private, max-age=300
+   ETag: "v2"
+   { "uuid": "...", "name": "Farine complète", "version": 2 }
+   ```</p>
+<p><strong>Bénéfices:</strong></p>
+<ul>
+<li><strong>Bande passante:</strong> 304 évite le transfert du body</li>
+<li><strong>Latence:</strong> Réponse plus rapide (header-only)</li>
+<li><strong>Concurrency:</strong> If-Match empêche les lost updates</li>
+</ul>
+<h2 id="configuration-par-environnement">Configuration par environnement<a class="headerlink" href="#configuration-par-environnement" title="Permanent link">&para;</a></h2>
+<h3 id="developpement-confighttpyaml">Développement (config/http.yaml)<a class="headerlink" href="#developpement-confighttpyaml" title="Permanent link">&para;</a></h3>
+<pre><code class="language-yaml">cache_control:
+  get_single_max_age: 60   # Court TTL pour voir les changements rapidement
+  get_list_max_age: 10
+</code></pre>
+<h3 id="staging">Staging<a class="headerlink" href="#staging" title="Permanent link">&para;</a></h3>
+<pre><code class="language-yaml">cache_control:
+  get_single_max_age: 300  # Simule la prod
+  get_list_max_age: 60
+</code></pre>
+<h3 id="production">Production<a class="headerlink" href="#production" title="Permanent link">&para;</a></h3>
+<pre><code class="language-yaml">cache_control:
+  get_single_max_age: 600  # 10 minutes (si tolérable)
+  get_list_max_age: 120    # 2 minutes
+</code></pre>
+<p><strong>Note:</strong> Pour les données temps-réel (stocks, prix), utiliser <code>get_list_max_age: 0</code> (no-store).</p>
+<h2 id="cdn-reverse-proxy-nginx">CDN / Reverse Proxy (nginx)<a class="headerlink" href="#cdn-reverse-proxy-nginx" title="Permanent link">&para;</a></h2>
+<p>Si l'API est derrière un CDN, les directives <code>private</code> empêchent le cache partagé.</p>
+<p><strong>Pour activer le cache CDN (données publiques uniquement):</strong></p>
+<ol>
+<li>
+<p><strong>Modifier la stratégie middleware:</strong>
+   <code>python
+   # cache_control.py
+   if method == "GET" and is_public_resource(path):
+       return f"public, max-age={self._get_single_max_age}"</code></p>
+</li>
+<li>
+<p><strong>Configuration nginx:</strong>
+   ```nginx
+   proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=api_cache:10m max_size=1g;</p>
+</li>
+</ol>
+<p>location /v1/ {
+       proxy_cache api_cache;
+       proxy_cache_key "$request_uri";
+       proxy_cache_valid 200 5m;
+       proxy_cache_use_stale error timeout updating http_500 http_502 http_503;</p>
+<pre><code>   # Respecter Cache-Control de l'API
+   proxy_cache_bypass $http_cache_control;
+
+   proxy_pass http://backend;
+</code></pre>
+<p>}
+   ```</p>
+<h2 id="monitoring">Monitoring<a class="headerlink" href="#monitoring" title="Permanent link">&para;</a></h2>
+<p><strong>Headers à surveiller:</strong></p>
+<ul>
+<li><code>X-Cache</code> (nginx/CDN) — HIT/MISS/BYPASS</li>
+<li><code>Age</code> (nginx/CDN) — Âge du cache en secondes</li>
+<li><code>X-Process-Time-Ms</code> (arclith) — Temps de traitement API</li>
+</ul>
+<p><strong>Métriques:</strong></p>
+<ul>
+<li><code>cache_hit_rate</code> (CDN) — % de requêtes servies depuis le cache</li>
+<li><code>backend_requests_per_second</code> (API) — Doit diminuer si cache efficace</li>
+<li><code>304_responses_per_second</code> (API) — ETag revalidations</li>
+</ul>
+<h2 id="cas-dusage-e-commerce">Cas d'usage E-commerce<a class="headerlink" href="#cas-dusage-e-commerce" title="Permanent link">&para;</a></h2>
+<h3 id="1-catalogue-produits-lecture-intensive">1. Catalogue produits (lecture intensive)<a class="headerlink" href="#1-catalogue-produits-lecture-intensive" title="Permanent link">&para;</a></h3>
+<p><strong>Problème:</strong> 10k requêtes/s pour afficher les produits.</p>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-yaml">cache_control:
+  get_single_max_age: 3600  # 1 heure (produit change rarement)
+</code></pre>
+<pre><code>GET /v1/products/01234...
+Cache-Control: public, max-age=3600  # Cacheable par le CDN
+ETag: &quot;v1&quot;
+</code></pre>
+<p><strong>Résultat:</strong> 95% cache hit ratio CDN → API ne reçoit que 500 req/s.</p>
+<h3 id="2-stock-temps-reel-ecriture-intensive">2. Stock temps-réel (écriture intensive)<a class="headerlink" href="#2-stock-temps-reel-ecriture-intensive" title="Permanent link">&para;</a></h3>
+<p><strong>Problème:</strong> Stock change à chaque vente → cache stale = bad UX.</p>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-yaml">cache_control:
+  get_single_max_age: 0  # no-store
+</code></pre>
+<pre><code>GET /v1/products/01234.../stock
+Cache-Control: no-store
+</code></pre>
+<p><strong>Résultat:</strong> Toujours fresh, mais charge serveur élevée → utiliser WebSocket/SSE pour push.</p>
+<h3 id="3-panier-utilisateur-user-specific">3. Panier utilisateur (user-specific)<a class="headerlink" href="#3-panier-utilisateur-user-specific" title="Permanent link">&para;</a></h3>
+<p><strong>Problème:</strong> Données sensibles, ne jamais cacher par le CDN.</p>
+<p><strong>Solution:</strong></p>
+<pre><code>GET /v1/cart
+Cache-Control: private, max-age=60  # Browser cache OK, CDN non
+</code></pre>
+<p><strong>Résultat:</strong> Client peut rafraîchir localement, mais chaque user hit l'API.</p>
+<h2 id="desactivation-selective">Désactivation sélective<a class="headerlink" href="#desactivation-selective" title="Permanent link">&para;</a></h2>
+<p><strong>Désactiver pour un endpoint spécifique:</strong></p>
+<pre><code class="language-python">@router.get(&quot;/v1/real-time-data&quot;)
+async def get_real_time_data(response: Response):
+    # Override middleware
+    response.headers[&quot;Cache-Control&quot;] = &quot;no-store&quot;
+    ...
+</code></pre>
+<p><strong>Désactiver globalement:</strong></p>
+<pre><code class="language-yaml">cache_control:
+  get_single_max_age: 0
+  get_list_max_age: 0
+</code></pre>
+<h2 id="references">Références<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>RFC 7234:</strong> <a href="https://www.rfc-editor.org/rfc/rfc7234.html">Caching</a></li>
+<li><strong>MDN:</strong> <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control">Cache-Control</a></li>
+<li><strong>Google Web Fundamentals:</strong> <a href="https://web.dev/http-cache/">HTTP Caching</a></li>
+</ul></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../js/base.js"></script>
+        <script src="../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

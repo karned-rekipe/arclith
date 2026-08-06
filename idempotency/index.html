@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="fr" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://karned-rekipe.github.io/arclith/idempotency/">
+        <link rel="shortcut icon" href="../img/favicon.ico">
+        <title>Idempotence - Arclith</title>
+        <link href="../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../css/brands.min.css" rel="stylesheet">
+        <link href="../css/solid.min.css" rel="stylesheet">
+        <link href="../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="..">Arclith</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href=".." class="nav-link">Accueil</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Quickstarts</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../quickstart/" class="dropdown-item">Quickstart Arclith</a>
+</li>
+                                    
+<li>
+    <a href="../agent-quickstart/" class="dropdown-item">Quickstart Agent</a>
+</li>
+                                    
+<li>
+    <a href="../capabilities/" class="dropdown-item">Capacités</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Tutoriel Todo</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../tutorials/todo-list/" class="dropdown-item">Vue d'ensemble</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/01-init-project/" class="dropdown-item">1. Initialiser le projet</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/02-create-entity/" class="dropdown-item">2. Créer l'entité</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/03-create-usecase/" class="dropdown-item">3. Créer le use case</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/04-api/" class="dropdown-item">4. Exposer une API</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/05-mcp/" class="dropdown-item">5. Exposer un MCP</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/06-agent/" class="dropdown-item">6. Ajouter un agent</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Référence</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../auth/" class="dropdown-item">Auth</a>
+</li>
+                                    
+<li>
+    <a href="../http-conventions/" class="dropdown-item">HTTP</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Idempotence</a>
+</li>
+                                    
+<li>
+    <a href="../multitenant/" class="dropdown-item">Multitenant</a>
+</li>
+                                    
+<li>
+    <a href="../caching/" class="dropdown-item">Cache</a>
+</li>
+                                    
+<li>
+    <a href="../decisions/" class="dropdown-item">Décisions</a>
+</li>
+                                    
+<li>
+    <a href="../release/" class="dropdown-item">Release</a>
+</li>
+                                    
+<li>
+    <a href="../oauth2-troubleshooting/" class="dropdown-item">OAuth2 Troubleshooting</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../http-conventions/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../multitenant/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/karned-rekipe/arclith/edit/master/docs/idempotency.md" class="nav-link">Edit on karned-rekipe/arclith
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#idempotency-e-commerce-production-guide" class="nav-link">Idempotency — E-commerce Production Guide</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#contexte" class="nav-link">Contexte</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#implementation" class="nav-link">Implementation</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#cas-dusage-e-commerce" class="nav-link">Cas d'usage E-commerce</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#limitations" class="nav-link">Limitations</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#comparaison-avec-lindustrie" class="nav-link">Comparaison avec l'industrie</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#monitoring" class="nav-link">Monitoring</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#migration-en-production" class="nav-link">Migration en production</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#references" class="nav-link">Références</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="idempotency-e-commerce-production-guide">Idempotency — E-commerce Production Guide<a class="headerlink" href="#idempotency-e-commerce-production-guide" title="Permanent link">&para;</a></h1>
+<h2 id="contexte">Contexte<a class="headerlink" href="#contexte" title="Permanent link">&para;</a></h2>
+<p>L'idempotence garantit qu'une même opération peut être exécutée plusieurs fois sans effet de bord supplémentaire.
+Critique pour l'e-commerce où les retries réseau peuvent créer des doublons de paiements ou de commandes.</p>
+<h2 id="implementation">Implementation<a class="headerlink" href="#implementation" title="Permanent link">&para;</a></h2>
+<h3 id="middleware">Middleware<a class="headerlink" href="#middleware" title="Permanent link">&para;</a></h3>
+<p><code>IdempotencyMiddleware</code> intercepte les requêtes POST avec un header <code>Idempotency-Key</code> et cache la réponse pendant 24h
+par défaut.</p>
+<p><strong>Workflow:</strong></p>
+<ol>
+<li>Client envoie <code>POST /orders</code> avec <code>Idempotency-Key: &lt;uuid&gt;</code></li>
+<li>Middleware vérifie le cache<ul>
+<li><strong>Hit</strong> → retourne la réponse cachée (200 au lieu de 201)</li>
+<li><strong>Miss</strong> → exécute la requête, cache la réponse si 2xx</li>
+</ul>
+</li>
+<li>Requêtes suivantes avec la même clé retournent la réponse cachée</li>
+</ol>
+<p><strong>Configuration (_sample/config/http.yaml):</strong></p>
+<pre><code class="language-yaml">idempotency:
+  enabled: true
+  ttl_seconds: 86400  # 24 hours
+  required: false  # true = reject POST sans Idempotency-Key
+</code></pre>
+<h3 id="usage-client">Usage Client<a class="headerlink" href="#usage-client" title="Permanent link">&para;</a></h3>
+<p><strong>cURL:</strong></p>
+<pre><code class="language-bash"># Première requête
+curl -X POST https://api.example.com/v1/orders \
+  -H &quot;Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;product_id&quot;: &quot;123&quot;, &quot;quantity&quot;: 1}'
+
+# Returns: 201 Created
+# Response: {&quot;status&quot;: &quot;success&quot;, &quot;data&quot;: {&quot;uuid&quot;: &quot;...&quot;}}
+
+# Retry (network timeout, client retente)
+curl -X POST https://api.example.com/v1/orders \
+  -H &quot;Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;product_id&quot;: &quot;123&quot;, &quot;quantity&quot;: 1}'
+
+# Returns: 200 OK (cached)
+# Response: {&quot;status&quot;: &quot;success&quot;, &quot;data&quot;: {&quot;uuid&quot;: &quot;...&quot;}} (same UUID)
+# Header: X-Idempotency-Replay: true
+</code></pre>
+<p><strong>JavaScript (Fetch API):</strong></p>
+<pre><code class="language-javascript">import { v4 as uuidv4 } from 'uuid';
+
+async function createOrder(product_id, quantity) {
+  const idempotencyKey = uuidv4();
+
+  const response = await fetch('/v1/orders', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey
+    },
+    body: JSON.stringify({ product_id, quantity })
+  });
+
+  // Check if response was replayed from cache
+  const isReplay = response.headers.get('X-Idempotency-Replay') === 'true';
+
+  return {
+    data: await response.json(),
+    wasRetry: isReplay
+  };
+}
+</code></pre>
+<p><strong>Python (httpx):</strong></p>
+<pre><code class="language-python">import httpx
+from uuid import uuid4
+
+
+async def create_order(product_id: str, quantity: int):
+    idempotency_key = str(uuid4())
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            &quot;https://api.example.com/v1/orders&quot;,
+            json = {&quot;product_id&quot;: product_id, &quot;quantity&quot;: quantity},
+            headers = {&quot;Idempotency-Key&quot;: idempotency_key}
+        )
+        response.raise_for_status()
+
+        was_replay = response.headers.get(&quot;X-Idempotency-Replay&quot;) == &quot;true&quot;
+        return response.json(), was_replay
+</code></pre>
+<h2 id="cas-dusage-e-commerce">Cas d'usage E-commerce<a class="headerlink" href="#cas-dusage-e-commerce" title="Permanent link">&para;</a></h2>
+<h3 id="1-paiements">1. Paiements<a class="headerlink" href="#1-paiements" title="Permanent link">&para;</a></h3>
+<p><strong>Problème:</strong> Double charge si retry réseau pendant la transaction Stripe/PayPal.</p>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-python"># Client génère une clé idempotente par intention de paiement
+idempotency_key = f&quot;payment-{order_id}-{timestamp}&quot;
+
+# Stripe SDK utilise déjà ce pattern
+stripe.Charge.create(
+    amount = 1000,
+    currency = &quot;eur&quot;,
+    source = token,
+    idempotency_key = idempotency_key  # Stripe API convention
+)
+</code></pre>
+<p>Notre middleware implémente la même convention pour nos propres endpoints.</p>
+<h3 id="2-creation-de-commande">2. Création de commande<a class="headerlink" href="#2-creation-de-commande" title="Permanent link">&para;</a></h3>
+<p><strong>Problème:</strong> Double commande si timeout pendant la création.</p>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-bash"># Générer une clé côté client (UUID ou hash stable)
+IDEMPOTENCY_KEY=$(uuidgen)
+
+curl -X POST /v1/orders \
+  -H &quot;Idempotency-Key: $IDEMPOTENCY_KEY&quot; \
+  -d '{&quot;cart_id&quot;: &quot;abc123&quot;, &quot;payment_method&quot;: &quot;card&quot;}'
+
+# Retry automatique safe (même clé)
+curl -X POST /v1/orders \
+  -H &quot;Idempotency-Key: $IDEMPOTENCY_KEY&quot; \
+  -d '{&quot;cart_id&quot;: &quot;abc123&quot;, &quot;payment_method&quot;: &quot;card&quot;}'
+# → Retourne la même commande (pas de doublon)
+</code></pre>
+<h3 id="3-webhooks">3. Webhooks<a class="headerlink" href="#3-webhooks" title="Permanent link">&para;</a></h3>
+<p><strong>Problème:</strong> Stripe/PayPal peuvent renvoyer le même webhook plusieurs fois.</p>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-python"># Extraire l'ID événement comme clé idempotente
+@app.post(&quot;/webhooks/stripe&quot;)
+async def stripe_webhook(event: dict, request: Request):
+    # Stripe envoie event.id dans le payload
+    idempotency_key = event[&quot;id&quot;]
+
+    # Notre middleware détecte automatiquement les doublons
+    # via le header Idempotency-Key injecté par un middleware amont
+    ...
+</code></pre>
+<h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>TTL fixe:</strong> Après 24h, la clé expire → retry peut créer un doublon</p>
+<ul>
+<li><strong>Mitigation:</strong> Utiliser <code>required: true</code> + check DB côté service</li>
+</ul>
+</li>
+<li>
+<p><strong>Cache partagé:</strong> En multi-tenant, isoler par tenant</p>
+<ul>
+<li><strong>Solution:</strong> Cache key = <code>idempotency:{tenant_id}:{path}:{key}</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Réponse différente:</strong> Si le handler retourne une réponse différente avec la même clé</p>
+<ul>
+<li><strong>Détection:</strong> Impossible sans hashing de la réponse (non implémenté)</li>
+<li><strong>Best practice:</strong> Clé doit être liée à une intention métier stable</li>
+</ul>
+</li>
+</ol>
+<h2 id="comparaison-avec-lindustrie">Comparaison avec l'industrie<a class="headerlink" href="#comparaison-avec-lindustrie" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Header Name</th>
+<th>TTL</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Stripe</strong></td>
+<td><code>Idempotency-Key</code></td>
+<td>24h</td>
+<td>Recommended</td>
+</tr>
+<tr>
+<td><strong>PayPal</strong></td>
+<td><code>PayPal-Request-Id</code></td>
+<td>45 days</td>
+<td>Optional</td>
+</tr>
+<tr>
+<td><strong>AWS</strong></td>
+<td><code>x-amz-sdk-invocation-id</code></td>
+<td>Variable</td>
+<td>Optional</td>
+</tr>
+<tr>
+<td><strong>Twilio</strong></td>
+<td><code>Idempotency-Key</code></td>
+<td>24h</td>
+<td>Optional</td>
+</tr>
+<tr>
+<td><strong>Arclith</strong></td>
+<td><code>Idempotency-Key</code></td>
+<td>24h (configurable)</td>
+<td>Optional (configurable)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="monitoring">Monitoring<a class="headerlink" href="#monitoring" title="Permanent link">&para;</a></h2>
+<p><strong>Métriques recommandées:</strong></p>
+<ul>
+<li><code>idempotency_cache_hit_rate</code> — % de requêtes rejouées depuis le cache</li>
+<li><code>idempotency_key_missing_rate</code> — % de POST sans clé</li>
+<li><code>idempotency_cache_size</code> — Nombre de clés actives</li>
+</ul>
+<p><strong>Logs:</strong></p>
+<pre><code>🔁 Idempotent request (cache hit) key=550e8400-... path=/v1/orders
+💾 Cached idempotent response key=550e8400-... status=201 ttl=86400
+</code></pre>
+<h2 id="migration-en-production">Migration en production<a class="headerlink" href="#migration-en-production" title="Permanent link">&para;</a></h2>
+<p><strong>Phase 1:</strong> Déployer avec <code>required: false</code> (optionnel)</p>
+<pre><code class="language-yaml">idempotency:
+  enabled: true
+  required: false
+</code></pre>
+<p><strong>Phase 2:</strong> Monitorer adoption client (logs <code>idempotency_key_missing_rate</code>)</p>
+<p><strong>Phase 3:</strong> Passer à <code>required: true</code> pour les endpoints critiques</p>
+<pre><code class="language-yaml">idempotency:
+  enabled: true
+  required: true  # Reject POST without key
+</code></pre>
+<p><strong>Phase 4:</strong> Documenter dans l'API reference (OpenAPI)</p>
+<pre><code class="language-yaml">paths:
+  /v1/orders:
+    post:
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+</code></pre>
+<h2 id="references">Références<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li>**RFC Draft:
+  ** <a href="https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header">draft-ietf-httpapi-idempotency-key-header</a></li>
+<li><strong>Stripe:</strong> <a href="https://stripe.com/docs/api/idempotent_requests">Idempotent Requests</a></li>
+<li><strong>PayPal:</strong> <a href="https://developer.paypal.com/api/rest/reference/idempotency/">Idempotency</a></li>
+<li>**AWS:
+  ** <a href="https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html">Making idempotent API requests</a></li>
+</ul></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../js/base.js"></script>
+        <script src="../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

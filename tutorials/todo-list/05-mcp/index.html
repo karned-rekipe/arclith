@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="fr" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://karned-rekipe.github.io/arclith/tutorials/todo-list/05-mcp/">
+        <link rel="shortcut icon" href="../../../img/favicon.ico">
+        <title>5. Exposer un MCP - Arclith</title>
+        <link href="../../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../../css/brands.min.css" rel="stylesheet">
+        <link href="../../../css/solid.min.css" rel="stylesheet">
+        <link href="../../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../../..">Arclith</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="../../.." class="nav-link">Accueil</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Quickstarts</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../../quickstart/" class="dropdown-item">Quickstart Arclith</a>
+</li>
+                                    
+<li>
+    <a href="../../../agent-quickstart/" class="dropdown-item">Quickstart Agent</a>
+</li>
+                                    
+<li>
+    <a href="../../../capabilities/" class="dropdown-item">Capacités</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Tutoriel Todo</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../" class="dropdown-item">Vue d'ensemble</a>
+</li>
+                                    
+<li>
+    <a href="../01-init-project/" class="dropdown-item">1. Initialiser le projet</a>
+</li>
+                                    
+<li>
+    <a href="../02-create-entity/" class="dropdown-item">2. Créer l'entité</a>
+</li>
+                                    
+<li>
+    <a href="../03-create-usecase/" class="dropdown-item">3. Créer le use case</a>
+</li>
+                                    
+<li>
+    <a href="../04-api/" class="dropdown-item">4. Exposer une API</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">5. Exposer un MCP</a>
+</li>
+                                    
+<li>
+    <a href="../06-agent/" class="dropdown-item">6. Ajouter un agent</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Référence</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../../auth/" class="dropdown-item">Auth</a>
+</li>
+                                    
+<li>
+    <a href="../../../http-conventions/" class="dropdown-item">HTTP</a>
+</li>
+                                    
+<li>
+    <a href="../../../idempotency/" class="dropdown-item">Idempotence</a>
+</li>
+                                    
+<li>
+    <a href="../../../multitenant/" class="dropdown-item">Multitenant</a>
+</li>
+                                    
+<li>
+    <a href="../../../caching/" class="dropdown-item">Cache</a>
+</li>
+                                    
+<li>
+    <a href="../../../decisions/" class="dropdown-item">Décisions</a>
+</li>
+                                    
+<li>
+    <a href="../../../release/" class="dropdown-item">Release</a>
+</li>
+                                    
+<li>
+    <a href="../../../oauth2-troubleshooting/" class="dropdown-item">OAuth2 Troubleshooting</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../04-api/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../06-agent/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/karned-rekipe/arclith/edit/master/docs/tutorials/todo-list/05-mcp.md" class="nav-link">Edit on karned-rekipe/arclith
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#5-exposer-un-mcp" class="nav-link">5. Exposer un MCP</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#tools-mcp" class="nav-link">Tools MCP</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#entrypoint-api-mcp" class="nav-link">Entrypoint API + MCP</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#tester-sans-client-externe" class="nav-link">Tester sans client externe</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#voie-rapide" class="nav-link">Voie rapide</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="5-exposer-un-mcp">5. Exposer un MCP<a class="headerlink" href="#5-exposer-un-mcp" title="Permanent link">&para;</a></h1>
+<p>Objectif: générer la configuration FastMCP avec la CLI, puis exposer les mêmes opérations métier via
+des tools MCP.</p>
+<p><img alt="Capture interactive FastMCP" src="../assets/05-mcp.svg" /></p>
+<p>Depuis la racine du projet:</p>
+<pre><code class="language-bash">arclith-cli add-adapter --capability mcp
+</code></pre>
+<p>Répondre aux prompts:</p>
+<pre><code class="language-text">① Type d'adapter
+   1  fastmcp
+
+  Votre choix (numéro ou nom): 1
+
+③ Paramètres fastmcp
+  Host FastMCP (127.0.0.1): 127.0.0.1
+  Port FastMCP (8001): 8121
+
+  Confirmer la génération ? [y/n] (y): y
+</code></pre>
+<p>La CLI crée:</p>
+<pre><code class="language-text">config/adapters/inbound/fastmcp.yaml
+</code></pre>
+<h2 id="tools-mcp">Tools MCP<a class="headerlink" href="#tools-mcp" title="Permanent link">&para;</a></h2>
+<p>Créer <code>src/todo_list_service/adapters/inbound/fastmcp/tools/todo_tools.py</code>:</p>
+<pre><code class="language-python">from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Annotated
+
+import fastmcp
+from pydantic import Field
+
+from arclith.domain.ports.outbound.repository import Repository
+from todo_list_service.adapters.inbound.schemas.todo_schema import TodoSchema
+from todo_list_service.application.use_cases.create_todo import CreateTodoCommand, CreateTodoUseCase
+from todo_list_service.domain.models.todo import Todo, TodoStatus
+
+
+class TodoMCP:
+    def __init__(
+        self,
+        create_todo: CreateTodoUseCase,
+        repository: Repository[Todo],
+        mcp: fastmcp.FastMCP,
+    ) -&gt; None:
+        self._create_todo = create_todo
+        self._repository = repository
+        self._mcp = mcp
+        self._register_tools()
+
+    def _register_tools(self) -&gt; None:
+        create_todo = self._create_todo
+        repository = self._repository
+
+        @self._mcp.tool
+        async def create_todo_item(
+            title: Annotated[str, Field(description=&quot;Titre court de la todo.&quot;)],
+            due_date: Annotated[date, Field(description=&quot;Date d'échéance ISO, ex. 2026-09-01.&quot;)],
+            description: Annotated[str, Field(description=&quot;Description détaillée.&quot;)] = &quot;&quot;,
+            status: Annotated[TodoStatus, Field(description=&quot;todo, wip ou done.&quot;)] = TodoStatus.TODO,
+            completed_at: Annotated[datetime | None, Field(description=&quot;Date de réalisation si status=done.&quot;)] = None,
+        ) -&gt; dict:
+            &quot;&quot;&quot;Create a todo through the application use case.&quot;&quot;&quot;
+            todo = await create_todo.execute(
+                CreateTodoCommand(
+                    title=title,
+                    description=description,
+                    due_date=due_date,
+                    status=status,
+                    completed_at=completed_at,
+                )
+            )
+            return TodoSchema.model_validate(todo).model_dump(mode=&quot;json&quot;)
+
+        @self._mcp.tool
+        async def list_todo_items() -&gt; list[dict]:
+            &quot;&quot;&quot;List todos currently available in the repository.&quot;&quot;&quot;
+            todos = await repository.find_all()
+            return [TodoSchema.model_validate(todo).model_dump(mode=&quot;json&quot;) for todo in todos]
+</code></pre>
+<p>Créer <code>src/todo_list_service/adapters/inbound/fastmcp/tools/__init__.py</code>:</p>
+<pre><code class="language-python">from todo_list_service.adapters.inbound.fastmcp.tools.todo_tools import TodoMCP
+
+__all__ = [&quot;TodoMCP&quot;]
+</code></pre>
+<p>Créer <code>src/todo_list_service/adapters/inbound/fastmcp/register.py</code>:</p>
+<pre><code class="language-python">from __future__ import annotations
+
+import fastmcp
+
+from arclith import Arclith
+from todo_list_service.adapters.inbound.fastmcp.tools import TodoMCP
+from todo_list_service.infrastructure.containers.todo_container import (
+    build_create_todo_use_case,
+    build_todo_repository,
+)
+
+
+def register_tools(mcp: fastmcp.FastMCP, arclith: Arclith) -&gt; None:
+    repository = build_todo_repository(arclith)
+    create_todo = build_create_todo_use_case(arclith)
+    TodoMCP(create_todo, repository, mcp)
+</code></pre>
+<h2 id="entrypoint-api-mcp">Entrypoint API + MCP<a class="headerlink" href="#entrypoint-api-mcp" title="Permanent link">&para;</a></h2>
+<p>Remplacer <code>main.py</code> par:</p>
+<pre><code class="language-python">&quot;&quot;&quot;Application entrypoint for todo-list-service.&quot;&quot;&quot;
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+
+import fastmcp
+from arclith import Arclith
+from todo_list_service.adapters.inbound.fastapi.register import register_routers
+from todo_list_service.adapters.inbound.fastmcp.register import register_tools
+
+_CONFIG = Path(__file__).parent / &quot;config&quot;
+_VALID_MODES = {&quot;api&quot;, &quot;mcp_http&quot;, &quot;all&quot;}
+
+MODE = os.getenv(&quot;MODE&quot;, &quot;api&quot;)
+if MODE not in _VALID_MODES:
+    print(f&quot;MODE invalide: {MODE!r}. Valeurs: {sorted(_VALID_MODES)}&quot;, file=sys.stderr)
+    sys.exit(1)
+
+arclith = Arclith(_CONFIG)
+
+app = arclith.fastapi()
+register_routers(app, arclith)
+
+
+def build_mcp() -&gt; fastmcp.FastMCP:
+    mcp = arclith.fastmcp(&quot;Todo MCP&quot;)
+    register_tools(mcp, arclith)
+    arclith.instrument_mcp(mcp)
+    return mcp
+
+
+def _run_api() -&gt; None:
+    arclith.run_api(&quot;main:app&quot;)
+
+
+def _run_mcp_http() -&gt; None:
+    arclith.run_mcp_http(build_mcp())
+
+
+if __name__ == &quot;__main__&quot;:
+    match MODE:
+        case &quot;api&quot;:
+            arclith.run_with_probes(_run_api, transports=[&quot;api&quot;])
+        case &quot;mcp_http&quot;:
+            arclith.run_with_probes(_run_mcp_http, transports=[&quot;mcp_http&quot;])
+        case &quot;all&quot;:
+            arclith.run_with_probes(_run_api, _run_mcp_http, transports=[&quot;api&quot;, &quot;mcp_http&quot;])
+</code></pre>
+<h2 id="tester-sans-client-externe">Tester sans client externe<a class="headerlink" href="#tester-sans-client-externe" title="Permanent link">&para;</a></h2>
+<p>Créer <code>tests/test_todo_mcp.py</code>:</p>
+<pre><code class="language-python">import pytest
+from fastmcp import Client
+
+from main import build_mcp
+
+
+@pytest.mark.asyncio
+async def test_mcp_create_and_list_todos() -&gt; None:
+    async with Client(build_mcp()) as client:
+        tools = await client.list_tools()
+        assert {tool.name for tool in tools} &gt;= {&quot;create_todo_item&quot;, &quot;list_todo_items&quot;}
+
+        result = await client.call_tool(
+            &quot;create_todo_item&quot;,
+            {
+                &quot;title&quot;: &quot;Tester le MCP&quot;,
+                &quot;description&quot;: &quot;Appeler le même use case que l'API&quot;,
+                &quot;due_date&quot;: &quot;2026-09-01&quot;,
+                &quot;status&quot;: &quot;todo&quot;,
+            },
+        )
+
+        assert not result.is_error
+
+        listed = await client.call_tool(&quot;list_todo_items&quot;, {})
+        assert not listed.is_error
+</code></pre>
+<p>Lancer:</p>
+<pre><code class="language-bash">uv run python -m pytest tests/test_todo_mcp.py
+</code></pre>
+<p>Smoke HTTP MCP:</p>
+<pre><code class="language-bash">MODE=mcp_http uv run python main.py
+</code></pre>
+<p>Le serveur écoute sur <code>http://127.0.0.1:8121/mcp</code>.</p>
+<h2 id="voie-rapide">Voie rapide<a class="headerlink" href="#voie-rapide" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">arclith-cli add-adapter \
+  --capability mcp \
+  --adapter fastmcp \
+  --param host=127.0.0.1 \
+  --param port=8121 \
+  --yes
+</code></pre>
+<p>Étape suivante: <a href="../06-agent/">ajouter un agent</a>.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../../js/base.js"></script>
+        <script src="../../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

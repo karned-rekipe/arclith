@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="fr" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://karned-rekipe.github.io/arclith/agent-quickstart/">
+        <link rel="shortcut icon" href="../img/favicon.ico">
+        <title>Quickstart Agent - Arclith</title>
+        <link href="../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../css/brands.min.css" rel="stylesheet">
+        <link href="../css/solid.min.css" rel="stylesheet">
+        <link href="../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="..">Arclith</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href=".." class="nav-link">Accueil</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Quickstarts</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../quickstart/" class="dropdown-item">Quickstart Arclith</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Quickstart Agent</a>
+</li>
+                                    
+<li>
+    <a href="../capabilities/" class="dropdown-item">Capacités</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Tutoriel Todo</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../tutorials/todo-list/" class="dropdown-item">Vue d'ensemble</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/01-init-project/" class="dropdown-item">1. Initialiser le projet</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/02-create-entity/" class="dropdown-item">2. Créer l'entité</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/03-create-usecase/" class="dropdown-item">3. Créer le use case</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/04-api/" class="dropdown-item">4. Exposer une API</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/05-mcp/" class="dropdown-item">5. Exposer un MCP</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/06-agent/" class="dropdown-item">6. Ajouter un agent</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Référence</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../auth/" class="dropdown-item">Auth</a>
+</li>
+                                    
+<li>
+    <a href="../http-conventions/" class="dropdown-item">HTTP</a>
+</li>
+                                    
+<li>
+    <a href="../idempotency/" class="dropdown-item">Idempotence</a>
+</li>
+                                    
+<li>
+    <a href="../multitenant/" class="dropdown-item">Multitenant</a>
+</li>
+                                    
+<li>
+    <a href="../caching/" class="dropdown-item">Cache</a>
+</li>
+                                    
+<li>
+    <a href="../decisions/" class="dropdown-item">Décisions</a>
+</li>
+                                    
+<li>
+    <a href="../release/" class="dropdown-item">Release</a>
+</li>
+                                    
+<li>
+    <a href="../oauth2-troubleshooting/" class="dropdown-item">OAuth2 Troubleshooting</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../quickstart/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../capabilities/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/karned-rekipe/arclith/edit/master/docs/agent-quickstart.md" class="nav-link">Edit on karned-rekipe/arclith
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#quickstart-agent-arclith-from-scratch" class="nav-link">Quickstart agent Arclith from scratch</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#1-prerequis" class="nav-link">1. Prérequis</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#2-creer-lentite-et-lapi" class="nav-link">2. Créer l'entité et l'API</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#3-ajouter-langgraph-et-langsmith" class="nav-link">3. Ajouter LangGraph et LangSmith</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#4-configurer-lm-studio-et-le-planner" class="nav-link">4. Configurer LM Studio et le planner</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#5-brancher-le-nud-langgraph-sur-le-metier" class="nav-link">5. Brancher le nœud LangGraph sur le métier</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#6-lancer-langgraph-studio" class="nav-link">6. Lancer LangGraph Studio</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#7-persistance-partagee-entre-api-et-agent" class="nav-link">7. Persistance partagée entre API et agent</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#8-gates-de-validation" class="nav-link">8. Gates de validation</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#9-regles-a-conserver-en-projet-reel" class="nav-link">9. Règles à conserver en projet réel</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="quickstart-agent-arclith-from-scratch">Quickstart agent Arclith from scratch<a class="headerlink" href="#quickstart-agent-arclith-from-scratch" title="Permanent link">&para;</a></h1>
+<p>Ce guide part de zéro et aboutit à un service local qui expose:</p>
+<ul>
+<li>une entité métier <code>Ingredient</code>;</li>
+<li>une API FastAPI générée par <code>arclith-cli</code>;</li>
+<li>un agent LangGraph testé dans LangGraph Studio;</li>
+<li>des traces LangSmith;</li>
+<li>un LLM local LM Studio via endpoint OpenAI-compatible.</li>
+</ul>
+<p>La règle d'architecture reste la même du début à la fin:</p>
+<pre><code class="language-text">Demande naturelle
+  -&gt; adapter inbound LangGraph
+  -&gt; planner LLM derrière configuration locale
+  -&gt; commande structurée
+  -&gt; service/use case métier
+  -&gt; repository de l'entité
+</code></pre>
+<p>Le LLM traduit l'intention. Il ne doit pas écrire directement dans la persistance.</p>
+<h2 id="1-prerequis">1. Prérequis<a class="headerlink" href="#1-prerequis" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Python 3.13</li>
+<li><code>uv</code></li>
+<li><code>git</code></li>
+<li>LM Studio avec le Local Server démarré sur <code>http://127.0.0.1:1234/v1</code></li>
+<li>un modèle chargé dans LM Studio</li>
+<li>une clé LangSmith si le tracing doit remonter dans LangSmith</li>
+</ul>
+<p>Installer la CLI depuis le repository:</p>
+<pre><code class="language-bash">uv tool install &quot;git+https://github.com/karned-rekipe/arclith.git#subdirectory=cli&quot;
+arclith-cli version
+</code></pre>
+<p>Pour tester une branche Arclith avant publication:</p>
+<pre><code class="language-bash">uv tool install --force \
+  &quot;git+https://github.com/karned-rekipe/arclith.git@&lt;branche&gt;#subdirectory=cli&quot;
+</code></pre>
+<h2 id="2-creer-lentite-et-lapi">2. Créer l'entité et l'API<a class="headerlink" href="#2-creer-lentite-et-lapi" title="Permanent link">&para;</a></h2>
+<p>Le scaffold crée l'entité <code>Ingredient</code>, les ports, le service applicatif, l'API FastAPI, MCP et les
+probes.</p>
+<pre><code class="language-bash">mkdir -p ~/Perso/projets/demo
+cd ~/Perso/projets/demo
+
+arclith-cli new Ingredient pantry-agent --port 8100
+cd pantry-agent
+uv sync
+</code></pre>
+<p>Le premier <code>uv sync</code> crée <code>uv.lock</code>. Ensuite, utiliser <code>uv run --frozen ...</code> pour vérifier que
+l'environnement reste conforme au lockfile.</p>
+<p>Lancer le service:</p>
+<pre><code class="language-bash">MODE=all uv run --frozen python main.py
+</code></pre>
+<p>Vérifier les probes et l'API:</p>
+<pre><code class="language-bash">curl -fsS http://127.0.0.1:9000/health
+curl -fsS http://127.0.0.1:9000/ready
+curl -fsS http://127.0.0.1:8100/docs
+</code></pre>
+<p>Créer une ressource par API structurée:</p>
+<pre><code class="language-bash">curl -fsS -X POST http://127.0.0.1:8100/v1/ingredients/ \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Idempotency-Key: pantry-demo-1&quot; \
+  -d '{&quot;name&quot;:&quot;Farine de ble&quot;}'
+</code></pre>
+<h2 id="3-ajouter-langgraph-et-langsmith">3. Ajouter LangGraph et LangSmith<a class="headerlink" href="#3-ajouter-langgraph-et-langsmith" title="Permanent link">&para;</a></h2>
+<p>Installer les dépendances agent dans le projet généré:</p>
+<pre><code class="language-bash">uv add &quot;arclith[langgraph]&quot;
+</code></pre>
+<p>Générer l'entrypoint LangGraph:</p>
+<pre><code class="language-bash">arclith-cli add-adapter \
+  --capability agent \
+  --adapter langgraph \
+  --param graph_name=pantry_agent \
+  --yes
+</code></pre>
+<p>Générer la configuration LangSmith:</p>
+<pre><code class="language-bash">export LANGSMITH_API_KEY=&quot;&lt;clé-langsmith&gt;&quot;
+
+arclith-cli add-adapter \
+  --capability observability \
+  --adapter langsmith \
+  --param project=pantry-agent-dev \
+  --param endpoint=https://api.smith.langchain.com \
+  --param api_key=&quot;$LANGSMITH_API_KEY&quot; \
+  --yes
+</code></pre>
+<p>Résultat attendu:</p>
+<pre><code class="language-text">langgraph.json
+config/adapters/inbound/langgraph.yaml
+config/adapters/outbound/lm.yaml
+config/adapters/outbound/langsmith.yaml
+src/pantry_agent/application/planners/ingredient_intent.py
+src/pantry_agent/adapters/inbound/langgraph/agent.py
+.env
+</code></pre>
+<p><code>langgraph.json</code> pointe vers <code>.env</code>; le serveur LangGraph local charge donc les variables
+<code>LANGSMITH_TRACING</code>, <code>LANGSMITH_PROJECT</code>, <code>LANGSMITH_ENDPOINT</code> et <code>LANGSMITH_API_KEY</code>.</p>
+<h2 id="4-configurer-lm-studio-et-le-planner">4. Configurer LM Studio et le planner<a class="headerlink" href="#4-configurer-lm-studio-et-le-planner" title="Permanent link">&para;</a></h2>
+<p>Dans LM Studio:</p>
+<ol>
+<li>charger un modèle;</li>
+<li>démarrer le Local Server;</li>
+<li>relever l'identifiant exact du modèle.</li>
+</ol>
+<p>Vérifier les modèles exposés:</p>
+<pre><code class="language-bash">curl -fsS http://127.0.0.1:1234/v1/models
+</code></pre>
+<p>Ajouter la configuration LLM Arclith:</p>
+<pre><code class="language-bash">arclith-cli add-adapter \
+  --capability llm \
+  --adapter lmstudio \
+  --param model_name=&quot;&lt;model-id-lm-studio&gt;&quot; \
+  --yes
+</code></pre>
+<p><code>provider: openai</code> désigne ici le protocole OpenAI-compatible, pas forcément le fournisseur OpenAI.
+Si LM Studio tourne sur la machine hôte et que l'agent tourne en container, remplacer souvent
+<code>127.0.0.1</code> par <code>host.docker.internal</code>.</p>
+<p>Créer le fichier minimal du planner applicatif:</p>
+<pre><code class="language-bash">arclith-cli add-planner IngredientIntent
+</code></pre>
+<p>Remplacer <code>src/pantry_agent/application/planners/ingredient_intent.py</code> par:</p>
+<pre><code class="language-python">from typing import Literal
+
+from arclith.domain.ports.outbound.llm import LLMPort
+from pydantic import BaseModel, Field
+
+
+class IngredientIntent(BaseModel):
+    action: Literal[&quot;create&quot;, &quot;list&quot;] = Field(
+        description=&quot;Action métier à exécuter: create ou list.&quot;,
+    )
+    name: str | None = Field(
+        default=None,
+        description=&quot;Nom de l'ingrédient quand il est présent dans la demande.&quot;,
+    )
+
+
+class IngredientIntentPlanner:
+    def __init__(self, llm: LLMPort) -&gt; None:
+        self._llm = llm
+
+    async def plan(self, prompt: str) -&gt; IngredientIntent:
+        return await self._llm.complete_structured(
+            prompt,
+            output_type=IngredientIntent,
+            instructions=(
+                &quot;Tu traduis une demande utilisateur en commande JSON stricte pour un service pantry. &quot;
+                &quot;Utilise action=create pour ajouter un ingrédient. &quot;
+                &quot;Utilise action=list pour lister ou chercher des ingrédients. &quot;
+                &quot;Ne choisis create que si un nom d'ingrédient explicite est présent.&quot;
+            ),
+        )
+</code></pre>
+<h2 id="5-brancher-le-nud-langgraph-sur-le-metier">5. Brancher le nœud LangGraph sur le métier<a class="headerlink" href="#5-brancher-le-nud-langgraph-sur-le-metier" title="Permanent link">&para;</a></h2>
+<p>Le fichier généré <code>src/pantry_agent/adapters/inbound/langgraph/agent.py</code> est volontairement minimal.
+Pour ce quickstart, le remplacer par:</p>
+<pre><code class="language-python">from functools import lru_cache
+from typing import Any, TypedDict
+
+from arclith import Arclith
+from arclith.adapters.outbound.pydantic_ai.llm import PydanticAILLMAdapter
+from langgraph.graph import END, START
+
+from pantry_agent.application.planners.ingredient_intent import IngredientIntentPlanner
+from pantry_agent.application.services.ingredient_service import IngredientService
+from pantry_agent.domain.models.ingredient import Ingredient
+from pantry_agent.infrastructure.containers.ingredient_container import build_ingredient_service
+
+
+class AgentState(TypedDict, total=False):
+    messages: list[dict[str, Any]]
+    answer: str
+
+
+arclith = Arclith(&quot;config&quot;)
+
+
+@lru_cache(maxsize=1)
+def _ingredient_service() -&gt; IngredientService:
+    service, _logger = build_ingredient_service(arclith)
+    return service
+
+
+@lru_cache(maxsize=1)
+def _intent_planner() -&gt; IngredientIntentPlanner:
+    lm_settings = arclith.config.adapters.lm
+    if lm_settings is None:
+        raise RuntimeError(&quot;config/adapters/outbound/lm.yaml est requis pour le planner agent.&quot;)
+    return IngredientIntentPlanner(PydanticAILLMAdapter(lm_settings))
+
+
+def _last_user_message(state: AgentState) -&gt; str:
+    for message in reversed(state.get(&quot;messages&quot;, [])):
+        role = message.get(&quot;role&quot;)
+        if role in {&quot;user&quot;, &quot;human&quot;}:
+            return str(message.get(&quot;content&quot;, &quot;&quot;))
+    return &quot;&quot;
+
+
+async def run_agent(state: AgentState) -&gt; AgentState:
+    prompt = _last_user_message(state)
+    service = _ingredient_service()
+    if not prompt:
+        answer = &quot;Aucun message utilisateur reçu.&quot;
+        messages = [*state.get(&quot;messages&quot;, []), {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: answer}]
+        return {**state, &quot;messages&quot;: messages, &quot;answer&quot;: answer}
+
+    intent = await _intent_planner().plan(prompt)
+
+    if intent.action == &quot;create&quot;:
+        if not intent.name:
+            answer = &quot;Je ne peux pas créer un ingrédient sans nom explicite.&quot;
+        else:
+            ingredient = await service.create(Ingredient(name=intent.name))
+            answer = f&quot;Ingrédient créé: {ingredient.name} ({ingredient.uuid}).&quot;
+    else:
+        ingredients, total = await service.find_page_filtered(name=intent.name, offset=0, limit=10)
+        names = &quot;, &quot;.join(ingredient.name for ingredient in ingredients) or &quot;aucun résultat&quot;
+        answer = f&quot;Ingrédients trouvés ({total}): {names}.&quot;
+
+    messages = [*state.get(&quot;messages&quot;, []), {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: answer}]
+    return {**state, &quot;messages&quot;: messages, &quot;answer&quot;: answer}
+
+
+def register_agent(builder: Any, app: Arclith) -&gt; None:
+    builder.add_node(&quot;agent&quot;, run_agent)
+    builder.add_edge(START, &quot;agent&quot;)
+    builder.add_edge(&quot;agent&quot;, END)
+
+
+agent = arclith.langgraph(AgentState, register_agent, name=&quot;pantry_agent&quot;)
+</code></pre>
+<p>Pour une autre entité, remplacer <code>pantry_agent</code>, <code>Ingredient</code>, <code>build_ingredient_service</code> et les
+prompts par les noms générés par <code>arclith-cli new</code>.</p>
+<h2 id="6-lancer-langgraph-studio">6. Lancer LangGraph Studio<a class="headerlink" href="#6-lancer-langgraph-studio" title="Permanent link">&para;</a></h2>
+<p>Dans un terminal dedie:</p>
+<pre><code class="language-bash">uv run --frozen langgraph dev --no-browser --allow-blocking --port 2024
+</code></pre>
+<p>Dans LangGraph Studio, appeler le graphe <code>pantry_agent</code> avec un état:</p>
+<pre><code class="language-json">{
+  &quot;messages&quot;: [
+    {
+      &quot;role&quot;: &quot;user&quot;,
+      &quot;content&quot;: &quot;ajoute Sucre roux&quot;
+    }
+  ]
+}
+</code></pre>
+<p>Puis tester une lecture:</p>
+<pre><code class="language-json">{
+  &quot;messages&quot;: [
+    {
+      &quot;role&quot;: &quot;user&quot;,
+      &quot;content&quot;: &quot;liste les ingredients&quot;
+    }
+  ]
+}
+</code></pre>
+<p>Les runs doivent apparaitre dans le projet LangSmith configure par <code>LANGSMITH_PROJECT</code>.</p>
+<h2 id="7-persistance-partagee-entre-api-et-agent">7. Persistance partagée entre API et agent<a class="headerlink" href="#7-persistance-partagee-entre-api-et-agent" title="Permanent link">&para;</a></h2>
+<p>Avec <code>repository: memory</code>, l'API lancée par <code>main.py</code> et le serveur <code>langgraph dev</code> ont chacun leur
+processus et donc leur stockage mémoire. C'est suffisant pour valider les chemins d'exécution.</p>
+<p>Pour partager les mêmes données entre l'API et l'agent local, brancher un repository persistant:</p>
+<pre><code class="language-bash">arclith-cli add-adapter \
+  --capability repository \
+  --adapter mongodb \
+  --entity Ingredient \
+  --db-name pantry_agent \
+  --yes
+</code></pre>
+<p>Ensuite configurer l'URI MongoDB via le resolver de secrets local ou la configuration cible, sans
+commiter de credential.</p>
+<h2 id="8-gates-de-validation">8. Gates de validation<a class="headerlink" href="#8-gates-de-validation" title="Permanent link">&para;</a></h2>
+<p>Avant commit:</p>
+<pre><code class="language-bash">uv run --frozen python -m json.tool langgraph.json
+uv run --frozen python -m pytest
+uv run --frozen ruff check .
+uv run --frozen mypy src tests
+</code></pre>
+<p>Smoke manuel minimal:</p>
+<pre><code class="language-bash">curl -fsS http://127.0.0.1:9000/health
+curl -fsS http://127.0.0.1:9000/ready
+curl -fsS http://127.0.0.1:1234/v1/models
+</code></pre>
+<p>Le quickstart est valide seulement si:</p>
+<ul>
+<li>l'API crée et relit une ressource <code>Ingredient</code>;</li>
+<li>LangGraph compile et expose le graphe <code>pantry_agent</code>;</li>
+<li>le nœud agent appelle le service applicatif généré;</li>
+<li>le planner applicatif traduit la demande en <code>IngredientIntent</code>;</li>
+<li>LM Studio répond sur <code>/v1/models</code>;</li>
+<li>LangSmith reçoit les traces quand <code>LANGSMITH_TRACING=true</code>.</li>
+</ul>
+<h2 id="9-regles-a-conserver-en-projet-reel">9. Règles à conserver en projet réel<a class="headerlink" href="#9-regles-a-conserver-en-projet-reel" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Garder le domaine et les use cases indépendants de FastAPI, LangGraph, LangSmith et LM Studio.</li>
+<li>Faire produire au LLM un objet structuré, puis laisser les use cases appliquer le métier.</li>
+<li>Garder un planner deterministic ou des tests sans LLM pour les gates CI.</li>
+<li>Garder <code>.env</code> et les credentials hors Git.</li>
+<li>Utiliser LangGraph Studio et LangSmith pour tester les conversations et inspecter les traces.</li>
+</ul></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../js/base.js"></script>
+        <script src="../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="fr" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://karned-rekipe.github.io/arclith/multitenant/">
+        <link rel="shortcut icon" href="../img/favicon.ico">
+        <title>Multitenant - Arclith</title>
+        <link href="../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../css/brands.min.css" rel="stylesheet">
+        <link href="../css/solid.min.css" rel="stylesheet">
+        <link href="../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="..">Arclith</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href=".." class="nav-link">Accueil</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Quickstarts</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../quickstart/" class="dropdown-item">Quickstart Arclith</a>
+</li>
+                                    
+<li>
+    <a href="../agent-quickstart/" class="dropdown-item">Quickstart Agent</a>
+</li>
+                                    
+<li>
+    <a href="../capabilities/" class="dropdown-item">Capacités</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Tutoriel Todo</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../tutorials/todo-list/" class="dropdown-item">Vue d'ensemble</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/01-init-project/" class="dropdown-item">1. Initialiser le projet</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/02-create-entity/" class="dropdown-item">2. Créer l'entité</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/03-create-usecase/" class="dropdown-item">3. Créer le use case</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/04-api/" class="dropdown-item">4. Exposer une API</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/05-mcp/" class="dropdown-item">5. Exposer un MCP</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/06-agent/" class="dropdown-item">6. Ajouter un agent</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Référence</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../auth/" class="dropdown-item">Auth</a>
+</li>
+                                    
+<li>
+    <a href="../http-conventions/" class="dropdown-item">HTTP</a>
+</li>
+                                    
+<li>
+    <a href="../idempotency/" class="dropdown-item">Idempotence</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Multitenant</a>
+</li>
+                                    
+<li>
+    <a href="../caching/" class="dropdown-item">Cache</a>
+</li>
+                                    
+<li>
+    <a href="../decisions/" class="dropdown-item">Décisions</a>
+</li>
+                                    
+<li>
+    <a href="../release/" class="dropdown-item">Release</a>
+</li>
+                                    
+<li>
+    <a href="../oauth2-troubleshooting/" class="dropdown-item">OAuth2 Troubleshooting</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../idempotency/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../caching/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/karned-rekipe/arclith/edit/master/docs/multitenant.md" class="nav-link">Edit on karned-rekipe/arclith
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#multi-tenancy-arclith" class="nav-link">Multi-tenancy — arclith</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#deux-niveaux-disolation" class="nav-link">Deux niveaux d'isolation</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#exemple-concret" class="nav-link">Exemple concret</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#flux-par-requete-mode-multitenant" class="nav-link">Flux par requête (mode multitenant)</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#configuration" class="nav-link">Configuration</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#cablage-dans-le-container" class="nav-link">Câblage dans le container</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#secrets-vault-par-tenant" class="nav-link">Secrets Vault par tenant</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#strategie-de-cache" class="nav-link">Stratégie de cache</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#strategie-de-licence" class="nav-link">Stratégie de licence</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="multi-tenancy-arclith">Multi-tenancy — arclith<a class="headerlink" href="#multi-tenancy-arclith" title="Permanent link">&para;</a></h1>
+<p>Un seul déploiement, N clients. Chaque client (tenant) possède ses propres ressources de stockage.
+Les utilisateurs d'un même tenant partagent ces ressources.</p>
+<hr />
+<h2 id="deux-niveaux-disolation">Deux niveaux d'isolation<a class="headerlink" href="#deux-niveaux-disolation" title="Permanent link">&para;</a></h2>
+<p>Le point clé est de distinguer <strong>à qui appartient la ressource</strong> :</p>
+<table>
+<thead>
+<tr>
+<th>Niveau</th>
+<th>Propriétaire</th>
+<th>Exemple</th>
+<th>Mode</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>App-level</strong></td>
+<td>Le service lui-même</td>
+<td>Bucket S3 d'images de l'appli</td>
+<td><code>multitenant: false</code> — credentials statiques dans <code>config.yaml</code></td>
+</tr>
+<tr>
+<td><strong>Tenant-level</strong></td>
+<td>Le client</td>
+<td>MongoDB du client, bucket S3 du client</td>
+<td><code>multitenant: true</code> — credentials résolus depuis Vault par requête</td>
+</tr>
+</tbody>
+</table>
+<p>Les ressources app-level sont <strong>partagées</strong> par tous les utilisateurs, quelle que soit leur organisation.
+Les ressources tenant-level sont <strong>isolées</strong> : chaque client a les siennes, ses utilisateurs les partagent entre eux.</p>
+<hr />
+<h2 id="exemple-concret">Exemple concret<a class="headerlink" href="#exemple-concret" title="Permanent link">&para;</a></h2>
+<pre><code>Appli
+├── Bucket S3 &quot;images&quot;        → app-level, partagé         → config.yaml statique
+│
+├── Client A
+│   ├── MongoDB &quot;client_a&quot;    → tenant-level, isolé         → Vault: rekipe/tenants/client-a
+│   └── Bucket S3 &quot;client_a&quot;  → tenant-level, isolé         → Vault: rekipe/tenants/client-a
+│
+└── Client B
+    ├── MongoDB &quot;client_b&quot;    → tenant-level, isolé         → Vault: rekipe/tenants/client-b
+    └── Bucket S3 &quot;client_b&quot;  → tenant-level, isolé         → Vault: rekipe/tenants/client-b
+</code></pre>
+<p>Le bucket S3 "images" de l'appli n'est <strong>jamais</strong> dans <code>TenantContext</code> — il utilise ses credentials statiques.
+Les ressources tenant-level sont injectées dans <code>TenantContext</code> à chaque requête.</p>
+<hr />
+<h2 id="flux-par-requete-mode-multitenant">Flux par requête (mode multitenant)<a class="headerlink" href="#flux-par-requete-mode-multitenant" title="Permanent link">&para;</a></h2>
+<pre><code>Bearer JWT
+  → JWKS Keycloak (cache)         — validation de signature
+  → claims JWT
+  → RoleLicenseValidator           — vérification du role licence (realm_access.roles)
+  → tenant_id  (claim &quot;sub&quot;)
+  → VaultTenantResolver ×N (cache) — résolution parallèle, un resolver par adaptateur tenant-level
+  → TenantContext                  — merge de tous les adapters, injecté via ContextVar
+  → MongoDB repo      → coords.get(&quot;uri&quot;), coords.get(&quot;db_name&quot;)
+  → S3 client tenant  → coords.get(&quot;bucket_name&quot;), coords.get(&quot;endpoint_url&quot;)
+</code></pre>
+<p>En mode <strong>single-tenant</strong> (<code>multitenant: false</code> sur tous les adapters), le pipeline JWT/Vault est intégralement bypassé.</p>
+<hr />
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<pre><code class="language-yaml">adapters:
+  repository: mongodb
+  mongodb:
+    multitenant: true      # tenant-level → pipeline JWT/Vault actif
+    db_name: fallback_db   # fallback si le secret Vault n'a pas de db_name
+
+# Pas de section &quot;s3_app&quot; ici — c'est une config applicative hors arclith.
+# Le bucket app-level est câblé directement dans le container du service.
+
+keycloak:
+  url: http://keycloak:8080
+  realm: rekipe
+  audience: rekipe-api     # optionnel
+
+tenant:
+  vault_addr: http://vault:8200
+  vault_mount: kv
+  vault_path_prefix: rekipe/tenants
+  tenant_claim: sub
+
+license:
+  role: rekipe:licensed
+
+cache:
+  backend: redis            # memory | redis
+  redis_url: redis://redis:6379
+  jwks_ttl: 3600
+  tenant_uri_ttl: 300
+</code></pre>
+<hr />
+<h2 id="cablage-dans-le-container">Câblage dans le container<a class="headerlink" href="#cablage-dans-le-container" title="Permanent link">&para;</a></h2>
+<pre><code class="language-python">from arclith.adapters.inbound.fastapi.dependencies import make_inject_tenant_uri
+from arclith.adapters.inbound.jwt.decoder import JWTDecoder
+from arclith.adapters.inbound.license.validator import RoleLicenseValidator
+from arclith.adapters.outbound.memory.cache_adapter import MemoryCacheAdapter
+from arclith.adapters.outbound.vault.tenant_adapter import VaultTenantResolver
+
+cache = MemoryCacheAdapter()  # ou RedisCacheAdapter(url)
+
+# Ressource app-level : bucket S3 partagé — câblé séparément, hors TenantContext
+app_s3_client = S3Client(bucket=config.s3_app.bucket, region=config.s3_app.region)
+
+# Ressources tenant-level : un VaultTenantResolver par adaptateur multitenant
+inject_tenant = make_inject_tenant_uri(
+    config,
+    jwt_decoder=JWTDecoder(
+        jwks_uri=f&quot;{config.keycloak.url}/realms/{config.keycloak.realm}/protocol/openid-connect/certs&quot;,
+        audience=config.keycloak.audience,
+        cache=cache,
+        ttl_s=config.cache.jwks_ttl,
+    ),
+    license_validator=RoleLicenseValidator(role=config.license.role),
+    tenant_resolvers=[
+        VaultTenantResolver(&quot;mongodb&quot;,    addr=..., path_prefix=..., cache=cache),
+        VaultTenantResolver(&quot;s3_client&quot;,  addr=..., path_prefix=..., cache=cache),
+    ],
+)
+</code></pre>
+<hr />
+<h2 id="secrets-vault-par-tenant">Secrets Vault par tenant<a class="headerlink" href="#secrets-vault-par-tenant" title="Permanent link">&para;</a></h2>
+<p>Un seul secret par tenant, <strong>tous les champs sont passés tels quels</strong> dans <code>AdapterTenantCoords.params</code>.
+Pas de filtrage, pas d'hypothèse sur les clés — chaque adaptateur lit ce dont il a besoin.</p>
+<pre><code class="language-bash">vault kv put kv/rekipe/tenants/client-a \
+  mongodb_uri=&quot;mongodb://user:pass@mongo-a:27017&quot; \
+  mongodb_db=&quot;client_a&quot; \
+  s3_bucket=&quot;client-a-data&quot; \
+  s3_region=&quot;eu-west-1&quot; \
+  s3_endpoint=&quot;https://s3.eu-west-1.amazonaws.com&quot;
+</code></pre>
+<blockquote>
+<p>Les clés peuvent être organisées librement. La convention de nommage (<code>mongodb_uri</code>, <code>s3_bucket</code>…)
+est définie par le projet — arclith ne l'impose pas.</p>
+</blockquote>
+<p>Chaque adaptateur lit sa tranche :</p>
+<pre><code class="language-python"># Dans le repository MongoDB du tenant
+coords = get_adapter_tenant_context(&quot;mongodb&quot;)
+uri = coords.get(&quot;mongodb_uri&quot;) or self._config.uri
+db  = coords.get(&quot;mongodb_db&quot;)  or self._config.db_name
+
+# Dans le client S3 du tenant
+coords = get_adapter_tenant_context(&quot;s3_client&quot;)
+bucket   = coords.require(&quot;s3_bucket&quot;)
+region   = coords.get(&quot;s3_region&quot;, &quot;eu-west-1&quot;)
+endpoint = coords.get(&quot;s3_endpoint&quot;)
+
+# Dans le client S3 app-level (bucket partagé) — pas de TenantContext
+# → credentials statiques depuis config.yaml
+</code></pre>
+<hr />
+<h2 id="strategie-de-cache">Stratégie de cache<a class="headerlink" href="#strategie-de-cache" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Donnée</th>
+<th>Clé cache</th>
+<th>TTL défaut</th>
+<th>Config</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JWKS Keycloak</td>
+<td><code>jwks:{jwks_uri}</code></td>
+<td>3600 s</td>
+<td><code>cache.jwks_ttl</code></td>
+</tr>
+<tr>
+<td>Coords tenant (par adaptateur)</td>
+<td><code>tenant:{adapter}:{tenant_id}</code></td>
+<td>300 s</td>
+<td><code>cache.tenant_uri_ttl</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="backends">Backends<a class="headerlink" href="#backends" title="Permanent link">&para;</a></h3>
+<p><strong><code>memory</code></strong> — zéro dépendance, par worker. Idéal en dev et déploiement mono-worker.</p>
+<p><strong><code>redis</code></strong> (<code>arclith[cache]</code>) — partagé entre tous les workers. Recommandé en production.</p>
+<h3 id="compromis-ttl">Compromis TTL<a class="headerlink" href="#compromis-ttl" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>JWKS</strong> : ≥ 1h recommandé. Vider <code>jwks:{uri}</code> après une rotation de clé Keycloak.</li>
+<li><strong>Coords tenant</strong> : 5 min recommandé. Vider <code>tenant:{adapter}:{tenant_id}</code> après une migration de bucket/DB.</li>
+</ul>
+<hr />
+<h2 id="strategie-de-licence">Stratégie de licence<a class="headerlink" href="#strategie-de-licence" title="Permanent link">&para;</a></h2>
+<p>Les licences sont des <strong>Keycloak realm roles</strong> portés dans le JWT — zéro appel réseau supplémentaire.</p>
+<pre><code class="language-json">{ &quot;realm_access&quot;: { &quot;roles&quot;: [&quot;rekipe:licensed&quot;] } }
+</code></pre>
+<p><code>RoleLicenseValidator</code> vérifie la présence du rôle configuré. Si absent → HTTP 403.</p>
+<h3 id="granularite-possible">Granularité possible<a class="headerlink" href="#granularite-possible" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rekipe:licensed</code></td>
+<td>Accès de base</td>
+</tr>
+<tr>
+<td><code>rekipe:premium</code></td>
+<td>Fonctionnalités avancées</td>
+</tr>
+<tr>
+<td><code>rekipe:trial</code></td>
+<td>Accès limité (durée, quota)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="gestion-via-api-keycloak-admin">Gestion via API Keycloak Admin<a class="headerlink" href="#gestion-via-api-keycloak-admin" title="Permanent link">&para;</a></h3>
+<pre><code class="language-bash"># Créer le rôle
+curl -X POST &quot;$KC/admin/realms/rekipe/roles&quot; \
+  -H &quot;Authorization: Bearer $ADMIN_TOKEN&quot; -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;name&quot;: &quot;rekipe:licensed&quot;}'
+
+# Assigner à un utilisateur
+curl -X POST &quot;$KC/admin/realms/rekipe/users/$USER_ID/role-mappings/realm&quot; \
+  -H &quot;Authorization: Bearer $ADMIN_TOKEN&quot; -H &quot;Content-Type: application/json&quot; \
+  -d '[{&quot;name&quot;: &quot;rekipe:licensed&quot;}]'
+</code></pre>
+<p>La révocation prend effet à l'expiration du token. Avec des tokens courts (5-15 min, défaut Keycloak), c'est suffisant.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../js/base.js"></script>
+        <script src="../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

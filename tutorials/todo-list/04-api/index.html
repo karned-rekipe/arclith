@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="fr" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://karned-rekipe.github.io/arclith/tutorials/todo-list/04-api/">
+        <link rel="shortcut icon" href="../../../img/favicon.ico">
+        <title>4. Exposer une API - Arclith</title>
+        <link href="../../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../../css/brands.min.css" rel="stylesheet">
+        <link href="../../../css/solid.min.css" rel="stylesheet">
+        <link href="../../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../../..">Arclith</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="../../.." class="nav-link">Accueil</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Quickstarts</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../../quickstart/" class="dropdown-item">Quickstart Arclith</a>
+</li>
+                                    
+<li>
+    <a href="../../../agent-quickstart/" class="dropdown-item">Quickstart Agent</a>
+</li>
+                                    
+<li>
+    <a href="../../../capabilities/" class="dropdown-item">Capacités</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Tutoriel Todo</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../" class="dropdown-item">Vue d'ensemble</a>
+</li>
+                                    
+<li>
+    <a href="../01-init-project/" class="dropdown-item">1. Initialiser le projet</a>
+</li>
+                                    
+<li>
+    <a href="../02-create-entity/" class="dropdown-item">2. Créer l'entité</a>
+</li>
+                                    
+<li>
+    <a href="../03-create-usecase/" class="dropdown-item">3. Créer le use case</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">4. Exposer une API</a>
+</li>
+                                    
+<li>
+    <a href="../05-mcp/" class="dropdown-item">5. Exposer un MCP</a>
+</li>
+                                    
+<li>
+    <a href="../06-agent/" class="dropdown-item">6. Ajouter un agent</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Référence</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../../auth/" class="dropdown-item">Auth</a>
+</li>
+                                    
+<li>
+    <a href="../../../http-conventions/" class="dropdown-item">HTTP</a>
+</li>
+                                    
+<li>
+    <a href="../../../idempotency/" class="dropdown-item">Idempotence</a>
+</li>
+                                    
+<li>
+    <a href="../../../multitenant/" class="dropdown-item">Multitenant</a>
+</li>
+                                    
+<li>
+    <a href="../../../caching/" class="dropdown-item">Cache</a>
+</li>
+                                    
+<li>
+    <a href="../../../decisions/" class="dropdown-item">Décisions</a>
+</li>
+                                    
+<li>
+    <a href="../../../release/" class="dropdown-item">Release</a>
+</li>
+                                    
+<li>
+    <a href="../../../oauth2-troubleshooting/" class="dropdown-item">OAuth2 Troubleshooting</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../03-create-usecase/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../05-mcp/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/karned-rekipe/arclith/edit/master/docs/tutorials/todo-list/04-api.md" class="nav-link">Edit on karned-rekipe/arclith
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#4-exposer-une-api" class="nav-link">4. Exposer une API</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#schemas-http" class="nav-link">Schémas HTTP</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#router-fastapi" class="nav-link">Router FastAPI</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#registration" class="nav-link">Registration</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#tester" class="nav-link">Tester</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#voie-rapide" class="nav-link">Voie rapide</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="4-exposer-une-api">4. Exposer une API<a class="headerlink" href="#4-exposer-une-api" title="Permanent link">&para;</a></h1>
+<p>Objectif: générer la configuration FastAPI avec la CLI, puis exposer <code>CreateTodoUseCase</code> par HTTP.</p>
+<p><img alt="Capture interactive FastAPI" src="../assets/04-api.svg" /></p>
+<p>Depuis la racine du projet:</p>
+<pre><code class="language-bash">arclith-cli add-adapter --capability api
+</code></pre>
+<p>Répondre aux prompts:</p>
+<pre><code class="language-text">① Type d'adapter
+   1  fastapi
+
+  Votre choix (numéro ou nom): 1
+
+③ Paramètres fastapi
+  Host FastAPI (0.0.0.0): 0.0.0.0
+  Port FastAPI (8000): 8120
+  Activer le reload FastAPI [y/n] (y): y
+
+  Confirmer la génération ? [y/n] (y): y
+</code></pre>
+<p>La CLI crée:</p>
+<pre><code class="language-text">config/adapters/inbound/fastapi.yaml
+</code></pre>
+<h2 id="schemas-http">Schémas HTTP<a class="headerlink" href="#schemas-http" title="Permanent link">&para;</a></h2>
+<p>Créer <code>src/todo_list_service/adapters/inbound/schemas/todo_schema.py</code>:</p>
+<pre><code class="language-python">from __future__ import annotations
+
+from datetime import date, datetime
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from todo_list_service.domain.models.todo import TodoStatus
+
+
+class TodoCreateSchema(BaseModel):
+    title: str = Field(min_length=1, max_length=140)
+    description: str = Field(default=&quot;&quot;, max_length=4000)
+    due_date: date
+    status: TodoStatus = TodoStatus.TODO
+    completed_at: datetime | None = None
+
+
+class TodoSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    uuid: UUID
+    title: str
+    description: str
+    due_date: date
+    completed_at: datetime | None
+    status: TodoStatus
+    created_at: datetime
+    updated_at: datetime
+    version: int
+</code></pre>
+<p>Créer aussi le package:</p>
+<pre><code class="language-bash">mkdir -p src/todo_list_service/adapters/inbound/schemas
+touch src/todo_list_service/adapters/inbound/schemas/__init__.py
+</code></pre>
+<h2 id="router-fastapi">Router FastAPI<a class="headerlink" href="#router-fastapi" title="Permanent link">&para;</a></h2>
+<p>Créer <code>src/todo_list_service/adapters/inbound/fastapi/routers/todo_router.py</code>:</p>
+<pre><code class="language-python">from __future__ import annotations
+
+from fastapi import APIRouter, Request, Response
+
+from arclith.domain.ports.outbound.repository import Repository
+from todo_list_service.adapters.inbound.schemas.todo_schema import TodoCreateSchema, TodoSchema
+from todo_list_service.application.use_cases.create_todo import CreateTodoCommand, CreateTodoUseCase
+from todo_list_service.domain.models.todo import Todo
+
+
+class TodoRouter:
+    def __init__(self, create_todo: CreateTodoUseCase, repository: Repository[Todo]) -&gt; None:
+        self._create_todo = create_todo
+        self._repository = repository
+        self.router = APIRouter(prefix=&quot;/v1/todos&quot;, tags=[&quot;todos&quot;])
+        self._register_routes()
+
+    def _register_routes(self) -&gt; None:
+        self.router.add_api_route(
+            &quot;/&quot;,
+            self.create_todo,
+            methods=[&quot;POST&quot;],
+            response_model=TodoSchema,
+            status_code=201,
+            summary=&quot;Create todo&quot;,
+        )
+        self.router.add_api_route(
+            &quot;/&quot;,
+            self.list_todos,
+            methods=[&quot;GET&quot;],
+            response_model=list[TodoSchema],
+            summary=&quot;List todos&quot;,
+        )
+
+    async def create_todo(self, payload: TodoCreateSchema, response: Response, request: Request) -&gt; TodoSchema:
+        todo = await self._create_todo.execute(
+            CreateTodoCommand(
+                title=payload.title,
+                description=payload.description,
+                due_date=payload.due_date,
+                status=payload.status,
+                completed_at=payload.completed_at,
+            )
+        )
+        response.headers[&quot;Location&quot;] = f&quot;{request.url.path.rstrip('/')}/{todo.uuid}&quot;
+        return TodoSchema.model_validate(todo)
+
+    async def list_todos(self) -&gt; list[TodoSchema]:
+        todos = await self._repository.find_all()
+        return [TodoSchema.model_validate(todo) for todo in todos]
+</code></pre>
+<p>Créer le package router:</p>
+<pre><code class="language-bash">mkdir -p src/todo_list_service/adapters/inbound/fastapi/routers
+touch src/todo_list_service/adapters/inbound/fastapi/routers/__init__.py
+</code></pre>
+<h2 id="registration">Registration<a class="headerlink" href="#registration" title="Permanent link">&para;</a></h2>
+<p>Créer <code>src/todo_list_service/adapters/inbound/fastapi/register.py</code>:</p>
+<pre><code class="language-python">from __future__ import annotations
+
+from fastapi import FastAPI
+
+from arclith import Arclith
+from todo_list_service.adapters.inbound.fastapi.routers.todo_router import TodoRouter
+from todo_list_service.infrastructure.containers.todo_container import (
+    build_create_todo_use_case,
+    build_todo_repository,
+)
+
+
+def register_routers(app: FastAPI, arclith: Arclith) -&gt; None:
+    repository = build_todo_repository(arclith)
+    create_todo = build_create_todo_use_case(arclith)
+    app.include_router(TodoRouter(create_todo, repository).router)
+</code></pre>
+<p>Mettre à jour <code>main.py</code>:</p>
+<pre><code class="language-python">&quot;&quot;&quot;Application entrypoint for todo-list-service.&quot;&quot;&quot;
+from __future__ import annotations
+
+from pathlib import Path
+
+from arclith import Arclith
+from todo_list_service.adapters.inbound.fastapi.register import register_routers
+
+_CONFIG = Path(__file__).parent / &quot;config&quot;
+
+arclith = Arclith(_CONFIG)
+app = arclith.fastapi()
+register_routers(app, arclith)
+
+
+def _run_api() -&gt; None:
+    arclith.run_api(&quot;main:app&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    arclith.run_with_probes(_run_api, transports=[&quot;api&quot;])
+</code></pre>
+<h2 id="tester">Tester<a class="headerlink" href="#tester" title="Permanent link">&para;</a></h2>
+<p>Lancer les tests:</p>
+<pre><code class="language-bash">uv run python -m pytest
+</code></pre>
+<p>Lancer l'API:</p>
+<pre><code class="language-bash">uv run python main.py
+</code></pre>
+<p>Dans un autre terminal:</p>
+<pre><code class="language-bash">curl -fsS http://127.0.0.1:9000/health
+curl -fsS -X POST http://127.0.0.1:8120/v1/todos/ \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Idempotency-Key: todo-demo-1&quot; \
+  -d '{
+    &quot;title&quot;: &quot;Écrire le tutoriel&quot;,
+    &quot;description&quot;: &quot;Couvrir API, MCP et agent&quot;,
+    &quot;due_date&quot;: &quot;2026-09-01&quot;,
+    &quot;status&quot;: &quot;todo&quot;
+  }'
+
+curl -fsS http://127.0.0.1:8120/v1/todos/
+</code></pre>
+<p>La réponse <code>POST</code> doit contenir les champs de la todo créée, dont <code>uuid</code>, <code>title</code>, <code>due_date</code>,
+<code>status</code>, <code>created_at</code> et <code>version</code>.</p>
+<h2 id="voie-rapide">Voie rapide<a class="headerlink" href="#voie-rapide" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">arclith-cli add-adapter \
+  --capability api \
+  --adapter fastapi \
+  --param host=0.0.0.0 \
+  --param port=8120 \
+  --param reload=true \
+  --yes
+</code></pre>
+<p>Étape suivante: <a href="../05-mcp/">exposer un MCP</a>.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../../js/base.js"></script>
+        <script src="../../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

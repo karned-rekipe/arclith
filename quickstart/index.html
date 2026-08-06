@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="fr" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://karned-rekipe.github.io/arclith/quickstart/">
+        <link rel="shortcut icon" href="../img/favicon.ico">
+        <title>Quickstart Arclith - Arclith</title>
+        <link href="../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../css/brands.min.css" rel="stylesheet">
+        <link href="../css/solid.min.css" rel="stylesheet">
+        <link href="../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="..">Arclith</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href=".." class="nav-link">Accueil</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Quickstarts</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Quickstart Arclith</a>
+</li>
+                                    
+<li>
+    <a href="../agent-quickstart/" class="dropdown-item">Quickstart Agent</a>
+</li>
+                                    
+<li>
+    <a href="../capabilities/" class="dropdown-item">Capacités</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Tutoriel Todo</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../tutorials/todo-list/" class="dropdown-item">Vue d'ensemble</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/01-init-project/" class="dropdown-item">1. Initialiser le projet</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/02-create-entity/" class="dropdown-item">2. Créer l'entité</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/03-create-usecase/" class="dropdown-item">3. Créer le use case</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/04-api/" class="dropdown-item">4. Exposer une API</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/05-mcp/" class="dropdown-item">5. Exposer un MCP</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/06-agent/" class="dropdown-item">6. Ajouter un agent</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Référence</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../auth/" class="dropdown-item">Auth</a>
+</li>
+                                    
+<li>
+    <a href="../http-conventions/" class="dropdown-item">HTTP</a>
+</li>
+                                    
+<li>
+    <a href="../idempotency/" class="dropdown-item">Idempotence</a>
+</li>
+                                    
+<li>
+    <a href="../multitenant/" class="dropdown-item">Multitenant</a>
+</li>
+                                    
+<li>
+    <a href="../caching/" class="dropdown-item">Cache</a>
+</li>
+                                    
+<li>
+    <a href="../decisions/" class="dropdown-item">Décisions</a>
+</li>
+                                    
+<li>
+    <a href="../release/" class="dropdown-item">Release</a>
+</li>
+                                    
+<li>
+    <a href="../oauth2-troubleshooting/" class="dropdown-item">OAuth2 Troubleshooting</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href=".." class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../agent-quickstart/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/karned-rekipe/arclith/edit/master/docs/quickstart.md" class="nav-link">Edit on karned-rekipe/arclith
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#quickstart-arclith" class="nav-link">Quickstart Arclith</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#prerequis" class="nav-link">Prérequis</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#1-creer-un-projet-concret" class="nav-link">1. Créer un projet concret</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#2-lancer-api-mcp-et-probes" class="nav-link">2. Lancer API, MCP et probes</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#3-changer-ou-ajouter-un-adapter-outbound" class="nav-link">3. Changer ou ajouter un adapter outbound</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#4-ajouter-un-autre-inbound-sans-toucher-au-metier" class="nav-link">4. Ajouter un autre inbound sans toucher au métier</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#5-cas-agent-ia" class="nav-link">5. Cas agent IA</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#6-valider-avant-commit" class="nav-link">6. Valider avant commit</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#reference" class="nav-link">Reference</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="quickstart-arclith">Quickstart Arclith<a class="headerlink" href="#quickstart-arclith" title="Permanent link">&para;</a></h1>
+<p>Ce guide montre comment démarrer un projet concret avec Arclith, puis comment le faire évoluer par
+adapter sans modifier le code métier.</p>
+<p>Arclith doit rester une brique hexagonale stable:</p>
+<ul>
+<li>le domaine et les cas d'usage portent le métier;</li>
+<li>les adapters inbound exposent le métier via API, MCP, bus ou CLI;</li>
+<li>les adapters outbound branchent MongoDB, DuckDB, cache, LLM, tracing ou secrets;</li>
+<li>la CLI assemble ces briques et met a jour la configuration.</li>
+</ul>
+<h2 id="prerequis">Prérequis<a class="headerlink" href="#prerequis" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Python 3.13</li>
+<li><code>uv</code></li>
+<li><code>git</code></li>
+</ul>
+<p>Installer la CLI depuis le repository:</p>
+<pre><code class="language-bash">uv tool install &quot;git+https://github.com/karned-rekipe/arclith.git#subdirectory=cli&quot;
+arclith-cli version
+</code></pre>
+<p>Pour partir d'un projet vide de métier, utiliser <code>init</code>, puis ajouter explicitement les fichiers
+du cœur:</p>
+<pre><code class="language-bash">arclith-cli init todo-list-service
+cd todo-list-service
+arclith-cli add-entity Todo
+arclith-cli add-usecase CreateTodo
+</code></pre>
+<p>Pour tester une branche de développement avant merge:</p>
+<pre><code class="language-bash">uv tool install --force &quot;git+https://github.com/karned-rekipe/arclith.git@feat/hexagonal-foundation#subdirectory=cli&quot;
+</code></pre>
+<h2 id="1-creer-un-projet-concret">1. Créer un projet concret<a class="headerlink" href="#1-creer-un-projet-concret" title="Permanent link">&para;</a></h2>
+<p>Exemple: un service <code>pantry-agent</code> qui gère une entité <code>Ingredient</code>.</p>
+<pre><code class="language-bash">mkdir -p ~/Perso/projets/demo
+cd ~/Perso/projets/demo
+
+arclith-cli new Ingredient pantry-agent --port 8100
+cd pantry-agent
+uv sync
+</code></pre>
+<p>Le premier <code>uv sync</code> crée <code>uv.lock</code> pour le projet généré. Ensuite, les commandes
+<code>uv run --frozen ...</code> peuvent être utilisées pour garantir que l'environnement reste
+strictement conforme au lockfile.</p>
+<p>Le projet généré suit le layout canonique:</p>
+<pre><code class="language-text">src/pantry_agent/
+  domain/
+    models/
+    ports/
+      inbound/
+      outbound/
+  application/
+  adapters/
+    inbound/
+    outbound/
+  infrastructure/
+config/
+tests/
+main.py
+</code></pre>
+<h2 id="2-lancer-api-mcp-et-probes">2. Lancer API, MCP et probes<a class="headerlink" href="#2-lancer-api-mcp-et-probes" title="Permanent link">&para;</a></h2>
+<p>En développement, le mode <code>all</code> lance l'API, MCP HTTP et les probes.</p>
+<pre><code class="language-bash">MODE=all uv run --frozen python main.py
+</code></pre>
+<p>Par convention:</p>
+<ul>
+<li>API FastAPI: <code>http://127.0.0.1:8100</code></li>
+<li>MCP HTTP: <code>http://127.0.0.1:8101</code></li>
+<li>probes: <code>http://127.0.0.1:9000</code></li>
+</ul>
+<p>Vérifier l'état:</p>
+<pre><code class="language-bash">curl -fsS http://127.0.0.1:9000/health
+curl -fsS http://127.0.0.1:9000/ready
+curl -fsS http://127.0.0.1:9000/info
+</code></pre>
+<p>Créer puis lire une ressource:</p>
+<pre><code class="language-bash">CREATE_RESPONSE=$(curl -fsS -X POST http://127.0.0.1:8100/v1/ingredients/ \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Idempotency-Key: demo-$(uv run --frozen python -c 'import uuid; print(uuid.uuid4())')&quot; \
+  -d '{&quot;name&quot;:&quot;Farine de ble&quot;}')
+
+echo &quot;$CREATE_RESPONSE&quot;
+
+INGREDIENT_ID=$(CREATE_RESPONSE=&quot;$CREATE_RESPONSE&quot; uv run --frozen python - &lt;&lt;'PY'
+import json
+import os
+
+print(json.loads(os.environ[&quot;CREATE_RESPONSE&quot;])[&quot;data&quot;][&quot;uuid&quot;])
+PY
+)
+
+curl -fsS &quot;http://127.0.0.1:8100/v1/ingredients/$INGREDIENT_ID&quot;
+curl -fsS &quot;http://127.0.0.1:8100/v1/ingredients/?name=farine&quot;
+</code></pre>
+<h2 id="3-changer-ou-ajouter-un-adapter-outbound">3. Changer ou ajouter un adapter outbound<a class="headerlink" href="#3-changer-ou-ajouter-un-adapter-outbound" title="Permanent link">&para;</a></h2>
+<p>Pour ajouter seulement du cœur métier, sans CRUD ni adapter automatique :</p>
+<pre><code class="language-bash">arclith-cli add-entity ShoppingItem
+arclith-cli add-usecase PlanShoppingList
+arclith-cli add-planner ShoppingIntent
+</code></pre>
+<p>Ces commandes créent des fichiers minimaux dans <code>src/&lt;package&gt;/domain/models/</code> et
+<code>src/&lt;package&gt;/application/use_cases/</code> ou <code>src/&lt;package&gt;/application/planners/</code>. Les champs,
+invariants, ports et appels aux adapters restent du code métier à écrire dans le projet.</p>
+<p>L'adapter actif est déclaré dans:</p>
+<pre><code class="language-text">config/adapters/adapters.yaml
+</code></pre>
+<p>Exemple:</p>
+<pre><code class="language-yaml">logger: console
+repository: memory
+</code></pre>
+<p>Pour ajouter ou remplacer un adapter de repository:</p>
+<pre><code class="language-bash">arclith-cli capabilities
+arclith-cli add-adapter
+</code></pre>
+<p>Le wizard détecte les entités dans <code>src/&lt;package&gt;/domain/models/</code>, pose les questions nécessaires,
+génère les fichiers de l'adapter et met à jour la configuration.</p>
+<p>Le même flux peut être joué en mode direct:</p>
+<pre><code class="language-bash">arclith-cli add-adapter --adapter mongodb --entity Ingredient --db-name pantry_agent --yes
+arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activate --yes
+arclith-cli add-adapter --adapter mariadb --entity Ingredient --param database=pantry_agent --param user=app --yes
+</code></pre>
+<h3 id="mongodb">MongoDB<a class="headerlink" href="#mongodb" title="Permanent link">&para;</a></h3>
+<p>Le wizard MongoDB doit produire une configuration scoped:</p>
+<pre><code class="language-text">config/adapters/outbound/mongodb.yaml
+</code></pre>
+<p>Exemple attendu:</p>
+<pre><code class="language-yaml">multitenant: false
+db_name: pantry_agent
+collection_name: ingredients
+</code></pre>
+<p>L'URI reste un secret et ne doit pas être commitée. En local, utiliser <code>secrets.yaml</code> ou une variable
+d'environnement selon la recette active.</p>
+<h3 id="duckdb">DuckDB<a class="headerlink" href="#duckdb" title="Permanent link">&para;</a></h3>
+<p>Exemple:</p>
+<pre><code class="language-yaml">multitenant: false
+path: data/
+</code></pre>
+<h3 id="mariadb">MariaDB<a class="headerlink" href="#mariadb" title="Permanent link">&para;</a></h3>
+<p>Installer l'extra dans le projet qui utilise cet adapter:</p>
+<pre><code class="language-bash">uv add &quot;arclith[mariadb]&quot;
+</code></pre>
+<p>Génération directe:</p>
+<pre><code class="language-bash">arclith-cli add-adapter \
+  --adapter mariadb \
+  --entity Ingredient \
+  --param host=127.0.0.1 \
+  --param port=3306 \
+  --param database=pantry_agent \
+  --param user=app \
+  --yes
+</code></pre>
+<p>Exemple de configuration générée:</p>
+<pre><code class="language-yaml">host: 127.0.0.1
+port: 3306
+database: pantry_agent
+user: app
+password: null
+driver: asyncmy
+table_prefix: &quot;&quot;
+multitenant: false
+</code></pre>
+<p>Le mot de passe ou l'URL complète doivent rester dans un resolver de secrets, par exemple
+<code>config/secrets.yaml</code>, <code>env</code> ou Vault.</p>
+<h2 id="4-ajouter-un-autre-inbound-sans-toucher-au-metier">4. Ajouter un autre inbound sans toucher au métier<a class="headerlink" href="#4-ajouter-un-autre-inbound-sans-toucher-au-metier" title="Permanent link">&para;</a></h2>
+<p>Le même service applicatif peut être exposé par plusieurs adapters:</p>
+<ul>
+<li>FastAPI pour HTTP;</li>
+<li>FastMCP pour les outils MCP;</li>
+<li>un bus plus tard pour RabbitMQ, Kafka ou autre.</li>
+</ul>
+<p>La règle à conserver: l'inbound transforme le protocole en appel de cas d'usage. Il ne contient pas
+le métier.</p>
+<h2 id="5-cas-agent-ia">5. Cas agent IA<a class="headerlink" href="#5-cas-agent-ia" title="Permanent link">&para;</a></h2>
+<p>Pour un agent, le cœur doit rester testable sans LLM:</p>
+<pre><code class="language-text">Natural language
+  -&gt; adapter inbound API / MCP / bus
+  -&gt; use case application
+  -&gt; planner port
+  -&gt; command / DTO structure
+  -&gt; service métier
+</code></pre>
+<p>Le LLM est un adapter outbound derrière un port. Il traduit une demande naturelle en données
+structurées, mais n'exécute pas directement le métier.</p>
+<p>Exemple de ports applicatifs cibles:</p>
+<ul>
+<li><code>PlannerPort</code>: transforme une phrase en commande structurée;</li>
+<li><code>RepositoryPort</code>: persiste les entités;</li>
+<li><code>TracePort</code>: envoie les traces LangSmith ou autre;</li>
+<li><code>EventBusPort</code>: publie des événements si besoin.</li>
+</ul>
+<h3 id="langsmith-comme-banc-de-test">LangSmith comme banc de test<a class="headerlink" href="#langsmith-comme-banc-de-test" title="Permanent link">&para;</a></h3>
+<p>Arclith ne génère pas d'UI dédiée pour tester un agent. Le chemin standard est un adapter
+<code>agent/langgraph</code> testé dans LangGraph Studio, avec les traces branchées sur LangSmith:</p>
+<pre><code class="language-bash">uv add &quot;arclith[langgraph]&quot;
+arclith-cli add-adapter --capability llm --adapter lmstudio --param &quot;model_name=&lt;model-id-lm-studio&gt;&quot; --yes
+arclith-cli add-adapter --capability agent --adapter langgraph
+arclith-cli add-adapter --capability observability --adapter langsmith
+uv run langgraph dev --no-browser --allow-blocking --port 2024
+</code></pre>
+<p>L'adapter <code>agent/langgraph</code> génère <code>langgraph.json</code>, <code>config/adapters/inbound/langgraph.yaml</code> et
+<code>src/&lt;package&gt;/adapters/inbound/langgraph/agent.py</code>. Le projet n'a plus qu'à modifier ce fichier
+pour définir l'état, les nœuds et les transitions de son agent. Comme <code>fastapi</code> et <code>fastmcp</code>,
+LangGraph est configuré par son nom produit dans <code>AppConfig.langgraph</code>, sans clé générique
+<code>adapters.agent</code>.</p>
+<p>L'adapter <code>observability/langsmith</code> demande le projet LangSmith, l'endpoint, l'activation du tracing et
+<code>LANGSMITH_API_KEY</code>. Elle génère <code>config/adapters/outbound/langsmith.yaml</code>, met à jour <code>.env</code>,
+et ajoute <code>.env</code> au <code>.gitignore</code> si besoin.</p>
+<p>L'adapter <code>llm/lmstudio</code> génère <code>config/adapters/outbound/lm.yaml</code>, chargé dans
+<code>AppConfig.adapters.lm</code>. Le planner applicatif consomme ensuite un <code>LLMPort</code>; LangGraph ne fait
+qu'orchestrer les nœuds et injecter l'adapter outbound.</p>
+<p>Le <code>langgraph.json</code> généré pointe vers <code>.env</code> pour que le serveur local charge les variables LangSmith.
+Les tests conversationnels et traces agent se font ensuite dans LangSmith Studio.</p>
+<p>Pour un parcours complet depuis un projet vide, avec création d'entité, API FastAPI, adapter
+LangGraph, LangSmith et LLM local LM Studio, suivre:</p>
+<ul>
+<li><a href="../agent-quickstart/">Quickstart agent Arclith from scratch</a></li>
+</ul>
+<h2 id="6-valider-avant-commit">6. Valider avant commit<a class="headerlink" href="#6-valider-avant-commit" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">make quality
+</code></pre>
+<p>Le sample officiel <code>_sample</code> sert de banc de test pour les évolutions Arclith. Avant de publier
+Arclith, vérifier aussi:</p>
+<pre><code class="language-bash">cd /Users/killian/Perso/projets/Arclith/_sample
+make quality
+</code></pre>
+<p>Terminal 1:</p>
+<pre><code class="language-bash">cd /Users/killian/Perso/projets/Arclith/_sample
+MODE=all uv run --frozen python main.py
+</code></pre>
+<p>Terminal 2:</p>
+<pre><code class="language-bash">cd /Users/killian/Perso/projets/Arclith/_sample
+make demo-smoke
+</code></pre>
+<h2 id="reference">Reference<a class="headerlink" href="#reference" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Sample fonctionnel: <code>../_sample</code></li>
+<li>CLI: <code>cli/README.md</code></li>
+<li>Capacités standardisées: <code>docs/capabilities.md</code></li>
+<li>Architecture: <code>arclith/docs/architecture.md</code></li>
+<li>Decisions: <code>docs/decisions.md</code></li>
+</ul></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../js/base.js"></script>
+        <script src="../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

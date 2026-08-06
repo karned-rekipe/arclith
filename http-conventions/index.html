@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="fr" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://karned-rekipe.github.io/arclith/http-conventions/">
+        <link rel="shortcut icon" href="../img/favicon.ico">
+        <title>HTTP - Arclith</title>
+        <link href="../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../css/brands.min.css" rel="stylesheet">
+        <link href="../css/solid.min.css" rel="stylesheet">
+        <link href="../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="..">Arclith</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href=".." class="nav-link">Accueil</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Quickstarts</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../quickstart/" class="dropdown-item">Quickstart Arclith</a>
+</li>
+                                    
+<li>
+    <a href="../agent-quickstart/" class="dropdown-item">Quickstart Agent</a>
+</li>
+                                    
+<li>
+    <a href="../capabilities/" class="dropdown-item">Capacités</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Tutoriel Todo</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../tutorials/todo-list/" class="dropdown-item">Vue d'ensemble</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/01-init-project/" class="dropdown-item">1. Initialiser le projet</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/02-create-entity/" class="dropdown-item">2. Créer l'entité</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/03-create-usecase/" class="dropdown-item">3. Créer le use case</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/04-api/" class="dropdown-item">4. Exposer une API</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/05-mcp/" class="dropdown-item">5. Exposer un MCP</a>
+</li>
+                                    
+<li>
+    <a href="../tutorials/todo-list/06-agent/" class="dropdown-item">6. Ajouter un agent</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Référence</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../auth/" class="dropdown-item">Auth</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">HTTP</a>
+</li>
+                                    
+<li>
+    <a href="../idempotency/" class="dropdown-item">Idempotence</a>
+</li>
+                                    
+<li>
+    <a href="../multitenant/" class="dropdown-item">Multitenant</a>
+</li>
+                                    
+<li>
+    <a href="../caching/" class="dropdown-item">Cache</a>
+</li>
+                                    
+<li>
+    <a href="../decisions/" class="dropdown-item">Décisions</a>
+</li>
+                                    
+<li>
+    <a href="../release/" class="dropdown-item">Release</a>
+</li>
+                                    
+<li>
+    <a href="../oauth2-troubleshooting/" class="dropdown-item">OAuth2 Troubleshooting</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../auth/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../idempotency/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/karned-rekipe/arclith/edit/master/docs/http-conventions.md" class="nav-link">Edit on karned-rekipe/arclith
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#http-conventions-rest-sota" class="nav-link">HTTP Conventions — REST SOTA</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#vue-densemble" class="nav-link">Vue d'ensemble</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#status-codes-sota" class="nav-link">Status Codes (SOTA)</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#headers-http-sota" class="nav-link">Headers HTTP (SOTA)</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#400-vs-422-vs-409" class="nav-link">400 vs 422 vs 409</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#declaration-dans-fastapi" class="nav-link">Déclaration dans FastAPI</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#mcp-tools-retours" class="nav-link">MCP Tools — Retours</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#resume-sota" class="nav-link">Résumé SOTA</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#principes-sota" class="nav-link">Principes SOTA</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#middleware-stack-ordre" class="nav-link">Middleware Stack (ordre)</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#references" class="nav-link">Références</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="http-conventions-rest-sota">HTTP Conventions — REST SOTA<a class="headerlink" href="#http-conventions-rest-sota" title="Permanent link">&para;</a></h1>
+<h2 id="vue-densemble">Vue d'ensemble<a class="headerlink" href="#vue-densemble" title="Permanent link">&para;</a></h2>
+<p>Ce document définit les conventions HTTP/REST production-ready pour les APIs construites avec <code>arclith</code>.
+Toutes les fonctionnalités SOTA sont implémentées via des middlewares automatiques + patterns routers.</p>
+<p><strong>Fonctionnalités clés :</strong></p>
+<ul>
+<li>✅ Headers Location/Content-Location (RFC 7231)</li>
+<li>✅ ETag/If-Match optimistic locking (RFC 7232)</li>
+<li>✅ Cache-Control par verbe/ressource (RFC 7234)</li>
+<li>✅ Prefer: return=minimal|representation (RFC 7240)</li>
+<li>✅ Link headers HATEOAS (RFC 8288)</li>
+<li>✅ Idempotency-Key (draft-ietf-httpapi)</li>
+<li>✅ 422 Unprocessable Entity vs 400</li>
+</ul>
+<hr />
+<h2 id="status-codes-sota">Status Codes (SOTA)<a class="headerlink" href="#status-codes-sota" title="Permanent link">&para;</a></h2>
+<p>Tous les endpoints FastAPI DOIVENT déclarer explicitement leur <code>status_code</code> et <code>responses</code>.</p>
+<h3 id="post-create">POST — Create<a class="headerlink" href="#post-create" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Status</th>
+<th>Response Body</th>
+<th>Headers</th>
+<th>Cas</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST /v1/resources</code></td>
+<td><strong>201 Created</strong></td>
+<td><code>{ "data": { "uuid": "..." } }</code></td>
+<td><code>Location</code>, <code>Link</code></td>
+<td>Succès création</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>200 OK</strong></td>
+<td><code>{ "data": { "uuid": "..." } }</code></td>
+<td><code>X-Idempotency-Replay: true</code></td>
+<td>Cache hit idempotency</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>400 Bad Request</strong></td>
+<td><code>{ "detail": "..." }</code></td>
+<td>—</td>
+<td>Erreur syntaxe (JSON malformé)</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>422 Unprocessable Entity</strong></td>
+<td><code>{ "detail": [...] }</code></td>
+<td>—</td>
+<td>Validation métier échouée</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>500 Internal Server Error</strong></td>
+<td><code>{ "detail": "..." }</code></td>
+<td>—</td>
+<td>Erreur serveur</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Convention SOTA :</strong></p>
+<ol>
+<li><strong>Body minimal</strong> : retourner <code>{ "data": { "uuid": "..." } }</code> uniquement (pas l'objet complet)</li>
+<li><strong>Location header</strong> : <code>Location: /v1/resources/{uuid}</code> (RFC 7231)</li>
+<li><strong>Link header</strong> : <code>Link: &lt;/v1/resources/{uuid}&gt;; rel="self", ...</code> (RFC 8288 - HATEOAS)</li>
+<li><strong>Prefer header</strong> : Si client envoie <code>Prefer: return=representation</code> → retourner objet complet (RFC 7240)</li>
+<li><strong>Idempotency-Key</strong> : Header optionnel (requis en prod e-commerce) → 200 si cache hit (voir <code>docs/idempotency.md</code>)</li>
+</ol>
+<p><strong>Exemple cURL :</strong></p>
+<pre><code class="language-bash"># Minimal (défaut)
+curl -X POST /v1/ingredients \
+  -H &quot;Idempotency-Key: $(uuidgen)&quot; \
+  -d '{&quot;name&quot;: &quot;Farine&quot;}'
+
+# Response:
+# HTTP/1.1 201 Created
+# Location: /v1/ingredients/01951234-5678-7abc
+# Link: &lt;/v1/ingredients/01951234-5678-7abc&gt;; rel=&quot;self&quot;, &lt;/v1/ingredients&gt;; rel=&quot;collection&quot;
+# { &quot;status&quot;: &quot;success&quot;, &quot;data&quot;: { &quot;uuid&quot;: &quot;01951234-5678-7abc&quot; } }
+
+# Full representation
+curl -X POST /v1/ingredients \
+  -H &quot;Prefer: return=representation&quot; \
+  -d '{&quot;name&quot;: &quot;Farine&quot;}'
+
+# Response:
+# HTTP/1.1 201 Created
+# Location: /v1/ingredients/01951234-5678-7abc
+# { &quot;status&quot;: &quot;success&quot;, &quot;data&quot;: { &quot;uuid&quot;: &quot;...&quot;, &quot;name&quot;: &quot;Farine&quot;, &quot;version&quot;: 1, ... } }
+</code></pre>
+<h3 id="get-read-single-resource">GET — Read Single Resource<a class="headerlink" href="#get-read-single-resource" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Status</th>
+<th>Response Body</th>
+<th>Headers</th>
+<th>Cas</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /v1/resources/{uuid}</code></td>
+<td><strong>200 OK</strong></td>
+<td><code>{ "data": { "uuid": "...", ... } }</code></td>
+<td><code>ETag</code>, <code>Cache-Control</code>, <code>Link</code></td>
+<td>Ressource trouvée</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>304 Not Modified</strong></td>
+<td>∅</td>
+<td><code>ETag</code></td>
+<td>If-None-Match match (cache valide)</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>404 Not Found</strong></td>
+<td><code>{ "detail": "..." }</code></td>
+<td>—</td>
+<td>Ressource inexistante ou soft-deleted</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Convention SOTA :</strong></p>
+<ol>
+<li><strong>ETag header</strong> : <code>ETag: "v{version}"</code> (ex: <code>"v1"</code>, <code>"v42"</code>) → RFC 7232</li>
+<li><strong>Cache-Control</strong> : <code>Cache-Control: private, max-age=300</code> (5 min) → RFC 7234</li>
+<li><strong>Link header</strong> : <code>Link: &lt;/v1/resources/{uuid}&gt;; rel="self", &lt;/v1/resources/{uuid}/duplicate&gt;; rel="duplicate"</code></li>
+<li><strong>If-None-Match</strong> : Client peut envoyer <code>If-None-Match: "v1"</code> → 304 si inchangé</li>
+</ol>
+<p><strong>Exemple cURL :</strong></p>
+<pre><code class="language-bash"># Première requête
+curl -i /v1/ingredients/01951234-5678-7abc
+
+# Response:
+# HTTP/1.1 200 OK
+# ETag: &quot;v1&quot;
+# Cache-Control: private, max-age=300
+# Link: &lt;/v1/ingredients/01951234-5678-7abc&gt;; rel=&quot;self&quot;, &lt;/v1/ingredients&gt;; rel=&quot;collection&quot;
+# { &quot;data&quot;: { &quot;uuid&quot;: &quot;...&quot;, &quot;name&quot;: &quot;Farine&quot;, &quot;version&quot;: 1 } }
+
+# Revalidation (après expiration cache)
+curl -H 'If-None-Match: &quot;v1&quot;' /v1/ingredients/01951234-5678-7abc
+
+# Response si inchangé:
+# HTTP/1.1 304 Not Modified
+# ETag: &quot;v1&quot;
+# (pas de body)
+</code></pre>
+<h3 id="get-list-collection">GET — List / Collection<a class="headerlink" href="#get-list-collection" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Status</th>
+<th>Response Body</th>
+<th>Headers</th>
+<th>Cas</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /v1/resources</code></td>
+<td><strong>200 OK</strong></td>
+<td><code>{ "data": [...], "pagination": {...} }</code></td>
+<td><code>X-Total-Count</code>, <code>Cache-Control</code></td>
+<td>Liste (vide ou non)</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>400 Bad Request</strong></td>
+<td><code>{ "detail": "..." }</code></td>
+<td>—</td>
+<td>Paramètres query invalides</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Convention SOTA :</strong></p>
+<ol>
+<li><strong>Always 200</strong> : Liste vide = <code>{ "data": [] }</code>, jamais 404</li>
+<li><strong>X-Total-Count</strong> : Header avec count total (utile pour pagination UI)</li>
+<li><strong>Cache-Control</strong> : <code>Cache-Control: private, max-age=60</code> (1 min, shorter TTL que single)</li>
+</ol>
+<p><strong>Exemple cURL :</strong></p>
+<pre><code class="language-bash">curl -i '/v1/ingredients?page=1&amp;per_page=20'
+
+# Response:
+# HTTP/1.1 200 OK
+# X-Total-Count: 42
+# Cache-Control: private, max-age=60
+# { &quot;data&quot;: [...], &quot;pagination&quot;: { &quot;total&quot;: 42, &quot;page&quot;: 1, &quot;pages&quot;: 3 } }
+</code></pre>
+<h3 id="put-replace">PUT — Replace<a class="headerlink" href="#put-replace" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Status</th>
+<th>Response Body</th>
+<th>Headers</th>
+<th>Cas</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PUT /v1/resources/{uuid}</code></td>
+<td><strong>204 No Content</strong></td>
+<td>∅</td>
+<td><code>Content-Location</code>, <code>ETag</code></td>
+<td>Succès remplacement</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>404 Not Found</strong></td>
+<td><code>{ "detail": "..." }</code></td>
+<td>—</td>
+<td>Ressource inexistante</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>412 Precondition Failed</strong></td>
+<td><code>{ "detail": "..." }</code></td>
+<td>—</td>
+<td>If-Match version mismatch</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>422 Unprocessable Entity</strong></td>
+<td><code>{ "detail": [...] }</code></td>
+<td>—</td>
+<td>Validation métier échouée</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Convention SOTA :</strong></p>
+<ol>
+<li><strong>If-Match requis</strong> : Header <code>If-Match: "v1"</code> pour optimistic locking (RFC 7232)</li>
+<li><strong>412 si mismatch</strong> : Version conflict → client doit re-fetch</li>
+<li><strong>Content-Location</strong> : <code>Content-Location: /v1/resources/{uuid}</code> (RFC 7231)</li>
+<li><strong>New ETag</strong> : <code>ETag: "v2"</code> après update réussi</li>
+</ol>
+<p><strong>Exemple cURL :</strong></p>
+<pre><code class="language-bash"># GET current version
+curl -i /v1/ingredients/01951234-5678-7abc
+# Returns: ETag: &quot;v1&quot;
+
+# PUT with version check
+curl -X PUT /v1/ingredients/01951234-5678-7abc \
+  -H 'If-Match: &quot;v1&quot;' \
+  -d '{&quot;name&quot;: &quot;Nouvelle farine&quot;}'
+
+# Response si succès:
+# HTTP/1.1 204 No Content
+# Content-Location: /v1/ingredients/01951234-5678-7abc
+# ETag: &quot;v2&quot;
+
+# Response si conflict:
+# HTTP/1.1 412 Precondition Failed
+# { &quot;detail&quot;: &quot;Version mismatch: expected v1, current v2&quot; }
+</code></pre>
+<h3 id="patch-partial-update">PATCH — Partial Update<a class="headerlink" href="#patch-partial-update" title="Permanent link">&para;</a></h3>
+<p>Identique à PUT (204, If-Match, Content-Location, ETag).</p>
+<h3 id="delete-soft-delete">DELETE — Soft Delete<a class="headerlink" href="#delete-soft-delete" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Status</th>
+<th>Response Body</th>
+<th>Headers</th>
+<th>Cas</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DELETE /v1/resources/{uuid}</code></td>
+<td><strong>204 No Content</strong></td>
+<td>∅</td>
+<td><code>Cache-Control: no-cache</code></td>
+<td>Succès soft-delete</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>404 Not Found</strong></td>
+<td><code>{ "detail": "..." }</code></td>
+<td>—</td>
+<td>Ressource inexistante</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Convention SOTA :</strong></p>
+<ol>
+<li><strong>Idempotent</strong> : DELETE sur ressource déjà deleted = 204 (pas 404)</li>
+<li><strong>Cache-Control</strong> : <code>no-cache, no-store</code> (jamais cacher mutations)</li>
+</ol>
+<h3 id="post-duplicate">POST — Duplicate<a class="headerlink" href="#post-duplicate" title="Permanent link">&para;</a></h3>
+<p>Identique à POST Create (201, Location, Link, UUID seul, Prefer header support).</p>
+<hr />
+<h2 id="headers-http-sota">Headers HTTP (SOTA)<a class="headerlink" href="#headers-http-sota" title="Permanent link">&para;</a></h2>
+<h3 id="request-headers">Request Headers<a class="headerlink" href="#request-headers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Header</th>
+<th>Verbe</th>
+<th>Requis</th>
+<th>Exemple</th>
+<th>Rôle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Idempotency-Key</strong></td>
+<td>POST</td>
+<td>Recommandé (requis en prod)</td>
+<td><code>550e8400-e29b-41d4-a716-446655440000</code></td>
+<td>Prévenir duplicatas (voir <code>docs/idempotency.md</code>)</td>
+</tr>
+<tr>
+<td><strong>If-Match</strong></td>
+<td>PUT/PATCH</td>
+<td>Recommandé</td>
+<td><code>"v1"</code></td>
+<td>Optimistic locking (version check)</td>
+</tr>
+<tr>
+<td><strong>If-None-Match</strong></td>
+<td>GET</td>
+<td>Optionnel</td>
+<td><code>"v1"</code></td>
+<td>Cache validation (304 si match)</td>
+</tr>
+<tr>
+<td><strong>Prefer</strong></td>
+<td>POST/PUT/PATCH</td>
+<td>Optionnel</td>
+<td><code>return=representation</code></td>
+<td>Demander full object au lieu de minimal</td>
+</tr>
+<tr>
+<td><strong>X-Request-ID</strong></td>
+<td>ALL</td>
+<td>Optionnel</td>
+<td><code>&lt;uuid&gt;</code></td>
+<td>Tracing distribué (propagé dans <code>metadata.request_id</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="response-headers">Response Headers<a class="headerlink" href="#response-headers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Header</th>
+<th>Verbe</th>
+<th>Toujours présent</th>
+<th>Exemple</th>
+<th>Rôle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Location</strong></td>
+<td>POST</td>
+<td>Oui (201)</td>
+<td><code>/v1/ingredients/01951234...</code></td>
+<td>URL de la ressource créée (RFC 7231)</td>
+</tr>
+<tr>
+<td><strong>Content-Location</strong></td>
+<td>PUT/PATCH</td>
+<td>Oui (204)</td>
+<td><code>/v1/ingredients/01951234...</code></td>
+<td>URL de la ressource modifiée (RFC 7231)</td>
+</tr>
+<tr>
+<td><strong>ETag</strong></td>
+<td>GET/PUT/PATCH</td>
+<td>Oui</td>
+<td><code>"v1"</code></td>
+<td>Version entité pour optimistic locking (RFC 7232)</td>
+</tr>
+<tr>
+<td><strong>Cache-Control</strong></td>
+<td>ALL</td>
+<td>Oui (middleware)</td>
+<td><code>private, max-age=300</code></td>
+<td>Directives cache (RFC 7234, voir <code>docs/caching.md</code>)</td>
+</tr>
+<tr>
+<td><strong>Link</strong></td>
+<td>GET/POST</td>
+<td>Oui</td>
+<td><code>&lt;/v1/ingredients/{uuid}&gt;; rel="self"</code></td>
+<td>HATEOAS navigation (RFC 8288)</td>
+</tr>
+<tr>
+<td><strong>X-Total-Count</strong></td>
+<td>GET (list)</td>
+<td>Oui</td>
+<td><code>42</code></td>
+<td>Total items (pagination)</td>
+</tr>
+<tr>
+<td><strong>X-Process-Time-Ms</strong></td>
+<td>ALL</td>
+<td>Oui (middleware)</td>
+<td><code>18</code></td>
+<td>Durée traitement API</td>
+</tr>
+<tr>
+<td><strong>X-Idempotency-Replay</strong></td>
+<td>POST</td>
+<td>Si cache hit</td>
+<td><code>true</code></td>
+<td>Indique réponse rejouée depuis cache</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="400-vs-422-vs-409">400 vs 422 vs 409<a class="headerlink" href="#400-vs-422-vs-409" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Cas</th>
+<th>Exemple</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>400 Bad Request</strong></td>
+<td>Erreur syntaxe/format</td>
+<td>JSON malformé, header manquant</td>
+</tr>
+<tr>
+<td><strong>422 Unprocessable Entity</strong></td>
+<td>Validation métier échouée</td>
+<td><code>name</code> vide, email invalide, contrainte check</td>
+</tr>
+<tr>
+<td><strong>409 Conflict</strong></td>
+<td>Contrainte unicité violée</td>
+<td>Doublon <code>email</code> unique</td>
+</tr>
+<tr>
+<td><strong>412 Precondition Failed</strong></td>
+<td>Version mismatch (If-Match)</td>
+<td>Optimistic lock failure</td>
+</tr>
+</tbody>
+</table>
+<p><strong>FastAPI par défaut :</strong></p>
+<ul>
+<li>Validation Pydantic → <strong>422</strong></li>
+<li>Exceptions levées → configurable</li>
+</ul>
+<p><strong>Convention _sample :</strong></p>
+<pre><code class="language-python">responses={
+    400: {&quot;description&quot;: &quot;Invalid payload&quot;},
+    422: {&quot;description&quot;: &quot;Validation failed&quot;},
+    409: {&quot;description&quot;: &quot;Duplicate resource&quot;},
+    412: {&quot;description&quot;: &quot;Precondition Failed (version mismatch)&quot;},
+}
+</code></pre>
+<hr />
+<h2 id="declaration-dans-fastapi">Déclaration dans FastAPI<a class="headerlink" href="#declaration-dans-fastapi" title="Permanent link">&para;</a></h2>
+<h3 id="sota-declaration-complete">✅ SOTA — Déclaration complète<a class="headerlink" href="#sota-declaration-complete" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python">self.router.add_api_route(
+    methods=[&quot;POST&quot;],
+    path=&quot;/&quot;,
+    endpoint = self.create_ingredient,
+    summary = &quot;Create ingredient&quot;,
+    response_model = ApiResponse[IngredientCreatedSchema],  # UUID seul
+    status_code = 201,
+    responses={
+        400: {&quot;description&quot;: &quot;Invalid payload&quot;},
+        422: {&quot;description&quot;: &quot;Validation failed&quot;},
+    },
+)
+</code></pre>
+<p><strong>Handler signature :</strong></p>
+<pre><code class="language-python">async def create_ingredient(
+        self,
+        payload: IngredientCreateSchema,
+        response: Response,  # Pour injecter headers
+        request: Request,  # Pour construire Location
+        prefer: Annotated[str | None, Header()] = None,  # Prefer header
+) -&gt; ApiResponse[IngredientCreatedSchema] | ApiResponse[IngredientSchema]:
+    result = await self._service.create(...)
+
+    # Location header (RFC 7231)
+    response.headers[&quot;Location&quot;] = f&quot;/v1/ingredients/{result.uuid}&quot;
+
+    # Link header (RFC 8288)
+    response.headers[&quot;Link&quot;] = f'&lt;{location}&gt;; rel=&quot;self&quot;, ...'
+
+    # Prefer header support (RFC 7240)
+    if prefer and &quot;return=representation&quot; in prefer.lower():
+        return success_response(IngredientSchema.model_validate(result))
+
+    # Default: minimal
+    return success_response(IngredientCreatedSchema(uuid = result.uuid))
+</code></pre>
+<h3 id="mauvais-ancien-pattern">❌ Mauvais — Ancien pattern<a class="headerlink" href="#mauvais-ancien-pattern" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python">self.router.add_api_route(
+    methods=[&quot;POST&quot;],
+    path=&quot;/&quot;,
+    endpoint = self.create_ingredient,
+    response_model = ApiResponse[IngredientSchema],  # ❌ Objet complet
+    status_code = 201,
+    # ❌ Pas de responses déclarées
+)
+
+
+async def create_ingredient(self, payload: ...):
+    result = await self._service.create(...)
+    # ❌ Pas de Location header
+    # ❌ Retourne objet complet au lieu de UUID seul
+    return success_response(IngredientSchema.model_validate(result))
+</code></pre>
+<hr />
+<h2 id="mcp-tools-retours">MCP Tools — Retours<a class="headerlink" href="#mcp-tools-retours" title="Permanent link">&para;</a></h2>
+<p>Les MCP tools ne retournent <strong>pas</strong> de status codes HTTP — ils retournent des objets JSON ou <code>None</code>.</p>
+<h3 id="convention-mcp">Convention MCP<a class="headerlink" href="#convention-mcp" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Opération</th>
+<th>Retour</th>
+<th>Erreur</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Create</td>
+<td><code>dict</code> (objet complet)</td>
+<td>Exception levée</td>
+</tr>
+<tr>
+<td>Read</td>
+<td><code>dict \| None</code></td>
+<td><code>None</code> si non trouvé (pas d'exception)</td>
+</tr>
+<tr>
+<td>Update</td>
+<td><code>dict</code> (objet mis à jour) ou <code>None</code></td>
+<td>Exception si non trouvé</td>
+</tr>
+<tr>
+<td>Delete</td>
+<td><code>None</code> ou <code>{ deleted: true }</code></td>
+<td>Exception si non trouvé</td>
+</tr>
+<tr>
+<td>List</td>
+<td><code>list[dict]</code></td>
+<td>Toujours <code>[]</code> si vide, jamais <code>None</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Règle :</strong> les MCP tools <strong>ne lèvent pas</strong> HTTPException. Ils retournent <code>None</code> ou une liste vide. Les erreurs métier génèrent des exceptions Python classiques (ValueError, RuntimeError).</p>
+<hr />
+<h2 id="resume-sota">Résumé SOTA<a class="headerlink" href="#resume-sota" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Verbe</th>
+<th>Action</th>
+<th>Status</th>
+<th>Body</th>
+<th>Headers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>POST</td>
+<td>Create</td>
+<td>201</td>
+<td><code>{ "uuid": "..." }</code></td>
+<td>Location, Link, [ETag si Prefer], Cache-Control</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>Duplicate</td>
+<td>201</td>
+<td><code>{ "uuid": "..." }</code></td>
+<td>Location, Link</td>
+</tr>
+<tr>
+<td>GET</td>
+<td>Read One</td>
+<td>200</td>
+<td><code>{ "uuid": "...", ... }</code></td>
+<td>ETag, Cache-Control, Link</td>
+</tr>
+<tr>
+<td>GET</td>
+<td>List</td>
+<td>200</td>
+<td><code>[...]</code></td>
+<td>X-Total-Count, Cache-Control</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>Replace</td>
+<td>204</td>
+<td>∅</td>
+<td>Content-Location, ETag, Cache-Control</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td>Partial</td>
+<td>204</td>
+<td>∅</td>
+<td>Content-Location, ETag, Cache-Control</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td>Soft</td>
+<td>204</td>
+<td>∅</td>
+<td>Cache-Control</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td>Purge</td>
+<td>200</td>
+<td><code>{ "purged": N }</code></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="principes-sota">Principes SOTA<a class="headerlink" href="#principes-sota" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>UUID seul en POST</strong> : retourner <code>{ "data": { "uuid": "..." } }</code> — client fait GET si besoin</li>
+<li><strong>Location header obligatoire</strong> : 201 Created → <code>Location: /v1/resources/{uuid}</code></li>
+<li><strong>ETag pour optimistic locking</strong> : remplace <code>version</code> dans payload PUT/PATCH</li>
+<li><strong>Cache-Control automatique</strong> : middleware injecte selon verbe/ressource</li>
+<li><strong>Link headers HATEOAS</strong> : navigation API découvrable (RFC 8288)</li>
+<li><strong>Prefer header flexible</strong> : client choisit minimal vs full representation</li>
+<li><strong>422 vs 400</strong> : 422 pour validation métier, 400 pour syntaxe</li>
+<li><strong>Idempotency-Key e-commerce</strong> : requis en prod pour POST (paiements)</li>
+</ol>
+<hr />
+<h2 id="middleware-stack-ordre">Middleware Stack (ordre)<a class="headerlink" href="#middleware-stack-ordre" title="Permanent link">&para;</a></h2>
+<pre><code>TimingMiddleware          # Mesure temps total (X-Process-Time-Ms)
+  └─ CacheControlMiddleware  # Injecte Cache-Control
+      └─ ETaggerMiddleware      # Gère ETag/If-Match/If-None-Match
+          └─ IdempotencyMiddleware  # Cache POST par Idempotency-Key
+              └─ Application Router   # Votre logique métier
+</code></pre>
+<hr />
+<h2 id="references">Références<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>RFC 7231:</strong> <a href="https://www.rfc-editor.org/rfc/rfc7231.html">HTTP Semantics</a> (Location, Content-Location)</li>
+<li><strong>RFC 7232:</strong> <a href="https://www.rfc-editor.org/rfc/rfc7232.html">Conditional Requests</a> (ETag, If-Match, If-None-Match)</li>
+<li><strong>RFC 7234:</strong> <a href="https://www.rfc-editor.org/rfc/rfc7234.html">Caching</a> (Cache-Control)</li>
+<li><strong>RFC 7240:</strong> <a href="https://www.rfc-editor.org/rfc/rfc7240.html">Prefer Header</a> (return=representation)</li>
+<li><strong>RFC 8288:</strong> <a href="https://www.rfc-editor.org/rfc/rfc8288.html">Web Linking</a> (Link header, HATEOAS)</li>
+<li><strong>RFC 9110:</strong> <a href="https://www.rfc-editor.org/rfc/rfc9110.html">HTTP Semantics</a> (Latest consolidated)</li>
+<li><strong>Draft:</strong> <a href="https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header">Idempotency-Key</a></li>
+</ul>
+<p><strong>Guides complémentaires :</strong></p>
+<ul>
+<li><code>docs/idempotency.md</code> — E-commerce production patterns</li>
+<li><code>docs/caching.md</code> — Stratégie cache HTTP multi-niveaux</li>
+</ul></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../js/base.js"></script>
+        <script src="../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

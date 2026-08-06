@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="fr" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://karned-rekipe.github.io/arclith/tutorials/todo-list/03-create-usecase/">
+        <link rel="shortcut icon" href="../../../img/favicon.ico">
+        <title>3. Créer le use case - Arclith</title>
+        <link href="../../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../../css/brands.min.css" rel="stylesheet">
+        <link href="../../../css/solid.min.css" rel="stylesheet">
+        <link href="../../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../../..">Arclith</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="../../.." class="nav-link">Accueil</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Quickstarts</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../../quickstart/" class="dropdown-item">Quickstart Arclith</a>
+</li>
+                                    
+<li>
+    <a href="../../../agent-quickstart/" class="dropdown-item">Quickstart Agent</a>
+</li>
+                                    
+<li>
+    <a href="../../../capabilities/" class="dropdown-item">Capacités</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Tutoriel Todo</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../" class="dropdown-item">Vue d'ensemble</a>
+</li>
+                                    
+<li>
+    <a href="../01-init-project/" class="dropdown-item">1. Initialiser le projet</a>
+</li>
+                                    
+<li>
+    <a href="../02-create-entity/" class="dropdown-item">2. Créer l'entité</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">3. Créer le use case</a>
+</li>
+                                    
+<li>
+    <a href="../04-api/" class="dropdown-item">4. Exposer une API</a>
+</li>
+                                    
+<li>
+    <a href="../05-mcp/" class="dropdown-item">5. Exposer un MCP</a>
+</li>
+                                    
+<li>
+    <a href="../06-agent/" class="dropdown-item">6. Ajouter un agent</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Référence</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../../auth/" class="dropdown-item">Auth</a>
+</li>
+                                    
+<li>
+    <a href="../../../http-conventions/" class="dropdown-item">HTTP</a>
+</li>
+                                    
+<li>
+    <a href="../../../idempotency/" class="dropdown-item">Idempotence</a>
+</li>
+                                    
+<li>
+    <a href="../../../multitenant/" class="dropdown-item">Multitenant</a>
+</li>
+                                    
+<li>
+    <a href="../../../caching/" class="dropdown-item">Cache</a>
+</li>
+                                    
+<li>
+    <a href="../../../decisions/" class="dropdown-item">Décisions</a>
+</li>
+                                    
+<li>
+    <a href="../../../release/" class="dropdown-item">Release</a>
+</li>
+                                    
+<li>
+    <a href="../../../oauth2-troubleshooting/" class="dropdown-item">OAuth2 Troubleshooting</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../02-create-entity/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../04-api/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/karned-rekipe/arclith/edit/master/docs/tutorials/todo-list/03-create-usecase.md" class="nav-link">Edit on karned-rekipe/arclith
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#3-creer-le-use-case" class="nav-link">3. Créer le use case</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#tester" class="nav-link">Tester</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#voie-rapide" class="nav-link">Voie rapide</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="3-creer-le-use-case">3. Créer le use case<a class="headerlink" href="#3-creer-le-use-case" title="Permanent link">&para;</a></h1>
+<p>Objectif: utiliser la CLI pour créer le fichier minimal, puis écrire le cas d'usage qui enregistre
+une todo via un port repository.</p>
+<p><img alt="Capture interactive add-usecase" src="../assets/03-create-usecase.svg" /></p>
+<p>Depuis la racine du projet:</p>
+<pre><code class="language-bash">arclith-cli add-usecase
+</code></pre>
+<p>Répondre au prompt:</p>
+<pre><code class="language-text">Cas d'usage (ex : PlanShoppingList, find_by_name)
+  Nom du cas d'usage: CreateTodo
+</code></pre>
+<p>La CLI crée:</p>
+<pre><code class="language-text">src/todo_list_service/application/use_cases/create_todo.py
+</code></pre>
+<p>Remplacer le contenu par:</p>
+<pre><code class="language-python">from __future__ import annotations
+
+from datetime import date, datetime, timezone
+
+from arclith.domain.ports.outbound.repository import Repository
+from pydantic import BaseModel, Field
+
+from todo_list_service.domain.models.todo import Todo, TodoStatus
+
+
+class CreateTodoCommand(BaseModel):
+    title: str = Field(min_length=1, max_length=140)
+    description: str = Field(default=&quot;&quot;, max_length=4000)
+    due_date: date
+    status: TodoStatus = TodoStatus.TODO
+    completed_at: datetime | None = None
+
+
+class CreateTodoUseCase:
+    def __init__(self, repository: Repository[Todo]) -&gt; None:
+        self._repository = repository
+
+    async def execute(self, command: CreateTodoCommand) -&gt; Todo:
+        completed_at = command.completed_at
+        if command.status == TodoStatus.DONE and completed_at is None:
+            completed_at = datetime.now(timezone.utc)
+
+        todo = Todo(
+            title=command.title,
+            description=command.description,
+            due_date=command.due_date,
+            status=command.status,
+            completed_at=completed_at,
+        )
+        return await self._repository.create(todo)
+</code></pre>
+<p>Le use case dépend seulement de <code>Repository[Todo]</code>. Il ne connaît ni FastAPI, ni FastMCP, ni
+LangGraph, ni MongoDB.</p>
+<p>Créer ensuite le container applicatif <code>src/todo_list_service/infrastructure/containers/todo_container.py</code>:</p>
+<pre><code class="language-python">from __future__ import annotations
+
+from arclith import Arclith
+from arclith.domain.ports.outbound.repository import Repository
+
+from todo_list_service.application.use_cases.create_todo import CreateTodoUseCase
+from todo_list_service.domain.models.todo import Todo
+
+_repository: Repository[Todo] | None = None
+
+
+def build_todo_repository(app: Arclith) -&gt; Repository[Todo]:
+    global _repository
+    if _repository is None:
+        _repository = app.repository(Todo)
+    return _repository
+
+
+def build_create_todo_use_case(app: Arclith) -&gt; CreateTodoUseCase:
+    return CreateTodoUseCase(build_todo_repository(app))
+</code></pre>
+<p>Le cache module-level est volontaire pour le mode <code>memory</code>: tous les appels API/MCP du même
+processus partagent le même repository.</p>
+<h2 id="tester">Tester<a class="headerlink" href="#tester" title="Permanent link">&para;</a></h2>
+<p>Créer <code>tests/test_create_todo_usecase.py</code>:</p>
+<pre><code class="language-python">from datetime import date
+
+import pytest
+from arclith.adapters.outbound.memory.repository import InMemoryRepository
+
+from todo_list_service.application.use_cases.create_todo import CreateTodoCommand, CreateTodoUseCase
+from todo_list_service.domain.models.todo import Todo, TodoStatus
+
+
+@pytest.mark.asyncio
+async def test_create_todo_persists_entity() -&gt; None:
+    repository = InMemoryRepository[Todo]()
+    use_case = CreateTodoUseCase(repository)
+
+    todo = await use_case.execute(
+        CreateTodoCommand(
+            title=&quot;Écrire le tutoriel&quot;,
+            description=&quot;Couvrir API, MCP et agent&quot;,
+            due_date=date(2026, 9, 1),
+        )
+    )
+
+    assert todo.status == TodoStatus.TODO
+    assert await repository.read(todo.uuid) == todo
+
+
+@pytest.mark.asyncio
+async def test_done_todo_gets_completion_date() -&gt; None:
+    repository = InMemoryRepository[Todo]()
+    use_case = CreateTodoUseCase(repository)
+
+    todo = await use_case.execute(
+        CreateTodoCommand(
+            title=&quot;Publier&quot;,
+            due_date=date(2026, 9, 1),
+            status=TodoStatus.DONE,
+        )
+    )
+
+    assert todo.completed_at is not None
+</code></pre>
+<p>Lancer:</p>
+<pre><code class="language-bash">uv run python -m pytest tests/test_todo_entity.py tests/test_create_todo_usecase.py
+</code></pre>
+<h2 id="voie-rapide">Voie rapide<a class="headerlink" href="#voie-rapide" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">arclith-cli add-usecase CreateTodo
+</code></pre>
+<p>Étape suivante: <a href="../04-api/">exposer une API</a>.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../../js/base.js"></script>
+        <script src="../../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>
