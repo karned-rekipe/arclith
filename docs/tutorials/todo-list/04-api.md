@@ -1,6 +1,7 @@
 # 4. Exposer une API
 
-Objectif: générer la configuration FastAPI avec la CLI, puis exposer `CreateTodoPort` par HTTP.
+Objectif: générer la configuration FastAPI avec la CLI, puis exposer `CreateTodoPort` et
+`ListTodosPort` par HTTP.
 
 ![Capture interactive FastAPI](assets/04-api.svg)
 
@@ -76,44 +77,27 @@ mkdir -p src/todo_list_service/adapters/inbound/schemas
 touch src/todo_list_service/adapters/inbound/schemas/__init__.py
 ```
 
-## Router FastAPI
+## Handlers FastAPI
 
-Créer `src/todo_list_service/adapters/inbound/fastapi/routers/todo_router.py`:
+Les handlers adaptent HTTP vers les ports inbound. Ils convertissent les schémas HTTP en commandes
+applicatives et ne connaissent ni repository, ni MongoDB, ni adapter de persistance.
+
+Créer `src/todo_list_service/adapters/inbound/fastapi/handlers/todo_handlers.py`:
 
 ```python
 from __future__ import annotations
 
-from fastapi import APIRouter, Request, Response
+from fastapi import Request, Response
 
-from arclith.domain.ports.outbound.repository import Repository
 from todo_list_service.adapters.inbound.schemas.todo_schema import TodoCreateSchema, TodoSchema
-from todo_list_service.domain.models.todo import Todo
 from todo_list_service.domain.ports.inbound.create_todo import CreateTodoCommand, CreateTodoPort
+from todo_list_service.domain.ports.inbound.list_todos import ListTodosPort
 
 
-class TodoRouter:
-    def __init__(self, create_todo: CreateTodoPort, repository: Repository[Todo]) -> None:
+class TodoHandlers:
+    def __init__(self, create_todo: CreateTodoPort, list_todos: ListTodosPort) -> None:
         self._create_todo = create_todo
-        self._repository = repository
-        self.router = APIRouter(prefix="/v1/todos", tags=["todos"])
-        self._register_routes()
-
-    def _register_routes(self) -> None:
-        self.router.add_api_route(
-            "/",
-            self.create_todo,
-            methods=["POST"],
-            response_model=TodoSchema,
-            status_code=201,
-            summary="Create todo",
-        )
-        self.router.add_api_route(
-            "/",
-            self.list_todos,
-            methods=["GET"],
-            response_model=list[TodoSchema],
-            summary="List todos",
-        )
+        self._list_todos = list_todos
 
     async def create_todo(self, payload: TodoCreateSchema, response: Response, request: Request) -> TodoSchema:
         todo = await self._create_todo.execute(
@@ -129,8 +113,51 @@ class TodoRouter:
         return TodoSchema.model_validate(todo)
 
     async def list_todos(self) -> list[TodoSchema]:
-        todos = await self._repository.find_all()
+        todos = await self._list_todos.execute()
         return [TodoSchema.model_validate(todo) for todo in todos]
+```
+
+Créer le package handlers:
+
+```bash
+mkdir -p src/todo_list_service/adapters/inbound/fastapi/handlers
+touch src/todo_list_service/adapters/inbound/fastapi/handlers/__init__.py
+```
+
+## Router FastAPI
+
+Le router déclare uniquement les URLs, méthodes HTTP, modèles de réponse et métadonnées OpenAPI. Il
+ne contient pas de logique métier.
+
+Créer `src/todo_list_service/adapters/inbound/fastapi/routers/todo_router.py`:
+
+```python
+from __future__ import annotations
+
+from fastapi import APIRouter
+
+from todo_list_service.adapters.inbound.fastapi.handlers.todo_handlers import TodoHandlers
+from todo_list_service.adapters.inbound.schemas.todo_schema import TodoSchema
+
+
+def build_todo_router(handlers: TodoHandlers) -> APIRouter:
+    router = APIRouter(prefix="/v1/todos", tags=["todos"])
+    router.add_api_route(
+        "/",
+        handlers.create_todo,
+        methods=["POST"],
+        response_model=TodoSchema,
+        status_code=201,
+        summary="Create todo",
+    )
+    router.add_api_route(
+        "/",
+        handlers.list_todos,
+        methods=["GET"],
+        response_model=list[TodoSchema],
+        summary="List todos",
+    )
+    return router
 ```
 
 Créer le package router:
@@ -150,17 +177,19 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from arclith import Arclith
-from todo_list_service.adapters.inbound.fastapi.routers.todo_router import TodoRouter
+from todo_list_service.adapters.inbound.fastapi.handlers.todo_handlers import TodoHandlers
+from todo_list_service.adapters.inbound.fastapi.routers.todo_router import build_todo_router
 from todo_list_service.infrastructure.containers.todo_container import (
     build_create_todo_use_case,
-    build_todo_repository,
+    build_list_todos_use_case,
 )
 
 
 def register_routers(app: FastAPI, arclith: Arclith) -> None:
-    repository = build_todo_repository(arclith)
     create_todo = build_create_todo_use_case(arclith)
-    app.include_router(TodoRouter(create_todo, repository).router)
+    list_todos = build_list_todos_use_case(arclith)
+    handlers = TodoHandlers(create_todo, list_todos)
+    app.include_router(build_todo_router(handlers))
 ```
 
 Mettre à jour `main.py`:
