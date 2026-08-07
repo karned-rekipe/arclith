@@ -27,6 +27,10 @@ cd todo-list-service
 uv sync
 ```
 
+Si `arclith-cli` est exécuté depuis le dépôt Arclith (mode source locale), la dépendance
+`arclith` générée dans `pyproject.toml` pointe automatiquement vers ce dépôt (`file://...`),
+pour éviter tout décalage de version pendant le tutoriel.
+
 Le projet démarre avec `repository: memory`:
 
 ```yaml
