@@ -64,6 +64,8 @@ class TodoConversationInterpreter:
             output_type=TodoDraft,
             instructions=(
                 "Tu extrais les champs d'une todo à partir d'une conversation en français. "
+                "Quand la demande est de type 'ajoute une todo pour X' ou 'crée une todo pour X', "
+                "X est le titre de la todo, sauf si l'utilisateur dit explicitement que c'est une description. "
                 "Retourne uniquement les champs explicitement présents ou clairement déduits. "
                 "Ne fabrique pas de titre, de description ou de date. "
                 f"Draft actuel: {current.model_dump_json(exclude_none=True)}"
@@ -136,6 +138,27 @@ Répondre:
 La clé reste dans `.env`, jamais dans Git. La CLI ajoute `langsmith` à la liste
 `observability.enabled`; OpenTelemetry peut être ajouté ensuite dans la même liste.
 
+LangSmith sert ici à observer l'agent. Il ne remplace ni LangGraph ni LM Studio:
+
+- LangGraph exécute le graphe localement;
+- LM Studio fournit le modèle local;
+- LangSmith affiche les runs, les messages, les appels LLM et les erreurs.
+
+![Flux LangGraph et LangSmith](assets/06-langsmith-flow.svg)
+
+Ouvrir ensuite <https://smith.langchain.com>, vérifier que le projet
+`todo-list-service-dev` existe, puis garder cet onglet ouvert pour inspecter les traces après les
+premiers essais.
+
+Si LangSmith refuse l'appel mais que LM Studio reçoit bien les requêtes, le problème est souvent
+distinct du modèle local. Vérifier dans cet ordre:
+
+1. `LANGSMITH_API_KEY` est présent dans `.env`;
+2. `LANGSMITH_TRACING=true`;
+3. `LANGSMITH_PROJECT=todo-list-service-dev`;
+4. le compte connecté dans le navigateur a accès au même workspace LangSmith;
+5. l'endpoint est bien `https://api.smith.langchain.com`.
+
 ## Générer l'entrypoint LangGraph
 
 ```bash
@@ -168,6 +191,7 @@ Remplacer `src/todo_list_service/adapters/inbound/langgraph/agent.py` par:
 ```python
 from __future__ import annotations
 
+from datetime import date, datetime
 from functools import lru_cache
 from typing import Any, TypedDict
 
@@ -184,6 +208,7 @@ from todo_list_service.infrastructure.containers.todo_container import build_cre
 class AgentState(TypedDict, total=False):
     messages: list[dict[str, Any]]
     draft: dict[str, Any]
+    pending_field: str | None
     answer: str
 
 
@@ -212,6 +237,55 @@ def _last_user_message(state: AgentState) -> str:
 
 def _draft_from_state(state: AgentState) -> TodoDraft:
     return TodoDraft.model_validate(state.get("draft", {}))
+
+
+def _parse_status(raw: str) -> TodoStatus | None:
+    normalized = raw.strip().lower()
+    aliases = {
+        "à faire": TodoStatus.TODO,
+        "a faire": TodoStatus.TODO,
+        "todo": TodoStatus.TODO,
+        "en cours": TodoStatus.WIP,
+        "wip": TodoStatus.WIP,
+        "terminé": TodoStatus.DONE,
+        "termine": TodoStatus.DONE,
+        "done": TodoStatus.DONE,
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    try:
+        return TodoStatus(normalized)
+    except ValueError:
+        return None
+
+
+def _apply_pending_answer(prompt: str, current: TodoDraft, pending_field: str | None) -> tuple[TodoDraft, bool]:
+    answer = prompt.strip()
+    if not answer or pending_field is None:
+        return current, False
+
+    match pending_field:
+        case "title":
+            return current.model_copy(update={"title": answer}), True
+        case "description":
+            return current.model_copy(update={"description": answer}), True
+        case "status":
+            status = _parse_status(answer)
+            if status is None:
+                return current, False
+            return current.model_copy(update={"status": status}), True
+        case "due_date":
+            try:
+                return current.model_copy(update={"due_date": date.fromisoformat(answer)}), True
+            except ValueError:
+                return current, False
+        case "completed_at":
+            try:
+                return current.model_copy(update={"completed_at": datetime.fromisoformat(answer)}), True
+            except ValueError:
+                return current, False
+        case _:
+            return current, False
 
 
 def _missing_fields(draft: TodoDraft) -> list[str]:
@@ -243,16 +317,28 @@ def _question_for(field: str) -> str:
 async def run_agent(state: AgentState) -> AgentState:
     prompt = _last_user_message(state)
     current = _draft_from_state(state)
+    pending_field = state.get("pending_field")
 
     if prompt:
-        extracted = await _intent_interpreter().extract(prompt, current)
-        current = current.model_copy(update=extracted.model_dump(exclude_none=True))
+        current, handled_pending = _apply_pending_answer(prompt, current, pending_field)
+        if not handled_pending:
+            if pending_field:
+                prompt = f"Le message utilisateur répond au champ {pending_field!r}: {prompt}"
+            extracted = await _intent_interpreter().extract(prompt, current)
+            current = current.model_copy(update=extracted.model_dump(exclude_none=True))
 
     missing = _missing_fields(current)
     if missing:
-        answer = _question_for(missing[0])
+        pending_field = missing[0]
+        answer = _question_for(pending_field)
         messages = [*state.get("messages", []), {"role": "assistant", "content": answer}]
-        return {**state, "draft": current.model_dump(mode="json", exclude_none=True), "answer": answer, "messages": messages}
+        return {
+            **state,
+            "draft": current.model_dump(mode="json", exclude_none=True),
+            "pending_field": pending_field,
+            "answer": answer,
+            "messages": messages,
+        }
 
     todo = await _create_todo_use_case().execute(
         CreateTodoCommand(
@@ -265,7 +351,7 @@ async def run_agent(state: AgentState) -> AgentState:
     )
     answer = f"Todo créée: {todo.title} ({todo.uuid})."
     messages = [*state.get("messages", []), {"role": "assistant", "content": answer}]
-    return {**state, "draft": {}, "answer": answer, "messages": messages}
+    return {**state, "draft": {}, "pending_field": None, "answer": answer, "messages": messages}
 
 
 def register_agent(builder: Any, app: Arclith) -> None:
@@ -285,6 +371,32 @@ Lancer LangGraph Studio:
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
 
+Le terminal affiche une URL de ce type:
+
+```text
+https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024
+```
+
+Ouvrir cette URL. LangSmith Studio se connecte au serveur LangGraph local démarré sur le port
+`2024`. La documentation de référence est:
+
+- <https://docs.langchain.com/oss/python/langgraph/local-server>
+- <https://docs.langchain.com/langsmith/quick-start-studio>
+
+Si le navigateur bloque l'accès à `localhost`, relancer avec `--tunnel`:
+
+```bash
+uv run langgraph dev --no-browser --allow-blocking --port 2024 --tunnel
+```
+
+Dans Studio:
+
+1. sélectionner le graphe `todo_agent`;
+2. créer un nouveau thread;
+3. envoyer l'état JSON ci-dessous;
+4. répondre aux questions dans le même thread pour conserver `draft` et `pending_field`;
+5. revenir dans le projet LangSmith pour lire la trace du run.
+
 Envoyer un état incomplet:
 
 ```json
@@ -299,6 +411,8 @@ Envoyer un état incomplet:
 ```
 
 L'agent doit demander le premier champ manquant, par exemple la description ou la date d'échéance.
+Répondre ensuite dans le même thread LangGraph: l'état conserve `draft` et `pending_field`, ce qui
+permet d'affecter une réponse courte comme `Écrire la doc` au champ qui vient d'être demandé.
 
 Envoyer ensuite un état complet:
 
@@ -360,7 +474,8 @@ La CLI crée les fichiers repository MongoDB et active:
 repository: mongodb
 ```
 
-Configurer l'URI MongoDB via le resolver de secrets local, puis relancer API, MCP et LangGraph.
+Il reste ensuite à démarrer MongoDB, déclarer l'URI dans un resolver de secrets local, puis relancer
+API, MCP et LangGraph. Le pas-à-pas complet est dans [les annexes locales](07-local-services.md).
 
 ## Voie rapide
 
@@ -374,4 +489,5 @@ arclith-cli add-adapter --capability agent --adapter langgraph --param graph_nam
 # Ensuite, pour partager les données entre processus:
 uv add "arclith[mongodb]"
 arclith-cli add-adapter --capability repository --adapter mongodb --entity Todo --db-name todo_list_service --yes
+# Puis suivre docs/tutorials/todo-list/07-local-services.md pour l'URI MongoDB.
 ```

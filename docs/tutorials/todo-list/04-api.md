@@ -536,6 +536,33 @@ Lancer l'API:
 uv run python main.py
 ```
 
+Ouvrir ensuite Swagger UI dans le navigateur:
+
+```text
+http://127.0.0.1:8120/docs
+```
+
+Swagger est l'écran généré par FastAPI à partir du contrat OpenAPI. Il permet de vérifier que
+l'adapter HTTP publie bien les routes, les schémas de payload, les exemples et les statuts de
+réponse attendus.
+
+![Swagger UI du service Todo](assets/04-swagger.png)
+
+Dans Swagger, ouvrir `POST /v1/todos/`, cliquer sur `Try it out`, puis envoyer par exemple:
+
+```json
+{
+  "title": "Écrire le tutoriel",
+  "description": "Couvrir API, MCP et agent",
+  "due_date": "2026-09-01",
+  "status": "todo"
+}
+```
+
+À ce stade, l'objectif n'est pas de tester toute la logique métier depuis l'interface, mais de lire
+le contrat comme un utilisateur d'API: les champs sont-ils compréhensibles, les exemples sont-ils
+présents, et les réponses `201`, `400` et `422` sont-elles documentées ?
+
 Dans un autre terminal:
 
 ```bash

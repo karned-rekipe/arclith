@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="430" viewBox="0 0 1120 430" role="img" aria-labelledby="title desc">
+  <title id="title">Architecture Todo Arclith</title>
+  <desc id="desc">Flux entre les canaux entrants, les ports applicatifs, les use cases et les adapters sortants.</desc>
+  <rect width="1120" height="430" rx="10" fill="#0f172a"/>
+  <text x="40" y="52" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">Même métier, plusieurs canaux</text>
+  <text x="40" y="84" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="16">FastAPI, MCP et LangGraph appellent les mêmes ports inbound et les mêmes use cases.</text>
+  <g font-family="Inter, Arial, sans-serif">
+    <rect x="40" y="135" width="210" height="70" rx="8" fill="#134e4a" stroke="#2dd4bf"/>
+    <text x="65" y="166" fill="#ccfbf1" font-size="17" font-weight="700">FastAPI</text>
+    <text x="65" y="190" fill="#99f6e4" font-size="13">/v1/todos, Swagger</text>
+    <rect x="40" y="225" width="210" height="70" rx="8" fill="#164e63" stroke="#38bdf8"/>
+    <text x="65" y="256" fill="#e0f2fe" font-size="17" font-weight="700">FastMCP</text>
+    <text x="65" y="280" fill="#bae6fd" font-size="13">tools create/list</text>
+    <rect x="40" y="315" width="210" height="70" rx="8" fill="#4c1d95" stroke="#a78bfa"/>
+    <text x="65" y="346" fill="#ede9fe" font-size="17" font-weight="700">LangGraph</text>
+    <text x="65" y="370" fill="#ddd6fe" font-size="13">agent conversationnel</text>
+    <rect x="365" y="185" width="220" height="100" rx="8" fill="#1e293b" stroke="#94a3b8"/>
+    <text x="395" y="225" fill="#f8fafc" font-size="18" font-weight="700">Ports inbound</text>
+    <text x="395" y="252" fill="#cbd5e1" font-size="14">CreateTodoPort</text>
+    <text x="395" y="274" fill="#cbd5e1" font-size="14">ListTodosPort</text>
+    <rect x="690" y="185" width="210" height="100" rx="8" fill="#1e293b" stroke="#94a3b8"/>
+    <text x="720" y="225" fill="#f8fafc" font-size="18" font-weight="700">Use cases</text>
+    <text x="720" y="252" fill="#cbd5e1" font-size="14">CreateTodoUseCase</text>
+    <text x="720" y="274" fill="#cbd5e1" font-size="14">ListTodosUseCase</text>
+    <rect x="970" y="155" width="110" height="70" rx="8" fill="#422006" stroke="#f59e0b"/>
+    <text x="992" y="188" fill="#fef3c7" font-size="16" font-weight="700">memory</text>
+    <text x="992" y="210" fill="#fde68a" font-size="12">début</text>
+    <rect x="970" y="245" width="110" height="70" rx="8" fill="#064e3b" stroke="#34d399"/>
+    <text x="992" y="278" fill="#d1fae5" font-size="16" font-weight="700">MongoDB</text>
+    <text x="992" y="300" fill="#a7f3d0" font-size="12">ensuite</text>
+  </g>
+  <g stroke="#64748b" stroke-width="3" fill="none" marker-end="url(#arrow)">
+    <path d="M250 170 C305 170 310 225 365 225"/>
+    <path d="M250 260 C305 260 310 235 365 235"/>
+    <path d="M250 350 C305 350 310 245 365 245"/>
+    <path d="M585 235 L690 235"/>
+    <path d="M900 235 C930 235 940 190 970 190"/>
+    <path d="M900 235 C930 235 940 280 970 280"/>
+  </g>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#64748b"/>
+    </marker>
+  </defs>
+</svg>

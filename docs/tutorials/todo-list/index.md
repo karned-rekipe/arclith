@@ -1,6 +1,11 @@
 # Tutoriel Todo List
 
 Ce tutoriel part de zéro et construit une todo list Arclith étape par étape.
+L'objectif n'est pas seulement d'obtenir du code qui tourne: chaque étape montre pourquoi Arclith
+garde le métier simple pendant que l'on branche FastAPI, MCP, LangGraph, LM Studio, LangSmith,
+MongoDB et OpenTelemetry autour.
+
+![Flux Arclith Todo](assets/architecture-flow.svg)
 
 ## Méthodologie Arclith
 
@@ -63,12 +68,14 @@ vienne de l'adapter HTTP, tout en gardant le métier testable sans serveur web.
 
 ## Étapes
 
+0. [Préparer LM Studio](00-lm-studio.md), utile avant l'étape agent
 1. [Initialiser le projet](01-init-project.md)
 2. [Créer l'entité Todo](02-create-entity.md)
 3. [Créer les use cases](03-create-usecase.md)
 4. [Exposer une API FastAPI](04-api.md)
 5. [Exposer un MCP FastMCP](05-mcp.md)
 6. [Ajouter un agent LangGraph](06-agent.md)
+7. [Annexes locales: MongoDB, Compass et OpenTelemetry](07-local-services.md)
 
 Chaque page montre le mode interactif de la CLI. La voie rapide non interactive est donnée en fin de
 page pour les scripts et les reprises.
@@ -78,13 +85,13 @@ page pour les scripts et les reprises.
 - Python 3.13;
 - `uv`;
 - `git`;
-- LM Studio seulement pour la dernière étape agent;
+- LM Studio seulement pour la dernière étape agent et le test MCP dans LM Studio;
 - une clé LangSmith seulement si vous voulez tracer l'agent dans LangSmith.
 
-Installer la CLI depuis le repository pour utiliser les dernières commandes:
+Installer la CLI publiée:
 
 ```bash
-uv tool install --force "git+https://github.com/karned-rekipe/arclith.git#subdirectory=cli"
+uv tool install --force "arclith-cli>=0.12.0"
 arclith-cli version
 ```
 

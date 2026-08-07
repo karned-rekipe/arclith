@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="390" viewBox="0 0 1100 390" role="img" aria-labelledby="title desc">
+  <title id="title">Flux LangGraph, LM Studio et LangSmith</title>
+  <desc id="desc">LangGraph exécute l'agent local, LM Studio fournit le modèle, LangSmith Studio affiche et trace l'exécution.</desc>
+  <rect width="1100" height="390" fill="#111827"/>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#2dd4bf"/>
+    </marker>
+    <marker id="trace" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#fbbf24"/>
+    </marker>
+  </defs>
+  <g font-family="Inter, Arial, sans-serif">
+    <text x="48" y="54" fill="#f9fafb" font-size="28" font-weight="700">Comprendre l'agent en local</text>
+    <text x="48" y="84" fill="#d1d5db" font-size="16">LangGraph orchestre, LM Studio génère, LangSmith observe.</text>
+
+    <rect x="64" y="150" width="190" height="112" rx="12" fill="#0f172a" stroke="#60a5fa" stroke-width="2"/>
+    <text x="92" y="190" fill="#f9fafb" font-size="20" font-weight="700">Studio UI</text>
+    <text x="92" y="220" fill="#d1d5db" font-size="15">thread + état JSON</text>
+    <text x="92" y="244" fill="#9ca3af" font-size="14">navigateur</text>
+
+    <rect x="342" y="150" width="210" height="112" rx="12" fill="#0f172a" stroke="#2dd4bf" stroke-width="2"/>
+    <text x="374" y="190" fill="#f9fafb" font-size="20" font-weight="700">LangGraph</text>
+    <text x="374" y="220" fill="#d1d5db" font-size="15">todo_agent</text>
+    <text x="374" y="244" fill="#9ca3af" font-size="14">port 2024</text>
+
+    <rect x="640" y="80" width="190" height="112" rx="12" fill="#0f172a" stroke="#a78bfa" stroke-width="2"/>
+    <text x="672" y="120" fill="#f9fafb" font-size="20" font-weight="700">LM Studio</text>
+    <text x="672" y="150" fill="#d1d5db" font-size="15">LLM local</text>
+    <text x="672" y="174" fill="#9ca3af" font-size="14">port 1234</text>
+
+    <rect x="640" y="230" width="190" height="112" rx="12" fill="#0f172a" stroke="#f59e0b" stroke-width="2"/>
+    <text x="672" y="270" fill="#f9fafb" font-size="20" font-weight="700">Use case</text>
+    <text x="672" y="300" fill="#d1d5db" font-size="15">CreateTodoPort</text>
+    <text x="672" y="324" fill="#9ca3af" font-size="14">métier</text>
+
+    <rect x="910" y="150" width="150" height="112" rx="12" fill="#0f172a" stroke="#fbbf24" stroke-width="2"/>
+    <text x="938" y="190" fill="#f9fafb" font-size="20" font-weight="700">LangSmith</text>
+    <text x="938" y="220" fill="#d1d5db" font-size="15">traces</text>
+    <text x="938" y="244" fill="#9ca3af" font-size="14">debug</text>
+
+    <line x1="254" y1="206" x2="332" y2="206" stroke="#2dd4bf" stroke-width="3" marker-end="url(#arrow)"/>
+    <line x1="552" y1="180" x2="630" y2="136" stroke="#2dd4bf" stroke-width="3" marker-end="url(#arrow)"/>
+    <line x1="552" y1="232" x2="630" y2="286" stroke="#2dd4bf" stroke-width="3" marker-end="url(#arrow)"/>
+    <line x1="552" y1="206" x2="900" y2="206" stroke="#fbbf24" stroke-width="3" stroke-dasharray="8 8" marker-end="url(#trace)"/>
+
+    <text x="274" y="190" fill="#99f6e4" font-size="14">run</text>
+    <text x="570" y="138" fill="#99f6e4" font-size="14">extraction</text>
+    <text x="570" y="276" fill="#99f6e4" font-size="14">création</text>
+    <text x="728" y="190" fill="#fde68a" font-size="14">observabilité</text>
+  </g>
+</svg>

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="360" viewBox="0 0 1100 360" role="img" aria-labelledby="title desc">
+  <title id="title">Flux LM Studio vers un serveur MCP Arclith</title>
+  <desc id="desc">LM Studio charge mcp.json, appelle le serveur MCP FastMCP, qui appelle les use cases Arclith et le repository.</desc>
+  <rect width="1100" height="360" fill="#0f172a"/>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+  <g font-family="Inter, Arial, sans-serif">
+    <text x="48" y="54" fill="#f8fafc" font-size="28" font-weight="700">Tester un MCP Arclith dans LM Studio</text>
+    <text x="48" y="84" fill="#cbd5e1" font-size="16">LM Studio est le client. Le serveur MCP reste votre application Python locale.</text>
+
+    <rect x="60" y="132" width="210" height="116" rx="12" fill="#111827" stroke="#38bdf8" stroke-width="2"/>
+    <text x="86" y="174" fill="#f8fafc" font-size="20" font-weight="700">LM Studio</text>
+    <text x="86" y="204" fill="#cbd5e1" font-size="15">Chat + tools activés</text>
+    <text x="86" y="228" fill="#94a3b8" font-size="14">mcp.json</text>
+
+    <rect x="360" y="132" width="230" height="116" rx="12" fill="#111827" stroke="#22c55e" stroke-width="2"/>
+    <text x="390" y="174" fill="#f8fafc" font-size="20" font-weight="700">FastMCP</text>
+    <text x="390" y="204" fill="#cbd5e1" font-size="15">http://127.0.0.1:8121/mcp</text>
+    <text x="390" y="228" fill="#94a3b8" font-size="14">create_todo_item</text>
+
+    <rect x="680" y="132" width="190" height="116" rx="12" fill="#111827" stroke="#f59e0b" stroke-width="2"/>
+    <text x="710" y="174" fill="#f8fafc" font-size="20" font-weight="700">Use cases</text>
+    <text x="710" y="204" fill="#cbd5e1" font-size="15">CreateTodoPort</text>
+    <text x="710" y="228" fill="#94a3b8" font-size="14">ListTodosPort</text>
+
+    <rect x="940" y="132" width="110" height="116" rx="12" fill="#111827" stroke="#a78bfa" stroke-width="2"/>
+    <text x="968" y="174" fill="#f8fafc" font-size="20" font-weight="700">Repo</text>
+    <text x="962" y="204" fill="#cbd5e1" font-size="15">memory</text>
+    <text x="966" y="228" fill="#94a3b8" font-size="14">ou Mongo</text>
+
+    <line x1="270" y1="190" x2="350" y2="190" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow)"/>
+    <line x1="590" y1="190" x2="670" y2="190" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow)"/>
+    <line x1="870" y1="190" x2="930" y2="190" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow)"/>
+
+    <text x="292" y="174" fill="#93c5fd" font-size="14">tool call</text>
+    <text x="612" y="174" fill="#93c5fd" font-size="14">port inbound</text>
+    <text x="882" y="174" fill="#93c5fd" font-size="14">stockage</text>
+  </g>
+</svg>
