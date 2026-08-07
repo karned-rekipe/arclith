@@ -113,7 +113,7 @@ class Arclith:
         app = FastAPI(lifespan=_lifespan, **kwargs)
         self._add_fastapi_observability(app)
         self._add_fastapi_http_middlewares(app)
-        if self.config.adapters.observability == "opentelemetry":
+        if self.config.adapters.observability.is_enabled("opentelemetry"):
             self._instrument_fastapi_opentelemetry(app)
 
         if self.config.keycloak:

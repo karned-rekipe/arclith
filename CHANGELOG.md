@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Observability cumulative** — `adapters.observability` devient une configuration structurée
+  `observability.enabled`, pour activer `langsmith` et `opentelemetry` en parallèle. L'ancien
+  format scalaire `observability: langsmith|opentelemetry|none` n'est plus accepté, et
+  `opentelemetry.yaml` ne contient plus de flag `enabled`.
+
 ---
 
 ## [0.13.0] — 2026-08-06

@@ -199,7 +199,8 @@ description: "{project_name} — built with Arclith"
     (adapters_dir / "adapters.yaml").write_text(
         """logger: console
 repository: memory
-observability: none
+observability:
+  enabled: []
 """,
         encoding="utf-8",
     )

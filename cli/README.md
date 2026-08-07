@@ -159,7 +159,7 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
    - `langsmith` → `tracing`, `project`, `endpoint`, `LANGSMITH_API_KEY`
    - `opentelemetry` → `service_name`, `endpoint`, `protocol`, `traces`, `metrics`, `instrument_fastapi`
    - `memory` → aucun paramètre
-4. **Activation** — met à jour `config/adapters/adapters.yaml` pour les capacités à sélecteur (`repository: <adapter>` ou `observability: <adapter>`) ; `api/fastapi`, `mcp/fastmcp`, `llm/*` et `agent/langgraph` sont exposés par leurs fichiers de configuration scopés
+4. **Activation** — met à jour `config/adapters/adapters.yaml` pour les capacités activables (`repository: <adapter>` ou `observability.enabled: [<adapter>, ...]`) ; `api/fastapi`, `mcp/fastmcp`, `llm/*` et `agent/langgraph` sont exposés par leurs fichiers de configuration scopés
 5. **Récapitulatif** — liste des fichiers créés ou remplacés avant confirmation
 
 | Option | Défaut | Description |
@@ -205,7 +205,7 @@ L'adapter `agent/langgraph` génère `langgraph.json`, `config/adapters/inbound/
 `src/<package>/adapters/inbound/langgraph/agent.py`. Le projet ne modifie ensuite que ce fichier pour
 son agent. Comme `fastapi` et `fastmcp`, LangGraph est configuré par son nom produit dans
 `AppConfig.langgraph`, sans `adapters.agent`. L'adapter `observability/langsmith` génère
-`config/adapters/outbound/langsmith.yaml`, met
+`config/adapters/outbound/langsmith.yaml`, l'ajoute à `observability.enabled`, met
 à jour `.env` et ajoute `.env` au `.gitignore` si besoin. LangSmith Studio devient l'endroit standard
 pour tester les agents. Une `LANGSMITH_API_KEY` déjà présente est conservée si aucune nouvelle valeur
 n'est fournie.
@@ -218,8 +218,10 @@ arclith-cli add-adapter --capability observability --adapter opentelemetry --par
 ```
 
 L'adapter `observability/opentelemetry` génère `config/adapters/outbound/opentelemetry.yaml`, met à
-jour `.env`, active `observability: opentelemetry` et branche l'instrumentation FastAPI quand
-`Arclith.fastapi()` construit l'application.
+jour `.env`, l'ajoute à `observability.enabled` et branche l'instrumentation FastAPI quand
+`Arclith.fastapi()` construit l'application. Il peut être activé en même temps que LangSmith.
+Le fichier `opentelemetry.yaml` ne porte pas de flag `enabled`: l'activation se fait uniquement dans
+`observability.enabled`.
 
 Parcours complet avec entité, API, LangGraph, LangSmith et LM Studio:
 [`docs/agent-quickstart.md`](../docs/agent-quickstart.md).
@@ -288,7 +290,7 @@ config/
   soft_delete.yaml                # soft_delete: { retention_days }
   secrets.yaml                    # secrets: { resolver, mappings, vault, yaml }
   adapters/
-    adapters.yaml                 # adapters: { logger, repository }   ← adapter actif
+    adapters.yaml                 # adapters: { logger, repository, observability.enabled }
     outbound/
       mongodb.yaml                # adapters.mongodb: { db_name, multitenant }
       duckdb.yaml                 # adapters.duckdb: { path, multitenant }
@@ -311,7 +313,10 @@ Pour changer l'adapter actif sans passer par le wizard :
 ```yaml
 # config/adapters/adapters.yaml
 repository: duckdb   # memory | mongodb | duckdb | mariadb
-observability: langsmith   # none | langsmith | opentelemetry
+observability:
+  enabled:
+    - langsmith
+    - opentelemetry
 ```
 
 Pour MariaDB, ne committez pas le mot de passe. Mappez `adapters.mariadb.password` ou `adapters.mariadb.url` via `config/secrets.yaml`, un resolver `env` ou Vault.

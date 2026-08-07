@@ -147,10 +147,14 @@ Adapters disponibles:
 Activation:
 
 ```yaml
-observability: langsmith
-# ou
-observability: opentelemetry
+observability:
+  enabled:
+    - langsmith
+    - opentelemetry
 ```
+
+La liste peut contenir un seul adapter ou les deux. Arclith ne garde pas de sélecteur unique
+pour l'observabilité: LangSmith et OpenTelemetry peuvent être actifs en parallèle.
 
 Arclith considère LangSmith Studio comme l'endroit standard pour tester un agent. Le serveur local
 LangGraph doit lire `.env` via `langgraph.json`; `.env` contient `LANGSMITH_API_KEY`,
@@ -161,7 +165,6 @@ OpenTelemetry se configure avec:
 
 ```yaml
 # config/adapters/outbound/opentelemetry.yaml
-enabled: true
 service_name: "my-service"
 endpoint: "http://localhost:4318"
 protocol: "http/protobuf"
@@ -171,6 +174,9 @@ metrics: false
 instrument_fastapi: true
 metrics_export_interval_millis: 60000
 ```
+
+`opentelemetry.yaml` décrit l'export OTLP. L'activation reste uniquement dans
+`config/adapters/adapters.yaml`, via `observability.enabled`.
 
 Installer l'extra avant d'activer l'adapter:
 
@@ -285,6 +291,9 @@ arclith-cli add-adapter \
   --param metrics=true \
   --yes
 ```
+
+Ces deux commandes ajoutent chacune leur adapter dans `observability.enabled`; elles ne se
+remplacent pas.
 
 Pour OpenAI:
 

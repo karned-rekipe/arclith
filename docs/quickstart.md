@@ -284,8 +284,8 @@ LangGraph est configuré par son nom produit dans `AppConfig.langgraph`, sans cl
 `adapters.agent`.
 
 L'adapter `observability/langsmith` demande le projet LangSmith, l'endpoint, l'activation du tracing et
-`LANGSMITH_API_KEY`. Elle génère `config/adapters/outbound/langsmith.yaml`, met à jour `.env`,
-et ajoute `.env` au `.gitignore` si besoin.
+`LANGSMITH_API_KEY`. Elle génère `config/adapters/outbound/langsmith.yaml`, ajoute `langsmith` à
+`observability.enabled`, met à jour `.env`, et ajoute `.env` au `.gitignore` si besoin.
 
 L'adapter `llm/lmstudio` génère `config/adapters/outbound/lm.yaml`, chargé dans
 `AppConfig.adapters.lm`. Le planner applicatif consomme ensuite un `LLMPort`; LangGraph ne fait

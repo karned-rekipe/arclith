@@ -33,7 +33,8 @@ Le projet démarre avec `repository: memory`:
 # config/adapters/adapters.yaml
 logger: console
 repository: memory
-observability: none
+observability:
+  enabled: []
 ```
 
 La structure attendue est:

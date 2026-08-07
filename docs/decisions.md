@@ -216,13 +216,14 @@ necessaire si LangGraph Studio et LangSmith couvrent les tests conversationnels 
 
 **Decision :** declarer le runtime agent comme une capacite inbound `agent`, avec un adapter
 standard `langgraph`, et declarer l'observabilite agent comme une capacite outbound
-`observability`, avec un adapter standard `langsmith`. La CLI genere le point d'entree LangGraph,
+`observability`, avec les adapters standards `langsmith` et `opentelemetry` activables en
+parallele via `observability.enabled`. La CLI genere le point d'entree LangGraph,
 `langgraph.json` et le cablage `Arclith.langgraph(...)`. La configuration runtime reste nommee par
 produit, comme `fastapi` et `fastmcp`: `config/adapters/inbound/langgraph.yaml` alimente
 `AppConfig.langgraph`, sans cle generique `adapters.agent`. La CLI demande ensuite les informations
 LangSmith au moment du `add-adapter`, genere `config/adapters/outbound/langsmith.yaml`, met a jour
-`.env`, et ignore `.env` dans Git. LangSmith Studio devient l'endroit standard pour tester les
-agents.
+`.env`, et ignore `.env` dans Git. OpenTelemetry peut etre ajoute ensuite sans remplacer LangSmith.
+LangSmith Studio devient l'endroit standard pour tester les agents.
 
 **Pourquoi pas l'alternative evidente (une UI de test generee par Arclith) :**
 Une UI de test serait une surface produit supplementaire a maintenir, sans porter le metier. Elle
@@ -239,7 +240,8 @@ tests agent.
   principe produit que `fastapi` et `fastmcp`.
 - `arclith-cli add-adapter --capability observability --adapter langsmith` demande les parametres
   LangSmith et n'essaie pas de generer un repository par entite.
-- `AdaptersSettings.observability` active l'observabilite sans coupler le coeur aux SDK agent.
+- `AdaptersSettings.observability.enabled` active une ou plusieurs sorties d'observabilite sans
+  coupler le coeur aux SDK agent.
 - `Arclith.langgraph(...)` standardise la creation et la compilation du graphe sans exposer cette
   plomberie a chaque projet.
 - Le serveur LangGraph local lit `.env` via le `langgraph.json` genere.

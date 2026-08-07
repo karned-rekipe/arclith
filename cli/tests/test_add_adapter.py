@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 import typer
+import yaml
 
 from arclith_cli.add_adapter import _resolve_parameter, add_adapter_cmd
 from arclith_cli.capabilities import ParameterSpec
@@ -26,7 +27,10 @@ def _minimal_project(tmp_path: Path) -> Path:
     (project_dir / "src" / package_name / "infrastructure" / "containers").mkdir(parents=True)
     config_dir = project_dir / "config" / "adapters"
     config_dir.mkdir(parents=True)
-    (config_dir / "adapters.yaml").write_text("logger: console\nrepository: memory\n", encoding="utf-8")
+    (config_dir / "adapters.yaml").write_text(
+        "logger: console\nrepository: memory\nobservability:\n  enabled: []\n",
+        encoding="utf-8",
+    )
     return project_dir
 
 
@@ -135,9 +139,10 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(tmp_path: Path)
     assert 'endpoint: "https://eu.api.smith.langchain.com"' in config
     assert "api_key_env: LANGSMITH_API_KEY" in config
     assert 'langgraph_api_min_version: "0.11.0"' in config
-    assert "observability: langsmith" in (
-        project_dir / "config" / "adapters" / "adapters.yaml"
-    ).read_text(encoding="utf-8")
+    adapters_config = yaml.safe_load(
+        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8")
+    )
+    assert adapters_config["observability"]["enabled"] == ["langsmith"]
 
     env = (project_dir / ".env").read_text(encoding="utf-8")
     assert "EXISTING=value" in env
@@ -340,7 +345,6 @@ def test_add_opentelemetry_observability_adapter_uses_catalog_params(tmp_path: P
     config = (project_dir / "config" / "adapters" / "outbound" / "opentelemetry.yaml").read_text(
         encoding="utf-8"
     )
-    assert "enabled: true" in config
     assert 'service_name: "demo-api"' in config
     assert 'endpoint: "http://otel-collector:4318"' in config
     assert 'protocol: "http/protobuf"' in config
@@ -349,9 +353,10 @@ def test_add_opentelemetry_observability_adapter_uses_catalog_params(tmp_path: P
     assert "metrics: true" in config
     assert "instrument_fastapi: true" in config
     assert "metrics_export_interval_millis: 15000" in config
-    assert "observability: opentelemetry" in (
-        project_dir / "config" / "adapters" / "adapters.yaml"
-    ).read_text(encoding="utf-8")
+    adapters_config = yaml.safe_load(
+        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8")
+    )
+    assert adapters_config["observability"]["enabled"] == ["opentelemetry"]
 
     env = (project_dir / ".env").read_text(encoding="utf-8")
     assert "EXISTING=value" in env
@@ -360,6 +365,30 @@ def test_add_opentelemetry_observability_adapter_uses_catalog_params(tmp_path: P
     assert "OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf" in env
     assert "OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer test" in env
     assert ".env" in (project_dir / ".gitignore").read_text(encoding="utf-8")
+
+
+def test_add_observability_adapters_accumulates_enabled_backends(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="observability",
+        adapter="langsmith",
+        adapter_params={"project": "agent-tests"},
+        yes=True,
+    )
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="observability",
+        adapter="opentelemetry",
+        adapter_params={"service_name": "demo-api"},
+        yes=True,
+    )
+
+    adapters_config = yaml.safe_load(
+        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8")
+    )
+    assert adapters_config["observability"]["enabled"] == ["langsmith", "opentelemetry"]
 
 
 def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(tmp_path: Path) -> None:

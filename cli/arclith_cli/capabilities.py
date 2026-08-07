@@ -519,7 +519,7 @@ agent = arclith.langgraph(AgentState, register_agent, name="{graph_name}")
 OBSERVABILITY_CAPABILITY = CapabilitySpec(
     name="observability",
     layer="outbound",
-    description="Observabilité et boucle de test agent via LangSmith Studio.",
+    description="Observabilité activable en parallèle via LangSmith et OpenTelemetry.",
     activation_config_key="observability",
     adapters=(
         AdapterSpec(
@@ -579,7 +579,6 @@ LANGSMITH_API_KEY={api_key}
             description="Export OTLP traces/metrics et instrumentation FastAPI.",
             config_path="config/adapters/outbound/opentelemetry.yaml",
             config_template="""\
-enabled: {enabled}
 service_name: "{service_name}"
 endpoint: "{endpoint}"
 protocol: "{protocol}"
@@ -597,12 +596,6 @@ OTEL_EXPORTER_OTLP_PROTOCOL={protocol}
 OTEL_EXPORTER_OTLP_HEADERS={headers}
 """,
             parameters=(
-                ParameterSpec(
-                    name="enabled",
-                    kind="boolean",
-                    prompt="Activer OpenTelemetry",
-                    default=True,
-                ),
                 ParameterSpec(
                     name="service_name",
                     kind="string",

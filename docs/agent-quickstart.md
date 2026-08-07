@@ -116,6 +116,9 @@ arclith-cli add-adapter \
   --yes
 ```
 
+La commande ajoute `langsmith` dans `config/adapters/adapters.yaml` sous
+`observability.enabled`.
+
 Résultat attendu:
 
 ```text
