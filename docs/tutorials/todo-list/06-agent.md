@@ -1,7 +1,7 @@
 # 6. Ajouter un agent
 
-Objectif: créer un agent LangGraph qui pose les questions manquantes, puis appelle
-`CreateTodoUseCase` avec les mêmes données que l'API et le MCP.
+Objectif: créer un agent LangGraph qui pose les questions manquantes, puis appelle `CreateTodoPort`
+avec les mêmes données que l'API et le MCP.
 
 ![Capture interactive agent](assets/06-agent.svg)
 
@@ -175,8 +175,8 @@ from arclith.adapters.outbound.pydantic_ai.llm import PydanticAILLMAdapter
 from langgraph.graph import END, START
 
 from todo_list_service.application.planners.todo_conversation import TodoConversationPlanner, TodoDraft
-from todo_list_service.application.use_cases.create_todo import CreateTodoCommand, CreateTodoUseCase
 from todo_list_service.domain.models.todo import TodoStatus
+from todo_list_service.domain.ports.inbound.create_todo import CreateTodoCommand, CreateTodoPort
 from todo_list_service.infrastructure.containers.todo_container import build_create_todo_use_case
 
 
@@ -190,7 +190,7 @@ arclith = Arclith("config")
 
 
 @lru_cache(maxsize=1)
-def _create_todo_use_case() -> CreateTodoUseCase:
+def _create_todo_use_case() -> CreateTodoPort:
     return build_create_todo_use_case(arclith)
 
 

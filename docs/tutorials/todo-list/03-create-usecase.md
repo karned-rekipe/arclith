@@ -1,7 +1,7 @@
 # 3. Créer le use case
 
-Objectif: utiliser la CLI pour créer le fichier minimal, puis écrire le cas d'usage qui enregistre
-une todo via un port repository.
+Objectif: utiliser la CLI pour créer le port inbound et le fichier minimal, puis écrire le cas
+d'usage qui enregistre une todo via un port repository.
 
 ![Capture interactive add-usecase](assets/03-create-usecase.svg)
 
@@ -21,17 +21,18 @@ Cas d'usage (ex : PlanShoppingList, find_by_name)
 La CLI crée:
 
 ```text
+src/todo_list_service/domain/ports/inbound/create_todo.py
 src/todo_list_service/application/use_cases/create_todo.py
 ```
 
-Remplacer le contenu par:
+Remplacer `src/todo_list_service/domain/ports/inbound/create_todo.py` par:
 
 ```python
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from abc import ABC, abstractmethod
+from datetime import date, datetime
 
-from arclith.domain.ports.outbound.repository import Repository
 from pydantic import BaseModel, Field
 
 from todo_list_service.domain.models.todo import Todo, TodoStatus
@@ -45,7 +46,26 @@ class CreateTodoCommand(BaseModel):
     completed_at: datetime | None = None
 
 
-class CreateTodoUseCase:
+class CreateTodoPort(ABC):
+    @abstractmethod
+    async def execute(self, command: CreateTodoCommand) -> Todo:
+        raise NotImplementedError
+```
+
+Remplacer `src/todo_list_service/application/use_cases/create_todo.py` par:
+
+```python
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+from arclith.domain.ports.outbound.repository import Repository
+
+from todo_list_service.domain.models.todo import Todo, TodoStatus
+from todo_list_service.domain.ports.inbound.create_todo import CreateTodoCommand, CreateTodoPort
+
+
+class CreateTodoUseCase(CreateTodoPort):
     def __init__(self, repository: Repository[Todo]) -> None:
         self._repository = repository
 
@@ -64,8 +84,8 @@ class CreateTodoUseCase:
         return await self._repository.create(todo)
 ```
 
-Le use case dépend seulement de `Repository[Todo]`. Il ne connaît ni FastAPI, ni FastMCP, ni
-LangGraph, ni MongoDB.
+Le use case implémente `CreateTodoPort` et dépend seulement de `Repository[Todo]`. Il ne connaît ni
+FastAPI, ni FastMCP, ni LangGraph, ni MongoDB.
 
 Créer ensuite le container applicatif `src/todo_list_service/infrastructure/containers/todo_container.py`:
 
@@ -77,6 +97,7 @@ from arclith.domain.ports.outbound.repository import Repository
 
 from todo_list_service.application.use_cases.create_todo import CreateTodoUseCase
 from todo_list_service.domain.models.todo import Todo
+from todo_list_service.domain.ports.inbound.create_todo import CreateTodoPort
 
 _repository: Repository[Todo] | None = None
 
@@ -88,7 +109,7 @@ def build_todo_repository(app: Arclith) -> Repository[Todo]:
     return _repository
 
 
-def build_create_todo_use_case(app: Arclith) -> CreateTodoUseCase:
+def build_create_todo_use_case(app: Arclith) -> CreateTodoPort:
     return CreateTodoUseCase(build_todo_repository(app))
 ```
 
@@ -105,8 +126,9 @@ from datetime import date
 import pytest
 from arclith.adapters.outbound.memory.repository import InMemoryRepository
 
-from todo_list_service.application.use_cases.create_todo import CreateTodoCommand, CreateTodoUseCase
+from todo_list_service.application.use_cases.create_todo import CreateTodoUseCase
 from todo_list_service.domain.models.todo import Todo, TodoStatus
+from todo_list_service.domain.ports.inbound.create_todo import CreateTodoCommand
 
 
 @pytest.mark.asyncio

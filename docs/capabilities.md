@@ -36,12 +36,13 @@ Fichiers générés :
 
 ```text
 src/<package>/domain/models/shopping_item.py
+src/<package>/domain/ports/inbound/plan_shopping_list.py
 src/<package>/application/use_cases/plan_shopping_list.py
 src/<package>/application/planners/shopping_intent.py
 ```
 
-Le développeur garde la responsabilité de définir les champs, invariants, ports et orchestration
-métier. Les adapters se branchent ensuite explicitement via `add-adapter`.
+Le développeur garde la responsabilité de définir les champs, invariants et orchestration métier.
+Les adapters se branchent ensuite explicitement via `add-adapter` et appellent les ports inbound.
 
 ## Catalogue actuel
 

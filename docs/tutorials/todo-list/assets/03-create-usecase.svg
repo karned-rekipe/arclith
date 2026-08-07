@@ -9,5 +9,6 @@
   <text x="24" y="72" fill="#d1d5db" font-family="Menlo, Consolas, monospace" font-size="18">$ arclith-cli add-usecase</text>
   <text x="24" y="118" fill="#f9fafb" font-family="Menlo, Consolas, monospace" font-size="18">Cas d'usage (ex : PlanShoppingList, find_by_name)</text>
   <text x="24" y="154" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">Nom du cas d'usage: CreateTodo</text>
-  <text x="24" y="210" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">✓ Cas d'usage CreateTodoUseCase cree : src/.../application/use_cases/create_todo.py</text>
+  <text x="24" y="204" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">✓ Port inbound CreateTodoPort créé : src/.../domain/ports/inbound/create_todo.py</text>
+  <text x="24" y="240" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">✓ Cas d'usage CreateTodoUseCase créé : src/.../application/use_cases/create_todo.py</text>
 </svg>

@@ -21,7 +21,19 @@ class {class_name}(Entity):
     pass
 """
 
-_USE_CASE_TEMPLATE = """class {class_name}UseCase:
+_INBOUND_PORT_TEMPLATE = """from abc import ABC, abstractmethod
+
+
+class {class_name}Port(ABC):
+    @abstractmethod
+    async def execute(self) -> None:
+        raise NotImplementedError
+"""
+
+_USE_CASE_TEMPLATE = """from {inbound_port_module} import {class_name}Port
+
+
+class {class_name}UseCase({class_name}Port):
     async def execute(self) -> None:
         raise NotImplementedError("Implement {class_name}UseCase.execute")
 """
@@ -93,10 +105,24 @@ def add_usecase_cmd(*, project_dir: Path | None = None, usecase_name: str) -> Pa
     paths = detect_project_paths(project_dir)
     names = UseCaseNames.from_input(usecase_name)
     usecase_file = paths.application_use_cases / f"{names.snake}.py"
+    inbound_port_file = paths.inbound_ports / f"{names.snake}.py"
     _assert_missing(usecase_file, project_dir)
+    _assert_missing(inbound_port_file, project_dir)
 
+    _ensure_package_dirs(paths, "domain", "ports", "inbound")
     _ensure_package_dirs(paths, "application", "use_cases")
-    usecase_file.write_text(_USE_CASE_TEMPLATE.format(class_name=names.pascal), encoding="utf-8")
+    inbound_port_file.write_text(_INBOUND_PORT_TEMPLATE.format(class_name=names.pascal), encoding="utf-8")
+    usecase_file.write_text(
+        _USE_CASE_TEMPLATE.format(
+            class_name=names.pascal,
+            inbound_port_module=paths.import_path("domain", "ports", "inbound", names.snake),
+        ),
+        encoding="utf-8",
+    )
+    console.print(
+        f"[green]✓[/green] Port inbound {names.pascal}Port créé : "
+        f"[bold]{inbound_port_file.relative_to(project_dir)}[/bold]"
+    )
     console.print(
         f"[green]✓[/green] Cas d'usage {names.pascal}UseCase créé : "
         f"[bold]{usecase_file.relative_to(project_dir)}[/bold]"

@@ -130,8 +130,9 @@ arclith-cli add-planner ShoppingIntent
 ```
 
 Ces commandes créent des fichiers minimaux dans `src/<package>/domain/models/` et
-`src/<package>/application/use_cases/` ou `src/<package>/application/planners/`. Les champs,
-invariants, ports et appels aux adapters restent du code métier à écrire dans le projet.
+`src/<package>/domain/ports/inbound/`, `src/<package>/application/use_cases/` ou
+`src/<package>/application/planners/`. Les champs, invariants et appels aux adapters restent du code
+métier à écrire dans le projet.
 
 L'adapter actif est déclaré dans:
 

@@ -125,7 +125,10 @@ dev = [
     { name = "ruff", specifier = "==0.15.6" },
     { name = "types-pyyaml", specifier = "==6.0.12.20250516" },
 ]
-docs = [{ name = "mkdocs", specifier = ">=1.6.1" }]
+docs = [
+    { name = "mkdocs", specifier = ">=1.6.1" },
+    { name = "mkdocs-material", specifier = ">=9.7.7" },
+]
 
 [[package]]
 name = "arclith-cli"

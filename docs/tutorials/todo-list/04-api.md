@@ -1,6 +1,6 @@
 # 4. Exposer une API
 
-Objectif: générer la configuration FastAPI avec la CLI, puis exposer `CreateTodoUseCase` par HTTP.
+Objectif: générer la configuration FastAPI avec la CLI, puis exposer `CreateTodoPort` par HTTP.
 
 ![Capture interactive FastAPI](assets/04-api.svg)
 
@@ -87,12 +87,12 @@ from fastapi import APIRouter, Request, Response
 
 from arclith.domain.ports.outbound.repository import Repository
 from todo_list_service.adapters.inbound.schemas.todo_schema import TodoCreateSchema, TodoSchema
-from todo_list_service.application.use_cases.create_todo import CreateTodoCommand, CreateTodoUseCase
 from todo_list_service.domain.models.todo import Todo
+from todo_list_service.domain.ports.inbound.create_todo import CreateTodoCommand, CreateTodoPort
 
 
 class TodoRouter:
-    def __init__(self, create_todo: CreateTodoUseCase, repository: Repository[Todo]) -> None:
+    def __init__(self, create_todo: CreateTodoPort, repository: Repository[Todo]) -> None:
         self._create_todo = create_todo
         self._repository = repository
         self.router = APIRouter(prefix="/v1/todos", tags=["todos"])

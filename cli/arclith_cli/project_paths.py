@@ -17,6 +17,10 @@ class ProjectPaths:
         return self.package_root / "application" / "use_cases"
 
     @property
+    def inbound_ports(self) -> Path:
+        return self.package_root / "domain" / "ports" / "inbound"
+
+    @property
     def application_planners(self) -> Path:
         return self.package_root / "application" / "planners"
 

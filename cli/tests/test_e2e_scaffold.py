@@ -67,6 +67,7 @@ def test_init_scaffold_creates_blank_project_then_core_files(temp_workspace: Pat
 
     assert result.returncode == 0, f"init failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
     assert (project_dir / "src" / "todo_list_service" / "domain" / "models" / "__init__.py").exists()
+    assert (project_dir / "src" / "todo_list_service" / "domain" / "ports" / "inbound" / "__init__.py").exists()
     assert not (project_dir / "src" / "todo_list_service" / "domain" / "models" / "todo.py").exists()
     assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
@@ -92,6 +93,9 @@ def test_init_scaffold_creates_blank_project_then_core_files(temp_workspace: Pat
     assert (project_dir / "src" / "todo_list_service" / "domain" / "models" / "todo.py").exists()
     assert (
         project_dir / "src" / "todo_list_service" / "application" / "use_cases" / "create_todo.py"
+    ).exists()
+    assert (
+        project_dir / "src" / "todo_list_service" / "domain" / "ports" / "inbound" / "create_todo.py"
     ).exists()
 
 
@@ -214,6 +218,9 @@ def test_scaffold_and_run(temp_workspace: Path):
     assert (
         project_dir / "src" / "test_plan_service" / "application" / "use_cases" / "plan_shopping_list.py"
     ).exists()
+    assert (
+        project_dir / "src" / "test_plan_service" / "domain" / "ports" / "inbound" / "plan_shopping_list.py"
+    ).exists()
 
     result = subprocess.run(
         [
@@ -234,9 +241,15 @@ def test_scaffold_and_run(temp_workspace: Path):
     import_script = "\n".join(
         [
             "from test_plan_service.domain.models.shopping_item import ShoppingItem",
+            "from test_plan_service.domain.ports.inbound.plan_shopping_list import PlanShoppingListPort",
             "from test_plan_service.application.use_cases.plan_shopping_list import PlanShoppingListUseCase",
             "from test_plan_service.application.planners.shopping_intent import ShoppingIntentPlanner",
-            "print(ShoppingItem.__name__, PlanShoppingListUseCase.__name__, ShoppingIntentPlanner.__name__)",
+            "print("
+            "ShoppingItem.__name__, "
+            "PlanShoppingListPort.__name__, "
+            "PlanShoppingListUseCase.__name__, "
+            "ShoppingIntentPlanner.__name__"
+            ")",
         ]
     )
     result = subprocess.run(
@@ -253,7 +266,7 @@ def test_scaffold_and_run(temp_workspace: Path):
         timeout=30,
     )
     assert result.returncode == 0, f"Core scaffold import failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-    assert "ShoppingItem PlanShoppingListUseCase ShoppingIntentPlanner" in result.stdout
+    assert "ShoppingItem PlanShoppingListPort PlanShoppingListUseCase ShoppingIntentPlanner" in result.stdout
 
     # Step 7 — validate non-interactive adapter generation through the CLI entry point
     result = subprocess.run(

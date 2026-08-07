@@ -74,7 +74,8 @@ La commande ne génère aucun CRUD, aucun port repository, aucun adapter et aucu
 
 ### `add-usecase` — Ajouter un cas d'usage
 
-Crée uniquement le fichier minimal d'un cas d'usage dans `src/<package>/application/use_cases/`.
+Crée le port inbound minimal dans `src/<package>/domain/ports/inbound/`, puis le fichier minimal du
+cas d'usage dans `src/<package>/application/use_cases/`.
 
 ```bash
 cd my-recipe-service
@@ -85,12 +86,13 @@ arclith-cli add-usecase find-by-name
 Fichier généré :
 
 ```text
+src/<package>/domain/ports/inbound/plan_shopping_list.py
 src/<package>/application/use_cases/plan_shopping_list.py
 ```
 
 Le nom peut être fourni en PascalCase, snake_case ou kebab-case. Le suffixe `UseCase` est normalisé : `PlanShoppingListUseCase` et `plan-shopping-list-use-case` génèrent tous les deux `PlanShoppingListUseCase`.
 
-Comme `add-entity`, cette commande ne câble pas FastAPI, FastMCP, LangGraph, un repository ou un service. Les adapters se branchent ensuite explicitement avec `add-adapter`.
+Comme `add-entity`, cette commande ne câble pas FastAPI, FastMCP, LangGraph, un repository ou un service. Les adapters se branchent ensuite explicitement avec `add-adapter` et devraient dépendre du port inbound généré.
 
 ---
 
