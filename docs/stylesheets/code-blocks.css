@@ -1,0 +1,173 @@
+:root > * {
+  --arclith-code-border-color: color-mix(
+    in srgb,
+    var(--md-default-fg-color) 16%,
+    transparent
+  );
+  --arclith-code-header-bg: color-mix(
+    in srgb,
+    var(--md-code-bg-color) 82%,
+    var(--md-default-bg-color)
+  );
+  --arclith-code-header-fg: color-mix(
+    in srgb,
+    var(--md-default-fg-color) 86%,
+    transparent
+  );
+  --arclith-code-muted-fg: color-mix(
+    in srgb,
+    var(--md-default-fg-color) 58%,
+    transparent
+  );
+  --arclith-code-accent: var(--md-accent-fg-color);
+}
+
+.md-typeset .highlight {
+  border: 1px solid var(--arclith-code-border-color);
+  border-radius: 0.45rem;
+  box-shadow: 0 0.35rem 1rem rgb(0 0 0 / 14%);
+  margin: 1.15em 0;
+  overflow: hidden;
+}
+
+.md-typeset .highlight > span.filename,
+.md-typeset .highlighttable > tbody > tr > th.filename {
+  background: var(--arclith-code-header-bg);
+  border-bottom: 1px solid var(--arclith-code-border-color);
+  color: var(--arclith-code-header-fg);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.35;
+  min-height: 2.1rem;
+  padding: 0.45rem 5.8rem 0.45rem 0.85rem;
+  text-align: left;
+}
+
+.md-typeset .highlighttable > tbody > tr > th.filename > span.filename {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  display: inline;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  min-height: 0;
+  padding: 0;
+}
+
+.md-typeset .highlight > span.filename::before,
+.md-typeset .highlighttable > tbody > tr > th.filename::before {
+  background: var(--arclith-code-accent);
+  border-radius: 0.12rem;
+  content: "";
+  display: inline-block;
+  height: 0.65rem;
+  margin-right: 0.45rem;
+  vertical-align: -0.07rem;
+  width: 0.65rem;
+}
+
+.md-typeset .highlight.language-bash,
+.md-typeset .highlight.language-console,
+.md-typeset .highlight.language-sh,
+.md-typeset .highlight.language-shell,
+.md-typeset .highlight.language-zsh {
+  --arclith-code-accent: #2dd4bf;
+}
+
+.md-typeset .highlight.language-python,
+.md-typeset .highlight.language-py {
+  --arclith-code-accent: #60a5fa;
+}
+
+.md-typeset .highlight.language-yaml,
+.md-typeset .highlight.language-yml {
+  --arclith-code-accent: #f59e0b;
+}
+
+.md-typeset .highlight.language-json {
+  --arclith-code-accent: #a78bfa;
+}
+
+.md-typeset .highlight.language-bash > span.filename::after,
+.md-typeset .highlight.language-console > span.filename::after,
+.md-typeset .highlight.language-sh > span.filename::after,
+.md-typeset .highlight.language-shell > span.filename::after,
+.md-typeset .highlight.language-zsh > span.filename::after,
+.md-typeset .highlight.language-bash .highlighttable > tbody > tr > th.filename::after,
+.md-typeset .highlight.language-console .highlighttable > tbody > tr > th.filename::after,
+.md-typeset .highlight.language-sh .highlighttable > tbody > tr > th.filename::after,
+.md-typeset .highlight.language-shell .highlighttable > tbody > tr > th.filename::after,
+.md-typeset .highlight.language-zsh .highlighttable > tbody > tr > th.filename::after {
+  content: "a taper dans le terminal";
+}
+
+.md-typeset .highlight.language-python > span.filename::after,
+.md-typeset .highlight.language-py > span.filename::after,
+.md-typeset .highlight.language-python .highlighttable > tbody > tr > th.filename::after,
+.md-typeset .highlight.language-py .highlighttable > tbody > tr > th.filename::after {
+  content: "code Python";
+}
+
+.md-typeset .highlight.language-yaml > span.filename::after,
+.md-typeset .highlight.language-yml > span.filename::after,
+.md-typeset .highlight.language-yaml .highlighttable > tbody > tr > th.filename::after,
+.md-typeset .highlight.language-yml .highlighttable > tbody > tr > th.filename::after {
+  content: "configuration YAML";
+}
+
+.md-typeset .highlight.language-json > span.filename::after,
+.md-typeset .highlight.language-json .highlighttable > tbody > tr > th.filename::after {
+  content: "donnees JSON";
+}
+
+.md-typeset .highlight > span.filename::after,
+.md-typeset .highlighttable > tbody > tr > th.filename::after {
+  border: 1px solid var(--arclith-code-border-color);
+  border-radius: 999px;
+  color: var(--arclith-code-muted-fg);
+  display: inline-block;
+  font-size: 0.58rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.45rem;
+}
+
+.md-typeset .highlight pre {
+  margin: 0;
+}
+
+.md-typeset .highlight code {
+  font-size: 0.72rem;
+}
+
+.md-typeset .highlighttable {
+  border-radius: 0;
+  margin: 0;
+}
+
+.md-typeset .highlighttable .linenos {
+  background: color-mix(in srgb, var(--md-code-bg-color) 88%, black);
+  border-right: 1px solid var(--arclith-code-border-color);
+  color: var(--arclith-code-muted-fg);
+  user-select: none;
+}
+
+.md-typeset .highlighttable .linenodiv {
+  padding: 0.525rem 0.25rem 0.525rem 0.65rem;
+}
+
+.md-typeset .highlighttable .code {
+  width: 100%;
+}
+
+.md-typeset .highlighttable .code .highlight {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+}
+
+.md-typeset .highlighttable .code .highlight pre {
+  padding-left: 0.8rem;
+}

@@ -10,10 +10,17 @@ site_dir: site
 theme:
   name: material
   language: fr
+  features:
+    - content.code.copy
+    - content.code.select
+    - content.code.annotate
   palette:
     scheme: slate
     primary: black
     accent: teal
+
+extra_css:
+  - stylesheets/code-blocks.css
 
 nav:
   - Accueil: index.md
@@ -47,5 +54,15 @@ validation:
 
 markdown_extensions:
   - admonition
+  - attr_list
+  - pymdownx.highlight:
+      anchor_linenums: true
+      auto_title: true
+      line_spans: __span
+      linenums: true
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
   - toc:
       permalink: true
