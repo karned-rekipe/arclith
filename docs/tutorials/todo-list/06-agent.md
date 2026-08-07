@@ -64,6 +64,8 @@ class TodoConversationInterpreter:
             output_type=TodoDraft,
             instructions=(
                 "Tu extrais les champs d'une todo à partir d'une conversation en français. "
+                "Quand la demande est de type 'ajoute une todo pour X' ou 'crée une todo pour X', "
+                "X est le titre de la todo, sauf si l'utilisateur dit explicitement que c'est une description. "
                 "Retourne uniquement les champs explicitement présents ou clairement déduits. "
                 "Ne fabrique pas de titre, de description ou de date. "
                 f"Draft actuel: {current.model_dump_json(exclude_none=True)}"
@@ -168,6 +170,7 @@ Remplacer `src/todo_list_service/adapters/inbound/langgraph/agent.py` par:
 ```python
 from __future__ import annotations
 
+from datetime import date, datetime
 from functools import lru_cache
 from typing import Any, TypedDict
 
@@ -184,6 +187,7 @@ from todo_list_service.infrastructure.containers.todo_container import build_cre
 class AgentState(TypedDict, total=False):
     messages: list[dict[str, Any]]
     draft: dict[str, Any]
+    pending_field: str | None
     answer: str
 
 
@@ -212,6 +216,55 @@ def _last_user_message(state: AgentState) -> str:
 
 def _draft_from_state(state: AgentState) -> TodoDraft:
     return TodoDraft.model_validate(state.get("draft", {}))
+
+
+def _parse_status(raw: str) -> TodoStatus | None:
+    normalized = raw.strip().lower()
+    aliases = {
+        "à faire": TodoStatus.TODO,
+        "a faire": TodoStatus.TODO,
+        "todo": TodoStatus.TODO,
+        "en cours": TodoStatus.WIP,
+        "wip": TodoStatus.WIP,
+        "terminé": TodoStatus.DONE,
+        "termine": TodoStatus.DONE,
+        "done": TodoStatus.DONE,
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    try:
+        return TodoStatus(normalized)
+    except ValueError:
+        return None
+
+
+def _apply_pending_answer(prompt: str, current: TodoDraft, pending_field: str | None) -> tuple[TodoDraft, bool]:
+    answer = prompt.strip()
+    if not answer or pending_field is None:
+        return current, False
+
+    match pending_field:
+        case "title":
+            return current.model_copy(update={"title": answer}), True
+        case "description":
+            return current.model_copy(update={"description": answer}), True
+        case "status":
+            status = _parse_status(answer)
+            if status is None:
+                return current, False
+            return current.model_copy(update={"status": status}), True
+        case "due_date":
+            try:
+                return current.model_copy(update={"due_date": date.fromisoformat(answer)}), True
+            except ValueError:
+                return current, False
+        case "completed_at":
+            try:
+                return current.model_copy(update={"completed_at": datetime.fromisoformat(answer)}), True
+            except ValueError:
+                return current, False
+        case _:
+            return current, False
 
 
 def _missing_fields(draft: TodoDraft) -> list[str]:
@@ -243,16 +296,28 @@ def _question_for(field: str) -> str:
 async def run_agent(state: AgentState) -> AgentState:
     prompt = _last_user_message(state)
     current = _draft_from_state(state)
+    pending_field = state.get("pending_field")
 
     if prompt:
-        extracted = await _intent_interpreter().extract(prompt, current)
-        current = current.model_copy(update=extracted.model_dump(exclude_none=True))
+        current, handled_pending = _apply_pending_answer(prompt, current, pending_field)
+        if not handled_pending:
+            if pending_field:
+                prompt = f"Le message utilisateur répond au champ {pending_field!r}: {prompt}"
+            extracted = await _intent_interpreter().extract(prompt, current)
+            current = current.model_copy(update=extracted.model_dump(exclude_none=True))
 
     missing = _missing_fields(current)
     if missing:
-        answer = _question_for(missing[0])
+        pending_field = missing[0]
+        answer = _question_for(pending_field)
         messages = [*state.get("messages", []), {"role": "assistant", "content": answer}]
-        return {**state, "draft": current.model_dump(mode="json", exclude_none=True), "answer": answer, "messages": messages}
+        return {
+            **state,
+            "draft": current.model_dump(mode="json", exclude_none=True),
+            "pending_field": pending_field,
+            "answer": answer,
+            "messages": messages,
+        }
 
     todo = await _create_todo_use_case().execute(
         CreateTodoCommand(
@@ -265,7 +330,7 @@ async def run_agent(state: AgentState) -> AgentState:
     )
     answer = f"Todo créée: {todo.title} ({todo.uuid})."
     messages = [*state.get("messages", []), {"role": "assistant", "content": answer}]
-    return {**state, "draft": {}, "answer": answer, "messages": messages}
+    return {**state, "draft": {}, "pending_field": None, "answer": answer, "messages": messages}
 
 
 def register_agent(builder: Any, app: Arclith) -> None:
@@ -299,6 +364,8 @@ Envoyer un état incomplet:
 ```
 
 L'agent doit demander le premier champ manquant, par exemple la description ou la date d'échéance.
+Répondre ensuite dans le même thread LangGraph: l'état conserve `draft` et `pending_field`, ce qui
+permet d'affecter une réponse courte comme `Écrire la doc` au champ qui vient d'être demandé.
 
 Envoyer ensuite un état complet:
 
