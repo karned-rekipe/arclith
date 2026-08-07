@@ -28,9 +28,9 @@ cd todo-list-service
 uv sync
 ```
 
-Ce tutoriel nécessite `arclith-cli>=0.11.0`, qui génère une dépendance
-`arclith>=0.14.0`. Ces versions utilisent uniquement le nouveau format
-`observability.enabled`.
+Ce tutoriel nécessite `arclith-cli>=0.12.0`, qui génère une dépendance
+`arclith>=0.15.0`. Ces versions utilisent le format `observability.enabled`
+et le scaffold `add-intent-interpreter`.
 
 Le projet démarre avec `repository: memory`:
 

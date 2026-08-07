@@ -39,7 +39,7 @@ if grep -q '\[tool\.uv\.sources\]' pyproject.toml; then
 fi
 
 ARCLITH_VERSION=$(grep 'arclith\[' pyproject.toml | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
-MIN_ARCLITH_VERSION="0.13.0"
+MIN_ARCLITH_VERSION="0.15.0"
 if version_lt "$ARCLITH_VERSION" "$MIN_ARCLITH_VERSION"; then
     echo -e "${RED}✗ FAIL: arclith version < $MIN_ARCLITH_VERSION (found: $ARCLITH_VERSION)${NC}"
     exit 1
