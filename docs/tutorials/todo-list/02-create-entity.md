@@ -126,4 +126,4 @@ uv run python -m pytest tests/test_todo_entity.py
 arclith-cli add-entity Todo
 ```
 
-Étape suivante: [créer le use case](03-create-usecase.md).
+Étape suivante: [créer les use cases](03-create-usecase.md).

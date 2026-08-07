@@ -25,7 +25,7 @@ nav:
       - Vue d'ensemble: tutorials/todo-list/index.md
       - 1. Initialiser le projet: tutorials/todo-list/01-init-project.md
       - 2. Créer l'entité: tutorials/todo-list/02-create-entity.md
-      - 3. Créer le use case: tutorials/todo-list/03-create-usecase.md
+      - 3. Créer les use cases: tutorials/todo-list/03-create-usecase.md
       - 4. Exposer une API: tutorials/todo-list/04-api.md
       - 5. Exposer un MCP: tutorials/todo-list/05-mcp.md
       - 6. Ajouter un agent: tutorials/todo-list/06-agent.md

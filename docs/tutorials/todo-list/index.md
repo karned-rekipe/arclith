@@ -2,11 +2,27 @@
 
 Ce tutoriel part de zéro et construit une todo list Arclith étape par étape.
 
+## Méthodologie Arclith
+
+Arclith pousse une démarche hexagonale simple: on commence par le métier, puis on branche les outils
+autour. Le cœur se construit dans cet ordre:
+
+1. créer les entités qui portent les données et règles métier;
+2. définir les ports inbound, c'est-à-dire les intentions que l'application expose;
+3. écrire les use cases qui implémentent ces ports et orchestrent le métier;
+4. brancher les adapters inbound comme FastAPI, FastMCP ou LangGraph;
+5. choisir les adapters outbound comme `memory` ou MongoDB pour la persistance.
+
+Cette séparation apporte la souplesse attendue d'une architecture hexagonale: l'API, le MCP, l'agent
+et la base de données sont remplaçables sans déplacer le métier. On peut développer et tester les
+use cases complètement indépendamment de FastAPI, FastMCP, LangGraph ou MongoDB, puis brancher ces
+outils seulement quand le comportement applicatif est clair.
+
 Le fil conducteur est volontairement simple:
 
 - une entité `Todo`;
-- un port inbound `CreateTodoPort`;
-- un use case `CreateTodoUseCase` pour enregistrer une todo;
+- deux ports inbound `CreateTodoPort` et `ListTodosPort`;
+- deux use cases applicatifs pour enregistrer et lister les todos;
 - une API FastAPI;
 - un serveur MCP FastMCP;
 - un agent LangGraph qui collecte les champs manquants avant d'appeler le même use case.
@@ -31,20 +47,25 @@ Une todo contient:
 ```text
 Client HTTP / Client MCP / LangGraph
   -> adapter inbound
-  -> CreateTodoPort
-  -> CreateTodoUseCase
+  -> CreateTodoPort / ListTodosPort
+  -> use case applicatif
   -> Repository[Todo]
   -> memory, puis MongoDB
 ```
 
-L'agent ne persiste jamais directement. Il transforme une conversation en commande structurée puis
-appelle `CreateTodoPort`, exactement comme l'API et le MCP.
+Les adapters inbound ne parlent jamais directement au repository. Ils appellent les ports inbound,
+exactement comme l'agent qui transforme une conversation en commande structurée puis appelle
+`CreateTodoPort`.
+
+L'étape FastAPI pousse aussi le contrat HTTP: format de réponse enveloppé, pagination, headers
+standard, exemples OpenAPI et documentation détaillée des erreurs. L'idée est que la maturité API
+vienne de l'adapter HTTP, tout en gardant le métier testable sans serveur web.
 
 ## Étapes
 
 1. [Initialiser le projet](01-init-project.md)
 2. [Créer l'entité Todo](02-create-entity.md)
-3. [Créer le use case d'enregistrement](03-create-usecase.md)
+3. [Créer les use cases](03-create-usecase.md)
 4. [Exposer une API FastAPI](04-api.md)
 5. [Exposer un MCP FastMCP](05-mcp.md)
 6. [Ajouter un agent LangGraph](06-agent.md)

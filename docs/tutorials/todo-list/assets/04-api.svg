@@ -12,5 +12,5 @@
   <text x="24" y="186" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">Votre choix: 1</text>
   <text x="24" y="224" fill="#f9fafb" font-family="Menlo, Consolas, monospace" font-size="18">Host FastAPI: 0.0.0.0    Port FastAPI: 8120    reload: yes</text>
   <text x="24" y="280" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">✓ config/adapters/inbound/fastapi.yaml</text>
-  <text x="24" y="316" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">✓ Adapter fastapi scaffolde avec succes.</text>
+  <text x="24" y="316" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">✓ Adapter fastapi scaffoldé avec succès.</text>
 </svg>
