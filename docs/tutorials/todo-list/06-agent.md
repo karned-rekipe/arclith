@@ -18,22 +18,22 @@ Il ne connaît pas la persistance. Il appelle le use case applicatif.
 uv add "arclith[langgraph]"
 ```
 
-## Créer le planner
+## Créer l'interpréteur d'intention
 
 Depuis la racine du projet:
 
 ```bash
-arclith-cli add-planner
+arclith-cli add-intent-interpreter
 ```
 
 Répondre:
 
 ```text
-Planner (ex : IngredientIntent, todo_planner)
-  Nom du planner: TodoConversation
+Interpréteur d'intention (ex : IngredientIntent, todo_intent)
+  Nom de l'interpréteur: TodoConversation
 ```
 
-Remplacer `src/todo_list_service/application/planners/todo_conversation.py` par:
+Remplacer `src/todo_list_service/application/intent_interpreters/todo_conversation.py` par:
 
 ```python
 from __future__ import annotations
@@ -54,7 +54,7 @@ class TodoDraft(BaseModel):
     completed_at: datetime | None = Field(default=None)
 
 
-class TodoConversationPlanner:
+class TodoConversationInterpreter:
     def __init__(self, llm: LLMPort) -> None:
         self._llm = llm
 
@@ -175,7 +175,7 @@ from arclith import Arclith
 from arclith.adapters.outbound.pydantic_ai.llm import PydanticAILLMAdapter
 from langgraph.graph import END, START
 
-from todo_list_service.application.planners.todo_conversation import TodoConversationPlanner, TodoDraft
+from todo_list_service.application.intent_interpreters.todo_conversation import TodoConversationInterpreter, TodoDraft
 from todo_list_service.domain.models.todo import TodoStatus
 from todo_list_service.domain.ports.inbound.create_todo import CreateTodoCommand, CreateTodoPort
 from todo_list_service.infrastructure.containers.todo_container import build_create_todo_use_case
@@ -196,11 +196,11 @@ def _create_todo_use_case() -> CreateTodoPort:
 
 
 @lru_cache(maxsize=1)
-def _planner() -> TodoConversationPlanner:
+def _intent_interpreter() -> TodoConversationInterpreter:
     lm_settings = arclith.config.adapters.lm
     if lm_settings is None:
         raise RuntimeError("config/adapters/outbound/lm.yaml est requis pour l'agent.")
-    return TodoConversationPlanner(PydanticAILLMAdapter(lm_settings))
+    return TodoConversationInterpreter(PydanticAILLMAdapter(lm_settings))
 
 
 def _last_user_message(state: AgentState) -> str:
@@ -245,7 +245,7 @@ async def run_agent(state: AgentState) -> AgentState:
     current = _draft_from_state(state)
 
     if prompt:
-        extracted = await _planner().extract(prompt, current)
+        extracted = await _intent_interpreter().extract(prompt, current)
         current = current.model_copy(update=extracted.model_dump(exclude_none=True))
 
     missing = _missing_fields(current)
@@ -366,7 +366,7 @@ Configurer l'URI MongoDB via le resolver de secrets local, puis relancer API, MC
 
 ```bash
 uv add "arclith[langgraph]"
-arclith-cli add-planner TodoConversation
+arclith-cli add-intent-interpreter TodoConversation
 arclith-cli add-adapter --capability llm --adapter lmstudio --param model_name="<model-id-lm-studio>" --yes
 arclith-cli add-adapter --capability observability --adapter langsmith
 arclith-cli add-adapter --capability agent --adapter langgraph --param graph_name=todo_agent --yes

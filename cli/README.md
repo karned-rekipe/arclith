@@ -96,25 +96,27 @@ Comme `add-entity`, cette commande ne câble pas FastAPI, FastMCP, LangGraph, un
 
 ---
 
-### `add-planner` — Ajouter un planner applicatif
+### `add-intent-interpreter` — Ajouter un interpréteur d'intention
 
-Crée uniquement le fichier minimal d'un planner dans `src/<package>/application/planners/`.
+Crée uniquement le fichier minimal d'un interpréteur d'intention dans
+`src/<package>/application/intent_interpreters/`.
 
 ```bash
 cd my-recipe-service
-arclith-cli add-planner IngredientIntent
-arclith-cli add-planner command-router
+arclith-cli add-intent-interpreter IngredientIntent
+arclith-cli add-intent-interpreter command-router
 ```
 
 Fichier généré :
 
 ```text
-src/<package>/application/planners/ingredient_intent.py
+src/<package>/application/intent_interpreters/ingredient_intent.py
 ```
 
-Le planner est le composant applicatif qui transforme une demande naturelle en commande ou DTO
-structuré. Il ne remplace pas LangGraph : LangGraph orchestre les nœuds, tandis que le planner porte
-la traduction d'intention. Le fichier généré reste volontairement vide de logique métier.
+L'interpréteur d'intention est le composant applicatif qui transforme une demande naturelle en
+commande ou DTO structuré. Il ne remplace pas LangGraph : LangGraph orchestre les nœuds, tandis que
+l'interpréteur porte la traduction d'intention. Le fichier généré reste volontairement vide de
+logique métier.
 
 ---
 

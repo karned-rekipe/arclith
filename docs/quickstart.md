@@ -126,13 +126,13 @@ Pour ajouter seulement du cœur métier, sans CRUD ni adapter automatique :
 ```bash
 arclith-cli add-entity ShoppingItem
 arclith-cli add-usecase PlanShoppingList
-arclith-cli add-planner ShoppingIntent
+arclith-cli add-intent-interpreter ShoppingIntent
 ```
 
 Ces commandes créent des fichiers minimaux dans `src/<package>/domain/models/` et
 `src/<package>/domain/ports/inbound/`, `src/<package>/application/use_cases/` ou
-`src/<package>/application/planners/`. Les champs, invariants et appels aux adapters restent du code
-métier à écrire dans le projet.
+`src/<package>/application/intent_interpreters/`. Les champs, invariants et appels aux adapters
+restent du code métier à écrire dans le projet.
 
 L'adapter actif est déclaré dans:
 
@@ -249,7 +249,7 @@ Pour un agent, le cœur doit rester testable sans LLM:
 Natural language
   -> adapter inbound API / MCP / bus
   -> use case application
-  -> planner port
+  -> intent interpreter port
   -> command / DTO structure
   -> service métier
 ```
@@ -259,7 +259,7 @@ structurées, mais n'exécute pas directement le métier.
 
 Exemple de ports applicatifs cibles:
 
-- `PlannerPort`: transforme une phrase en commande structurée;
+- `IntentInterpreterPort`: transforme une phrase en commande structurée;
 - `RepositoryPort`: persiste les entités;
 - `TracePort`: envoie les traces LangSmith ou autre;
 - `EventBusPort`: publie des événements si besoin.
@@ -288,8 +288,8 @@ L'adapter `observability/langsmith` demande le projet LangSmith, l'endpoint, l'a
 `observability.enabled`, met à jour `.env`, et ajoute `.env` au `.gitignore` si besoin.
 
 L'adapter `llm/lmstudio` génère `config/adapters/outbound/lm.yaml`, chargé dans
-`AppConfig.adapters.lm`. Le planner applicatif consomme ensuite un `LLMPort`; LangGraph ne fait
-qu'orchestrer les nœuds et injecter l'adapter outbound.
+`AppConfig.adapters.lm`. L'interpréteur d'intention applicatif consomme ensuite un `LLMPort`;
+LangGraph ne fait qu'orchestrer les nœuds et injecter l'adapter outbound.
 
 Le `langgraph.json` généré pointe vers `.env` pour que le serveur local charge les variables LangSmith.
 Les tests conversationnels et traces agent se font ensuite dans LangSmith Studio.

@@ -85,7 +85,7 @@ def _create_package_layout(package_root: Path) -> None:
         package_root / "domain" / "ports" / "outbound",
         package_root / "application",
         package_root / "application" / "use_cases",
-        package_root / "application" / "planners",
+        package_root / "application" / "intent_interpreters",
         package_root / "adapters",
         package_root / "adapters" / "inbound",
         package_root / "adapters" / "outbound",

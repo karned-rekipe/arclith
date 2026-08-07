@@ -17,7 +17,7 @@ class YamlSecretAdapter(SecretResolver):
           mongodb:
             uri: mongodb://localhost:5971
         lm:
-          planner:
+          intent_interpreter:
             api_key: sk-ant-xxxx
     """
 
@@ -42,4 +42,3 @@ class YamlSecretAdapter(SecretResolver):
                 return None
             current = current[key]
         return str(current) if current is not None else None
-

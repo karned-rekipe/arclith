@@ -13,7 +13,7 @@ La règle d'architecture reste la même du début à la fin:
 ```text
 Demande naturelle
   -> adapter inbound LangGraph
-  -> planner LLM derrière configuration locale
+  -> interpréteur d'intention LLM derrière configuration locale
   -> commande structurée
   -> service/use case métier
   -> repository de l'entité
@@ -126,7 +126,7 @@ langgraph.json
 config/adapters/inbound/langgraph.yaml
 config/adapters/outbound/lm.yaml
 config/adapters/outbound/langsmith.yaml
-src/pantry_agent/application/planners/ingredient_intent.py
+src/pantry_agent/application/intent_interpreters/ingredient_intent.py
 src/pantry_agent/adapters/inbound/langgraph/agent.py
 .env
 ```
@@ -134,7 +134,7 @@ src/pantry_agent/adapters/inbound/langgraph/agent.py
 `langgraph.json` pointe vers `.env`; le serveur LangGraph local charge donc les variables
 `LANGSMITH_TRACING`, `LANGSMITH_PROJECT`, `LANGSMITH_ENDPOINT` et `LANGSMITH_API_KEY`.
 
-## 4. Configurer LM Studio et le planner
+## 4. Configurer LM Studio et l'interpréteur d'intention
 
 Dans LM Studio:
 
@@ -162,13 +162,13 @@ arclith-cli add-adapter \
 Si LM Studio tourne sur la machine hôte et que l'agent tourne en container, remplacer souvent
 `127.0.0.1` par `host.docker.internal`.
 
-Créer le fichier minimal du planner applicatif:
+Créer le fichier minimal de l'interpréteur d'intention applicatif:
 
 ```bash
-arclith-cli add-planner IngredientIntent
+arclith-cli add-intent-interpreter IngredientIntent
 ```
 
-Remplacer `src/pantry_agent/application/planners/ingredient_intent.py` par:
+Remplacer `src/pantry_agent/application/intent_interpreters/ingredient_intent.py` par:
 
 ```python
 from typing import Literal
@@ -187,11 +187,11 @@ class IngredientIntent(BaseModel):
     )
 
 
-class IngredientIntentPlanner:
+class IngredientIntentInterpreter:
     def __init__(self, llm: LLMPort) -> None:
         self._llm = llm
 
-    async def plan(self, prompt: str) -> IngredientIntent:
+    async def interpret(self, prompt: str) -> IngredientIntent:
         return await self._llm.complete_structured(
             prompt,
             output_type=IngredientIntent,
@@ -217,7 +217,7 @@ from arclith import Arclith
 from arclith.adapters.outbound.pydantic_ai.llm import PydanticAILLMAdapter
 from langgraph.graph import END, START
 
-from pantry_agent.application.planners.ingredient_intent import IngredientIntentPlanner
+from pantry_agent.application.intent_interpreters.ingredient_intent import IngredientIntentInterpreter
 from pantry_agent.application.services.ingredient_service import IngredientService
 from pantry_agent.domain.models.ingredient import Ingredient
 from pantry_agent.infrastructure.containers.ingredient_container import build_ingredient_service
@@ -238,11 +238,11 @@ def _ingredient_service() -> IngredientService:
 
 
 @lru_cache(maxsize=1)
-def _intent_planner() -> IngredientIntentPlanner:
+def _intent_interpreter() -> IngredientIntentInterpreter:
     lm_settings = arclith.config.adapters.lm
     if lm_settings is None:
-        raise RuntimeError("config/adapters/outbound/lm.yaml est requis pour le planner agent.")
-    return IngredientIntentPlanner(PydanticAILLMAdapter(lm_settings))
+        raise RuntimeError("config/adapters/outbound/lm.yaml est requis pour l'interpréteur d'intention.")
+    return IngredientIntentInterpreter(PydanticAILLMAdapter(lm_settings))
 
 
 def _last_user_message(state: AgentState) -> str:
@@ -261,7 +261,7 @@ async def run_agent(state: AgentState) -> AgentState:
         messages = [*state.get("messages", []), {"role": "assistant", "content": answer}]
         return {**state, "messages": messages, "answer": answer}
 
-    intent = await _intent_planner().plan(prompt)
+    intent = await _intent_interpreter().interpret(prompt)
 
     if intent.action == "create":
         if not intent.name:
@@ -369,7 +369,7 @@ Le quickstart est valide seulement si:
 - l'API crée et relit une ressource `Ingredient`;
 - LangGraph compile et expose le graphe `pantry_agent`;
 - le nœud agent appelle le service applicatif généré;
-- le planner applicatif traduit la demande en `IngredientIntent`;
+- l'interpréteur d'intention applicatif traduit la demande en `IngredientIntent`;
 - LM Studio répond sur `/v1/models`;
 - LangSmith reçoit les traces quand `LANGSMITH_TRACING=true`.
 
@@ -377,6 +377,6 @@ Le quickstart est valide seulement si:
 
 - Garder le domaine et les use cases indépendants de FastAPI, LangGraph, LangSmith et LM Studio.
 - Faire produire au LLM un objet structuré, puis laisser les use cases appliquer le métier.
-- Garder un planner deterministic ou des tests sans LLM pour les gates CI.
+- Garder un interpréteur déterministe ou des tests sans LLM pour les gates CI.
 - Garder `.env` et les credentials hors Git.
 - Utiliser LangGraph Studio et LangSmith pour tester les conversations et inspecter les traces.

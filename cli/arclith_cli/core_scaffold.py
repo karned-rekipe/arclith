@@ -38,9 +38,9 @@ class {class_name}UseCase({class_name}Port):
         raise NotImplementedError("Implement {class_name}UseCase.execute")
 """
 
-_PLANNER_TEMPLATE = """class {class_name}Planner:
-    async def plan(self, prompt: str) -> None:
-        raise NotImplementedError("Implement {class_name}Planner.plan")
+_INTENT_INTERPRETER_TEMPLATE = """class {class_name}Interpreter:
+    async def interpret(self, prompt: str) -> None:
+        raise NotImplementedError("Implement {class_name}Interpreter.interpret")
 """
 
 
@@ -61,17 +61,17 @@ class UseCaseNames:
 
 
 @dataclass(frozen=True)
-class PlannerNames:
+class IntentInterpreterNames:
     pascal: str
     snake: str
 
     @classmethod
-    def from_input(cls, raw: str) -> PlannerNames:
+    def from_input(cls, raw: str) -> IntentInterpreterNames:
         names = EntityNames.from_input(raw)
-        pascal = _strip_pascal_planner_suffix(names.pascal)
-        snake = _strip_snake_planner_suffix(names.snake)
+        pascal = _strip_pascal_intent_interpreter_suffix(names.pascal)
+        snake = _strip_snake_intent_interpreter_suffix(names.snake)
         if not pascal or not snake:
-            console.print(f"[red]✗[/red] Nom de planner invalide : [bold]{raw}[/bold].")
+            console.print(f"[red]✗[/red] Nom d'interpréteur d'intention invalide : [bold]{raw}[/bold].")
             raise typer.Exit(1)
         return cls(pascal=pascal, snake=snake)
 
@@ -130,24 +130,24 @@ def add_usecase_cmd(*, project_dir: Path | None = None, usecase_name: str) -> Pa
     return usecase_file
 
 
-def add_planner_cmd(*, project_dir: Path | None = None, planner_name: str) -> Path:
+def add_intent_interpreter_cmd(*, project_dir: Path | None = None, intent_name: str) -> Path:
     project_dir = project_dir or Path.cwd()
-    planner_name = planner_name.strip()
-    _assert_project_root(project_dir, command="add-planner")
-    _assert_valid_name(planner_name, label="planner")
+    intent_name = intent_name.strip()
+    _assert_project_root(project_dir, command="add-intent-interpreter")
+    _assert_valid_name(intent_name, label="interpréteur d'intention")
 
     paths = detect_project_paths(project_dir)
-    names = PlannerNames.from_input(planner_name)
-    planner_file = paths.application_planners / f"{names.snake}.py"
-    _assert_missing(planner_file, project_dir)
+    names = IntentInterpreterNames.from_input(intent_name)
+    intent_file = paths.application_intent_interpreters / f"{names.snake}.py"
+    _assert_missing(intent_file, project_dir)
 
-    _ensure_package_dirs(paths, "application", "planners")
-    planner_file.write_text(_PLANNER_TEMPLATE.format(class_name=names.pascal), encoding="utf-8")
+    _ensure_package_dirs(paths, "application", "intent_interpreters")
+    intent_file.write_text(_INTENT_INTERPRETER_TEMPLATE.format(class_name=names.pascal), encoding="utf-8")
     console.print(
-        f"[green]✓[/green] Planner {names.pascal}Planner créé : "
-        f"[bold]{planner_file.relative_to(project_dir)}[/bold]"
+        f"[green]✓[/green] Interpréteur d'intention {names.pascal}Interpreter créé : "
+        f"[bold]{intent_file.relative_to(project_dir)}[/bold]"
     )
-    return planner_file
+    return intent_file
 
 
 def _assert_project_root(project_dir: Path, *, command: str) -> None:
@@ -232,8 +232,8 @@ def _strip_snake_suffix(value: str) -> str:
         value = stripped
 
 
-def _strip_pascal_planner_suffix(value: str) -> str:
-    suffixes = ("Planner",)
+def _strip_pascal_intent_interpreter_suffix(value: str) -> str:
+    suffixes = ("Interpreter",)
     while True:
         stripped = value
         for suffix in suffixes:
@@ -245,8 +245,8 @@ def _strip_pascal_planner_suffix(value: str) -> str:
         value = stripped
 
 
-def _strip_snake_planner_suffix(value: str) -> str:
-    suffixes = ("_planner",)
+def _strip_snake_intent_interpreter_suffix(value: str) -> str:
+    suffixes = ("_interpreter",)
     while True:
         stripped = value
         for suffix in suffixes:

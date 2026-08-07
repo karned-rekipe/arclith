@@ -29,7 +29,7 @@ arclith-cli init todo-list-service
 cd todo-list-service
 arclith-cli add-entity ShoppingItem
 arclith-cli add-usecase PlanShoppingList
-arclith-cli add-planner ShoppingIntent
+arclith-cli add-intent-interpreter ShoppingIntent
 ```
 
 Fichiers générés :
@@ -38,7 +38,7 @@ Fichiers générés :
 src/<package>/domain/models/shopping_item.py
 src/<package>/domain/ports/inbound/plan_shopping_list.py
 src/<package>/application/use_cases/plan_shopping_list.py
-src/<package>/application/planners/shopping_intent.py
+src/<package>/application/intent_interpreters/shopping_intent.py
 ```
 
 Le développeur garde la responsabilité de définir les champs, invariants et orchestration métier.
@@ -110,7 +110,7 @@ Cette capacité n'a pas de clé d'activation dans `config/adapters/adapters.yaml
 
 ### `llm`
 
-Capacité outbound pour configurer le modèle utilisé par les planners et agents.
+Capacité outbound pour configurer le modèle utilisé par les interpréteurs d'intention et agents.
 
 Adapters disponibles:
 
