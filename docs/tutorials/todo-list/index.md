@@ -5,6 +5,7 @@ Ce tutoriel part de zéro et construit une todo list Arclith étape par étape.
 Le fil conducteur est volontairement simple:
 
 - une entité `Todo`;
+- un port inbound `CreateTodoPort`;
 - un use case `CreateTodoUseCase` pour enregistrer une todo;
 - une API FastAPI;
 - un serveur MCP FastMCP;
@@ -30,13 +31,14 @@ Une todo contient:
 ```text
 Client HTTP / Client MCP / LangGraph
   -> adapter inbound
+  -> CreateTodoPort
   -> CreateTodoUseCase
   -> Repository[Todo]
   -> memory, puis MongoDB
 ```
 
 L'agent ne persiste jamais directement. Il transforme une conversation en commande structurée puis
-appelle `CreateTodoUseCase`, exactement comme l'API et le MCP.
+appelle `CreateTodoPort`, exactement comme l'API et le MCP.
 
 ## Étapes
 

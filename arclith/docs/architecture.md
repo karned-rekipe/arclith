@@ -64,18 +64,18 @@ class Ingredient(Entity):
 
 ### `domain/ports/inbound/`
 
-Les ports offerts par le coeur. Ils décrivent les capacités appelables par les adapters entrants
+Les ports offerts par le cœur. Ils décrivent les capacités appelables par les adapters entrants
 sans exposer FastAPI, FastMCP, LangGraph, Pydantic AI ou un autre framework.
 
 Exemples:
 
-- `CreateIngredientUseCasePort`
+- `CreateIngredientPort`
 - `ChatAgentPort`
 - `RunWorkflowPort`
 
 ### `domain/ports/outbound/`
 
-Les interfaces que le coeur consomme pour parler au monde extérieur.
+Les interfaces que le cœur consomme pour parler au monde extérieur.
 
 - `Repository[T]` — contrat de persistance (create, read, update, delete, find_all…)
 - `Logger` — contrat de logging

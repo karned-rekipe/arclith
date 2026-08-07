@@ -47,14 +47,14 @@ from pydantic import Field
 
 from arclith.domain.ports.outbound.repository import Repository
 from todo_list_service.adapters.inbound.schemas.todo_schema import TodoSchema
-from todo_list_service.application.use_cases.create_todo import CreateTodoCommand, CreateTodoUseCase
 from todo_list_service.domain.models.todo import Todo, TodoStatus
+from todo_list_service.domain.ports.inbound.create_todo import CreateTodoCommand, CreateTodoPort
 
 
 class TodoMCP:
     def __init__(
         self,
-        create_todo: CreateTodoUseCase,
+        create_todo: CreateTodoPort,
         repository: Repository[Todo],
         mcp: fastmcp.FastMCP,
     ) -> None:
