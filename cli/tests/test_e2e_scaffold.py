@@ -225,7 +225,7 @@ def test_scaffold_and_run(temp_workspace: Path):
     result = subprocess.run(
         [
             "arclith-cli",
-            "add-planner",
+            "add-intent-interpreter",
             "ShoppingIntent",
         ],
         cwd=project_dir,
@@ -233,9 +233,11 @@ def test_scaffold_and_run(temp_workspace: Path):
         text=True,
         timeout=30,
     )
-    assert result.returncode == 0, f"add-planner failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"add-intent-interpreter failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
     assert (
-        project_dir / "src" / "test_plan_service" / "application" / "planners" / "shopping_intent.py"
+        project_dir / "src" / "test_plan_service" / "application" / "intent_interpreters" / "shopping_intent.py"
     ).exists()
 
     printed_names = ", ".join(
@@ -243,7 +245,7 @@ def test_scaffold_and_run(temp_workspace: Path):
             "ShoppingItem.__name__",
             "PlanShoppingListPort.__name__",
             "PlanShoppingListUseCase.__name__",
-            "ShoppingIntentPlanner.__name__",
+            "ShoppingIntentInterpreter.__name__",
         ]
     )
     import_script = "\n".join(
@@ -251,7 +253,7 @@ def test_scaffold_and_run(temp_workspace: Path):
             "from test_plan_service.domain.models.shopping_item import ShoppingItem",
             "from test_plan_service.domain.ports.inbound.plan_shopping_list import PlanShoppingListPort",
             "from test_plan_service.application.use_cases.plan_shopping_list import PlanShoppingListUseCase",
-            "from test_plan_service.application.planners.shopping_intent import ShoppingIntentPlanner",
+            "from test_plan_service.application.intent_interpreters.shopping_intent import ShoppingIntentInterpreter",
             f"print({printed_names})",
         ]
     )
@@ -269,7 +271,7 @@ def test_scaffold_and_run(temp_workspace: Path):
         timeout=30,
     )
     assert result.returncode == 0, f"Core scaffold import failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-    assert "ShoppingItem PlanShoppingListPort PlanShoppingListUseCase ShoppingIntentPlanner" in result.stdout
+    assert "ShoppingItem PlanShoppingListPort PlanShoppingListUseCase ShoppingIntentInterpreter" in result.stdout
 
     # Step 7 — validate non-interactive adapter generation through the CLI entry point
     result = subprocess.run(

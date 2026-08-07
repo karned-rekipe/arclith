@@ -15,7 +15,7 @@ from rich.tree import Tree
 from . import __version__
 from .add_adapter import add_adapter_cmd
 from .capabilities import CAPABILITY_CATALOG, capability_catalog_as_dict
-from .core_scaffold import add_entity_cmd, add_planner_cmd, add_usecase_cmd
+from .core_scaffold import add_entity_cmd, add_intent_interpreter_cmd, add_usecase_cmd
 from .export_config import export_config_cmd
 from .init_project import init_project_cmd
 from .rename import EntityNames, apply_rename
@@ -221,17 +221,17 @@ def add_usecase(
     add_usecase_cmd(usecase_name=usecase or _prompt_usecase())
 
 
-@app.command(name="add-planner")
-def add_planner(
-    planner: Annotated[
+@app.command(name="add-intent-interpreter")
+def add_intent_interpreter(
+    intent: Annotated[
         str | None,
         typer.Argument(
-            help="Nom du planner applicatif. Exemple : IngredientIntent, todo_planner, command-router",
+            help="Nom de l'interpréteur d'intention. Exemple : IngredientIntent, todo-intent, command-router",
         ),
     ] = None,
 ) -> None:
-    """Créer uniquement le fichier minimal d'un planner dans application/planners."""
-    add_planner_cmd(planner_name=planner or _prompt_planner())
+    """Créer uniquement le fichier minimal d'un interpréteur d'intention."""
+    add_intent_interpreter_cmd(intent_name=intent or _prompt_intent_interpreter())
 
 
 @app.command(name="capabilities")
@@ -327,10 +327,10 @@ def _prompt_usecase() -> str:
             return value
 
 
-def _prompt_planner() -> str:
-    console.print("\n[bold]Planner[/bold] [dim](ex : IngredientIntent, todo_planner)[/dim]")
+def _prompt_intent_interpreter() -> str:
+    console.print("\n[bold]Interpréteur d'intention[/bold] [dim](ex : IngredientIntent, todo_intent)[/dim]")
     while True:
-        value = Prompt.ask("  [bold green]Nom du planner[/bold green]").strip()
+        value = Prompt.ask("  [bold green]Nom de l'interpréteur[/bold green]").strip()
         if not value:
             console.print("  [red]Le nom ne peut pas être vide.[/red]")
         elif not _ENTITY_RE.match(value):

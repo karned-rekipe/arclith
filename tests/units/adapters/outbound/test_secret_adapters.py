@@ -67,8 +67,8 @@ def test_env_missing_var_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_env_key_derivation(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LM_PLANNER_API_KEY", "sk-test")
-    assert EnvSecretAdapter().get("lm.planner.api_key", "ignored") == "sk-test"
+    monkeypatch.setenv("LM_INTENT_INTERPRETER_API_KEY", "sk-test")
+    assert EnvSecretAdapter().get("lm.intent_interpreter.api_key", "ignored") == "sk-test"
 
 
 def test_env_uses_explicit_secret_key_before_derived_key(monkeypatch: pytest.MonkeyPatch) -> None:

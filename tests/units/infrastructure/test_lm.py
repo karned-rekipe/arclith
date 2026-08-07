@@ -32,6 +32,7 @@ def test_build_anthropic_model():
     model = build_pydantic_ai_model(settings)
     from pydantic_ai.models.anthropic import AnthropicModel
     assert isinstance(model, AnthropicModel)
+    assert model.profile["default_structured_output_mode"] == "native"
 
 
 def test_build_openai_model():
@@ -44,10 +45,12 @@ def test_build_openai_model():
     model = build_pydantic_ai_model(settings)
     from pydantic_ai.models.openai import OpenAIChatModel
     assert isinstance(model, OpenAIChatModel)
+    assert model.profile["default_structured_output_mode"] == "native"
+    assert model.profile["supports_json_schema_output"] is True
+    assert model.profile["supports_json_object_output"] is False
 
 
 def test_build_openai_model_requires_base_url():
     settings = LMSettings(provider="openai", model_name="gpt-4o", api_key="sk-x")
     with pytest.raises(ValueError, match="base_url is required"):
         build_pydantic_ai_model(settings)
-

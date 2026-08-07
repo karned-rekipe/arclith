@@ -314,7 +314,7 @@ port: {port}
 LLM_CAPABILITY = CapabilitySpec(
     name="llm",
     layer="outbound",
-    description="Configuration LLM pour planners et agents via une factory Arclith.",
+    description="Configuration LLM pour interpréteurs d'intention et agents via une factory Arclith.",
     activation_config_key=None,
     adapters=(
         AdapterSpec(
@@ -401,7 +401,7 @@ OPENAI_API_KEY={api_key}
             name="anthropic",
             capability="llm",
             layer="outbound",
-            description="Modèle Anthropic pour planners et agents.",
+            description="Modèle Anthropic pour interpréteurs d'intention et agents.",
             config_path="config/adapters/outbound/lm.yaml",
             config_template="""\
 provider: anthropic

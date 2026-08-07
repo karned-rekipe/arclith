@@ -21,8 +21,8 @@ class ProjectPaths:
         return self.package_root / "domain" / "ports" / "inbound"
 
     @property
-    def application_planners(self) -> Path:
-        return self.package_root / "application" / "planners"
+    def application_intent_interpreters(self) -> Path:
+        return self.package_root / "application" / "intent_interpreters"
 
     @property
     def adapters_outbound(self) -> Path:
