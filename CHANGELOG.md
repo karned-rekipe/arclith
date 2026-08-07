@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+---
+
+## [0.15.0] — 2026-08-07
+
+### Changed
+
+- **Intent interpreter** — le scaffold applicatif expose `add-intent-interpreter` et le dossier
+  `application/intent_interpreters`, pour nommer explicitement la traduction d'intention avant
+  l'appel des use cases.
+- **Versions LM Studio** — `arclith` passe à `0.15.0`; `arclith-cli` passe à `0.12.0`
+  et dépend de `arclith>=0.15.0`.
+
+### Fixed
+
+- **Structured output LM Studio** — les modèles OpenAI-compatibles utilisent un profil de sortie
+  structurée compatible `json_schema`, afin de fonctionner avec LM Studio tout en conservant les
+  chemins OpenAI et Anthropic.
+
+---
+
+## [0.14.0] — 2026-08-07
+
 ### Changed
 
 - **Observability cumulative** — `adapters.observability` devient une configuration structurée
