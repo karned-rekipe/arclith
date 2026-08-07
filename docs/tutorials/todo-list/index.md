@@ -57,6 +57,10 @@ Les adapters inbound ne parlent jamais directement au repository. Ils appellent 
 exactement comme l'agent qui transforme une conversation en commande structurée puis appelle
 `CreateTodoPort`.
 
+L'étape FastAPI pousse aussi le contrat HTTP: format de réponse enveloppé, pagination, headers
+standard, exemples OpenAPI et documentation détaillée des erreurs. L'idée est que la maturité API
+vienne de l'adapter HTTP, tout en gardant le métier testable sans serveur web.
+
 ## Étapes
 
 1. [Initialiser le projet](01-init-project.md)

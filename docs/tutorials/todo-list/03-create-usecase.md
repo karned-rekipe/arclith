@@ -106,12 +106,26 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from pydantic import BaseModel, Field
+
 from todo_list_service.domain.models.todo import Todo
+
+
+class ListTodosQuery(BaseModel):
+    page: int = Field(default=1, ge=1)
+    per_page: int = Field(default=20, ge=1, le=100)
+
+
+class ListTodosResult(BaseModel):
+    items: list[Todo]
+    total: int = Field(ge=0)
+    page: int = Field(ge=1)
+    per_page: int = Field(ge=1, le=100)
 
 
 class ListTodosPort(ABC):
     @abstractmethod
-    async def execute(self) -> list[Todo]:
+    async def execute(self, query: ListTodosQuery) -> ListTodosResult:
         raise NotImplementedError
 ```
 
@@ -123,15 +137,26 @@ from __future__ import annotations
 from arclith.domain.ports.outbound.repository import Repository
 
 from todo_list_service.domain.models.todo import Todo
-from todo_list_service.domain.ports.inbound.list_todos import ListTodosPort
+from todo_list_service.domain.ports.inbound.list_todos import (
+    ListTodosPort,
+    ListTodosQuery,
+    ListTodosResult,
+)
 
 
 class ListTodosUseCase(ListTodosPort):
     def __init__(self, repository: Repository[Todo]) -> None:
         self._repository = repository
 
-    async def execute(self) -> list[Todo]:
-        return [todo for todo in await self._repository.find_all() if not todo.is_deleted]
+    async def execute(self, query: ListTodosQuery) -> ListTodosResult:
+        offset = (query.page - 1) * query.per_page
+        items, total = await self._repository.find_page(offset=offset, limit=query.per_page)
+        return ListTodosResult(
+            items=items,
+            total=total,
+            page=query.page,
+            per_page=query.per_page,
+        )
 ```
 
 Les use cases implémentent les ports inbound et dépendent seulement de `Repository[Todo]`. Ils ne
@@ -186,6 +211,7 @@ from todo_list_service.application.use_cases.create_todo import CreateTodoUseCas
 from todo_list_service.application.use_cases.list_todos import ListTodosUseCase
 from todo_list_service.domain.models.todo import Todo, TodoStatus
 from todo_list_service.domain.ports.inbound.create_todo import CreateTodoCommand
+from todo_list_service.domain.ports.inbound.list_todos import ListTodosQuery
 
 
 @pytest.mark.asyncio
@@ -234,7 +260,12 @@ async def test_list_todos_returns_persisted_entities() -> None:
         )
     )
 
-    assert await list_todos.execute() == [todo]
+    result = await list_todos.execute(ListTodosQuery())
+
+    assert result.items == [todo]
+    assert result.total == 1
+    assert result.page == 1
+    assert result.per_page == 20
 ```
 
 Lancer:

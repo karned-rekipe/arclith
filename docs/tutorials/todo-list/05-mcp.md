@@ -48,7 +48,7 @@ from pydantic import Field
 from todo_list_service.adapters.inbound.schemas.todo_schema import TodoSchema
 from todo_list_service.domain.models.todo import TodoStatus
 from todo_list_service.domain.ports.inbound.create_todo import CreateTodoCommand, CreateTodoPort
-from todo_list_service.domain.ports.inbound.list_todos import ListTodosPort
+from todo_list_service.domain.ports.inbound.list_todos import ListTodosPort, ListTodosQuery
 
 
 class TodoMCP:
@@ -90,8 +90,8 @@ class TodoMCP:
         @self._mcp.tool
         async def list_todo_items() -> list[dict]:
             """List todos through the application use case."""
-            todos = await list_todos.execute()
-            return [TodoSchema.model_validate(todo).model_dump(mode="json") for todo in todos]
+            result = await list_todos.execute(ListTodosQuery(page=1, per_page=100))
+            return [TodoSchema.model_validate(todo).model_dump(mode="json") for todo in result.items]
 ```
 
 Créer `src/todo_list_service/adapters/inbound/fastmcp/tools/__init__.py`:
