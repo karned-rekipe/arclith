@@ -133,7 +133,8 @@ Répondre:
   Confirmer la génération ? [y/n] (y): y
 ```
 
-La clé reste dans `.env`, jamais dans Git.
+La clé reste dans `.env`, jamais dans Git. La CLI ajoute `langsmith` à la liste
+`observability.enabled`; OpenTelemetry peut être ajouté ensuite dans la même liste.
 
 ## Générer l'entrypoint LangGraph
 

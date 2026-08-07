@@ -78,17 +78,21 @@ pip install "arclith[opentelemetry]"
 pip install "arclith[all]"
 ```
 
-Pour ajouter LangGraph et LangSmith à un projet généré:
+Pour ajouter LangGraph, LangSmith et OpenTelemetry à un projet généré:
 
 ```bash
 uv add "arclith[langgraph]"
+uv add "arclith[opentelemetry]"
 arclith-cli add-adapter --capability agent --adapter langgraph
 arclith-cli add-adapter --capability observability --adapter langsmith
+arclith-cli add-adapter --capability observability --adapter opentelemetry
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
 
 Arclith génère `langgraph.json`, le point d'entrée LangGraph et le câblage `Arclith.langgraph(...)`.
 Le code spécifique du projet reste dans `src/<package>/adapters/inbound/langgraph/agent.py`.
+LangSmith et OpenTelemetry sont ajoutés dans `observability.enabled` et peuvent être actifs en
+parallèle.
 
 ## Development
 

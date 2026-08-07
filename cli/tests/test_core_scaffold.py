@@ -44,7 +44,8 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
     assert (generated / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8") == (
         "logger: console\n"
         "repository: memory\n"
-        "observability: none\n"
+        "observability:\n"
+        "  enabled: []\n"
     )
     assert (package_root / "domain" / "models" / "__init__.py").exists()
     assert (package_root / "domain" / "ports" / "inbound" / "__init__.py").exists()

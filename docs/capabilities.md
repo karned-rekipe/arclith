@@ -147,10 +147,14 @@ Adapters disponibles:
 Activation:
 
 ```yaml
-observability: langsmith
-# ou
-observability: opentelemetry
+observability:
+  enabled:
+    - langsmith
+    - opentelemetry
 ```
+
+La liste peut contenir un seul adapter ou les deux. Arclith ne garde pas de sélecteur unique
+pour l'observabilité: LangSmith et OpenTelemetry peuvent être actifs en parallèle.
 
 Arclith considère LangSmith Studio comme l'endroit standard pour tester un agent. Le serveur local
 LangGraph doit lire `.env` via `langgraph.json`; `.env` contient `LANGSMITH_API_KEY`,
@@ -285,6 +289,9 @@ arclith-cli add-adapter \
   --param metrics=true \
   --yes
 ```
+
+Ces deux commandes ajoutent chacune leur adapter dans `observability.enabled`; elles ne se
+remplacent pas.
 
 Pour OpenAI:
 

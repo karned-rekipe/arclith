@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 _DUCKDB_SUPPORTED_EXTENSIONS = {".csv", ".parquet", ".json", ".arrow"}
 
@@ -99,6 +99,23 @@ class OpenTelemetrySettings(BaseModel):
         return v
 
 
+ObservabilityAdapter = Literal["langsmith", "opentelemetry"]
+
+
+class ObservabilitySettings(BaseModel):
+    enabled: list[ObservabilityAdapter] = Field(default_factory=list)
+
+    @field_validator("enabled")
+    @classmethod
+    def must_not_contain_duplicates(cls, v: list[ObservabilityAdapter]) -> list[ObservabilityAdapter]:
+        if len(v) != len(set(v)):
+            raise ValueError("observability.enabled ne doit pas contenir de doublons")
+        return v
+
+    def is_enabled(self, adapter: ObservabilityAdapter) -> bool:
+        return adapter in self.enabled
+
+
 class LangGraphSettings(BaseModel):
     name: str = "agent"
     graph: str = "agent"
@@ -111,7 +128,7 @@ _REPOSITORY_CONFIG_SECTIONS: dict[str, str] = {
     "duckdb": "duckdb",
     "mariadb": "mariadb",
 }
-_OBSERVABILITY_CONFIG_SECTIONS: dict[str, str] = {
+_OBSERVABILITY_CONFIG_SECTIONS: dict[ObservabilityAdapter, str] = {
     "langsmith": "langsmith",
     "opentelemetry": "opentelemetry",
 }
@@ -131,7 +148,7 @@ class SoftDeleteSettings(BaseModel):
 class AdaptersSettings(BaseModel):
     logger: Literal["console"] = "console"
     repository: str = "memory"
-    observability: str = "none"
+    observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     mongodb: MongoDBSettings | None = None
     duckdb: DuckDBSettings | None = None
     mariadb: MariaDBSettings | None = None
@@ -159,12 +176,13 @@ class AdaptersSettings(BaseModel):
                 f"repository={self.repository} mais aucune section [adapters.{repository_section}] dans config.yaml"
             )
 
-        observability_section = _OBSERVABILITY_CONFIG_SECTIONS.get(self.observability)
-        if observability_section is not None and getattr(self, observability_section) is None:
-            raise ValueError(
-                f"observability={self.observability} mais aucune section [adapters.{observability_section}] "
-                "dans config.yaml"
-            )
+        for observability_adapter in self.observability.enabled:
+            observability_section = _OBSERVABILITY_CONFIG_SECTIONS[observability_adapter]
+            if getattr(self, observability_section) is None:
+                raise ValueError(
+                    f"observability.enabled contient {observability_adapter} mais aucune section "
+                    f"[adapters.{observability_section}] dans config.yaml"
+                )
         return self
 
 

@@ -25,7 +25,7 @@ from arclith.infrastructure.config import (
 
 def test_default_config_uses_memory():
     assert AppConfig().adapters.repository == "memory"
-    assert AppConfig().adapters.observability == "none"
+    assert AppConfig().adapters.observability.enabled == []
 
 
 def test_custom_repository_adapter_name_is_allowed():
@@ -189,7 +189,7 @@ def test_load_config_dir_mariadb_scoped():
 
 def test_load_config_dir_langsmith_scoped():
     path = _make_config_dir({
-        "adapters/adapters.yaml": {"observability": "langsmith"},
+        "adapters/adapters.yaml": {"observability": {"enabled": ["langsmith"]}},
         "adapters/outbound/langsmith.yaml": {
             "tracing": True,
             "project": "agent-tests",
@@ -200,7 +200,8 @@ def test_load_config_dir_langsmith_scoped():
         },
     })
     config = load_config_dir(path)
-    assert config.adapters.observability == "langsmith"
+    assert config.adapters.observability.enabled == ["langsmith"]
+    assert config.adapters.observability.is_enabled("langsmith") is True
     assert config.adapters.langsmith is not None
     assert config.adapters.langsmith.project == "agent-tests"
     assert config.adapters.langsmith.endpoint == "https://eu.api.smith.langchain.com"
@@ -208,7 +209,7 @@ def test_load_config_dir_langsmith_scoped():
 
 def test_load_config_dir_opentelemetry_scoped():
     path = _make_config_dir({
-        "adapters/adapters.yaml": {"observability": "opentelemetry"},
+        "adapters/adapters.yaml": {"observability": {"enabled": ["opentelemetry"]}},
         "adapters/outbound/opentelemetry.yaml": {
             "enabled": True,
             "service_name": "demo-api",
@@ -221,12 +222,26 @@ def test_load_config_dir_opentelemetry_scoped():
         },
     })
     config = load_config_dir(path)
-    assert config.adapters.observability == "opentelemetry"
+    assert config.adapters.observability.enabled == ["opentelemetry"]
+    assert config.adapters.observability.is_enabled("opentelemetry") is True
     assert config.adapters.opentelemetry is not None
     assert config.adapters.opentelemetry.service_name == "demo-api"
     assert config.adapters.opentelemetry.endpoint == "http://otel-collector:4318"
     assert config.adapters.opentelemetry.metrics is True
     assert config.adapters.opentelemetry.metrics_export_interval_millis == 15000
+
+
+def test_load_config_dir_parallel_observability_scoped():
+    path = _make_config_dir({
+        "adapters/adapters.yaml": {"observability": {"enabled": ["langsmith", "opentelemetry"]}},
+        "adapters/outbound/langsmith.yaml": {"project": "agent-tests"},
+        "adapters/outbound/opentelemetry.yaml": {"enabled": True},
+    })
+    config = load_config_dir(path)
+
+    assert config.adapters.observability.enabled == ["langsmith", "opentelemetry"]
+    assert config.adapters.langsmith is not None
+    assert config.adapters.opentelemetry is not None
 
 
 def test_load_config_dir_langgraph_scoped():
@@ -247,13 +262,28 @@ def test_load_config_dir_langgraph_scoped():
 
 
 def test_langsmith_observability_requires_scoped_config():
-    with pytest.raises(ValidationError, match="observability=langsmith"):
-        AppConfig.model_validate({"adapters": {"observability": "langsmith"}})
+    with pytest.raises(ValidationError, match="observability.enabled contient langsmith"):
+        AppConfig.model_validate({"adapters": {"observability": {"enabled": ["langsmith"]}}})
 
 
 def test_opentelemetry_observability_requires_scoped_config():
-    with pytest.raises(ValidationError, match="observability=opentelemetry"):
-        AppConfig.model_validate({"adapters": {"observability": "opentelemetry"}})
+    with pytest.raises(ValidationError, match="observability.enabled contient opentelemetry"):
+        AppConfig.model_validate({"adapters": {"observability": {"enabled": ["opentelemetry"]}}})
+
+
+def test_observability_scalar_format_is_rejected():
+    with pytest.raises(ValidationError):
+        AppConfig.model_validate({"adapters": {"observability": "langsmith"}})
+
+
+def test_observability_enabled_rejects_duplicates():
+    with pytest.raises(ValidationError, match="doublons"):
+        AppConfig.model_validate({
+            "adapters": {
+                "observability": {"enabled": ["langsmith", "langsmith"]},
+                "langsmith": {"project": "agent-tests"},
+            }
+        })
 
 
 def test_langgraph_settings_defaults():

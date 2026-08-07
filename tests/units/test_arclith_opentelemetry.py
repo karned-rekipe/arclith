@@ -15,7 +15,11 @@ def _make_config_dir(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     (config_dir / "adapters" / "adapters.yaml").write_text(
-        yaml.dump({"observability": "opentelemetry"}),
+        yaml.dump({"observability": {"enabled": ["langsmith", "opentelemetry"]}}),
+        encoding="utf-8",
+    )
+    (config_dir / "adapters" / "outbound" / "langsmith.yaml").write_text(
+        yaml.dump({"project": "agent-tests"}),
         encoding="utf-8",
     )
     (config_dir / "adapters" / "outbound" / "opentelemetry.yaml").write_text(

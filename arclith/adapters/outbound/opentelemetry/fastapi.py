@@ -32,7 +32,9 @@ def instrument_fastapi_app(
     try:
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
     except ImportError as exc:
-        raise RuntimeError('observability=opentelemetry requiert l\'extra "arclith[opentelemetry]".') from exc
+        raise RuntimeError(
+            'observability.enabled contient opentelemetry; installez l\'extra "arclith[opentelemetry]".'
+        ) from exc
 
     FastAPIInstrumentor.instrument_app(app)
 
@@ -50,7 +52,9 @@ def _configure_opentelemetry(
         from opentelemetry.instrumentation.logging import LoggingInstrumentor
         from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
     except ImportError as exc:
-        raise RuntimeError('observability=opentelemetry requiert l\'extra "arclith[opentelemetry]".') from exc
+        raise RuntimeError(
+            'observability.enabled contient opentelemetry; installez l\'extra "arclith[opentelemetry]".'
+        ) from exc
 
     resource = Resource.create({
         SERVICE_NAME: settings.service_name or service_name,
@@ -72,7 +76,9 @@ def _configure_traces(settings: "OpenTelemetrySettings", resource: Any) -> None:
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
     except ImportError as exc:
-        raise RuntimeError('observability=opentelemetry requiert l\'extra "arclith[opentelemetry]".') from exc
+        raise RuntimeError(
+            'observability.enabled contient opentelemetry; installez l\'extra "arclith[opentelemetry]".'
+        ) from exc
 
     provider = TracerProvider(resource=resource)
     provider.add_span_processor(BatchSpanProcessor(_build_span_exporter(settings)))
@@ -85,7 +91,9 @@ def _configure_metrics(settings: "OpenTelemetrySettings", resource: Any) -> None
         from opentelemetry.sdk.metrics import MeterProvider
         from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
     except ImportError as exc:
-        raise RuntimeError('observability=opentelemetry requiert l\'extra "arclith[opentelemetry]".') from exc
+        raise RuntimeError(
+            'observability.enabled contient opentelemetry; installez l\'extra "arclith[opentelemetry]".'
+        ) from exc
 
     reader = PeriodicExportingMetricReader(
         _build_metric_exporter(settings),

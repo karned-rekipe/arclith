@@ -519,7 +519,7 @@ agent = arclith.langgraph(AgentState, register_agent, name="{graph_name}")
 OBSERVABILITY_CAPABILITY = CapabilitySpec(
     name="observability",
     layer="outbound",
-    description="Observabilité et boucle de test agent via LangSmith Studio.",
+    description="Observabilité activable en parallèle via LangSmith et OpenTelemetry.",
     activation_config_key="observability",
     adapters=(
         AdapterSpec(

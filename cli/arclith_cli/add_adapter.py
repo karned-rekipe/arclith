@@ -386,7 +386,7 @@ def _show_recap(
         cfg_path = project_dir / "config" / "adapters" / "adapters.yaml"
         table.add_row(
             str(cfg_path.relative_to(project_dir)),
-            f"[cyan]mis à jour ({capability.activation_config_key})[/cyan]",
+            f"[cyan]mis à jour ({_activation_config_label(capability)})[/cyan]",
         )
 
     console.print()
@@ -434,6 +434,12 @@ def _list_generated_files(
         files.append((container, "remplacé ⚠" if container.exists() else "créé"))
 
     return files
+
+
+def _activation_config_label(capability: CapabilitySpec) -> str:
+    if capability.name == "observability":
+        return "observability.enabled"
+    return capability.activation_config_key or ""
 
 
 # ── Step 5 : generate ─────────────────────────────────────────────────────────
@@ -549,6 +555,10 @@ def _file_template_vars(
 def _update_active_capability(project_dir: Path, capability: CapabilitySpec, adapter: AdapterSpec) -> None:
     if capability.activation_config_key is None:
         return
+    if capability.name == "observability":
+        _enable_observability_adapter(project_dir, adapter)
+        return
+
     cfg = project_dir / "config" / "adapters" / "adapters.yaml"
     key = capability.activation_config_key
     escaped_key = re.escape(key)
@@ -563,6 +573,29 @@ def _update_active_capability(project_dir: Path, capability: CapabilitySpec, ada
             text = text.rstrip("\n") + f"\n{key}: {adapter.name}\n"
         cfg.write_text(text, encoding="utf-8")
     console.print(f"[cyan]↺[/cyan] config/adapters/adapters.yaml → {key}: {adapter.name}")
+
+
+def _enable_observability_adapter(project_dir: Path, adapter: AdapterSpec) -> None:
+    cfg = project_dir / "config" / "adapters" / "adapters.yaml"
+    data = _read_yaml_mapping(cfg)
+    existing = data.get("observability")
+    if isinstance(existing, dict) and isinstance(existing.get("enabled"), list):
+        enabled = []
+        for name in existing["enabled"]:
+            if isinstance(name, str) and name not in enabled:
+                enabled.append(name)
+    else:
+        enabled = []
+
+    if adapter.name not in enabled:
+        enabled.append(adapter.name)
+
+    data["observability"] = {"enabled": enabled}
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    console.print(
+        f"[cyan]↺[/cyan] config/adapters/adapters.yaml → observability.enabled += {adapter.name}"
+    )
 
 
 def _parse_env_template(rendered: str) -> dict[str, str]:
