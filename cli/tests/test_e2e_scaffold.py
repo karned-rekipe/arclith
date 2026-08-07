@@ -238,18 +238,21 @@ def test_scaffold_and_run(temp_workspace: Path):
         project_dir / "src" / "test_plan_service" / "application" / "planners" / "shopping_intent.py"
     ).exists()
 
+    printed_names = ", ".join(
+        [
+            "ShoppingItem.__name__",
+            "PlanShoppingListPort.__name__",
+            "PlanShoppingListUseCase.__name__",
+            "ShoppingIntentPlanner.__name__",
+        ]
+    )
     import_script = "\n".join(
         [
             "from test_plan_service.domain.models.shopping_item import ShoppingItem",
             "from test_plan_service.domain.ports.inbound.plan_shopping_list import PlanShoppingListPort",
             "from test_plan_service.application.use_cases.plan_shopping_list import PlanShoppingListUseCase",
             "from test_plan_service.application.planners.shopping_intent import ShoppingIntentPlanner",
-            "print("
-            "ShoppingItem.__name__, "
-            "PlanShoppingListPort.__name__, "
-            "PlanShoppingListUseCase.__name__, "
-            "ShoppingIntentPlanner.__name__"
-            ")",
+            f"print({printed_names})",
         ]
     )
     result = subprocess.run(
