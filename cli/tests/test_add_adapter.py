@@ -345,7 +345,6 @@ def test_add_opentelemetry_observability_adapter_uses_catalog_params(tmp_path: P
     config = (project_dir / "config" / "adapters" / "outbound" / "opentelemetry.yaml").read_text(
         encoding="utf-8"
     )
-    assert "enabled: true" in config
     assert 'service_name: "demo-api"' in config
     assert 'endpoint: "http://otel-collector:4318"' in config
     assert 'protocol: "http/protobuf"' in config

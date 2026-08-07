@@ -9,8 +9,8 @@ from arclith.adapters.outbound.opentelemetry.fastapi import (
 from arclith.infrastructure.config import OpenTelemetrySettings
 
 
-def test_instrument_fastapi_app_returns_when_disabled() -> None:
-    settings = OpenTelemetrySettings(enabled=False)
+def test_instrument_fastapi_app_returns_when_exports_disabled() -> None:
+    settings = OpenTelemetrySettings(traces=False, metrics=False)
 
     instrument_fastapi_app(FastAPI(), settings, service_name="demo", service_version="1.0.0")
 

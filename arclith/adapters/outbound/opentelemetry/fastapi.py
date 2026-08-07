@@ -22,7 +22,7 @@ def instrument_fastapi_app(
     service_name: str,
     service_version: str,
 ) -> None:
-    if not settings.enabled or not (settings.traces or settings.metrics):
+    if not (settings.traces or settings.metrics):
         return
 
     _configure_opentelemetry(settings, service_name=service_name, service_version=service_version)

@@ -165,7 +165,6 @@ OpenTelemetry se configure avec:
 
 ```yaml
 # config/adapters/outbound/opentelemetry.yaml
-enabled: true
 service_name: "my-service"
 endpoint: "http://localhost:4318"
 protocol: "http/protobuf"
@@ -175,6 +174,9 @@ metrics: false
 instrument_fastapi: true
 metrics_export_interval_millis: 60000
 ```
+
+`opentelemetry.yaml` décrit l'export OTLP. L'activation reste uniquement dans
+`config/adapters/adapters.yaml`, via `observability.enabled`.
 
 Installer l'extra avant d'activer l'adapter:
 

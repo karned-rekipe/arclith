@@ -211,7 +211,6 @@ def test_load_config_dir_opentelemetry_scoped():
     path = _make_config_dir({
         "adapters/adapters.yaml": {"observability": {"enabled": ["opentelemetry"]}},
         "adapters/outbound/opentelemetry.yaml": {
-            "enabled": True,
             "service_name": "demo-api",
             "endpoint": "http://otel-collector:4318",
             "protocol": "http/protobuf",
@@ -235,7 +234,7 @@ def test_load_config_dir_parallel_observability_scoped():
     path = _make_config_dir({
         "adapters/adapters.yaml": {"observability": {"enabled": ["langsmith", "opentelemetry"]}},
         "adapters/outbound/langsmith.yaml": {"project": "agent-tests"},
-        "adapters/outbound/opentelemetry.yaml": {"enabled": True},
+        "adapters/outbound/opentelemetry.yaml": {"instrument_fastapi": True},
     })
     config = load_config_dir(path)
 
@@ -307,7 +306,6 @@ def test_langsmith_settings_defaults():
 def test_opentelemetry_settings_defaults():
     settings = OpenTelemetrySettings()
 
-    assert settings.enabled is True
     assert settings.service_name is None
     assert settings.endpoint == "http://localhost:4318"
     assert settings.traces_endpoint is None
@@ -318,6 +316,11 @@ def test_opentelemetry_settings_defaults():
     assert settings.metrics is False
     assert settings.instrument_fastapi is True
     assert settings.metrics_export_interval_millis == 60000
+
+
+def test_opentelemetry_settings_rejects_legacy_enabled_flag():
+    with pytest.raises(ValidationError):
+        OpenTelemetrySettings.model_validate({"enabled": True})
 
 
 def test_opentelemetry_settings_validates_interval():

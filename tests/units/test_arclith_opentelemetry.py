@@ -23,7 +23,7 @@ def _make_config_dir(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     (config_dir / "adapters" / "outbound" / "opentelemetry.yaml").write_text(
-        yaml.dump({"enabled": True, "instrument_fastapi": True}),
+        yaml.dump({"instrument_fastapi": True}),
         encoding="utf-8",
     )
     return config_dir

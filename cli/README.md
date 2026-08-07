@@ -220,6 +220,8 @@ arclith-cli add-adapter --capability observability --adapter opentelemetry --par
 L'adapter `observability/opentelemetry` génère `config/adapters/outbound/opentelemetry.yaml`, met à
 jour `.env`, l'ajoute à `observability.enabled` et branche l'instrumentation FastAPI quand
 `Arclith.fastapi()` construit l'application. Il peut être activé en même temps que LangSmith.
+Le fichier `opentelemetry.yaml` ne porte pas de flag `enabled`: l'activation se fait uniquement dans
+`observability.enabled`.
 
 Parcours complet avec entité, API, LangGraph, LangSmith et LM Studio:
 [`docs/agent-quickstart.md`](../docs/agent-quickstart.md).

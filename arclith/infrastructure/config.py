@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 _DUCKDB_SUPPORTED_EXTENSIONS = {".csv", ".parquet", ".json", ".arrow"}
 
@@ -79,7 +79,8 @@ class LangSmithSettings(BaseModel):
 
 
 class OpenTelemetrySettings(BaseModel):
-    enabled: bool = True
+    model_config = ConfigDict(extra="forbid")
+
     service_name: str | None = None
     endpoint: str = "http://localhost:4318"
     traces_endpoint: str | None = None

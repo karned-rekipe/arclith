@@ -105,7 +105,6 @@ def test_observability_capability_catalog_declares_opentelemetry() -> None:
     assert opentelemetry.env_path == ".env"
     assert opentelemetry.entity_scoped is False
     assert [parameter.name for parameter in opentelemetry.parameters] == [
-        "enabled",
         "service_name",
         "endpoint",
         "protocol",
