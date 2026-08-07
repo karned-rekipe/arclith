@@ -8,6 +8,9 @@
   `observability.enabled`, pour activer `langsmith` et `opentelemetry` en parallèle. L'ancien
   format scalaire `observability: langsmith|opentelemetry|none` n'est plus accepté, et
   `opentelemetry.yaml` ne contient plus de flag `enabled`.
+- **Versions observability** — `arclith` passe à `0.14.0`; `arclith-cli` passe à `0.11.0`
+  et dépend de `arclith>=0.14.0`, afin que les projets générés utilisent le même schéma de
+  configuration que le tutoriel.
 
 ---
 

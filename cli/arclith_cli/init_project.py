@@ -72,7 +72,7 @@ def _framework_version() -> str:
     try:
         return version("arclith")
     except PackageNotFoundError:
-        return "0.13.0"
+        return "0.14.0"
 
 
 def _create_package_layout(package_root: Path) -> None:

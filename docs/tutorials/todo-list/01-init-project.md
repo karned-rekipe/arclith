@@ -10,6 +10,7 @@ Depuis le dossier qui contiendra les projets de test:
 mkdir -p ~/Perso/projets/demo-arclith
 cd ~/Perso/projets/demo-arclith
 
+uv tool upgrade arclith-cli
 arclith-cli init
 ```
 
@@ -26,6 +27,10 @@ Entrer dans le projet et installer les dépendances:
 cd todo-list-service
 uv sync
 ```
+
+Ce tutoriel nécessite `arclith-cli>=0.11.0`, qui génère une dépendance
+`arclith>=0.14.0`. Ces versions utilisent uniquement le nouveau format
+`observability.enabled`.
 
 Le projet démarre avec `repository: memory`:
 
@@ -69,6 +74,7 @@ tests/test_project_bootstrap.py ..   [100%]
 ## Voie rapide
 
 ```bash
+uv tool upgrade arclith-cli
 arclith-cli init todo-list-service
 cd todo-list-service
 uv sync
