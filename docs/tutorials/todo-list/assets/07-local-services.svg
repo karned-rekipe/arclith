@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="430" viewBox="0 0 1100 430" role="img" aria-labelledby="title desc">
+  <title id="title">Services locaux pour le tutoriel Todo</title>
+  <desc id="desc">API, MCP et LangGraph partagent MongoDB; LangSmith et Jaeger observent l'exécution.</desc>
+  <rect width="1100" height="430" fill="#0b1120"/>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#38bdf8"/>
+    </marker>
+    <marker id="trace" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#f59e0b"/>
+    </marker>
+  </defs>
+  <g font-family="Inter, Arial, sans-serif">
+    <text x="48" y="54" fill="#f8fafc" font-size="28" font-weight="700">Briques locales optionnelles</text>
+    <text x="48" y="84" fill="#cbd5e1" font-size="16">MongoDB partage les données. LangSmith et Jaeger aident à comprendre ce qui se passe.</text>
+
+    <rect x="58" y="132" width="180" height="88" rx="12" fill="#111827" stroke="#60a5fa" stroke-width="2"/>
+    <text x="88" y="166" fill="#f8fafc" font-size="19" font-weight="700">FastAPI</text>
+    <text x="88" y="194" fill="#cbd5e1" font-size="14">port 8120</text>
+
+    <rect x="58" y="252" width="180" height="88" rx="12" fill="#111827" stroke="#22c55e" stroke-width="2"/>
+    <text x="88" y="286" fill="#f8fafc" font-size="19" font-weight="700">FastMCP</text>
+    <text x="88" y="314" fill="#cbd5e1" font-size="14">port 8121</text>
+
+    <rect x="322" y="192" width="190" height="88" rx="12" fill="#111827" stroke="#2dd4bf" stroke-width="2"/>
+    <text x="352" y="226" fill="#f8fafc" font-size="19" font-weight="700">LangGraph</text>
+    <text x="352" y="254" fill="#cbd5e1" font-size="14">port 2024</text>
+
+    <rect x="618" y="192" width="178" height="88" rx="12" fill="#111827" stroke="#a78bfa" stroke-width="2"/>
+    <text x="650" y="226" fill="#f8fafc" font-size="19" font-weight="700">MongoDB</text>
+    <text x="650" y="254" fill="#cbd5e1" font-size="14">port 27017</text>
+
+    <rect x="880" y="112" width="170" height="88" rx="12" fill="#111827" stroke="#fbbf24" stroke-width="2"/>
+    <text x="912" y="146" fill="#f8fafc" font-size="19" font-weight="700">LangSmith</text>
+    <text x="912" y="174" fill="#cbd5e1" font-size="14">runs LLM</text>
+
+    <rect x="880" y="270" width="170" height="88" rx="12" fill="#111827" stroke="#fb923c" stroke-width="2"/>
+    <text x="912" y="304" fill="#f8fafc" font-size="19" font-weight="700">Jaeger</text>
+    <text x="912" y="332" fill="#cbd5e1" font-size="14">traces OTLP</text>
+
+    <line x1="238" y1="176" x2="608" y2="220" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow)"/>
+    <line x1="238" y1="296" x2="608" y2="252" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow)"/>
+    <line x1="512" y1="236" x2="608" y2="236" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow)"/>
+    <line x1="512" y1="214" x2="870" y2="158" stroke="#f59e0b" stroke-width="3" stroke-dasharray="8 8" marker-end="url(#trace)"/>
+    <line x1="238" y1="220" x2="870" y2="314" stroke="#f59e0b" stroke-width="3" stroke-dasharray="8 8" marker-end="url(#trace)"/>
+
+    <text x="412" y="178" fill="#93c5fd" font-size="14">données partagées</text>
+    <text x="686" y="146" fill="#fde68a" font-size="14">debug agent</text>
+    <text x="648" y="332" fill="#fed7aa" font-size="14">observabilité service</text>
+  </g>
+</svg>

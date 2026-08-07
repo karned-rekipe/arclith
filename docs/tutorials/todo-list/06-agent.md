@@ -138,6 +138,27 @@ Répondre:
 La clé reste dans `.env`, jamais dans Git. La CLI ajoute `langsmith` à la liste
 `observability.enabled`; OpenTelemetry peut être ajouté ensuite dans la même liste.
 
+LangSmith sert ici à observer l'agent. Il ne remplace ni LangGraph ni LM Studio:
+
+- LangGraph exécute le graphe localement;
+- LM Studio fournit le modèle local;
+- LangSmith affiche les runs, les messages, les appels LLM et les erreurs.
+
+![Flux LangGraph et LangSmith](assets/06-langsmith-flow.svg)
+
+Ouvrir ensuite <https://smith.langchain.com>, vérifier que le projet
+`todo-list-service-dev` existe, puis garder cet onglet ouvert pour inspecter les traces après les
+premiers essais.
+
+Si LangSmith refuse l'appel mais que LM Studio reçoit bien les requêtes, le problème est souvent
+distinct du modèle local. Vérifier dans cet ordre:
+
+1. `LANGSMITH_API_KEY` est présent dans `.env`;
+2. `LANGSMITH_TRACING=true`;
+3. `LANGSMITH_PROJECT=todo-list-service-dev`;
+4. le compte connecté dans le navigateur a accès au même workspace LangSmith;
+5. l'endpoint est bien `https://api.smith.langchain.com`.
+
 ## Générer l'entrypoint LangGraph
 
 ```bash
@@ -350,6 +371,32 @@ Lancer LangGraph Studio:
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
 
+Le terminal affiche une URL de ce type:
+
+```text
+https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024
+```
+
+Ouvrir cette URL. LangSmith Studio se connecte au serveur LangGraph local démarré sur le port
+`2024`. La documentation de référence est:
+
+- <https://docs.langchain.com/oss/python/langgraph/local-server>
+- <https://docs.langchain.com/langsmith/quick-start-studio>
+
+Si le navigateur bloque l'accès à `localhost`, relancer avec `--tunnel`:
+
+```bash
+uv run langgraph dev --no-browser --allow-blocking --port 2024 --tunnel
+```
+
+Dans Studio:
+
+1. sélectionner le graphe `todo_agent`;
+2. créer un nouveau thread;
+3. envoyer l'état JSON ci-dessous;
+4. répondre aux questions dans le même thread pour conserver `draft` et `pending_field`;
+5. revenir dans le projet LangSmith pour lire la trace du run.
+
 Envoyer un état incomplet:
 
 ```json
@@ -427,7 +474,8 @@ La CLI crée les fichiers repository MongoDB et active:
 repository: mongodb
 ```
 
-Configurer l'URI MongoDB via le resolver de secrets local, puis relancer API, MCP et LangGraph.
+Il reste ensuite à démarrer MongoDB, déclarer l'URI dans un resolver de secrets local, puis relancer
+API, MCP et LangGraph. Le pas-à-pas complet est dans [les annexes locales](07-local-services.md).
 
 ## Voie rapide
 
@@ -441,4 +489,5 @@ arclith-cli add-adapter --capability agent --adapter langgraph --param graph_nam
 # Ensuite, pour partager les données entre processus:
 uv add "arclith[mongodb]"
 arclith-cli add-adapter --capability repository --adapter mongodb --entity Todo --db-name todo_list_service --yes
+# Puis suivre docs/tutorials/todo-list/07-local-services.md pour l'URI MongoDB.
 ```

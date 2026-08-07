@@ -226,6 +226,73 @@ MODE=mcp_http uv run python main.py
 
 Le serveur écoute sur `http://127.0.0.1:8121/mcp`.
 
+## Tester dans LM Studio
+
+LM Studio peut agir comme client MCP depuis l'application. La documentation officielle indique que
+le support MCP côté application existe à partir de LM Studio `0.3.17`, et que l'usage MCP via API
+demande LM Studio `0.4.0` ou plus récent:
+
+- <https://lmstudio.ai/docs/app/mcp>
+- <https://lmstudio.ai/docs/developer/core/mcp>
+
+![Flux LM Studio vers MCP Arclith](assets/05-lmstudio-mcp.svg)
+
+Garder le serveur MCP Arclith lancé:
+
+```bash
+MODE=mcp_http uv run python main.py
+```
+
+Dans LM Studio:
+
+1. Ouvrir le panneau de droite.
+2. Aller dans l'onglet `Program`.
+3. Cliquer sur `Install`, puis `Edit mcp.json`.
+4. Ajouter le serveur MCP du tutoriel.
+
+Si le fichier est vide, utiliser:
+
+```json
+{
+  "mcpServers": {
+    "todo-list-service": {
+      "url": "http://127.0.0.1:8121/mcp"
+    }
+  }
+}
+```
+
+Si LM Studio affiche déjà un objet `mcpServers`, ajouter seulement l'entrée
+`"todo-list-service"` à l'intérieur.
+
+Tester ensuite dans un chat LM Studio avec une demande courte:
+
+```text
+Utilise les tools disponibles pour créer une todo:
+titre Tester LM Studio MCP, description Appel MCP depuis LM Studio,
+échéance 2026-09-01, statut todo.
+```
+
+Le point à vérifier n'est pas la qualité littéraire de la réponse du modèle. Le test est réussi si
+LM Studio voit les tools `create_todo_item` et `list_todo_items`, appelle le serveur
+`http://127.0.0.1:8121/mcp`, et que les logs du service Arclith montrent l'appel entrant.
+
+Captures à ajouter ou remplacer par une vidéo:
+
+- écran `Program` avec le bouton `Edit mcp.json`;
+- contenu `mcp.json` avec `todo-list-service`;
+- chat LM Studio montrant l'appel du tool;
+- logs du terminal MCP côté Arclith.
+
+Problèmes fréquents:
+
+| Symptôme | Cause probable | Action |
+| --- | --- | --- |
+| LM Studio ne voit aucun tool | serveur MCP arrêté ou mauvaise URL | vérifier `MODE=mcp_http` et `http://127.0.0.1:8121/mcp` |
+| connexion refusée | port différent ou process arrêté | relancer le service MCP |
+| le modèle ignore les tools | modèle local trop faible ou tools désactivés | choisir un modèle instruct plus capable et activer les tools |
+| appel depuis Docker impossible | `localhost` pointe vers le container | utiliser `host.docker.internal` |
+
 ## Voie rapide
 
 ```bash
