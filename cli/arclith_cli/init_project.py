@@ -72,22 +72,7 @@ def _framework_version() -> str:
     try:
         return version("arclith")
     except PackageNotFoundError:
-        return "0.13.0"
-
-
-def _local_framework_source() -> Path | None:
-    cli_source_root = Path(__file__).resolve().parents[2]
-    if (cli_source_root / "pyproject.toml").is_file() and (cli_source_root / "arclith").is_dir():
-        return cli_source_root
-    return None
-
-
-def _framework_dependency_spec() -> str:
-    local_source = _local_framework_source()
-    if local_source is not None:
-        return f"arclith[fastapi,mcp] @ {local_source.as_uri()}"
-    framework_version = _framework_version()
-    return f"arclith[fastapi,mcp]>={framework_version}"
+        return "0.14.0"
 
 
 def _create_package_layout(package_root: Path) -> None:
@@ -114,7 +99,7 @@ def _create_package_layout(package_root: Path) -> None:
 
 
 def _write_project_files(target_dir: Path, project_name: str, package_name: str) -> None:
-    framework_dependency = _framework_dependency_spec()
+    framework_version = _framework_version()
     (target_dir / "pyproject.toml").write_text(
         f"""[build-system]
 requires = ["hatchling"]
@@ -126,7 +111,7 @@ version = "0.1.0"
 description = "Arclith service"
 requires-python = ">=3.13"
 dependencies = [
-    "{framework_dependency}",
+    "arclith[fastapi,mcp]>={framework_version}",
 ]
 
 [tool.hatch.build.targets.wheel]
