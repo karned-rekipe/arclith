@@ -12,5 +12,5 @@
   <text x="24" y="206" fill="#d1d5db" font-family="Menlo, Consolas, monospace" font-size="18">$ arclith-cli add-adapter --capability agent</text>
   <text x="24" y="244" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">Votre choix: 1  Nom du graphe LangGraph: todo_agent</text>
   <text x="24" y="300" fill="#d1d5db" font-family="Menlo, Consolas, monospace" font-size="18">$ uv run langgraph dev --no-browser --allow-blocking --port 2024</text>
-  <text x="24" y="354" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">Agent: Je peux enregistrer la todo. Quelle est sa date d'echeance ?</text>
+  <text x="24" y="354" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">Agent: Je peux enregistrer la todo. Quelle est sa date d'échéance ?</text>
 </svg>

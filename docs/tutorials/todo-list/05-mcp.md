@@ -45,27 +45,27 @@ from typing import Annotated
 import fastmcp
 from pydantic import Field
 
-from arclith.domain.ports.outbound.repository import Repository
 from todo_list_service.adapters.inbound.schemas.todo_schema import TodoSchema
-from todo_list_service.domain.models.todo import Todo, TodoStatus
+from todo_list_service.domain.models.todo import TodoStatus
 from todo_list_service.domain.ports.inbound.create_todo import CreateTodoCommand, CreateTodoPort
+from todo_list_service.domain.ports.inbound.list_todos import ListTodosPort
 
 
 class TodoMCP:
     def __init__(
         self,
         create_todo: CreateTodoPort,
-        repository: Repository[Todo],
+        list_todos: ListTodosPort,
         mcp: fastmcp.FastMCP,
     ) -> None:
         self._create_todo = create_todo
-        self._repository = repository
+        self._list_todos = list_todos
         self._mcp = mcp
         self._register_tools()
 
     def _register_tools(self) -> None:
         create_todo = self._create_todo
-        repository = self._repository
+        list_todos = self._list_todos
 
         @self._mcp.tool
         async def create_todo_item(
@@ -89,8 +89,8 @@ class TodoMCP:
 
         @self._mcp.tool
         async def list_todo_items() -> list[dict]:
-            """List todos currently available in the repository."""
-            todos = await repository.find_all()
+            """List todos through the application use case."""
+            todos = await list_todos.execute()
             return [TodoSchema.model_validate(todo).model_dump(mode="json") for todo in todos]
 ```
 
@@ -113,14 +113,14 @@ from arclith import Arclith
 from todo_list_service.adapters.inbound.fastmcp.tools import TodoMCP
 from todo_list_service.infrastructure.containers.todo_container import (
     build_create_todo_use_case,
-    build_todo_repository,
+    build_list_todos_use_case,
 )
 
 
 def register_tools(mcp: fastmcp.FastMCP, arclith: Arclith) -> None:
-    repository = build_todo_repository(arclith)
     create_todo = build_create_todo_use_case(arclith)
-    TodoMCP(create_todo, repository, mcp)
+    list_todos = build_list_todos_use_case(arclith)
+    TodoMCP(create_todo, list_todos, mcp)
 ```
 
 ## Entrypoint API + MCP

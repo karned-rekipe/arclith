@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="300" viewBox="0 0 1120 300" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="360" viewBox="0 0 1120 360" role="img" aria-labelledby="title desc">
   <title id="title">Capture terminal - arclith-cli add-usecase</title>
-  <desc id="desc">Création interactive du use case CreateTodo.</desc>
-  <rect width="1120" height="300" rx="8" fill="#1f2933"/>
+  <desc id="desc">Création interactive des use cases CreateTodo et ListTodos.</desc>
+  <rect width="1120" height="360" rx="8" fill="#1f2933"/>
   <rect y="0" width="1120" height="36" rx="8" fill="#111827"/>
   <circle cx="22" cy="18" r="6" fill="#f87171"/>
   <circle cx="44" cy="18" r="6" fill="#fbbf24"/>
@@ -9,6 +9,8 @@
   <text x="24" y="72" fill="#d1d5db" font-family="Menlo, Consolas, monospace" font-size="18">$ arclith-cli add-usecase</text>
   <text x="24" y="118" fill="#f9fafb" font-family="Menlo, Consolas, monospace" font-size="18">Cas d'usage (ex : PlanShoppingList, find_by_name)</text>
   <text x="24" y="154" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">Nom du cas d'usage: CreateTodo</text>
-  <text x="24" y="204" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">✓ Port inbound CreateTodoPort créé : src/.../domain/ports/inbound/create_todo.py</text>
-  <text x="24" y="240" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">✓ Cas d'usage CreateTodoUseCase créé : src/.../application/use_cases/create_todo.py</text>
+  <text x="24" y="198" fill="#d1d5db" font-family="Menlo, Consolas, monospace" font-size="18">$ arclith-cli add-usecase</text>
+  <text x="24" y="240" fill="#f9fafb" font-family="Menlo, Consolas, monospace" font-size="18">Cas d'usage (ex : PlanShoppingList, find_by_name)</text>
+  <text x="24" y="276" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">Nom du cas d'usage: ListTodos</text>
+  <text x="24" y="326" fill="#a7f3d0" font-family="Menlo, Consolas, monospace" font-size="18">✓ Ports inbound et use cases créés pour CreateTodo et ListTodos</text>
 </svg>
