@@ -1,6 +1,6 @@
 # 2. Créer l'entité Todo
 
-Objectif: utiliser la CLI pour créer le fichier minimal, puis écrire le modèle métier.
+Objectif: utiliser la CLI pour créer le fichier minimal, puis écrire le modèle métier et ses tests.
 
 ![Capture interactive add-entity](assets/02-create-entity.svg)
 
@@ -23,7 +23,7 @@ La CLI crée:
 src/todo_list_service/domain/models/todo.py
 ```
 
-Remplacer le contenu par:
+Modifier `src/todo_list_service/domain/models/todo.py`:
 
 ```python
 from __future__ import annotations
@@ -53,7 +53,7 @@ class Todo(Entity):
     def normalize_title(cls, value: str) -> str:
         normalized = value.strip()
         if not normalized:
-            raise ValueError("title ne peut pas être vide")
+            raise ValueError("title ne peut pas etre vide")
         return normalized
 
     @field_validator("description")
@@ -91,9 +91,9 @@ from todo_list_service.domain.models.todo import Todo, TodoStatus
 
 
 def test_create_todo_with_required_fields() -> None:
-    todo = Todo(title="  Préparer la revue  ", due_date=date(2026, 8, 31))
+    todo = Todo(title="  Preparer la revue  ", due_date=date(2026, 8, 31))
 
-    assert todo.title == "Préparer la revue"
+    assert todo.title == "Preparer la revue"
     assert todo.description == ""
     assert todo.status == TodoStatus.TODO
     assert todo.completed_at is None
