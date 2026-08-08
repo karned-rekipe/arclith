@@ -1,41 +1,15 @@
 # Tutoriel Todo List
 
-Ce tutoriel part de zéro et construit une todo list Arclith étape par étape.
-L'objectif n'est pas seulement d'obtenir du code qui tourne: chaque étape montre pourquoi Arclith
-garde le métier simple pendant que l'on branche FastAPI, MCP, LangGraph, LM Studio, LangSmith,
-MongoDB et OpenTelemetry autour.
+Ce tutoriel part de zéro et construit une todo list Arclith étape par étape. L'objectif est de
+montrer comment garder le métier simple pendant que l'on branche FastAPI, MCP, LangGraph,
+LM Studio, LangSmith, MongoDB et OpenTelemetry autour.
 
 ![Flux Arclith Todo](assets/architecture-flow.svg)
 
-## Méthodologie Arclith
+## Projet téléchargeable
 
-Arclith pousse une démarche hexagonale simple: on commence par le métier, puis on branche les outils
-autour. Le cœur se construit dans cet ordre:
-
-1. créer les entités qui portent les données et règles métier;
-2. définir les ports inbound, c'est-à-dire les intentions que l'application expose;
-3. écrire les use cases qui implémentent ces ports et orchestrent le métier;
-4. brancher les adapters inbound comme FastAPI, FastMCP ou LangGraph;
-5. choisir les adapters outbound comme `memory` ou MongoDB pour la persistance.
-
-Cette séparation apporte la souplesse attendue d'une architecture hexagonale: l'API, le MCP, l'agent
-et la base de données sont remplaçables sans déplacer le métier. On peut développer et tester les
-use cases complètement indépendamment de FastAPI, FastMCP, LangGraph ou MongoDB, puis brancher ces
-outils seulement quand le comportement applicatif est clair.
-
-Le fil conducteur est volontairement simple:
-
-- une entité `Todo`;
-- deux ports inbound `CreateTodoPort` et `ListTodosPort`;
-- deux use cases applicatifs pour enregistrer et lister les todos;
-- une API FastAPI;
-- un serveur MCP FastMCP;
-- un agent LangGraph qui crée, liste et annule une création de todo en appelant les mêmes use cases.
-
-Le chemin principal utilise `repository: memory`. À la fin, on ajoute MongoDB pour partager les
-données entre l'API, le MCP et l'agent quand ils tournent dans des processus différents.
-
-Le POC complet est disponible si vous voulez récupérer directement le résultat final:
+Le dépôt complet du tutoriel est disponible ici:
+<https://github.com/karned-rekipe/arclith-POC-todo>.
 
 ```bash
 git clone https://github.com/karned-rekipe/arclith-POC-todo.git
@@ -44,8 +18,32 @@ uv sync
 uv run python -m pytest
 ```
 
-Ce dépôt sert de version téléchargeable du tutoriel. Les pages ci-dessous restent le pas-à-pas pour
-comprendre pourquoi chaque fichier existe.
+Le dépôt permet de comparer votre progression avec un projet complet. Les pages ci-dessous restent
+la source principale: elles expliquent les générations CLI, puis les fichiers à créer ou modifier.
+
+## Méthodologie Arclith
+
+Arclith pousse une démarche hexagonale simple: on commence par le métier, puis on branche les outils
+autour. Le coeur se construit dans cet ordre:
+
+1. créer les entités qui portent les données et règles métier;
+2. définir les ports inbound, c'est-à-dire les intentions que l'application expose;
+3. écrire les use cases qui implémentent ces ports et orchestrent le métier;
+4. brancher les adapters inbound comme FastAPI, FastMCP ou LangGraph;
+5. choisir les adapters outbound comme `memory` ou MongoDB pour la persistance.
+
+Cette séparation rend l'API, le MCP, l'agent et la base de données remplaçables sans déplacer le
+métier. Les use cases se testent sans serveur web, sans serveur MCP, sans LangGraph et sans MongoDB.
+
+Le fil conducteur contient:
+
+- une entité `Todo`;
+- deux ports inbound `CreateTodoPort` et `ListTodosPort`;
+- deux use cases applicatifs pour enregistrer et lister les todos;
+- une API FastAPI;
+- un serveur MCP FastMCP;
+- un agent LangGraph capable de créer une todo, lister les todos et annuler une création en cours;
+- un adapter MongoDB pour partager les données entre plusieurs processus.
 
 ## Modèle cible
 
@@ -54,7 +52,7 @@ Une todo contient:
 | Champ | Type | Règle |
 | --- | --- | --- |
 | `title` | `str` | obligatoire, non vide |
-| `description` | `str` | optionnel côté API, stocké comme chaîne |
+| `description` | `str` | optionnel côté API et agent, stocké comme chaîne |
 | `due_date` | `date` | obligatoire |
 | `completed_at` | `datetime | None` | renseigné seulement si le statut est `done` |
 | `status` | `todo | wip | done` | `todo` par défaut |
@@ -67,20 +65,16 @@ Client HTTP / Client MCP / LangGraph
   -> CreateTodoPort / ListTodosPort
   -> use case applicatif
   -> Repository[Todo]
-  -> memory, puis MongoDB
+  -> memory en test, MongoDB en runtime multi-processus
 ```
 
-Les adapters inbound ne parlent jamais directement au repository. Ils appellent les ports inbound,
-exactement comme l'agent qui transforme une conversation en commande structurée puis appelle
+Les adapters inbound ne parlent jamais directement au repository. Ils appellent les ports inbound.
+L'agent transforme une conversation en décision ou en commande structurée, puis appelle
 `CreateTodoPort` ou `ListTodosPort`.
-
-L'étape FastAPI pousse aussi le contrat HTTP: format de réponse enveloppé, pagination, headers
-standard, exemples OpenAPI et documentation détaillée des erreurs. L'idée est que la maturité API
-vienne de l'adapter HTTP, tout en gardant le métier testable sans serveur web.
 
 ## Étapes
 
-0. [Préparer LM Studio](00-lm-studio.md), utile avant l'étape agent
+0. [Préparer LM Studio](00-lm-studio.md), utile pour l'étape agent
 1. [Initialiser le projet](01-init-project.md)
 2. [Créer l'entité Todo](02-create-entity.md)
 3. [Créer les use cases](03-create-usecase.md)
@@ -89,16 +83,17 @@ vienne de l'adapter HTTP, tout en gardant le métier testable sans serveur web.
 6. [Ajouter un agent LangGraph](06-agent.md)
 7. [Annexes locales: MongoDB, Compass et OpenTelemetry](07-local-services.md)
 
-Chaque page montre le mode interactif de la CLI. La voie rapide non interactive est donnée en fin de
-page pour les scripts et les reprises.
+Chaque page montre le mode interactif de la CLI, puis les fichiers à créer ou modifier. La voie
+rapide non interactive est donnée en fin de page pour les scripts et les reprises.
 
 ## Prérequis
 
 - Python 3.13;
 - `uv`;
 - `git`;
-- LM Studio seulement pour la dernière étape agent et le test MCP dans LM Studio;
-- une clé LangSmith seulement si vous voulez tracer l'agent dans LangSmith.
+- Docker pour MongoDB et OpenTelemetry;
+- LM Studio pour l'agent et le test MCP depuis LM Studio;
+- une clé LangSmith si vous voulez tracer l'agent dans LangSmith.
 
 Installer la CLI publiée:
 
