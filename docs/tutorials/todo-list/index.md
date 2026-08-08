@@ -86,6 +86,20 @@ L'agent transforme une conversation en décision ou en commande structurée, pui
 Chaque page montre le mode interactif de la CLI, puis les fichiers à créer ou modifier. La voie
 rapide non interactive est donnée en fin de page pour les scripts et les reprises.
 
+Les étapes API, MCP et agent sont découpées en sous-étapes:
+
+- API: [config et schémas](04-api-config-schemas.md), [handlers](04-api-handlers.md),
+  [router et main](04-api-router-main.md), [tests](04-api-tests.md);
+- MCP: [tools](05-mcp-tools.md), [entrypoint et tests](05-mcp-entrypoint-tests.md),
+  [LM Studio](05-mcp-lm-studio.md);
+- Agent: [config LLM/LangSmith](06-agent-config.md),
+  [intent-interpreters](06-agent-intent-interpreters.md),
+  [état et parsing](06-agent-state-parsing.md),
+  [action et collecte](06-agent-action-collection.md),
+  [routing et dépendances](06-agent-routing-dependencies.md),
+  [noeuds et graphe](06-agent-nodes-graph.md),
+  [tests et Studio](06-agent-tests-studio.md).
+
 ## Prérequis
 
 - Python 3.13;
