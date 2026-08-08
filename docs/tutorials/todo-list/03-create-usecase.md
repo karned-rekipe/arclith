@@ -18,7 +18,7 @@ Cas d'usage (ex : PlanShoppingList, find_by_name)
   Nom du cas d'usage: CreateTodo
 ```
 
-Relancer ensuite le même wizard pour le listing:
+Relancer le wizard pour le listing:
 
 ```bash
 arclith-cli add-usecase
@@ -40,7 +40,14 @@ src/todo_list_service/application/use_cases/create_todo.py
 src/todo_list_service/application/use_cases/list_todos.py
 ```
 
-Remplacer `src/todo_list_service/domain/ports/inbound/create_todo.py` par:
+
+Créer les packages applicatifs:
+
+```bash
+touch src/todo_list_service/application/use_cases/__init__.py
+```
+
+Modifier `src/todo_list_service/domain/ports/inbound/create_todo.py`:
 
 ```python
 from __future__ import annotations
@@ -67,7 +74,7 @@ class CreateTodoPort(ABC):
         raise NotImplementedError
 ```
 
-Remplacer `src/todo_list_service/application/use_cases/create_todo.py` par:
+Modifier `src/todo_list_service/application/use_cases/create_todo.py`:
 
 ```python
 from __future__ import annotations
@@ -99,7 +106,7 @@ class CreateTodoUseCase(CreateTodoPort):
         return await self._repository.create(todo)
 ```
 
-Remplacer `src/todo_list_service/domain/ports/inbound/list_todos.py` par:
+Modifier `src/todo_list_service/domain/ports/inbound/list_todos.py`:
 
 ```python
 from __future__ import annotations
@@ -129,7 +136,7 @@ class ListTodosPort(ABC):
         raise NotImplementedError
 ```
 
-Remplacer `src/todo_list_service/application/use_cases/list_todos.py` par:
+Modifier `src/todo_list_service/application/use_cases/list_todos.py`:
 
 ```python
 from __future__ import annotations
@@ -162,10 +169,14 @@ class ListTodosUseCase(ListTodosPort):
 Les use cases implémentent les ports inbound et dépendent seulement de `Repository[Todo]`. Ils ne
 connaissent ni FastAPI, ni FastMCP, ni LangGraph, ni MongoDB.
 
-Créer ensuite le container applicatif `src/todo_list_service/infrastructure/containers/todo_container.py`:
+## Container applicatif
+
+Créer `src/todo_list_service/infrastructure/containers/todo_container.py`:
 
 ```python
 from __future__ import annotations
+
+from weakref import WeakKeyDictionary
 
 from arclith import Arclith
 from arclith.domain.ports.outbound.repository import Repository
@@ -176,14 +187,19 @@ from todo_list_service.domain.models.todo import Todo
 from todo_list_service.domain.ports.inbound.create_todo import CreateTodoPort
 from todo_list_service.domain.ports.inbound.list_todos import ListTodosPort
 
-_repository: Repository[Todo] | None = None
+_repositories: WeakKeyDictionary[Arclith, Repository[Todo]] = WeakKeyDictionary()
 
 
 def build_todo_repository(app: Arclith) -> Repository[Todo]:
-    global _repository
-    if _repository is None:
-        _repository = app.repository(Todo)
-    return _repository
+    repository = _repositories.get(app)
+    if repository is None:
+        repository = app.repository(Todo)
+        _repositories[app] = repository
+    return repository
+
+
+def clear_todo_repository_cache() -> None:
+    _repositories.clear()
 
 
 def build_create_todo_use_case(app: Arclith) -> CreateTodoPort:
@@ -194,8 +210,8 @@ def build_list_todos_use_case(app: Arclith) -> ListTodosPort:
     return ListTodosUseCase(build_todo_repository(app))
 ```
 
-Le cache module-level est volontaire pour le mode `memory`: tous les appels API/MCP du même
-processus partagent le même repository.
+Le cache par instance `Arclith` permet de partager un repository `memory` dans le même processus tout
+en gardant les tests isolables avec `clear_todo_repository_cache()`.
 
 ## Tester
 
@@ -221,7 +237,7 @@ async def test_create_todo_persists_entity() -> None:
 
     todo = await use_case.execute(
         CreateTodoCommand(
-            title="Écrire le tutoriel",
+            title="Ecrire le tutoriel",
             description="Couvrir API, MCP et agent",
             due_date=date(2026, 9, 1),
         )

@@ -101,7 +101,7 @@ arclith-cli add-adapter \
 | --- | --- | --- |
 | `Connection refused` | serveur LM Studio arrêté | démarrer le serveur local |
 | `invalid model identifier` | model id incorrect | recopier l'`id` de `/v1/models` |
-| erreur `response_format` | version Arclith trop ancienne | utiliser `arclith>=0.15.0` |
+| erreur `response_format` | version Arclith incompatible | utiliser `arclith>=0.15.0` |
 | appel depuis Docker impossible | `localhost` pointe dans le container | utiliser `host.docker.internal:1234` |
 
 Étape suivante: [initialiser le projet](01-init-project.md).
