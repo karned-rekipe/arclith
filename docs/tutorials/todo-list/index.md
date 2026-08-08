@@ -30,10 +30,22 @@ Le fil conducteur est volontairement simple:
 - deux use cases applicatifs pour enregistrer et lister les todos;
 - une API FastAPI;
 - un serveur MCP FastMCP;
-- un agent LangGraph qui collecte les champs manquants avant d'appeler le même use case.
+- un agent LangGraph qui crée, liste et annule une création de todo en appelant les mêmes use cases.
 
 Le chemin principal utilise `repository: memory`. À la fin, on ajoute MongoDB pour partager les
 données entre l'API, le MCP et l'agent quand ils tournent dans des processus différents.
+
+Le POC complet est disponible si vous voulez récupérer directement le résultat final:
+
+```bash
+git clone https://github.com/karned-rekipe/arclith-POC-todo.git
+cd arclith-POC-todo
+uv sync
+uv run python -m pytest
+```
+
+Ce dépôt sert de version téléchargeable du tutoriel. Les pages ci-dessous restent le pas-à-pas pour
+comprendre pourquoi chaque fichier existe.
 
 ## Modèle cible
 
@@ -60,7 +72,7 @@ Client HTTP / Client MCP / LangGraph
 
 Les adapters inbound ne parlent jamais directement au repository. Ils appellent les ports inbound,
 exactement comme l'agent qui transforme une conversation en commande structurée puis appelle
-`CreateTodoPort`.
+`CreateTodoPort` ou `ListTodosPort`.
 
 L'étape FastAPI pousse aussi le contrat HTTP: format de réponse enveloppé, pagination, headers
 standard, exemples OpenAPI et documentation détaillée des erreurs. L'idée est que la maturité API

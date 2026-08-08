@@ -49,6 +49,19 @@ L'objectif est de montrer le standard Arclith attendu:
 
 ## Schémas HTTP
 
+Les fichiers de l'adapter API ont chacun une responsabilité précise:
+
+| Fichier | Rôle |
+| --- | --- |
+| `adapters/inbound/schemas/todo_schema.py` | Définit les payloads et réponses HTTP. C'est le contrat exposé dans Swagger, pas le modèle métier. |
+| `adapters/inbound/fastapi/handlers/todo_handlers.py` | Traduit HTTP vers `CreateTodoCommand` et `ListTodosQuery`, puis traduit les résultats en réponses Arclith. |
+| `adapters/inbound/fastapi/routers/todo_router.py` | Déclare les routes, métadonnées OpenAPI, exemples, headers et statuts HTTP. |
+| `adapters/inbound/fastapi/register.py` | Récupère les use cases via le container et branche le router dans l'application FastAPI. |
+| `main.py` | Crée l'instance `Arclith`, l'application FastAPI et lance le transport choisi. |
+
+Le découpage évite de mélanger contrat HTTP, orchestration applicative et wiring. Le handler voit
+les ports inbound; le router voit FastAPI; aucun des deux ne manipule directement `Repository[Todo]`.
+
 Créer `src/todo_list_service/adapters/inbound/schemas/todo_schema.py`:
 
 ```python
