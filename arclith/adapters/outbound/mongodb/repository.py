@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 from typing import Any, Generic, Optional, TypeVar
 from uuid6 import UUID, uuid7
@@ -65,13 +65,21 @@ class MongoDBRepository(Repository[T], Generic[T]):
     def _collection(self) -> _MongoCollection:
         return _MongoCollection(self._config, self._logger)
 
+    def _to_mongo_value(self, value: Any) -> Any:
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, date):
+            return value.isoformat()
+        if isinstance(value, dict):
+            return {key: self._to_mongo_value(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self._to_mongo_value(item) for item in value]
+        return value
+
     def _to_doc(self, entity: T) -> dict[str, Any]:
         doc = entity.model_dump()
         doc["_id"] = str(doc.pop("uuid"))
-        for key, value in doc.items():
-            if isinstance(value, datetime):
-                doc[key] = value.isoformat()
-        return doc
+        return {key: self._to_mongo_value(value) for key, value in doc.items()}
 
     def _from_doc(self, doc: dict[str, Any]) -> T:
         doc = dict(doc)
