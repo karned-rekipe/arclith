@@ -34,6 +34,18 @@ config/adapters/inbound/fastmcp.yaml
 
 ## Tools MCP
 
+Le MCP expose le même coeur métier sous forme de tools appelables par un modèle ou un client MCP:
+
+| Fichier | Rôle |
+| --- | --- |
+| `adapters/inbound/fastmcp/tools/todo_tools.py` | Déclare les tools `create_todo_item` et `list_todo_items`, leurs paramètres typés et leur payload de retour. |
+| `adapters/inbound/fastmcp/tools/__init__.py` | Exporte `TodoMCP` pour garder un import stable côté registration. |
+| `adapters/inbound/fastmcp/register.py` | Construit les use cases via le container et installe les tools sur l'instance FastMCP. |
+| `main.py` | Conserve un seul point d'entrée pour API, MCP HTTP ou les deux transports. |
+
+Un tool MCP n'est pas un raccourci vers la base. Il adapte un appel tool vers un port inbound, comme
+l'API adapte une requête HTTP vers le même port.
+
 Créer `src/todo_list_service/adapters/inbound/fastmcp/tools/todo_tools.py`:
 
 ```python
@@ -140,7 +152,8 @@ from arclith import Arclith
 from todo_list_service.adapters.inbound.fastapi.register import register_routers
 from todo_list_service.adapters.inbound.fastmcp.register import register_tools
 
-_CONFIG = Path(__file__).parent / "config"
+_DEFAULT_CONFIG = Path(__file__).parent / "config"
+_CONFIG = Path(os.getenv("TODO_LIST_CONFIG_DIR", str(_DEFAULT_CONFIG)))
 _VALID_MODES = {"api", "mcp_http", "all"}
 
 MODE = os.getenv("MODE", "api")
@@ -154,10 +167,11 @@ app = arclith.fastapi()
 register_routers(app, arclith)
 
 
-def build_mcp() -> fastmcp.FastMCP:
-    mcp = arclith.fastmcp("Todo MCP")
-    register_tools(mcp, arclith)
-    arclith.instrument_mcp(mcp)
+def build_mcp(config_dir: Path | str | None = None) -> fastmcp.FastMCP:
+    current_arclith = arclith if config_dir is None else Arclith(Path(config_dir))
+    mcp = current_arclith.fastmcp("Todo MCP")
+    register_tools(mcp, current_arclith)
+    current_arclith.instrument_mcp(mcp)
     return mcp
 
 
@@ -211,6 +225,12 @@ async def test_mcp_create_and_list_todos() -> None:
         listed = await client.call_tool("list_todo_items", {})
         assert not listed.is_error
 ```
+
+Quand le runtime final passera à MongoDB, gardez les tests rapides en mémoire avec une fixture qui
+copie `config/` dans un dossier temporaire, remplace seulement `repository: mongodb` par
+`repository: memory`, puis appelle `build_mcp(memory_config)`. Le POC publié contient cette variante
+pour prouver que `create_todo_item` et `list_todo_items` partagent bien le même repository mémoire
+dans le même processus de test.
 
 Lancer:
 
