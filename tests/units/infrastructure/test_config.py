@@ -169,6 +169,22 @@ def test_load_config_dir_cache_scoped():
     assert config.cache.tenant_uri_ttl == 180
 
 
+def test_load_config_dir_redis_cache_scoped():
+    path = _make_config_dir({
+        "adapters/inbound/cache.yaml": {
+            "backend": "redis",
+            "redis_url": "redis://cache:6379/0",
+            "jwks_ttl": 900,
+            "tenant_uri_ttl": 120,
+        }
+    })
+    config = load_config_dir(path)
+    assert config.cache.backend == "redis"
+    assert config.cache.redis_url == "redis://cache:6379/0"
+    assert config.cache.jwks_ttl == 900
+    assert config.cache.tenant_uri_ttl == 120
+
+
 def test_load_config_dir_mongodb_scoped():
     path = _make_config_dir({
         "adapters/adapters.yaml": {"repository": "mongodb"},
@@ -766,3 +782,47 @@ def test_adapters_mariadb_url_and_password_loaded_from_env_mapping(monkeypatch: 
     assert config.adapters.mariadb is not None
     assert config.adapters.mariadb.url == "mysql+asyncmy://env-app@db:3306/env_demo"
     assert config.adapters.mariadb.password == "env-password"
+
+
+def test_cache_redis_url_loaded_from_env_mapping(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("REDIS_URL", "redis://cache:6379/0")
+    config_dir = _make_config_dir({
+        "adapters/inbound/cache.yaml": {
+            "backend": "redis",
+            "redis_url": "",
+            "jwks_ttl": 900,
+            "tenant_uri_ttl": 120,
+        },
+        "secrets.yaml": {
+            "resolver": "env",
+            "mappings": {
+                "cache.redis_url": "REDIS_URL",
+            },
+        },
+    })
+
+    config = load_config_dir(config_dir)
+
+    assert config.cache.backend == "redis"
+    assert config.cache.redis_url == "redis://cache:6379/0"
+
+
+def test_cache_missing_redis_env_secret_raises_actionable_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    config_dir = _make_config_dir({
+        "adapters/inbound/cache.yaml": {
+            "backend": "redis",
+            "redis_url": "",
+        },
+        "secrets.yaml": {
+            "resolver": "env",
+            "mappings": {
+                "cache.redis_url": "REDIS_URL",
+            },
+        },
+    })
+
+    with pytest.raises(RuntimeError, match="Secrets non résolus.*cache.redis_url"):
+        load_config_dir(config_dir)

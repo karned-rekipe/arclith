@@ -169,9 +169,11 @@ Capacité outbound transverse pour le cache technique utilisé par JWT JWKS, ide
 résolution tenant. Elle n'est pas liée aux entités métier et ne doit pas être confondue avec
 `repository/memory`, qui stocke les entités derrière un port repository.
 
-Adapter disponible:
+Adapters disponibles:
 
 - `memory`: cache local par processus pour développement, tests, smokes locaux et worker unique.
+- `redis`: cache partagé pour workers multiples, réplicas Kubernetes ou processus API/MCP/agent
+  séparés.
 
 Configuration runtime:
 
@@ -182,6 +184,21 @@ jwks_ttl: 3600
 tenant_uri_ttl: 300
 ```
 
+Redis:
+
+```yaml
+# config/adapters/inbound/cache.yaml
+backend: redis
+redis_url: ""
+jwks_ttl: 3600
+tenant_uri_ttl: 300
+
+# config/secrets.yaml
+resolver: env
+mappings:
+  cache.redis_url: REDIS_URL
+```
+
 Cette capacité n'a pas de clé d'activation dans `config/adapters/adapters.yaml`: le chemin
 `config/adapters/inbound/cache.yaml` est chargé directement dans `AppConfig.cache`.
 
@@ -189,6 +206,25 @@ Cette capacité n'a pas de clé d'activation dans `config/adapters/adapters.yaml
 agent LangGraph ou plusieurs workers lancés séparément ne partagent donc pas les JWKS, réponses
 idempotentes ou coordonnées tenant mises en cache. Passer à Redis dès qu'il faut un cache partagé
 entre workers, réplicas ou processus API/MCP/agent.
+
+Installer l'extra Redis dans les services qui activent `cache/redis`:
+
+```bash
+uv add "arclith[cache]"
+```
+
+Exemple Docker Compose local:
+
+```yaml
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+```
+
+Depuis un service lancé dans le même réseau Compose, utiliser `REDIS_URL=redis://redis:6379`. Depuis
+un processus lancé sur l'hôte, utiliser `REDIS_URL=redis://127.0.0.1:6379`.
 
 ### `api`
 
@@ -471,6 +507,12 @@ arclith-cli add-adapter \
 arclith-cli add-adapter \
   --capability cache \
   --adapter memory \
+  --yes
+
+arclith-cli add-adapter \
+  --capability cache \
+  --adapter redis \
+  --param redis_url=redis://redis:6379 \
   --yes
 
 arclith-cli add-adapter \

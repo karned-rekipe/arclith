@@ -1001,6 +1001,59 @@ def test_add_cache_memory_adapter_generates_loadable_config(tmp_path: Path) -> N
     assert isinstance(app._cache, MemoryCacheAdapter)
 
 
+def test_add_cache_redis_adapter_generates_secret_mapping(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    (project_dir / ".env").write_text("EXISTING=value\n", encoding="utf-8")
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="cache",
+        adapter="redis",
+        adapter_params={
+            "redis_url": "redis://cache:6379/0",
+            "jwks_ttl": "900",
+            "tenant_uri_ttl": "120",
+        },
+        yes=True,
+    )
+    captured = capsys.readouterr()
+
+    cache_config = (project_dir / "config" / "adapters" / "inbound" / "cache.yaml").read_text(
+        encoding="utf-8"
+    )
+    secrets = yaml.safe_load((project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8"))
+    env = (project_dir / ".env").read_text(encoding="utf-8")
+
+    assert cache_config == 'backend: redis\nredis_url: ""\njwks_ttl: 900\ntenant_uri_ttl: 120\n'
+    assert secrets["resolver"] == "env"
+    assert secrets["mappings"]["cache.redis_url"] == "REDIS_URL"
+    assert "EXISTING=value" in env
+    assert "REDIS_URL=redis://cache:6379/0" in env
+    assert "cache:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "redis://cache:6379/0" not in cache_config
+    assert "redis://cache:6379/0" not in (project_dir / "config" / "secrets.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "redis://cache:6379/0" not in captured.out
+    assert "redis://cache:6379/0" not in captured.err
+
+    monkeypatch.setenv("REDIS_URL", "redis://cache:6379/0")
+    from arclith import Arclith
+
+    app = Arclith(project_dir / "config")
+
+    assert app.config.cache.backend == "redis"
+    assert app.config.cache.redis_url == "redis://cache:6379/0"
+    assert app.config.cache.jwks_ttl == 900
+    assert app.config.cache.tenant_uri_ttl == 120
+
+
 def test_boolean_string_default_false_is_false(tmp_path: Path) -> None:
     parameter = ParameterSpec(name="multitenant", kind="boolean", prompt="multitenant", default="false")
 
