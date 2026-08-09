@@ -434,6 +434,51 @@ yaml:
             ),
             entity_scoped=False,
         ),
+        AdapterSpec(
+            name="vault",
+            capability="secrets",
+            layer="outbound",
+            description="Resolver HashiCorp Vault KV v2 pour secrets applicatifs.",
+            secret_resolver="vault",
+            secret_config_template="""\
+vault:
+  addr: "{addr}"
+  mount: "{mount}"
+""",
+            secret_mappings=(
+                SecretMappingSpec(
+                    field_path="{field_path}",
+                    secret_key="{secret_key}",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="field_path",
+                    kind="string",
+                    prompt="Champ de configuration à alimenter",
+                    required=True,
+                ),
+                ParameterSpec(
+                    name="secret_key",
+                    kind="string",
+                    prompt="Chemin Vault relatif au mount KV v2",
+                    required=True,
+                ),
+                ParameterSpec(
+                    name="addr",
+                    kind="string",
+                    prompt="Adresse Vault",
+                    default="http://127.0.0.1:8200",
+                ),
+                ParameterSpec(
+                    name="mount",
+                    kind="string",
+                    prompt="Mount KV v2",
+                    default="kv",
+                ),
+            ),
+            entity_scoped=False,
+        ),
     ),
 )
 

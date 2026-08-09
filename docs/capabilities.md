@@ -314,6 +314,55 @@ Le fichier local suit le format imbriqué du `field_path`: `adapters.mongodb.uri
 `adapters -> mongodb -> uri`. Le resolver YAML ignore la clé descriptive du mapping et lit toujours
 le chemin imbriqué, ce qui évite de stocker des secrets sous des noms plats non typés.
 
+Pour Vault KV v2, installer l'extra dans le service qui charge la configuration :
+
+```bash
+uv add "arclith[vault]"
+```
+
+Puis configurer le resolver sans token :
+
+```bash
+arclith-cli add-adapter \
+  --capability secrets \
+  --adapter vault \
+  --param field_path=adapters.mongodb.uri \
+  --param secret_key=apps/demo/mongodb \
+  --param addr=http://vault:8200 \
+  --param mount=kv \
+  --yes
+```
+
+Résultat:
+
+```yaml
+# config/secrets.yaml
+resolver: vault
+vault:
+  addr: http://vault:8200
+  mount: kv
+mappings:
+  adapters.mongodb.uri: apps/demo/mongodb
+```
+
+Le token Vault n'est jamais écrit par la CLI. Au runtime, `VaultSecretAdapter` lit `VAULT_TOKEN` ou
+`~/.vault-token`. `VAULT_ADDR` peut surcharger `secrets.vault.addr`, ce qui permet de garder le même
+fichier de configuration entre local, CI et cluster.
+
+POC local minimal :
+
+```bash
+vault server -dev
+export VAULT_ADDR=http://127.0.0.1:8200
+export VAULT_TOKEN=<root-token-dev>
+vault secrets enable -path=kv -version=2 kv
+vault kv put kv/apps/demo/mongodb value="mongodb://localhost:27017/demo"
+```
+
+Le mount `kv` doit être un engine KV v2. Avec `hvac`, Arclith lit le secret via KV v2 avec
+`mount_point=kv` et attend la valeur applicative dans le champ `value`. Pour une policy dédiée, le
+chemin de lecture Vault correspondant est `kv/data/apps/demo/mongodb`.
+
 ### `api`
 
 Capacité inbound pour exposer les cas d'usage via HTTP REST.
