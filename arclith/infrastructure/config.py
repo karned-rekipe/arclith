@@ -252,6 +252,13 @@ class CacheControlSettings(BaseModel):
     get_single_max_age: int = 300  # 5 minutes
     get_list_max_age: int = 60  # 1 minute
 
+    @field_validator("get_single_max_age", "get_list_max_age")
+    @classmethod
+    def must_be_non_negative(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("cache_control max-age doit etre >= 0")
+        return v
+
 
 class HttpSettings(BaseModel):
     idempotency: IdempotencySettings = IdempotencySettings()

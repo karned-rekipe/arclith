@@ -490,6 +490,7 @@ Adapter disponible:
 
 - `idempotency`: middleware `Idempotency-Key` pour éviter les doubles mutations `POST`.
 - `etag`: middleware `ETag` / `If-None-Match` pour les lectures `GET` cacheables.
+- `cache-control`: directives `Cache-Control` pour lectures `GET` et mutations.
 
 ```bash
 arclith-cli add-adapter \
@@ -540,6 +541,31 @@ réponses `GET` JSON `2xx` qui contiennent `version` ou `data.version`: il ajout
 et retourne `304 Not Modified` sans body si `If-None-Match` correspond. Les mutations ne reçoivent
 pas de header de cache en sortie; `If-Match` sur `PUT`/`PATCH` est seulement exposé via
 `request.state.expected_version` pour que la route ou le service valide l'optimistic locking.
+
+```bash
+arclith-cli add-adapter \
+  --capability http \
+  --adapter cache-control \
+  --param get_single_max_age=300 \
+  --param get_list_max_age=60 \
+  --yes
+```
+
+Résultat fusionné dans `config/http.yaml`:
+
+```yaml
+cache_control:
+  get_single_max_age: 300
+  get_list_max_age: 60
+```
+
+`CacheControlMiddleware` est ajouté par `Arclith.fastapi()` et ne nécessite pas de modification des
+routers. Les `GET` vers une ressource unique détectée par un segment UUID-like reçoivent
+`private, max-age=<get_single_max_age>`. Les collections reçoivent
+`private, max-age=<get_list_max_age>`; si `get_list_max_age: 0`, elles reçoivent `no-store`.
+Les mutations `POST`, `PUT`, `PATCH` et `DELETE` restent non cacheables avec
+`no-cache, no-store, must-revalidate`. Si une route définit déjà `Cache-Control`, le middleware
+préserve ce header. Les TTL négatifs sont refusés au chargement de config.
 
 ### `mcp`
 

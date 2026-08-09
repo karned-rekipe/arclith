@@ -179,9 +179,10 @@ def test_http_capability_catalog_declares_idempotency() -> None:
     assert capability is not None
     assert capability.layer == "inbound"
     assert capability.activation_config_key is None
-    assert capability.adapter_names() == ("idempotency", "etag")
+    assert capability.adapter_names() == ("idempotency", "etag", "cache-control")
     idempotency = capability.get_adapter("idempotency")
     etag = capability.get_adapter("etag")
+    cache_control = capability.get_adapter("cache-control")
     assert idempotency is not None
     assert idempotency.config_path is None
     assert [template.path for template in idempotency.merge_config_templates] == ["config/http.yaml"]
@@ -196,6 +197,14 @@ def test_http_capability_catalog_declares_idempotency() -> None:
     assert [template.path for template in etag.merge_config_templates] == ["config/http.yaml"]
     assert etag.entity_scoped is False
     assert [parameter.name for parameter in etag.parameters] == ["enabled"]
+    assert cache_control is not None
+    assert cache_control.config_path is None
+    assert [template.path for template in cache_control.merge_config_templates] == ["config/http.yaml"]
+    assert cache_control.entity_scoped is False
+    assert [parameter.name for parameter in cache_control.parameters] == [
+        "get_single_max_age",
+        "get_list_max_age",
+    ]
 
 
 def test_auth_capability_catalog_declares_keycloak() -> None:
@@ -387,6 +396,7 @@ def test_capability_catalog_is_json_serializable() -> None:
     assert "http" in encoded
     assert "idempotency" in encoded
     assert "etag" in encoded
+    assert "cache-control" in encoded
     assert "auth" in encoded
     assert "keycloak" in encoded
     assert "tenant" in encoded
@@ -487,9 +497,10 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "enabled",
     ]
     http = payload_by_name["http"]
-    assert [adapter["name"] for adapter in http["adapters"]] == ["idempotency", "etag"]
+    assert [adapter["name"] for adapter in http["adapters"]] == ["idempotency", "etag", "cache-control"]
     idempotency = http["adapters"][0]
     etag = http["adapters"][1]
+    cache_control = http["adapters"][2]
     assert idempotency["config_path"] is None
     assert [template["path"] for template in idempotency["merge_config_templates"]] == ["config/http.yaml"]
     assert [parameter["name"] for parameter in idempotency["parameters"]] == [
@@ -500,6 +511,12 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert etag["config_path"] is None
     assert [template["path"] for template in etag["merge_config_templates"]] == ["config/http.yaml"]
     assert [parameter["name"] for parameter in etag["parameters"]] == ["enabled"]
+    assert cache_control["config_path"] is None
+    assert [template["path"] for template in cache_control["merge_config_templates"]] == ["config/http.yaml"]
+    assert [parameter["name"] for parameter in cache_control["parameters"]] == [
+        "get_single_max_age",
+        "get_list_max_age",
+    ]
     auth = payload_by_name["auth"]
     assert [adapter["name"] for adapter in auth["adapters"]] == ["keycloak"]
     keycloak_parameters = {parameter["name"]: parameter for parameter in auth["adapters"][0]["parameters"]}

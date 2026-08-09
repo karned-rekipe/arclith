@@ -33,16 +33,35 @@ cache_control:
   get_list_max_age: 60     # 1 minute - GET /
 ```
 
+Configuration via CLI:
+
+```bash
+arclith-cli add-adapter \
+  --capability http \
+  --adapter cache-control \
+  --param get_single_max_age=300 \
+  --param get_list_max_age=60 \
+  --yes
+```
+
+Les valeurs doivent être positives ou nulles. `get_list_max_age: 0` transforme les réponses
+collection en `no-store`, utile pour les listes temps-réel. Un TTL plus long réduit la latence et
+la bande passante, mais augmente la durée pendant laquelle l'utilisateur peut voir une donnée
+ancienne sans revalidation.
+
 ### Stratégie par verbe
 
 | Verbe            | Ressource          | Directive               | Raison                                                                           |
 |------------------|--------------------|-------------------------|----------------------------------------------------------------------------------|
 | **GET**          | Single (`/{uuid}`) | `private, max-age=300`  | Cacheable 5min par le client, pas le CDN (données potentiellement user-specific) |
 | **GET**          | Collection (`/`)   | `private, max-age=60`   | Shorter TTL (1min) car changements fréquents                                     |
-| **POST**         | Create             | `no-cache, no-store`    | Jamais cacher les mutations                                                      |
-| **PUT/PATCH**    | Update             | `no-cache, no-store`    | Jamais cacher les mutations                                                      |
-| **DELETE**       | Delete             | `no-cache, no-store`    | Jamais cacher les mutations                                                      |
+| **POST**         | Create             | `no-cache, no-store, must-revalidate` | Jamais cacher les mutations                                                      |
+| **PUT/PATCH**    | Update             | `no-cache, no-store, must-revalidate` | Jamais cacher les mutations                                                      |
+| **DELETE**       | Delete             | `no-cache, no-store, must-revalidate` | Jamais cacher les mutations                                                      |
 | **HEAD/OPTIONS** | Metadata           | `public, max-age=86400` | Cacheable 24h par tout le monde                                                  |
+
+Si une route définit déjà `Cache-Control`, le middleware ne l'écrase pas. Cela permet de garder une
+politique spécifique sur un endpoint sans contourner le câblage transverse.
 
 ### Heuristique ressource unique vs collection
 
@@ -103,7 +122,7 @@ Durée pendant laquelle la réponse est considérée "fraîche" sans revalidatio
 - Header: `Cache-Control: no-cache, no-store, must-revalidate`
 - Utilisé quand: mutations (POST/PUT/PATCH/DELETE)
 
-**Dans _sample:** Mutations utilisent `no-cache, no-store` pour éviter tout cache.
+**Dans _sample:** Mutations utilisent `no-cache, no-store, must-revalidate` pour éviter tout cache.
 
 ## Intégration avec ETag
 

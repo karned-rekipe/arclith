@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from arclith.infrastructure.config import (
     AppConfig,
+    CacheControlSettings,
     DuckDBSettings,
     LangGraphSettings,
     LangSmithSettings,
@@ -436,6 +437,18 @@ def test_soft_delete_negative_raises():
 def test_soft_delete_zero_is_valid():
     s = SoftDeleteSettings(retention_days=0)
     assert s.retention_days == 0
+
+
+def test_cache_control_rejects_negative_max_age():
+    with pytest.raises(ValidationError, match="cache_control max-age doit etre >= 0"):
+        CacheControlSettings(get_single_max_age=-1)
+
+
+def test_cache_control_zero_max_age_is_valid():
+    settings = CacheControlSettings(get_single_max_age=0, get_list_max_age=0)
+
+    assert settings.get_single_max_age == 0
+    assert settings.get_list_max_age == 0
 
 
 def test_mongodb_uri_optional_at_parse_time():
