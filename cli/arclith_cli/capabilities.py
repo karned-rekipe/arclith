@@ -929,7 +929,7 @@ rabbitmq:
 RUNTIME_CAPABILITY = CapabilitySpec(
     name="runtime",
     layer="runtime",
-    description="Runtime de deploiement standardise pour images et processus Arclith.",
+    description="Runtime de déploiement standardisé pour images et processus Arclith.",
     activation_config_key=None,
     adapters=(
         AdapterSpec(

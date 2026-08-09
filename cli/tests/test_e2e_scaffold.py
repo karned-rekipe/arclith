@@ -100,6 +100,30 @@ def test_init_scaffold_creates_blank_project_then_core_files(temp_workspace: Pat
     ).exists()
 
 
+def test_new_rejects_port_without_room_for_mcp(temp_workspace: Path):
+    project_dir = temp_workspace / "bad-port-service"
+
+    result = subprocess.run(
+        [
+            "arclith-cli",
+            "new",
+            "Plan",
+            "bad-port-service",
+            "--dir",
+            str(temp_workspace),
+            "--port",
+            "65535",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode != 0
+    assert not project_dir.exists()
+    assert "Port MCP invalide" in result.stdout + result.stderr
+
+
 def test_scaffold_and_run(temp_workspace: Path):
     """Test that scaffolded project installs and runs successfully."""
     project_dir = temp_workspace / "test-plan-service"

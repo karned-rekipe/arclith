@@ -243,6 +243,7 @@ def test_runtime_capability_catalog_declares_docker_image() -> None:
 
     assert capability is not None
     assert capability.layer == "runtime"
+    assert capability.description == "Runtime de déploiement standardisé pour images et processus Arclith."
     assert capability.activation_config_key is None
     assert capability.adapter_names() == ("docker-image",)
     docker_image = capability.get_adapter("docker-image")

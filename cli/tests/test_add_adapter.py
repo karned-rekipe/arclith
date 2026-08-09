@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 import re
 import stat
 import subprocess
@@ -1781,7 +1782,7 @@ def test_add_runtime_docker_image_generates_hardened_templates(tmp_path: Path) -
             "api_port": "8100",
             "mcp_port": "8101",
             "probe_port": "9100",
-            "agent_port": "2024",
+            "agent_port": "2025",
         },
         yes=True,
     )
@@ -1795,7 +1796,8 @@ def test_add_runtime_docker_image_generates_hardened_templates(tmp_path: Path) -
     assert "uv sync --frozen --no-dev --no-install-project" in dockerfile
     assert "uv sync --frozen --no-dev" in dockerfile
     assert "USER 1001:1001" in dockerfile
-    assert "EXPOSE 8100 8101 9100 2024" in dockerfile
+    assert "EXPOSE 8100 8101 9100 2025" in dockerfile
+    assert "LANGGRAPH_PORT=2025" in dockerfile
     assert 'ENTRYPOINT ["./arclith-run"]' in dockerfile
     assert 'CMD ["api"]' in dockerfile
     assert "MODE=api" not in dockerfile
@@ -1805,6 +1807,7 @@ def test_add_runtime_docker_image_generates_hardened_templates(tmp_path: Path) -
     assert "secrets.yaml" in dockerignore
     assert "*.pem" in dockerignore
     assert 'if [ -n "${ARCLITH_RUNTIME_MODE:-}" ]; then' in entrypoint
+    assert "api|mcp|mcp_http|mcp_sse|bus|command_bus|command-bus|agent|all) shift ;;" in entrypoint
     assert "api)" in entrypoint
     assert "mcp|mcp_http)" in entrypoint
     assert "bus|command_bus|command-bus)" in entrypoint
@@ -1826,6 +1829,66 @@ def test_add_runtime_docker_image_rejects_invalid_port(tmp_path: Path) -> None:
         )
 
     assert not (project_dir / "Dockerfile").exists()
+
+
+@pytest.mark.parametrize(
+    "uv_version",
+    [
+        "0.8.14 beta",
+        "0.8.14\nRUN echo injected",
+        "0.8.14{api_port}",
+    ],
+)
+def test_add_runtime_docker_image_rejects_unsafe_uv_version(tmp_path: Path, uv_version: str) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="runtime",
+            adapter="docker-image",
+            adapter_params={"uv_version": uv_version},
+            yes=True,
+        )
+
+    assert not (project_dir / "Dockerfile").exists()
+
+
+def test_runtime_entrypoint_drops_explicit_mode_when_env_mode_is_set(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="runtime",
+        adapter="docker-image",
+        yes=True,
+    )
+    (project_dir / "main.py").write_text(
+        "import json\n"
+        "import os\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "Path('runtime.json').write_text(\n"
+        "    json.dumps({'mode': os.environ.get('MODE'), 'argv': sys.argv[1:]}),\n"
+        "    encoding='utf-8',\n"
+        ")\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        ["./arclith-run", "bus"],
+        cwd=project_dir,
+        env={**os.environ, "ARCLITH_RUNTIME_MODE": "mcp_http"},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, f"entrypoint failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert json.loads((project_dir / "runtime.json").read_text(encoding="utf-8")) == {
+        "mode": "mcp_http",
+        "argv": [],
+    }
 
 
 def test_boolean_string_default_false_is_false(tmp_path: Path) -> None:

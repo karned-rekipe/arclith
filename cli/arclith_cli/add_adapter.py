@@ -29,6 +29,7 @@ from .entity_scanner import EntityInfo, scan_entities, scan_installed_adapters
 from .project_paths import ProjectPaths, detect_project_paths
 
 console = Console()
+_UV_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]*$")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -332,8 +333,10 @@ def _normalize_rabbitmq_command_bus_params(params: dict[str, Any]) -> dict[str, 
 def _normalize_docker_image_params(params: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(params)
     uv_version = str(normalized["uv_version"]).strip()
-    if not uv_version:
-        console.print("[red]✗[/red] Version uv invalide: valeur vide.")
+    if not _UV_VERSION_RE.fullmatch(uv_version):
+        console.print(
+            "[red]✗[/red] Version uv invalide: utilisez un token sans espace, accolade ou saut de ligne."
+        )
         raise typer.Exit(1)
     normalized["uv_version"] = uv_version
 

@@ -45,7 +45,8 @@ ENV PATH="/app/.venv/bin:$PATH" \\
     PYTHONPATH="/app/src:/app" \\
     PYTHONUNBUFFERED=1 \\
     PYTHONDONTWRITEBYTECODE=1 \\
-    ARCLITH_PROBE_PORT={probe_port}
+    ARCLITH_PROBE_PORT={probe_port} \\
+    LANGGRAPH_PORT={agent_port}
 
 USER 1001:1001
 
@@ -91,14 +92,14 @@ set -eu
 
 if [ -n "${{ARCLITH_RUNTIME_MODE:-}}" ]; then
     mode="$ARCLITH_RUNTIME_MODE"
-    if [ "${{1:-}}" = "api" ]; then
-        shift
-    fi
+    case "${{1:-}}" in
+        api|mcp|mcp_http|mcp_sse|bus|command_bus|command-bus|agent|all) shift ;;
+    esac
 elif [ -n "${{MODE:-}}" ]; then
     mode="$MODE"
-    if [ "${{1:-}}" = "api" ]; then
-        shift
-    fi
+    case "${{1:-}}" in
+        api|mcp|mcp_http|mcp_sse|bus|command_bus|command-bus|agent|all) shift ;;
+    esac
 elif [ "$#" -gt 0 ]; then
     mode="$1"
     shift

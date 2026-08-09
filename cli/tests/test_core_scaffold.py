@@ -74,11 +74,13 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
     assert 'ENTRYPOINT ["./arclith-run"]' in dockerfile
     assert 'CMD ["api"]' in dockerfile
     assert "MODE=api" not in dockerfile
+    assert "LANGGRAPH_PORT=2024" in dockerfile
     assert re.search(r"(?m)^ARG .*SECRET|^ARG .*TOKEN|^ARG .*PASSWORD", dockerfile) is None
     assert ".env" in dockerignore
     assert "secrets.yaml" in dockerignore
     assert "id_rsa" in dockerignore
     assert 'if [ -n "${ARCLITH_RUNTIME_MODE:-}" ]; then' in entrypoint
+    assert "api|mcp|mcp_http|mcp_sse|bus|command_bus|command-bus|agent|all) shift ;;" in entrypoint
     assert "bus|command_bus|command-bus)" in entrypoint
     assert "langgraph dev" in entrypoint
     assert '_VALID_MODES = {"api", "mcp_http", "mcp_sse", "all"}' in main
