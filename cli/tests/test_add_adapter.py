@@ -611,6 +611,90 @@ def test_add_http_cache_control_adapter_rejects_negative_max_age(tmp_path: Path)
     assert not http_path.exists()
 
 
+def test_add_command_bus_rabbitmq_adapter_merges_command_bus_config(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+    command_bus_path = project_dir / "config" / "command_bus.yaml"
+    command_bus_path.write_text(
+        "enabled: []\n"
+        "rabbitmq:\n"
+        "  url: amqp://old/\n"
+        "  exchange: old.exchange\n",
+        encoding="utf-8",
+    )
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="command-bus",
+        adapter="rabbitmq",
+        adapter_params={
+            "url": "amqp://broker/",
+            "exchange": "commands.exchange",
+            "exchange_type": "direct",
+            "queue": "commands.queue",
+            "routing_key": "commands.route",
+            "prefetch": "7",
+            "consumer_name": "worker-a",
+            "concurrency": "2",
+            "publisher_confirms": "true",
+            "durable": "true",
+            "retry_enabled": "true",
+            "retry_requeue": "false",
+            "dead_letter_exchange": "commands.dlx",
+            "dead_letter_routing_key": "commands.dead",
+        },
+        yes=True,
+    )
+
+    from arclith import Arclith
+
+    config = yaml.safe_load(command_bus_path.read_text(encoding="utf-8"))
+    arclith = Arclith(project_dir / "config")
+    package_root = project_dir / "src" / "demo_service"
+
+    assert config == {
+        "enabled": ["rabbitmq"],
+        "rabbitmq": {
+            "url": "amqp://broker/",
+            "exchange": "commands.exchange",
+            "exchange_type": "direct",
+            "queue": "commands.queue",
+            "routing_key": "commands.route",
+            "prefetch": 7,
+            "consumer_name": "worker-a",
+            "concurrency": 2,
+            "publisher_confirms": True,
+            "durable": True,
+            "retry_enabled": True,
+            "retry_requeue": False,
+            "dead_letter_exchange": "commands.dlx",
+            "dead_letter_routing_key": "commands.dead",
+        },
+    }
+    assert arclith.config.command_bus.is_enabled("rabbitmq") is True
+    assert arclith.config.command_bus.rabbitmq.prefetch == 7
+    assert arclith.config.command_bus.rabbitmq.concurrency == 2
+    assert "command-bus:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert not (package_root / "adapters" / "bidirectional" / "rabbitmq").exists()
+
+
+def test_add_command_bus_rabbitmq_adapter_rejects_unbounded_prefetch(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+    command_bus_path = project_dir / "config" / "command_bus.yaml"
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="command-bus",
+            adapter="rabbitmq",
+            adapter_params={"prefetch": "0"},
+            yes=True,
+        )
+
+    assert not command_bus_path.exists()
+
+
 def test_add_keycloak_auth_adapter_generates_loadable_inbound_config(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
     config_path = project_dir / "config" / "adapters" / "inbound" / "keycloak.yaml"

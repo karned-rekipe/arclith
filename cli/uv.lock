@@ -59,6 +59,8 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aio-pika", marker = "extra == 'all'", specifier = ">=10.0.1,<11.0.0" },
+    { name = "aio-pika", marker = "extra == 'rabbitmq'", specifier = ">=10.0.1,<11.0.0" },
     { name = "asyncmy", marker = "extra == 'all'", specifier = ">=0.2.10" },
     { name = "asyncmy", marker = "extra == 'mariadb'", specifier = ">=0.2.10" },
     { name = "duckdb", marker = "extra == 'all'", specifier = "==1.5.0" },
@@ -110,7 +112,7 @@ requires-dist = [
     { name = "uvicorn", marker = "extra == 'all'", specifier = "==0.41.0" },
     { name = "uvicorn", marker = "extra == 'fastapi'", specifier = "==0.41.0" },
 ]
-provides-extras = ["mongodb", "duckdb", "mariadb", "fastapi", "mcp", "vault", "cache", "auth", "langgraph", "opentelemetry", "all"]
+provides-extras = ["mongodb", "duckdb", "mariadb", "fastapi", "mcp", "vault", "cache", "auth", "rabbitmq", "langgraph", "opentelemetry", "all"]
 
 [package.metadata.requires-dev]
 dev = [

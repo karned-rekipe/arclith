@@ -238,6 +238,63 @@ class CacheSettings(BaseModel):
     tenant_uri_ttl: int = 300
 
 
+CommandBusAdapter = Literal["rabbitmq"]
+
+
+class RabbitMQCommandBusSettings(BaseModel):
+    url: str = "amqp://guest:guest@127.0.0.1:5672/"
+    exchange: str = "arclith.commands"
+    exchange_type: Literal["direct", "topic"] = "topic"
+    queue: str = "arclith.commands"
+    routing_key: str = "commands"
+    prefetch: int = 10
+    consumer_name: str = "arclith-command-worker"
+    concurrency: int = 1
+    publisher_confirms: bool = True
+    durable: bool = True
+    retry_enabled: bool = True
+    retry_requeue: bool = False
+    dead_letter_exchange: str = "arclith.commands.dlx"
+    dead_letter_routing_key: str = "commands.dead"
+
+    @field_validator(
+        "url",
+        "exchange",
+        "queue",
+        "routing_key",
+        "consumer_name",
+        "dead_letter_exchange",
+        "dead_letter_routing_key",
+    )
+    @classmethod
+    def must_not_be_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("rabbitmq command-bus fields ne doivent pas etre vides")
+        return v
+
+    @field_validator("prefetch", "concurrency")
+    @classmethod
+    def must_be_positive(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("rabbitmq command-bus prefetch/concurrency doivent etre > 0")
+        return v
+
+
+class CommandBusSettings(BaseModel):
+    enabled: list[CommandBusAdapter] = Field(default_factory=list)
+    rabbitmq: RabbitMQCommandBusSettings = RabbitMQCommandBusSettings()
+
+    @field_validator("enabled")
+    @classmethod
+    def must_not_contain_duplicates(cls, v: list[CommandBusAdapter]) -> list[CommandBusAdapter]:
+        if len(v) != len(set(v)):
+            raise ValueError("command_bus.enabled ne doit pas contenir de doublons")
+        return v
+
+    def is_enabled(self, adapter: CommandBusAdapter) -> bool:
+        return adapter in self.enabled
+
+
 class IdempotencySettings(BaseModel):
     enabled: bool = True
     ttl_seconds: int = 86400  # 24 hours
@@ -285,6 +342,7 @@ class AppConfig(BaseModel):
     tenant: TenantSettings | None = None
     license: LicenseSettings | None = None
     cache: CacheSettings = CacheSettings()
+    command_bus: CommandBusSettings = CommandBusSettings()
 
 
 _INBOUND_ALIAS: dict[str, str] = {"fastapi": "api", "fastmcp": "mcp"}

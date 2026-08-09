@@ -207,6 +207,37 @@ def test_http_capability_catalog_declares_idempotency() -> None:
     ]
 
 
+def test_command_bus_capability_catalog_declares_rabbitmq() -> None:
+    capability = get_capability("command-bus")
+
+    assert capability is not None
+    assert capability.layer == "bidirectional"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("rabbitmq",)
+    rabbitmq = capability.get_adapter("rabbitmq")
+    assert rabbitmq is not None
+    assert rabbitmq.layer == "bidirectional"
+    assert rabbitmq.config_path is None
+    assert [template.path for template in rabbitmq.merge_config_templates] == ["config/command_bus.yaml"]
+    assert rabbitmq.entity_scoped is False
+    assert [parameter.name for parameter in rabbitmq.parameters] == [
+        "url",
+        "exchange",
+        "exchange_type",
+        "queue",
+        "routing_key",
+        "prefetch",
+        "consumer_name",
+        "concurrency",
+        "publisher_confirms",
+        "durable",
+        "retry_enabled",
+        "retry_requeue",
+        "dead_letter_exchange",
+        "dead_letter_routing_key",
+    ]
+
+
 def test_auth_capability_catalog_declares_keycloak() -> None:
     capability = get_capability("auth")
 
@@ -397,6 +428,8 @@ def test_capability_catalog_is_json_serializable() -> None:
     assert "idempotency" in encoded
     assert "etag" in encoded
     assert "cache-control" in encoded
+    assert "command-bus" in encoded
+    assert "rabbitmq" in encoded
     assert "auth" in encoded
     assert "keycloak" in encoded
     assert "tenant" in encoded
@@ -516,6 +549,28 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert [parameter["name"] for parameter in cache_control["parameters"]] == [
         "get_single_max_age",
         "get_list_max_age",
+    ]
+    command_bus = payload_by_name["command-bus"]
+    assert command_bus["layer"] == "bidirectional"
+    assert [adapter["name"] for adapter in command_bus["adapters"]] == ["rabbitmq"]
+    rabbitmq = command_bus["adapters"][0]
+    assert rabbitmq["config_path"] is None
+    assert [template["path"] for template in rabbitmq["merge_config_templates"]] == ["config/command_bus.yaml"]
+    assert [parameter["name"] for parameter in rabbitmq["parameters"]] == [
+        "url",
+        "exchange",
+        "exchange_type",
+        "queue",
+        "routing_key",
+        "prefetch",
+        "consumer_name",
+        "concurrency",
+        "publisher_confirms",
+        "durable",
+        "retry_enabled",
+        "retry_requeue",
+        "dead_letter_exchange",
+        "dead_letter_routing_key",
     ]
     auth = payload_by_name["auth"]
     assert [adapter["name"] for adapter in auth["adapters"]] == ["keycloak"]

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 ParameterKind = Literal["string", "boolean"]
-LayerKind = Literal["inbound", "outbound"]
+LayerKind = Literal["inbound", "outbound", "bidirectional"]
 
 
 @dataclass(frozen=True)
@@ -788,6 +788,133 @@ cache_control:
     ),
 )
 
+COMMAND_BUS_CAPABILITY = CapabilitySpec(
+    name="command-bus",
+    layer="bidirectional",
+    description="Bus de commandes applicatives use-case first.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="rabbitmq",
+            capability="command-bus",
+            layer="bidirectional",
+            description="Worker et publisher RabbitMQ avec ack manuel, confirms, prefetch borne et DLX.",
+            merge_config_templates=(
+                FileTemplateSpec(
+                    path="config/command_bus.yaml",
+                    template="""\
+enabled:
+  - rabbitmq
+rabbitmq:
+  url: "{url}"
+  exchange: "{exchange}"
+  exchange_type: "{exchange_type}"
+  queue: "{queue}"
+  routing_key: "{routing_key}"
+  prefetch: {prefetch}
+  consumer_name: "{consumer_name}"
+  concurrency: {concurrency}
+  publisher_confirms: {publisher_confirms}
+  durable: {durable}
+  retry_enabled: {retry_enabled}
+  retry_requeue: {retry_requeue}
+  dead_letter_exchange: "{dead_letter_exchange}"
+  dead_letter_routing_key: "{dead_letter_routing_key}"
+""",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="url",
+                    kind="string",
+                    prompt="URL RabbitMQ",
+                    default="amqp://guest:guest@127.0.0.1:5672/",
+                ),
+                ParameterSpec(
+                    name="exchange",
+                    kind="string",
+                    prompt="Exchange commandes",
+                    default="arclith.commands",
+                ),
+                ParameterSpec(
+                    name="exchange_type",
+                    kind="string",
+                    prompt="Type d'exchange",
+                    default="topic",
+                    choices=("direct", "topic"),
+                ),
+                ParameterSpec(
+                    name="queue",
+                    kind="string",
+                    prompt="Queue worker",
+                    default="arclith.commands",
+                ),
+                ParameterSpec(
+                    name="routing_key",
+                    kind="string",
+                    prompt="Routing key",
+                    default="commands",
+                ),
+                ParameterSpec(
+                    name="prefetch",
+                    kind="string",
+                    prompt="Prefetch RabbitMQ borne",
+                    default="10",
+                ),
+                ParameterSpec(
+                    name="consumer_name",
+                    kind="string",
+                    prompt="Consumer name",
+                    default="arclith-command-worker",
+                ),
+                ParameterSpec(
+                    name="concurrency",
+                    kind="string",
+                    prompt="Concurrence worker",
+                    default="1",
+                ),
+                ParameterSpec(
+                    name="publisher_confirms",
+                    kind="boolean",
+                    prompt="Activer publisher confirms",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="durable",
+                    kind="boolean",
+                    prompt="Déclarer exchange/queue durables",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="retry_enabled",
+                    kind="boolean",
+                    prompt="Activer DLX/retry",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="retry_requeue",
+                    kind="boolean",
+                    prompt="Requeue sur erreur handler",
+                    default=False,
+                ),
+                ParameterSpec(
+                    name="dead_letter_exchange",
+                    kind="string",
+                    prompt="Exchange DLX",
+                    default="arclith.commands.dlx",
+                ),
+                ParameterSpec(
+                    name="dead_letter_routing_key",
+                    kind="string",
+                    prompt="Routing key DLX",
+                    default="commands.dead",
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
 AUTH_CAPABILITY = CapabilitySpec(
     name="auth",
     layer="inbound",
@@ -1294,6 +1421,7 @@ CAPABILITY_CATALOG = (
     MCP_CAPABILITY,
     PROBE_CAPABILITY,
     HTTP_CAPABILITY,
+    COMMAND_BUS_CAPABILITY,
     AUTH_CAPABILITY,
     TENANT_CAPABILITY,
     LICENSE_CAPABILITY,
