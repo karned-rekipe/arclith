@@ -223,7 +223,7 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(
         },
         yes=True,
     )
-    captured = capsys.readouterr()
+    cli_output = capsys.readouterr()
 
     config = (project_dir / "config" / "adapters" / "outbound" / "langsmith.yaml").read_text(
         encoding="utf-8"
@@ -246,17 +246,20 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(
     assert "LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com" in env
     assert "LANGSMITH_API_KEY=test-key" in env
     assert ".env" in (project_dir / ".gitignore").read_text(encoding="utf-8")
-    assert "test-key" not in captured.out
-    assert "test-key" not in captured.err
+    assert "test-key" not in cli_output.out
+    assert "test-key" not in cli_output.err
     from arclith import Arclith
 
     arclith = Arclith(project_dir / "config")
+    load_output = capsys.readouterr()
 
     assert arclith.config.adapters.observability.enabled == ["langsmith"]
     assert arclith.config.adapters.langsmith is not None
     assert arclith.config.adapters.langsmith.tracing is True
     assert arclith.config.adapters.langsmith.project == "agent-tests"
     assert arclith.config.adapters.langsmith.endpoint == "https://eu.api.smith.langchain.com"
+    assert "test-key" not in load_output.out
+    assert "test-key" not in load_output.err
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "outbound" / "langsmith").exists()
 
