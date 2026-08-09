@@ -157,7 +157,7 @@ def test_resolve_no_mappings_returns_original() -> None:
 def test_resolve_raises_on_unresolved_secret() -> None:
     data = {"secrets": {"mappings": {"adapters.mongodb.uri": "p"}}}
     resolver = _make_resolver({"adapters.mongodb.uri": None})
-    with pytest.raises(RuntimeError, match="Secrets non résolus"):
+    with pytest.raises(RuntimeError, match="adapters.mongodb.uri"):
         resolve_dict_secrets(data, resolver)
 
 

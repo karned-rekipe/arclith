@@ -46,6 +46,24 @@ def test_cache_capability_catalog_declares_memory_adapter() -> None:
     assert [mapping.secret_key for mapping in redis.secret_mappings] == ["REDIS_URL"]
 
 
+def test_secrets_capability_catalog_declares_env_adapter() -> None:
+    capability = get_capability("secrets")
+
+    assert capability is not None
+    assert capability.layer == "outbound"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("env",)
+    env = capability.get_adapter("env")
+    assert env is not None
+    assert env.config_path is None
+    assert env.secret_resolver == "env"
+    assert env.entity_scoped is False
+    assert [parameter.name for parameter in env.parameters] == ["field_path", "secret_key"]
+    assert env.parameters[0].required is True
+    assert [mapping.field_path for mapping in env.secret_mappings] == ["{field_path}"]
+    assert [mapping.secret_key for mapping in env.secret_mappings] == ["{secret_key}"]
+
+
 def test_observability_capability_catalog_declares_langsmith() -> None:
     capability = get_capability("observability")
 
@@ -236,6 +254,8 @@ def test_capability_catalog_is_json_serializable() -> None:
     assert "mongodb" in encoded
     assert "cache" in encoded
     assert "redis" in encoded
+    assert "secrets" in encoded
+    assert "env" in encoded
     assert "api" in encoded
     assert "fastapi" in encoded
     assert "mcp" in encoded
@@ -297,6 +317,12 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert [mapping["field_path"] for mapping in cache["adapters"][1]["secret_mappings"]] == [
         "cache.redis_url"
     ]
+    secrets = payload_by_name["secrets"]
+    assert [adapter["name"] for adapter in secrets["adapters"]] == ["env"]
+    env = secrets["adapters"][0]
+    assert env["secret_resolver"] == "env"
+    assert [parameter["name"] for parameter in env["parameters"]] == ["field_path", "secret_key"]
+    assert env["parameters"][0]["required"] is True
     assert [adapter["name"] for adapter in payload_by_name["api"]["adapters"]] == ["fastapi"]
     assert [adapter["name"] for adapter in payload_by_name["mcp"]["adapters"]] == ["fastmcp"]
     auth = payload_by_name["auth"]

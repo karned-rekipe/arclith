@@ -1096,6 +1096,106 @@ def test_add_cache_redis_adapter_generates_secret_mapping(
     assert app.config.cache.tenant_uri_ttl == 120
 
 
+def test_add_env_secrets_adapter_preserves_existing_mappings_and_uses_explicit_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    (project_dir / "config" / "secrets.yaml").write_text(
+        "resolver: yaml\n"
+        "mappings:\n"
+        "  adapters.lm.api_key: OPENAI_API_KEY\n",
+        encoding="utf-8",
+    )
+    outbound_dir = project_dir / "config" / "adapters" / "outbound"
+    outbound_dir.mkdir(parents=True, exist_ok=True)
+    (outbound_dir / "mongodb.yaml").write_text(
+        "uri: null\n"
+        "db_name: demo\n"
+        "collection_name: null\n"
+        "multitenant: false\n",
+        encoding="utf-8",
+    )
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="secrets",
+            adapter="env",
+            adapter_params={
+                "field_path": "adapters.mongodb.uri",
+                "secret_key": "MONGODB_URI",
+            },
+            yes=True,
+        )
+    secrets = yaml.safe_load((project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8"))
+
+    assert secrets["resolver"] == "env"
+    assert secrets["mappings"] == {
+        "adapters.lm.api_key": "OPENAI_API_KEY",
+        "adapters.mongodb.uri": "MONGODB_URI",
+    }
+
+    monkeypatch.setenv("MONGODB_URI", "mongodb://env:27017")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+
+    assert arclith.config.adapters.mongodb is not None
+    assert arclith.config.adapters.mongodb.uri == "mongodb://env:27017"
+
+
+def test_add_env_secrets_adapter_allows_derived_env_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    outbound_dir = project_dir / "config" / "adapters" / "outbound"
+    outbound_dir.mkdir(parents=True, exist_ok=True)
+    (outbound_dir / "mongodb.yaml").write_text(
+        "uri: null\n"
+        "db_name: demo\n"
+        "collection_name: null\n"
+        "multitenant: false\n",
+        encoding="utf-8",
+    )
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="secrets",
+        adapter="env",
+        adapter_params={"field_path": "adapters.mongodb.uri"},
+        yes=True,
+    )
+    secrets = yaml.safe_load((project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8"))
+
+    assert secrets["resolver"] == "env"
+    assert secrets["mappings"]["adapters.mongodb.uri"] == ""
+
+    monkeypatch.setenv("ADAPTERS_MONGODB_URI", "mongodb://derived:27017")
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+
+    assert arclith.config.adapters.mongodb is not None
+    assert arclith.config.adapters.mongodb.uri == "mongodb://derived:27017"
+
+
+def test_add_env_secrets_adapter_requires_field_path(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="secrets",
+            adapter="env",
+            yes=True,
+        )
+
+    assert not (project_dir / "config" / "secrets.yaml").exists()
+
+
 def test_boolean_string_default_false_is_false(tmp_path: Path) -> None:
     parameter = ParameterSpec(name="multitenant", kind="boolean", prompt="multitenant", default="false")
 

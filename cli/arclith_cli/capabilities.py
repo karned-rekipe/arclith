@@ -15,6 +15,7 @@ class ParameterSpec:
     default: str | bool | None = None
     default_from_project_name: bool = False
     secret: bool = False
+    required: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -24,6 +25,7 @@ class ParameterSpec:
             "default": self.default,
             "default_from_project_name": self.default_from_project_name,
             "secret": self.secret,
+            "required": self.required,
         }
 
 
@@ -62,6 +64,7 @@ class AdapterSpec:
     env_template: str = ""
     file_templates: tuple[FileTemplateSpec, ...] = ()
     secret_mappings: tuple[SecretMappingSpec, ...] = ()
+    secret_resolver: str | None = None
     parameters: tuple[ParameterSpec, ...] = ()
     entity_scoped: bool = True
 
@@ -87,6 +90,7 @@ class AdapterSpec:
             "env_path": self.env_path,
             "file_templates": [file_template.to_dict() for file_template in self.file_templates],
             "secret_mappings": [secret_mapping.to_dict() for secret_mapping in self.secret_mappings],
+            "secret_resolver": self.secret_resolver,
             "parameters": [parameter.to_dict() for parameter in self.parameters],
             "entity_scoped": self.entity_scoped,
         }
@@ -333,6 +337,43 @@ REDIS_URL={redis_url}
                     kind="string",
                     prompt="TTL tenant en secondes",
                     default="300",
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
+SECRETS_CAPABILITY = CapabilitySpec(
+    name="secrets",
+    layer="outbound",
+    description="Résolution de secrets avant validation de la configuration Arclith.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="env",
+            capability="secrets",
+            layer="outbound",
+            description="Resolver de secrets depuis les variables d'environnement Docker, CI/CD ou Kubernetes.",
+            secret_resolver="env",
+            secret_mappings=(
+                SecretMappingSpec(
+                    field_path="{field_path}",
+                    secret_key="{secret_key}",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="field_path",
+                    kind="string",
+                    prompt="Champ de configuration à alimenter",
+                    required=True,
+                ),
+                ParameterSpec(
+                    name="secret_key",
+                    kind="string",
+                    prompt="Variable d'environnement explicite (vide = dérivée du champ)",
+                    default="",
                 ),
             ),
             entity_scoped=False,
@@ -826,6 +867,7 @@ OTEL_EXPORTER_OTLP_HEADERS={headers}
 CAPABILITY_CATALOG = (
     REPOSITORY_CAPABILITY,
     CACHE_CAPABILITY,
+    SECRETS_CAPABILITY,
     API_CAPABILITY,
     MCP_CAPABILITY,
     AUTH_CAPABILITY,

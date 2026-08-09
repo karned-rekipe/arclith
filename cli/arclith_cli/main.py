@@ -138,7 +138,10 @@ def version() -> None:
 def add_adapter(
     capability: Annotated[
         str,
-        typer.Option("--capability", help="Capacité cible: repository, cache, api, mcp, auth, llm, agent ou observability"),
+        typer.Option(
+            "--capability",
+            help="Capacité cible: repository, cache, secrets, api, mcp, auth, llm, agent ou observability",
+        ),
     ] = "repository",
     adapter: Annotated[
         str | None,
