@@ -1196,6 +1196,65 @@ def test_add_env_secrets_adapter_requires_field_path(tmp_path: Path) -> None:
     assert not (project_dir / "config" / "secrets.yaml").exists()
 
 
+def test_add_yaml_secrets_adapter_generates_template_and_preserves_real_secret_file(
+    tmp_path: Path,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    outbound_dir = project_dir / "config" / "adapters" / "outbound"
+    outbound_dir.mkdir(parents=True, exist_ok=True)
+    (outbound_dir / "mongodb.yaml").write_text(
+        "uri: null\n"
+        "db_name: demo\n"
+        "collection_name: null\n"
+        "multitenant: false\n",
+        encoding="utf-8",
+    )
+    real_secret = "adapters:\n  mongodb:\n    uri: mongodb://local:27017\n"
+    (project_dir / "secrets.yaml").write_text(real_secret, encoding="utf-8")
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="secrets",
+            adapter="yaml",
+            adapter_params={
+                "field_path": "adapters.mongodb.uri",
+                "path": "secrets.yaml",
+            },
+            yes=True,
+        )
+    config_secrets = yaml.safe_load((project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8"))
+    template = (project_dir / "secrets.yaml.template").read_text(encoding="utf-8")
+    gitignore = (project_dir / ".gitignore").read_text(encoding="utf-8")
+
+    assert config_secrets["resolver"] == "yaml"
+    assert config_secrets["yaml"] == {"path": "secrets.yaml"}
+    assert config_secrets["mappings"]["adapters.mongodb.uri"] == ""
+    assert (project_dir / "secrets.yaml").read_text(encoding="utf-8") == real_secret
+    assert "secrets.yaml" in gitignore.splitlines()
+    assert "mongodb://local:27017" not in template
+    assert yaml.safe_load("\n".join(template.splitlines()[2:])) == {
+        "adapters": {"mongodb": {"uri": "replace-me"}}
+    }
+
+    subprocess.run(["git", "init"], cwd=project_dir, check=True, capture_output=True, text=True)
+    ignored = subprocess.run(
+        ["git", "check-ignore", "secrets.yaml"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert ignored.returncode == 0
+
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+
+    assert arclith.config.adapters.mongodb is not None
+    assert arclith.config.adapters.mongodb.uri == "mongodb://local:27017"
+
+
 def test_boolean_string_default_false_is_false(tmp_path: Path) -> None:
     parameter = ParameterSpec(name="multitenant", kind="boolean", prompt="multitenant", default="false")
 

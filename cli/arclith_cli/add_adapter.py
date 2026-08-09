@@ -418,9 +418,13 @@ def _list_generated_files(
         gitignore = project_dir / ".gitignore"
         files.append((gitignore, "mis à jour" if gitignore.exists() else "créé"))
 
-    if adapter.has_secret_mappings():
+    if adapter.has_secret_mappings() or adapter.has_secret_config():
         secrets_file = project_dir / "config" / "secrets.yaml"
         files.append((secrets_file, "mis à jour" if secrets_file.exists() else "créé"))
+
+    if adapter.gitignore_entries:
+        gitignore = project_dir / ".gitignore"
+        files.append((gitignore, "mis à jour" if gitignore.exists() else "créé"))
 
     template_vars = _file_template_vars(project_dir, paths, adapter, params={})
     for file_template in adapter.file_templates:
@@ -475,18 +479,23 @@ def _generate(
     if adapter.has_env() and adapter.env_path:
         env_path = project_dir / adapter.env_path
         _merge_env_file(env_path, _parse_env_template(render(adapter.env_template, params)))
-        _ensure_env_is_ignored(project_dir)
+        _ensure_gitignore_entries(project_dir, (".env",))
         console.print(f"[green]✓[/green] {env_path.relative_to(project_dir)}")
 
-    if adapter.has_secret_mappings():
+    if adapter.has_secret_mappings() or adapter.has_secret_config():
         secrets_path = project_dir / "config" / "secrets.yaml"
         _merge_secrets_file(
             secrets_path,
             adapter.secret_mappings,
             resolver=adapter.secret_resolver,
+            config_template=adapter.secret_config_template,
             params=params,
         )
         console.print(f"[green]✓[/green] {secrets_path.relative_to(project_dir)}")
+
+    if adapter.gitignore_entries:
+        _ensure_gitignore_entries(project_dir, adapter.gitignore_entries)
+        console.print("[green]✓[/green] .gitignore")
 
     for file_template in adapter.file_templates:
         generated_path = project_dir / render(file_template.path, params)
@@ -561,7 +570,22 @@ def _file_template_vars(
         "package_path": package_path,
         "langgraph_entrypoint": langgraph_entrypoint,
         "graph_name": graph_name,
+        "secret_template_yaml": _secret_template_yaml(str(params.get("field_path") or "")),
     }
+
+
+def _secret_template_yaml(field_path: str) -> str:
+    keys = [key for key in field_path.split(".") if key]
+    if not keys:
+        return "# Ajouter les secrets locaux ici."
+
+    data: dict[str, Any] = {}
+    current = data
+    for key in keys[:-1]:
+        current[key] = {}
+        current = current[key]
+    current[keys[-1]] = "replace-me"
+    return yaml.safe_dump(data, sort_keys=False, allow_unicode=True).rstrip("\n")
 
 
 def _update_active_capability(project_dir: Path, capability: CapabilitySpec, adapter: AdapterSpec) -> None:
@@ -656,6 +680,7 @@ def _merge_secrets_file(
     mappings: tuple[SecretMappingSpec, ...],
     *,
     resolver: str | None = None,
+    config_template: str = "",
     params: dict[str, Any] | None = None,
 ) -> None:
     secrets_path.parent.mkdir(parents=True, exist_ok=True)
@@ -666,12 +691,20 @@ def _merge_secrets_file(
     elif not isinstance(existing_resolver, str) or not existing_resolver.strip():
         data["resolver"] = "env"
 
+    render_params = params or {}
+    if config_template:
+        rendered_config = render(config_template, render_params)
+        config_data = yaml.safe_load(rendered_config) or {}
+        if not isinstance(config_data, dict):
+            console.print("[red]✗[/red] La configuration de secrets générée doit être un mapping YAML.")
+            raise typer.Exit(1)
+        data = _deep_merge_mapping(data, config_data)
+
     existing_mappings = data.get("mappings")
     if not isinstance(existing_mappings, dict):
         existing_mappings = {}
 
     merged_mappings = dict(existing_mappings)
-    render_params = params or {}
     for mapping in mappings:
         field_path = render(mapping.field_path, render_params).strip()
         secret_key = render(mapping.secret_key, render_params).strip()
@@ -685,6 +718,17 @@ def _merge_secrets_file(
     secrets_path.write_text(rendered, encoding="utf-8")
 
 
+def _deep_merge_mapping(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    result = dict(base)
+    for key, value in override.items():
+        current = result.get(key)
+        if isinstance(current, dict) and isinstance(value, dict):
+            result[key] = _deep_merge_mapping(current, value)
+        else:
+            result[key] = value
+    return result
+
+
 def _read_yaml_mapping(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
@@ -695,15 +739,17 @@ def _read_yaml_mapping(path: Path) -> dict[str, Any]:
     return {}
 
 
-def _ensure_env_is_ignored(project_dir: Path) -> None:
+def _ensure_gitignore_entries(project_dir: Path, entries: tuple[str, ...]) -> None:
     gitignore = project_dir / ".gitignore"
     if gitignore.exists():
         lines = gitignore.read_text(encoding="utf-8").splitlines()
     else:
         lines = []
-    if ".env" in {line.strip() for line in lines}:
+    existing = {line.strip() for line in lines}
+    missing = [entry for entry in entries if entry not in existing]
+    if not missing:
         return
     if lines and lines[-1].strip():
         lines.append("")
-    lines.append(".env")
+    lines.extend(missing)
     gitignore.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")

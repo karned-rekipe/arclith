@@ -43,6 +43,21 @@ def test_yaml_resolver_defaults_to_secrets_yaml(tmp_path: Path) -> None:
     assert isinstance(build_secret_resolver(data, tmp_path), YamlSecretAdapter)
 
 
+def test_yaml_resolver_relative_path_uses_base_path(tmp_path: Path) -> None:
+    data = {
+        "secrets": {
+            "resolver": "yaml",
+            "mappings": {"adapters.mongodb.uri": ""},
+            "yaml": {"path": "local-secrets.yaml"},
+        }
+    }
+    from arclith.adapters.outbound.yaml.secret_adapter import YamlSecretAdapter
+    resolver = build_secret_resolver(data, tmp_path)
+
+    assert isinstance(resolver, YamlSecretAdapter)
+    assert resolver._path == tmp_path / "local-secrets.yaml"
+
+
 def test_builds_env_resolver() -> None:
     data = {
         "secrets": {
