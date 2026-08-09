@@ -289,6 +289,8 @@ traces via `observability/*`, sans appeler les repositories directement.
 L'adapter `observability/langsmith` demande le projet LangSmith, l'endpoint, l'activation du tracing et
 `LANGSMITH_API_KEY`. Elle génère `config/adapters/outbound/langsmith.yaml`, ajoute `langsmith` à
 `observability.enabled`, met à jour `.env`, et ajoute `.env` au `.gitignore` si besoin.
+Si la clé n'est pas passée à la CLI, définir `LANGSMITH_API_KEY` manuellement dans `.env`,
+l'environnement runtime ou un secret manager avant de lancer `langgraph dev`.
 
 L'adapter `llm/lmstudio` génère `config/adapters/outbound/lm.yaml`, chargé dans
 `AppConfig.adapters.lm`. L'interpréteur d'intention applicatif consomme ensuite un `LLMPort`;

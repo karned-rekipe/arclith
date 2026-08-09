@@ -311,6 +311,13 @@ LangGraph doit lire `.env` via `langgraph.json`; `.env` contient `LANGSMITH_API_
 `LANGSMITH_TRACING`, `LANGSMITH_PROJECT` et `LANGSMITH_ENDPOINT`. La clé reste locale et ne doit pas
 être commitée.
 
+`config/adapters/outbound/langsmith.yaml` stocke seulement `api_key_env: LANGSMITH_API_KEY`: si la
+clé n'est pas passée à la CLI, aucune valeur vide n'est ajoutée à `.env`. Définir explicitement
+`LANGSMITH_API_KEY` dans `.env`, l'environnement runtime ou le secret manager avant de lancer
+`langgraph dev`, sinon les runs LangSmith ne pourront pas être envoyés. `project` nomme le workspace
+ou projet de test LangSmith, `endpoint` permet de viser l'API régionale, et `tracing` pilote
+`LANGSMITH_TRACING`.
+
 OpenTelemetry se configure avec:
 
 ```yaml

@@ -560,6 +560,7 @@ tracing: {tracing}
 project: "{project}"
 endpoint: "{endpoint}"
 api_key_env: LANGSMITH_API_KEY
+# Définir LANGSMITH_API_KEY hors Git: .env local, env runtime ou secret manager.
 studio: langgraph
 langgraph_api_min_version: "0.11.0"
 """,

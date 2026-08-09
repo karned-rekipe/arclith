@@ -204,7 +204,10 @@ def test_add_mariadb_adapter_rejects_direct_secret_params(tmp_path: Path, secret
     assert not (project_dir / "config" / "secrets.yaml").exists()
 
 
-def test_add_langsmith_observability_adapter_uses_catalog_params(tmp_path: Path) -> None:
+def test_add_langsmith_observability_adapter_uses_catalog_params(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     project_dir = _minimal_project(tmp_path)
     (project_dir / ".env").write_text("EXISTING=value\nLANGSMITH_PROJECT=old\n", encoding="utf-8")
 
@@ -220,6 +223,7 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(tmp_path: Path)
         },
         yes=True,
     )
+    cli_output = capsys.readouterr()
 
     config = (project_dir / "config" / "adapters" / "outbound" / "langsmith.yaml").read_text(
         encoding="utf-8"
@@ -228,6 +232,7 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(tmp_path: Path)
     assert 'project: "agent-tests"' in config
     assert 'endpoint: "https://eu.api.smith.langchain.com"' in config
     assert "api_key_env: LANGSMITH_API_KEY" in config
+    assert "Définir LANGSMITH_API_KEY hors Git" in config
     assert 'langgraph_api_min_version: "0.11.0"' in config
     adapters_config = yaml.safe_load(
         (project_dir / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8")
@@ -241,6 +246,20 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(tmp_path: Path)
     assert "LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com" in env
     assert "LANGSMITH_API_KEY=test-key" in env
     assert ".env" in (project_dir / ".gitignore").read_text(encoding="utf-8")
+    assert "test-key" not in cli_output.out
+    assert "test-key" not in cli_output.err
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+    load_output = capsys.readouterr()
+
+    assert arclith.config.adapters.observability.enabled == ["langsmith"]
+    assert arclith.config.adapters.langsmith is not None
+    assert arclith.config.adapters.langsmith.tracing is True
+    assert arclith.config.adapters.langsmith.project == "agent-tests"
+    assert arclith.config.adapters.langsmith.endpoint == "https://eu.api.smith.langchain.com"
+    assert "test-key" not in load_output.out
+    assert "test-key" not in load_output.err
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "outbound" / "langsmith").exists()
 
@@ -285,8 +304,13 @@ def test_add_langsmith_skips_missing_empty_api_key(tmp_path: Path) -> None:
     )
 
     env = (project_dir / ".env").read_text(encoding="utf-8")
+    config = (project_dir / "config" / "adapters" / "outbound" / "langsmith.yaml").read_text(
+        encoding="utf-8"
+    )
     assert "LANGSMITH_API_KEY=" not in env
     assert "LANGSMITH_PROJECT=agent-tests" in env
+    assert "api_key_env: LANGSMITH_API_KEY" in config
+    assert "Définir LANGSMITH_API_KEY hors Git" in config
 
 
 def test_add_fastapi_api_adapter_generates_inbound_config_only(tmp_path: Path) -> None:
@@ -669,6 +693,50 @@ def test_add_observability_adapters_accumulates_enabled_backends(tmp_path: Path)
     )
     assert "traces_endpoint: null" in config
     assert "metrics_endpoint: null" in config
+
+
+def test_add_langsmith_preserves_existing_opentelemetry_activation(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+    (project_dir / ".env").write_text("EXISTING=value\n", encoding="utf-8")
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="observability",
+        adapter="opentelemetry",
+        adapter_params={"service_name": "demo-api"},
+        yes=True,
+    )
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="observability",
+        adapter="langsmith",
+        adapter_params={"project": "agent-tests"},
+        yes=True,
+    )
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="observability",
+        adapter="langsmith",
+        adapter_params={"project": "agent-tests"},
+        yes=True,
+    )
+
+    adapters_config = yaml.safe_load(
+        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8")
+    )
+    env = (project_dir / ".env").read_text(encoding="utf-8")
+    opentelemetry_config = (
+        project_dir / "config" / "adapters" / "outbound" / "opentelemetry.yaml"
+    ).read_text(encoding="utf-8")
+
+    assert adapters_config["observability"]["enabled"] == ["opentelemetry", "langsmith"]
+    assert adapters_config["observability"]["enabled"].count("langsmith") == 1
+    assert adapters_config["observability"]["enabled"].count("opentelemetry") == 1
+    assert "EXISTING=value" in env
+    assert "OTEL_SERVICE_NAME=demo-api" in env
+    assert "LANGSMITH_PROJECT=agent-tests" in env
+    assert "LANGSMITH_API_KEY=" not in env
+    assert 'service_name: "demo-api"' in opentelemetry_config
 
 
 def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(tmp_path: Path) -> None:
