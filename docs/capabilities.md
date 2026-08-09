@@ -280,6 +280,11 @@ variable d'environnement, soit `config/secrets.yaml` est basculé vers un resolv
 resolver `env` est actif et que `OPENAI_API_KEY` manque au démarrage, `load_config_dir()` échoue avec
 un message `Secrets non résolus` qui liste `adapters.lm.api_key`.
 
+Choisir `llm/anthropic` pour utiliser les modèles Claude via le provider Anthropic. Choisir
+`llm/openai` lorsque le modèle est exposé par le protocole OpenAI-compatible: OpenAI, LM Studio,
+Ollama ou un endpoint custom via `base_url`. Anthropic ne génère pas de `base_url`; la clé réelle est
+résolue de la même façon via `ANTHROPIC_API_KEY`, l'environnement runtime ou Vault.
+
 ### `observability`
 
 Capacité outbound pour brancher l'observabilité et le banc de test agent.
@@ -464,6 +469,17 @@ arclith-cli add-adapter \
   --adapter openai \
   --param model_name="<model-id-openai>" \
   --param api_key="$OPENAI_API_KEY" \
+  --yes
+```
+
+Pour Anthropic:
+
+```bash
+arclith-cli add-adapter \
+  --capability llm \
+  --adapter anthropic \
+  --param model_name="<model-id-anthropic>" \
+  --param api_key="$ANTHROPIC_API_KEY" \
   --yes
 ```
 

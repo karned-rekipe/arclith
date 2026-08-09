@@ -1,3 +1,5 @@
+import builtins
+
 import pytest
 
 from arclith.infrastructure.config import LMSettings
@@ -33,6 +35,27 @@ def test_build_anthropic_model():
     from pydantic_ai.models.anthropic import AnthropicModel
     assert isinstance(model, AnthropicModel)
     assert model.profile["default_structured_output_mode"] == "native"
+
+
+def test_build_anthropic_model_reports_missing_optional_provider(monkeypatch: pytest.MonkeyPatch):
+    real_import = builtins.__import__
+
+    def fail_anthropic_import(
+        name: str,
+        globals: dict | None = None,
+        locals: dict | None = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ):
+        if name.startswith("pydantic_ai.models.anthropic"):
+            raise ImportError("anthropic provider unavailable")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fail_anthropic_import)
+    settings = LMSettings(provider="anthropic", model_name="claude-dev-model", api_key="sk-ant-test")
+
+    with pytest.raises(RuntimeError, match=r"arclith\[langgraph\].*Anthropic"):
+        build_pydantic_ai_model(settings)
 
 
 def test_build_openai_model():

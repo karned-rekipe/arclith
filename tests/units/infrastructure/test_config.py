@@ -647,6 +647,56 @@ def test_adapters_lm_missing_env_secret_raises_actionable_error(
         load_config_dir(config_dir)
 
 
+def test_adapters_lm_anthropic_api_key_loaded_from_env_mapping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-env")
+    config_dir = _make_config_dir({
+        "adapters/adapters.yaml": {"repository": "memory"},
+        "adapters/outbound/lm.yaml": {
+            "provider": "anthropic",
+            "model_name": "claude-dev-model",
+            "api_key": "",
+        },
+        "secrets.yaml": {
+            "resolver": "env",
+            "mappings": {
+                "adapters.lm.api_key": "ANTHROPIC_API_KEY",
+            },
+        },
+    })
+
+    config = load_config_dir(config_dir)
+
+    assert config.adapters.lm is not None
+    assert config.adapters.lm.provider == "anthropic"
+    assert config.adapters.lm.model_name == "claude-dev-model"
+    assert config.adapters.lm.api_key == "sk-ant-env"
+
+
+def test_adapters_lm_missing_anthropic_env_secret_raises_actionable_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    config_dir = _make_config_dir({
+        "adapters/adapters.yaml": {"repository": "memory"},
+        "adapters/outbound/lm.yaml": {
+            "provider": "anthropic",
+            "model_name": "claude-dev-model",
+            "api_key": "",
+        },
+        "secrets.yaml": {
+            "resolver": "env",
+            "mappings": {
+                "adapters.lm.api_key": "ANTHROPIC_API_KEY",
+            },
+        },
+    })
+
+    with pytest.raises(RuntimeError, match="Secrets non résolus.*adapters.lm.api_key"):
+        load_config_dir(config_dir)
+
+
 def test_adapters_mongodb_uri_loaded_from_env_mapping(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MONGODB_URI", "mongodb://env-mongo:27017")
     config_dir = _make_config_dir({

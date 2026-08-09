@@ -294,6 +294,8 @@ LangGraph ne fait qu'orchestrer les nœuds et injecter l'adapter outbound.
 Pour `llm/openai`, choisir explicitement le modèle et garder la clé hors du dépôt: la CLI mappe
 `adapters.lm.api_key` vers `OPENAI_API_KEY` via `config/secrets.yaml`, puis la valeur réelle vient de
 `.env` local gitignoré, de l'environnement runtime ou d'un resolver Vault.
+Utiliser `llm/anthropic` pour Claude via le provider Anthropic; garder `llm/openai` pour OpenAI,
+LM Studio ou tout endpoint OpenAI-compatible avec `base_url`.
 
 Le `langgraph.json` généré pointe vers `.env` pour que le serveur local charge les variables LangSmith.
 Les tests conversationnels et traces agent se font ensuite dans LangSmith Studio.
