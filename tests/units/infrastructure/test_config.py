@@ -432,7 +432,7 @@ def test_duckdb_requires_section():
 
 
 def test_mongodb_requires_section():
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match=r"repository=mongodb mais aucune section \[adapters.mongodb\]"):
         AppConfig.model_validate({"adapters": {"repository": "mongodb"}})
 
 
@@ -605,3 +605,28 @@ def test_adapters_lm_api_key_loaded_from_env_mapping(monkeypatch: pytest.MonkeyP
 
     assert config.adapters.lm is not None
     assert config.adapters.lm.api_key == "sk-openai"
+
+
+def test_adapters_mongodb_uri_loaded_from_env_mapping(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MONGODB_URI", "mongodb://env-mongo:27017")
+    config_dir = _make_config_dir({
+        "adapters/adapters.yaml": {"repository": "mongodb"},
+        "adapters/outbound/mongodb.yaml": {
+            "uri": None,
+            "db_name": "demo_shared",
+            "collection_name": None,
+            "multitenant": False,
+        },
+        "secrets.yaml": {
+            "resolver": "env",
+            "mappings": {
+                "adapters.mongodb.uri": "MONGODB_URI",
+            },
+        },
+    })
+
+    config = load_config_dir(config_dir)
+
+    assert config.adapters.mongodb is not None
+    assert config.adapters.mongodb.uri == "mongodb://env-mongo:27017"
+    assert config.adapters.mongodb.db_name == "demo_shared"

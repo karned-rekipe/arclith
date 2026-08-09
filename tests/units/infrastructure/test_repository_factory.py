@@ -42,10 +42,12 @@ def test_mongodb_returns_mongodb_repository(logger):
     from arclith.adapters.outbound.mongodb.repository import MongoDBRepository
     config = AppConfig(adapters = AdaptersSettings(
         repository = "mongodb",
-        mongodb = MongoDBSettings(uri = "mongodb://localhost:27017", db_name = "test"),
+        mongodb = MongoDBSettings(db_name = "test", collection_name = "items"),
     ))
     repo = build_repository(config, Item, logger)
     assert isinstance(repo, MongoDBRepository)
+    assert repo._config.uri is None
+    assert repo._config.collection_name == "items"
 
 
 def test_duckdb_returns_duckdb_repository(logger, tmp_path):

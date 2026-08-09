@@ -68,6 +68,38 @@ processus Python possède son propre stockage mémoire; une API, un serveur MCP 
 séparément ne partagent donc pas leur état. Utiliser un repository persistant pour les scénarios
 multi-processus.
 
+`mongodb` est le choix standard quand plusieurs processus doivent partager le même état, par exemple
+API, MCP et agent LangGraph. La CLI génère `config/adapters/outbound/mongodb.yaml` et mappe
+`adapters.mongodb.uri` vers `MONGODB_URI` dans `config/secrets.yaml` avec le resolver `env`. L'URI
+réelle reste hors Git: exporter `MONGODB_URI`, remplacer le resolver par `vault`, ou utiliser un
+resolver `chain` selon l'environnement.
+
+Single-tenant:
+
+```yaml
+# config/adapters/adapters.yaml
+repository: mongodb
+
+# config/adapters/outbound/mongodb.yaml
+uri: null
+db_name: my_service
+collection_name: null
+multitenant: false
+```
+
+Multitenant:
+
+```yaml
+# config/adapters/outbound/mongodb.yaml
+uri: null
+db_name: fallback_db
+collection_name: null
+multitenant: true
+```
+
+En multitenant, `VaultTenantResolver` fournit `uri` et peut fournir `db_name` pour la requête
+courante. `db_name` reste un fallback si le secret tenant ne le porte pas.
+
 Activation:
 
 ```yaml

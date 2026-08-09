@@ -139,15 +139,29 @@ REPOSITORY_CAPABILITY = CapabilitySpec(
             description="Repository MongoDB async avec configuration single-tenant ou multitenant.",
             config_path="config/adapters/outbound/mongodb.yaml",
             config_template="""\
-multitenant: {multitenant}   # true = URI + db_name resolus par requete via JWT -> Vault
-db_name: {db_name}   # uri -> secrets.yaml ou Vault (fallback single-tenant)
+uri: null   # single-tenant: mappez adapters.mongodb.uri via config/secrets.yaml, env ou Vault
+db_name: {db_name}   # fallback multitenant si le secret tenant ne fournit pas db_name
+collection_name: {collection_name}   # null = nom derive de la classe entite
+multitenant: {multitenant}   # true = uri/db_name resolus par requete via JWT -> VaultTenantResolver
 """,
+            secret_mappings=(
+                SecretMappingSpec(
+                    field_path="adapters.mongodb.uri",
+                    secret_key="MONGODB_URI",
+                ),
+            ),
             parameters=(
                 ParameterSpec(
                     name="db_name",
                     kind="string",
                     prompt="db_name",
                     default_from_project_name=True,
+                ),
+                ParameterSpec(
+                    name="collection_name",
+                    kind="string",
+                    prompt="collection_name",
+                    default="null",
                 ),
                 ParameterSpec(
                     name="multitenant",
