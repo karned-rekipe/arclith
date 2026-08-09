@@ -160,6 +160,14 @@ def test_repository_adapter_specs_include_config_and_parameters() -> None:
     assert [parameter.name for parameter in duckdb.parameters] == ["path"]
     assert mariadb is not None
     assert mariadb.config_path == "config/adapters/outbound/mariadb.yaml"
+    assert [mapping.field_path for mapping in mariadb.secret_mappings] == [
+        "adapters.mariadb.url",
+        "adapters.mariadb.password",
+    ]
+    assert [mapping.secret_key for mapping in mariadb.secret_mappings] == [
+        "MARIADB_URL",
+        "MARIADB_PASSWORD",
+    ]
     assert [parameter.name for parameter in mariadb.parameters] == [
         "host",
         "port",
@@ -207,6 +215,16 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert duckdb["name"] == "duckdb"
     assert duckdb["config_path"] == "config/adapters/outbound/duckdb.yaml"
     assert [parameter["name"] for parameter in duckdb["parameters"]] == ["path"]
+    mariadb = payload[0]["adapters"][3]
+    assert mariadb["name"] == "mariadb"
+    assert [mapping["field_path"] for mapping in mariadb["secret_mappings"]] == [
+        "adapters.mariadb.url",
+        "adapters.mariadb.password",
+    ]
+    assert [mapping["secret_key"] for mapping in mariadb["secret_mappings"]] == [
+        "MARIADB_URL",
+        "MARIADB_PASSWORD",
+    ]
     assert payload[1]["name"] == "api"
     assert [adapter["name"] for adapter in payload[1]["adapters"]] == ["fastapi"]
     assert payload[2]["name"] == "mcp"

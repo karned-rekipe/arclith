@@ -171,7 +171,35 @@ def test_add_mariadb_adapter_uses_catalog_params(tmp_path: Path) -> None:
     assert "host: mariadb.local" in mariadb_config
     assert "port: 3307" in mariadb_config
     assert "database: demo_shared" in mariadb_config
+    assert "url: null" in mariadb_config
+    assert "password: null" in mariadb_config
     assert 'table_prefix: "todo_"' in mariadb_config
+
+    secrets = (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
+    assert "resolver: env" in secrets
+    assert "adapters.mariadb.url: MARIADB_URL" in secrets
+    assert "adapters.mariadb.password: MARIADB_PASSWORD" in secrets
+    assert "secret-password" not in mariadb_config
+    assert "secret-password" not in secrets
+
+
+@pytest.mark.parametrize("secret_param", ["password", "url"])
+def test_add_mariadb_adapter_rejects_direct_secret_params(tmp_path: Path, secret_param: str) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            adapter="mariadb",
+            adapter_params={
+                "database": "demo_shared",
+                secret_param: "secret-password",
+            },
+            yes=True,
+        )
+
+    assert not (project_dir / "config" / "adapters" / "outbound" / "mariadb.yaml").exists()
+    assert not (project_dir / "config" / "secrets.yaml").exists()
 
 
 def test_add_langsmith_observability_adapter_uses_catalog_params(tmp_path: Path) -> None:

@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 import pytest
 
 from arclith.adapters.outbound.memory.repository import InMemoryRepository
@@ -72,3 +75,43 @@ def test_mariadb_returns_mariadb_repository(logger):
     ))
     repo = build_repository(config, Item, logger)
     assert isinstance(repo, MariaDBRepository)
+
+
+def test_import_arclith_does_not_require_mariadb_extra():
+    script = """
+import importlib.abc
+import sys
+
+
+class BlockMariaDBExtras(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        if fullname == "sqlalchemy" or fullname.startswith("sqlalchemy."):
+            raise ModuleNotFoundError(fullname)
+        if fullname == "asyncmy" or fullname.startswith("asyncmy."):
+            raise ModuleNotFoundError(fullname)
+        return None
+
+
+sys.meta_path.insert(0, BlockMariaDBExtras())
+
+import arclith
+from arclith.domain.models.entity import Entity
+from arclith.infrastructure.repository_factory import default_repository_registry
+
+
+class SmokeItem(Entity):
+    pass
+
+
+default_repository_registry(SmokeItem)
+print(arclith.__name__)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "arclith"

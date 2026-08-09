@@ -128,6 +128,41 @@ multitenant: false
 path: data/
 ```
 
+`mariadb` est l'option SQL serveur. Il reste un adapter repository optionnel: installer
+`arclith[mariadb]` uniquement dans les services qui l'utilisent. Le package de base et les tests
+sans extra ne doivent pas importer SQLAlchemy ou `asyncmy`.
+
+La CLI génère la configuration non secrète dans `config/adapters/outbound/mariadb.yaml` et ajoute
+les mappings secrets dans `config/secrets.yaml`. Ne pas passer ni écrire de mot de passe réel dans
+`mariadb.yaml`; utiliser `MARIADB_PASSWORD` ou `MARIADB_URL`, ou remplacer le resolver `env` par
+`vault` selon l'environnement.
+
+```yaml
+# config/adapters/adapters.yaml
+repository: mariadb
+
+# config/adapters/outbound/mariadb.yaml
+url: null
+host: 127.0.0.1
+port: 3306
+database: my_service
+user: app
+password: null
+driver: asyncmy
+table_prefix: ""
+multitenant: false
+
+# config/secrets.yaml
+resolver: env
+mappings:
+  adapters.mariadb.url: MARIADB_URL
+  adapters.mariadb.password: MARIADB_PASSWORD
+```
+
+En single-tenant, `database` est requis quand `url` n'est pas fourni par les secrets. En
+multitenant, le contexte tenant peut fournir `url`, `database`, `user`, `password`, `host`, `port`,
+`driver` ou `table_prefix`.
+
 ### `api`
 
 Capacité inbound pour exposer les cas d'usage via HTTP REST.
