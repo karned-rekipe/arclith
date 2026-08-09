@@ -155,6 +155,20 @@ def test_load_config_dir_mcp_via_fastmcp_alias():
     assert config.mcp.port == 8888
 
 
+def test_load_config_dir_cache_scoped():
+    path = _make_config_dir({
+        "adapters/inbound/cache.yaml": {
+            "backend": "memory",
+            "jwks_ttl": 1200,
+            "tenant_uri_ttl": 180,
+        }
+    })
+    config = load_config_dir(path)
+    assert config.cache.backend == "memory"
+    assert config.cache.jwks_ttl == 1200
+    assert config.cache.tenant_uri_ttl == 180
+
+
 def test_load_config_dir_mongodb_scoped():
     path = _make_config_dir({
         "adapters/adapters.yaml": {"repository": "mongodb"},

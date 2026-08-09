@@ -838,6 +838,19 @@ def test_add_transport_adapter_rejects_entity_selection(tmp_path: Path) -> None:
         )
 
 
+def test_add_cache_adapter_rejects_entity_selection(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="cache",
+            adapter="memory",
+            entity_names=["Widget"],
+            yes=True,
+        )
+
+
 def test_add_adapter_rejects_unknown_catalog_param(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
 
@@ -957,6 +970,35 @@ def test_add_memory_adapter_interactive_wizard_activates_memory(tmp_path: Path) 
     assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     )
+
+
+def test_add_cache_memory_adapter_generates_loadable_config(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="cache",
+        adapter="memory",
+        adapter_params={
+            "jwks_ttl": "1200",
+            "tenant_uri_ttl": "180",
+        },
+        yes=True,
+    )
+
+    from arclith import Arclith
+    from arclith.adapters.outbound.memory.cache_adapter import MemoryCacheAdapter
+
+    cache_config = (project_dir / "config" / "adapters" / "inbound" / "cache.yaml").read_text(
+        encoding="utf-8"
+    )
+    app = Arclith(project_dir / "config")
+
+    assert cache_config == "backend: memory\njwks_ttl: 1200\ntenant_uri_ttl: 180\n"
+    assert app.config.cache.backend == "memory"
+    assert app.config.cache.jwks_ttl == 1200
+    assert app.config.cache.tenant_uri_ttl == 180
+    assert isinstance(app._cache, MemoryCacheAdapter)
 
 
 def test_boolean_string_default_false_is_false(tmp_path: Path) -> None:

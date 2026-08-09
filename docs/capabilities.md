@@ -163,6 +163,33 @@ En single-tenant, `database` est requis quand `url` n'est pas fourni par les sec
 multitenant, le contexte tenant peut fournir `url`, `database`, `user`, `password`, `host`, `port`,
 `driver` ou `table_prefix`.
 
+### `cache`
+
+Capacité outbound transverse pour le cache technique utilisé par JWT JWKS, idempotency et
+résolution tenant. Elle n'est pas liée aux entités métier et ne doit pas être confondue avec
+`repository/memory`, qui stocke les entités derrière un port repository.
+
+Adapter disponible:
+
+- `memory`: cache local par processus pour développement, tests, smokes locaux et worker unique.
+
+Configuration runtime:
+
+```yaml
+# config/adapters/inbound/cache.yaml
+backend: memory
+jwks_ttl: 3600
+tenant_uri_ttl: 300
+```
+
+Cette capacité n'a pas de clé d'activation dans `config/adapters/adapters.yaml`: le chemin
+`config/adapters/inbound/cache.yaml` est chargé directement dans `AppConfig.cache`.
+
+`memory` garde les entrées uniquement dans le processus Python courant. Une API, un serveur MCP, un
+agent LangGraph ou plusieurs workers lancés séparément ne partagent donc pas les JWKS, réponses
+idempotentes ou coordonnées tenant mises en cache. Passer à Redis dès qu'il faut un cache partagé
+entre workers, réplicas ou processus API/MCP/agent.
+
 ### `api`
 
 Capacité inbound pour exposer les cas d'usage via HTTP REST.
@@ -439,6 +466,11 @@ arclith-cli add-adapter \
   --capability mcp \
   --adapter fastmcp \
   --param port=8081 \
+  --yes
+
+arclith-cli add-adapter \
+  --capability cache \
+  --adapter memory \
   --yes
 
 arclith-cli add-adapter \
