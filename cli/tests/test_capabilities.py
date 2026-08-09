@@ -40,6 +40,9 @@ def test_observability_capability_catalog_declares_langsmith() -> None:
         "endpoint",
         "api_key",
     ]
+    langsmith_parameters = {parameter.name: parameter for parameter in langsmith.parameters}
+    assert langsmith_parameters["api_key"].secret is True
+    assert langsmith_parameters["api_key"].default == ""
 
 
 def test_api_capability_catalog_declares_fastapi() -> None:
@@ -253,3 +256,7 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert [adapter["name"] for adapter in payload[4]["adapters"]] == ["langgraph"]
     assert payload[5]["name"] == "observability"
     assert [adapter["name"] for adapter in payload[5]["adapters"]] == ["langsmith", "opentelemetry"]
+    langsmith = payload[5]["adapters"][0]
+    langsmith_parameters = {parameter["name"]: parameter for parameter in langsmith["parameters"]}
+    assert langsmith_parameters["api_key"]["secret"] is True
+    assert langsmith_parameters["api_key"]["default"] == ""
