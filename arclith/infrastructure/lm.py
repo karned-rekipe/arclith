@@ -14,7 +14,7 @@ def build_pydantic_ai_model(settings: LMSettings):
             from pydantic_ai.models.anthropic import AnthropicModel
             from pydantic_ai.profiles.anthropic import AnthropicModelProfile
             from pydantic_ai.providers.anthropic import AnthropicProvider
-        except ImportError as exc:
+        except ModuleNotFoundError as exc:
             raise RuntimeError(
                 "Le provider LLM 'anthropic' requiert l'extra optionnel "
                 "`arclith[langgraph]` avec le support pydantic-ai Anthropic."
@@ -33,7 +33,7 @@ def build_pydantic_ai_model(settings: LMSettings):
     try:
         from pydantic_ai.models.openai import OpenAIChatModel, OpenAIModelProfile
         from pydantic_ai.providers.openai import OpenAIProvider
-    except ImportError as exc:
+    except ModuleNotFoundError as exc:
         raise RuntimeError(
             "Le provider LLM 'openai' requiert l'extra optionnel "
             "`arclith[langgraph]` avec le support pydantic-ai OpenAI."

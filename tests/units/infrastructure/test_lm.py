@@ -48,7 +48,7 @@ def test_build_anthropic_model_reports_missing_optional_provider(monkeypatch: py
         level: int = 0,
     ):
         if name.startswith("pydantic_ai.models.anthropic"):
-            raise ImportError("anthropic provider unavailable")
+            raise ModuleNotFoundError("No module named 'pydantic_ai.models.anthropic'", name=name)
         return real_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr(builtins, "__import__", fail_anthropic_import)
