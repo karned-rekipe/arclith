@@ -318,8 +318,15 @@ def _resolve_parameter(
     resolved = provided_value.strip() if isinstance(provided_value, str) else ""
     string_default = _default_string_value(parameter, project_dir)
     if not resolved and prompt_missing:
-        resolved = Prompt.ask(f"  {parameter.prompt}", default=string_default, password=parameter.secret).strip()
-    return resolved or string_default
+        prompt_kwargs: dict[str, Any] = {"password": parameter.secret}
+        if string_default:
+            prompt_kwargs["default"] = string_default
+        resolved = Prompt.ask(f"  {parameter.prompt}", **prompt_kwargs).strip()
+    resolved = resolved or string_default
+    if parameter.required and not resolved:
+        console.print(f"[red]✗[/red] Paramètre requis manquant: [bold]{parameter.name}[/bold].")
+        raise typer.Exit(1)
+    return resolved
 
 
 def _default_string_value(parameter: ParameterSpec, project_dir: Path) -> str:
@@ -473,7 +480,12 @@ def _generate(
 
     if adapter.has_secret_mappings():
         secrets_path = project_dir / "config" / "secrets.yaml"
-        _merge_secrets_file(secrets_path, adapter.secret_mappings)
+        _merge_secrets_file(
+            secrets_path,
+            adapter.secret_mappings,
+            resolver=adapter.secret_resolver,
+            params=params,
+        )
         console.print(f"[green]✓[/green] {secrets_path.relative_to(project_dir)}")
 
     for file_template in adapter.file_templates:
@@ -639,11 +651,19 @@ def _merge_env_file(env_path: Path, updates: dict[str, str]) -> None:
     env_path.write_text("\n".join(merged_lines).rstrip("\n") + "\n", encoding="utf-8")
 
 
-def _merge_secrets_file(secrets_path: Path, mappings: tuple[SecretMappingSpec, ...]) -> None:
+def _merge_secrets_file(
+    secrets_path: Path,
+    mappings: tuple[SecretMappingSpec, ...],
+    *,
+    resolver: str | None = None,
+    params: dict[str, Any] | None = None,
+) -> None:
     secrets_path.parent.mkdir(parents=True, exist_ok=True)
     data = _read_yaml_mapping(secrets_path)
-    resolver = data.get("resolver")
-    if not isinstance(resolver, str) or not resolver.strip():
+    existing_resolver = data.get("resolver")
+    if resolver is not None:
+        data["resolver"] = resolver
+    elif not isinstance(existing_resolver, str) or not existing_resolver.strip():
         data["resolver"] = "env"
 
     existing_mappings = data.get("mappings")
@@ -651,8 +671,14 @@ def _merge_secrets_file(secrets_path: Path, mappings: tuple[SecretMappingSpec, .
         existing_mappings = {}
 
     merged_mappings = dict(existing_mappings)
+    render_params = params or {}
     for mapping in mappings:
-        merged_mappings[mapping.field_path] = mapping.secret_key
+        field_path = render(mapping.field_path, render_params).strip()
+        secret_key = render(mapping.secret_key, render_params).strip()
+        if not field_path:
+            console.print("[red]✗[/red] Un mapping de secret doit cibler un champ non vide.")
+            raise typer.Exit(1)
+        merged_mappings[field_path] = secret_key
     data["mappings"] = merged_mappings
 
     rendered = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)

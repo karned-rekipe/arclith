@@ -226,6 +226,56 @@ services:
 Depuis un service lancé dans le même réseau Compose, utiliser `REDIS_URL=redis://redis:6379`. Depuis
 un processus lancé sur l'hôte, utiliser `REDIS_URL=redis://127.0.0.1:6379`.
 
+### `secrets`
+
+Capacité outbound transverse pour résoudre les secrets avant validation Pydantic de `AppConfig`.
+Elle ne génère jamais de valeur réelle: elle ne déclare que le resolver et les mappings dans
+`config/secrets.yaml`.
+
+Adaptateur disponible:
+
+- `env`: lit les valeurs depuis les variables d'environnement du processus, compatible Docker,
+  Kubernetes, CI/CD et plateformes cloud.
+
+Ajouter un mapping avec une clé explicite:
+
+```bash
+arclith-cli add-adapter \
+  --capability secrets \
+  --adapter env \
+  --param field_path=adapters.mongodb.uri \
+  --param secret_key=MONGODB_URI \
+  --yes
+```
+
+Résultat:
+
+```yaml
+# config/secrets.yaml
+resolver: env
+mappings:
+  adapters.mongodb.uri: MONGODB_URI
+```
+
+Ajouter un mapping avec un nom dérivé:
+
+```bash
+arclith-cli add-adapter \
+  --capability secrets \
+  --adapter env \
+  --param field_path=adapters.mongodb.uri \
+  --yes
+```
+
+Dans ce cas, la valeur du mapping reste vide et `EnvSecretAdapter` dérive le nom d'environnement
+depuis le chemin de champ: `adapters.mongodb.uri` devient `ADAPTERS_MONGODB_URI`. Une clé explicite
+prime toujours sur le nom dérivé, ce qui permet de garder les conventions d'écosystème comme
+`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MONGODB_URI`, `MARIADB_URL` ou `REDIS_URL`.
+
+`arclith-cli` fusionne les nouveaux mappings dans `config/secrets.yaml` sans supprimer les mappings
+existants. Si un secret requis manque et que le champ cible n'est pas explicitement `null`, le
+chargement de configuration échoue avec un message `Secrets non résolus` qui liste le champ concerné.
+
 ### `api`
 
 Capacité inbound pour exposer les cas d'usage via HTTP REST.
