@@ -2,6 +2,7 @@ from typing import Any
 
 
 type TraceMetadata = dict[str, str | bool]
+_HEX_DIGITS = frozenset("0123456789abcdef")
 
 
 def current_trace_metadata() -> TraceMetadata:
@@ -24,7 +25,10 @@ def current_trace_metadata() -> TraceMetadata:
 def log_record_trace_metadata(record: Any) -> TraceMetadata:
     trace_id = getattr(record, "otelTraceID", "")
     span_id = getattr(record, "otelSpanID", "")
-    if not _valid_injected_id(trace_id) or not _valid_injected_id(span_id):
+    if not _valid_injected_id(trace_id, expected_length=32) or not _valid_injected_id(
+        span_id,
+        expected_length=16,
+    ):
         return {}
 
     metadata: TraceMetadata = {
@@ -37,5 +41,10 @@ def log_record_trace_metadata(record: Any) -> TraceMetadata:
     return metadata
 
 
-def _valid_injected_id(value: Any) -> bool:
-    return isinstance(value, str) and bool(value) and any(char != "0" for char in value)
+def _valid_injected_id(value: Any, *, expected_length: int) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == expected_length
+        and any(char != "0" for char in value)
+        and all(char.lower() in _HEX_DIGITS for char in value)
+    )

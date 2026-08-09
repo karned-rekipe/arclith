@@ -23,7 +23,14 @@ def test_console_logger_enriches_metadata_with_current_trace(monkeypatch) -> Non
     )
     monkeypatch.setattr(console_logger.loguru_logger, "bind", fake_bind)
 
-    ConsoleLogger().log(LogLevel.INFO, "hello", request_id="req-1")
+    ConsoleLogger().log(
+        LogLevel.INFO,
+        "hello",
+        request_id="req-1",
+        trace_id="application-trace",
+        span_id="application-span",
+        trace_sampled=False,
+    )
 
     assert captured["message"] == "hello"
     assert captured["bind"]["meta"] == {

@@ -23,5 +23,5 @@ loguru_logger.add(sys.stderr, format = _FORMAT)
 class ConsoleLogger(Logger):
     def log(self, level: LogLevel, message: str, **metadata: Any) -> None:
         emoji = _LEVEL_EMOJI.get(level.value, "💬")
-        bound = loguru_logger.bind(level_emoji = emoji, meta = {**current_trace_metadata(), **metadata})
+        bound = loguru_logger.bind(level_emoji = emoji, meta = {**metadata, **current_trace_metadata()})
         getattr(bound, level.value.lower())(message)
