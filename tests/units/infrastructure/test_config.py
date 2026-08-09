@@ -623,6 +623,30 @@ def test_adapters_lm_api_key_loaded_from_env_mapping(monkeypatch: pytest.MonkeyP
     assert config.adapters.lm.api_key == "sk-openai"
 
 
+def test_adapters_lm_missing_env_secret_raises_actionable_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    config_dir = _make_config_dir({
+        "adapters/adapters.yaml": {"repository": "memory"},
+        "adapters/outbound/lm.yaml": {
+            "provider": "openai",
+            "model_name": "gpt-4o-mini",
+            "api_key": "",
+            "base_url": "https://api.openai.com/v1",
+        },
+        "secrets.yaml": {
+            "resolver": "env",
+            "mappings": {
+                "adapters.lm.api_key": "OPENAI_API_KEY",
+            },
+        },
+    })
+
+    with pytest.raises(RuntimeError, match="Secrets non résolus.*adapters.lm.api_key"):
+        load_config_dir(config_dir)
+
+
 def test_adapters_mongodb_uri_loaded_from_env_mapping(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MONGODB_URI", "mongodb://env-mongo:27017")
     config_dir = _make_config_dir({

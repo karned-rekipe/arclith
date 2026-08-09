@@ -404,7 +404,7 @@ OPENAI_API_KEY={api_key}
                     name="model_name",
                     kind="string",
                     prompt="Modèle OpenAI",
-                    default="gpt-4o-mini",
+                    default="remplacer-par-model-id-openai",
                 ),
                 ParameterSpec(
                     name="base_url",

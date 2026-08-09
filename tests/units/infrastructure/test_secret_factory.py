@@ -161,9 +161,21 @@ def test_resolve_raises_on_unresolved_secret() -> None:
         resolve_dict_secrets(data, resolver)
 
 
+def test_resolve_keeps_null_placeholder_when_secret_is_unresolved() -> None:
+    data = {
+        "adapters": {"mongodb": {"uri": None, "db_name": "fallback"}},
+        "secrets": {"mappings": {"adapters.mongodb.uri": "MONGODB_URI"}},
+    }
+    resolver = _make_resolver({"adapters.mongodb.uri": None})
+
+    result = resolve_dict_secrets(data, resolver)
+
+    assert result["adapters"]["mongodb"]["uri"] is None
+    assert result["adapters"]["mongodb"]["db_name"] == "fallback"
+
+
 def test_resolve_creates_intermediate_dicts() -> None:
     data = {"secrets": {"mappings": {"a.b.c": "p"}}}
     resolver = _make_resolver({"a.b.c": "deep-value"})
     result = resolve_dict_secrets(data, resolver)
     assert result["a"]["b"]["c"] == "deep-value"
-

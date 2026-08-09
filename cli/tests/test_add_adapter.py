@@ -441,7 +441,11 @@ def test_add_lmstudio_llm_adapter_generates_lm_config_only(tmp_path: Path) -> No
     assert arclith.config.adapters.lm.base_url == "http://127.0.0.1:1234/v1"
 
 
-def test_add_openai_llm_adapter_generates_secret_mapping(tmp_path: Path) -> None:
+def test_add_openai_llm_adapter_generates_secret_mapping(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     project_dir = _minimal_project(tmp_path)
     (project_dir / ".env").write_text("EXISTING=value\n", encoding="utf-8")
 
@@ -456,6 +460,7 @@ def test_add_openai_llm_adapter_generates_secret_mapping(tmp_path: Path) -> None
         },
         yes=True,
     )
+    captured = capsys.readouterr()
 
     config = (project_dir / "config" / "adapters" / "outbound" / "lm.yaml").read_text(
         encoding="utf-8"
@@ -476,6 +481,54 @@ def test_add_openai_llm_adapter_generates_secret_mapping(tmp_path: Path) -> None
     assert "llm:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     )
+    assert "sk-test" not in captured.out
+    assert "sk-test" not in captured.err
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+
+    assert arclith.config.adapters.lm is not None
+    assert arclith.config.adapters.lm.provider == "openai"
+    assert arclith.config.adapters.lm.model_name == "gpt-4o-mini"
+    assert arclith.config.adapters.lm.api_key == "sk-test"
+    assert arclith.config.adapters.lm.base_url == "https://api.openai.com/v1"
+
+
+def test_add_openai_llm_adapter_without_key_does_not_generate_fake_secret(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    (project_dir / ".env").write_text("EXISTING=value\n", encoding="utf-8")
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="llm",
+        adapter="openai",
+        adapter_params={
+            "model_name": "custom-openai-model",
+            "base_url": "https://api.openai.com/v1",
+        },
+        yes=True,
+    )
+    captured = capsys.readouterr()
+
+    env = (project_dir / ".env").read_text(encoding="utf-8")
+    config = (project_dir / "config" / "adapters" / "outbound" / "lm.yaml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "EXISTING=value" in env
+    assert "OPENAI_API_KEY=" not in env
+    assert "sk-" not in env
+    assert 'api_key: ""' in config
+    assert "adapters.lm.api_key: OPENAI_API_KEY" in (
+        project_dir / "config" / "secrets.yaml"
+    ).read_text(encoding="utf-8")
+    assert "sk-" not in captured.out
+    assert "sk-" not in captured.err
 
 
 def test_add_opentelemetry_observability_adapter_uses_catalog_params(tmp_path: Path) -> None:

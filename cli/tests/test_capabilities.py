@@ -91,6 +91,10 @@ def test_llm_capability_catalog_declares_model_adapters() -> None:
     assert openai.config_path == "config/adapters/outbound/lm.yaml"
     assert openai.env_path == ".env"
     assert openai.entity_scoped is False
+    openai_parameters = {parameter.name: parameter for parameter in openai.parameters}
+    assert openai_parameters["model_name"].default == "remplacer-par-model-id-openai"
+    assert openai_parameters["api_key"].secret is True
+    assert openai_parameters["api_key"].default == ""
     assert [mapping.field_path for mapping in openai.secret_mappings] == ["adapters.lm.api_key"]
 
     assert anthropic is not None
@@ -231,6 +235,11 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert [adapter["name"] for adapter in payload[2]["adapters"]] == ["fastmcp"]
     assert payload[3]["name"] == "llm"
     assert [adapter["name"] for adapter in payload[3]["adapters"]] == ["lmstudio", "openai", "anthropic"]
+    openai = payload[3]["adapters"][1]
+    openai_parameters = {parameter["name"]: parameter for parameter in openai["parameters"]}
+    assert openai_parameters["model_name"]["default"] == "remplacer-par-model-id-openai"
+    assert openai_parameters["api_key"]["secret"] is True
+    assert openai_parameters["api_key"]["default"] == ""
     assert payload[4]["name"] == "agent"
     assert [adapter["name"] for adapter in payload[4]["adapters"]] == ["langgraph"]
     assert payload[5]["name"] == "observability"

@@ -204,7 +204,8 @@ L'adapter `llm/lmstudio` génère `config/adapters/outbound/lm.yaml`, chargé da
 `AppConfig.adapters.lm`. Adapter `model_name` au modèle chargé dans LM Studio et utiliser
 `host.docker.internal` comme `base_url` si le projet tourne dans Docker alors que LM Studio tourne
 sur l'hôte. Les adapters `llm/openai` et `llm/anthropic` génèrent aussi un mapping
-`config/secrets.yaml` vers `OPENAI_API_KEY` ou `ANTHROPIC_API_KEY`.
+`config/secrets.yaml` vers `OPENAI_API_KEY` ou `ANTHROPIC_API_KEY`; la clé réelle reste dans `.env`
+local gitignoré, l'environnement runtime ou Vault.
 
 L'adapter `repository/mongodb` génère `config/adapters/outbound/mongodb.yaml` avec `uri: null`, puis
 mappe `adapters.mongodb.uri` vers `MONGODB_URI` dans `config/secrets.yaml`. L'URI réelle reste dans

@@ -29,7 +29,7 @@ def resolve_dict_secrets(data: dict, resolver: "SecretResolver") -> dict:
         value = resolver.get(field_path, secret_key)
         if value is not None:
             _set_nested(result, field_path, value)
-        else:
+        elif not _has_explicit_null(result, field_path):
             missing.append(field_path)
 
     if missing:
@@ -41,6 +41,15 @@ def resolve_dict_secrets(data: dict, resolver: "SecretResolver") -> dict:
     return result
 
 
+def _has_explicit_null(data: dict, path: str) -> bool:
+    current: object = data
+    for key in path.split("."):
+        if not isinstance(current, dict) or key not in current:
+            return False
+        current = current[key]
+    return current is None
+
+
 def _set_nested(data: dict, path: str, value: str) -> None:
     keys = path.split(".")
     current = data
@@ -49,4 +58,3 @@ def _set_nested(data: dict, path: str, value: str) -> None:
             current[key] = {}
         current = current[key]
     current[keys[-1]] = value
-
