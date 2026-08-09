@@ -26,6 +26,12 @@ Fournir les primitives réutilisables pour construire des services en architectu
 - Pre-commit gate : `make precommit` (lint + typecheck + security).
 - **HTTP Status Codes** : toujours déclarer explicitement `status_code` et `responses` dans FastAPI. Voir `docs/http-conventions.md`.
 
+## Flux nominal Pull Request
+
+- Après création ou mise à jour d'une PR, consulter les commentaires et conversations GitHub générés par Copilot.
+- Traiter les commentaires Copilot actionnables comme des retours de review normaux: corriger le code, les tests ou la documentation concernés.
+- Résoudre les conversations Copilot une fois le point traité. Si un commentaire n'est pas actionnable, répondre avec la justification technique avant de résoudre.
+
 ## Architecture
 
 ```
