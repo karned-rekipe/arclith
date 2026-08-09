@@ -290,29 +290,39 @@ def test_add_langsmith_skips_missing_empty_api_key(tmp_path: Path) -> None:
 def test_add_fastapi_api_adapter_generates_inbound_config_only(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
 
-    add_adapter_cmd(
-        project_dir=project_dir,
-        capability_name="api",
-        adapter="fastapi",
-        adapter_params={
-            "host": "127.0.0.1",
-            "port": "8080",
-            "reload": "false",
-        },
-        yes=True,
-    )
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="api",
+            adapter="fastapi",
+            adapter_params={
+                "host": "127.0.0.1",
+                "port": "8080",
+                "reload": "false",
+            },
+            yes=True,
+        )
 
     config = (project_dir / "config" / "adapters" / "inbound" / "fastapi.yaml").read_text(
         encoding="utf-8"
     )
-    assert "host: 127.0.0.1" in config
-    assert "port: 8080" in config
-    assert "reload: false" in config
+    assert config == "host: 127.0.0.1\nport: 8080\nreload: false\n"
     assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     )
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "outbound" / "fastapi").exists()
+    assert not (package_root / "adapters" / "inbound" / "fastapi").exists()
+
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+    app = arclith.fastapi()
+
+    assert arclith.config.api.host == "127.0.0.1"
+    assert arclith.config.api.port == 8080
+    assert arclith.config.api.reload is False
+    assert app.title == arclith.config.app.name
 
 
 def test_add_fastmcp_mcp_adapter_generates_inbound_config_only(tmp_path: Path) -> None:
