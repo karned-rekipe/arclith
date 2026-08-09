@@ -220,6 +220,21 @@ port: 8001
 Cette capacité n'a pas de clé d'activation dans `config/adapters/adapters.yaml`: le chemin
 `config/adapters/inbound/fastmcp.yaml` est chargé directement dans `AppConfig.mcp`.
 
+FastMCP expose les mêmes use cases que l'API, via tools/resources/prompts définis dans le projet
+consommateur. Les tools MCP appellent les ports inbound ou use cases applicatifs; ils ne doivent pas
+contourner l'application pour appeler un repository concret.
+
+Transports supportés par Arclith:
+
+- `run_mcp_sse(mcp)`: lance FastMCP avec `transport="sse"`, `host` et `port` depuis `AppConfig.mcp`;
+- `run_mcp_http(mcp)`: lance FastMCP avec `transport="streamable-http"`, `host` et `port` depuis
+  `AppConfig.mcp`.
+
+`stdio` n'a pas de runner Arclith: utiliser SSE ou streamable HTTP pour garder un déploiement
+compatible API/MCP/probes. L'instrumentation MCP reste transverse: enregistrer les tools sur
+`mcp`, puis appeler `Arclith.instrument_mcp(mcp)` si les probes sont activées. Cette instrumentation
+ne fait pas partie de la capability `mcp/fastmcp`.
+
 ### `llm`
 
 Capacité outbound pour configurer le modèle utilisé par les interpréteurs d'intention et agents.
