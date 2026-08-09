@@ -62,6 +62,12 @@ Adapters disponibles:
 - `duckdb`: repository fichier local pour SQL analytique et démos sans serveur;
 - `mariadb`: repository MariaDB async optionnel, avec stockage générique JSON par entité.
 
+`memory` reste le chemin zéro dépendance pour les tests, les use cases et les smokes locaux. Il
+n'ajoute aucun fichier de configuration dédié: l'activation se limite à `repository: memory`. Chaque
+processus Python possède son propre stockage mémoire; une API, un serveur MCP et un agent lancés
+séparément ne partagent donc pas leur état. Utiliser un repository persistant pour les scénarios
+multi-processus.
+
 Activation:
 
 ```yaml

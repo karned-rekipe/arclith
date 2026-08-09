@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -484,6 +486,103 @@ def test_add_memory_adapter_rejects_unknown_catalog_param(tmp_path: Path) -> Non
             adapter_params={"unused": "value"},
             yes=True,
         )
+
+
+def test_add_memory_adapter_direct_cli_keeps_memory_and_loads_config(tmp_path: Path) -> None:
+    project_dir = tmp_path / "memory-service"
+
+    result = subprocess.run(
+        [
+            "arclith-cli",
+            "init",
+            "memory-service",
+            "--dir",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"init failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+
+    result = subprocess.run(
+        ["arclith-cli", "add-entity", "Widget"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"add-entity failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+
+    result = subprocess.run(
+        [
+            "arclith-cli",
+            "add-adapter",
+            "--capability",
+            "repository",
+            "--adapter",
+            "memory",
+            "--entity",
+            "Widget",
+            "--yes",
+        ],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"add-adapter failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+
+    package_root = project_dir / "src" / "memory_service"
+    assert (package_root / "adapters" / "outbound" / "memory" / "repositories" / "widget_repository.py").exists()
+    assert (package_root / "adapters" / "outbound" / "memory" / "repository.py").exists()
+    assert not (project_dir / "config" / "adapters" / "outbound" / "memory.yaml").exists()
+
+    adapters_config = yaml.safe_load(
+        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8")
+    )
+    assert adapters_config["repository"] == "memory"
+
+    load_result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from arclith import Arclith\n"
+                "app = Arclith('config')\n"
+                "assert app.config.adapters.repository == 'memory'\n"
+                "print(app.config.adapters.repository)\n"
+            ),
+        ],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert load_result.returncode == 0, (
+        f"Arclith config load failed:\nSTDOUT:\n{load_result.stdout}\nSTDERR:\n{load_result.stderr}"
+    )
+    assert load_result.stdout.strip() == "memory"
+
+
+def test_add_memory_adapter_interactive_wizard_activates_memory(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    result = subprocess.run(
+        ["arclith-cli", "add-adapter"],
+        cwd=project_dir,
+        input="1\ny\ny\n",
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, f"wizard failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    package_root = project_dir / "src" / "demo_service"
+    assert (package_root / "adapters" / "outbound" / "memory" / "repositories" / "widget_repository.py").exists()
+    assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_boolean_string_default_false_is_false(tmp_path: Path) -> None:

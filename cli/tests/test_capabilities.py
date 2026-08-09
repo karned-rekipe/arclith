@@ -15,6 +15,11 @@ def test_repository_capability_catalog_declares_standard_adapters() -> None:
     assert capability.layer == "outbound"
     assert capability.activation_config_key == "repository"
     assert repository_adapter_names() == ("memory", "mongodb", "duckdb", "mariadb")
+    memory = capability.get_adapter("memory")
+    assert memory is not None
+    assert memory.entity_scoped is True
+    assert memory.config_path is None
+    assert memory.parameters == ()
 
 
 def test_observability_capability_catalog_declares_langsmith() -> None:
@@ -195,6 +200,7 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     payload = json.loads(result.stdout)
     assert payload[0]["name"] == "repository"
     assert [adapter["name"] for adapter in payload[0]["adapters"]] == ["memory", "mongodb", "duckdb", "mariadb"]
+    assert payload[0]["adapters"][0]["entity_scoped"] is True
     assert payload[1]["name"] == "api"
     assert [adapter["name"] for adapter in payload[1]["adapters"]] == ["fastapi"]
     assert payload[2]["name"] == "mcp"
