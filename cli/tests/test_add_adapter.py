@@ -340,6 +340,7 @@ def test_add_fastapi_api_adapter_generates_inbound_config_only(tmp_path: Path) -
 
 def test_add_fastmcp_mcp_adapter_generates_inbound_config_only(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
+    config_path = project_dir / "config" / "adapters" / "inbound" / "fastmcp.yaml"
 
     add_adapter_cmd(
         project_dir=project_dir,
@@ -351,17 +352,52 @@ def test_add_fastmcp_mcp_adapter_generates_inbound_config_only(tmp_path: Path) -
         },
         yes=True,
     )
+    first_config = config_path.read_text(encoding="utf-8")
 
-    config = (project_dir / "config" / "adapters" / "inbound" / "fastmcp.yaml").read_text(
-        encoding="utf-8"
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="mcp",
+        adapter="fastmcp",
+        adapter_params={
+            "host": "127.0.0.1",
+            "port": "9001",
+        },
+        yes=True,
     )
-    assert "host: 127.0.0.1" in config
-    assert "port: 9001" in config
+    second_config = config_path.read_text(encoding="utf-8")
+    config = yaml.safe_load(second_config)
+
+    assert second_config == first_config
+    assert config == {"host": "127.0.0.1", "port": 9001}
     assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     )
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "outbound" / "fastmcp").exists()
+    assert not (package_root / "adapters" / "inbound" / "fastmcp").exists()
+
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+    arclith.fastmcp("demo-service")
+
+    class FakeMcp:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        def run(self, **kwargs: object) -> None:
+            self.calls.append(kwargs)
+
+    fake_mcp = FakeMcp()
+    arclith.run_mcp_sse(fake_mcp)
+    arclith.run_mcp_http(fake_mcp)
+
+    assert arclith.config.mcp.host == "127.0.0.1"
+    assert arclith.config.mcp.port == 9001
+    assert fake_mcp.calls == [
+        {"transport": "sse", "host": "127.0.0.1", "port": 9001},
+        {"transport": "streamable-http", "host": "127.0.0.1", "port": 9001},
+    ]
 
 
 def test_add_lmstudio_llm_adapter_generates_lm_config_only(tmp_path: Path) -> None:
