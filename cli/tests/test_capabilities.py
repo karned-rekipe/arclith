@@ -107,6 +107,8 @@ def test_observability_capability_catalog_declares_opentelemetry() -> None:
     assert [parameter.name for parameter in opentelemetry.parameters] == [
         "service_name",
         "endpoint",
+        "traces_endpoint",
+        "metrics_endpoint",
         "protocol",
         "traces",
         "metrics",

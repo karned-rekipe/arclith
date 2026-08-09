@@ -167,6 +167,8 @@ OpenTelemetry se configure avec:
 # config/adapters/outbound/opentelemetry.yaml
 service_name: "my-service"
 endpoint: "http://localhost:4318"
+traces_endpoint: null
+metrics_endpoint: null
 protocol: "http/protobuf"
 headers_env: OTEL_EXPORTER_OTLP_HEADERS
 traces: true
@@ -177,6 +179,20 @@ metrics_export_interval_millis: 60000
 
 `opentelemetry.yaml` décrit l'export OTLP. L'activation reste uniquement dans
 `config/adapters/adapters.yaml`, via `observability.enabled`.
+
+Pour renseigner l'environnement sans le coder dans l'application, définir une ressource standard au
+runtime:
+
+```bash
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=local
+```
+
+Quand `instrument_fastapi` et `traces` sont actifs, `Arclith.fastapi()` installe
+l'instrumentation FastAPI après les middlewares Arclith. Les logs Arclith ajoutent `trace_id` et
+`span_id` aux métadonnées quand un span courant existe. FastMCP et LangGraph ne reçoivent pas encore
+de spans manuels par tool ou par nœud dans le framework: en local, LangSmith reste le banc de test
+agent, et OpenTelemetry couvre le processus/runtime uniquement quand il est instrumenté par le SDK ou
+par le serveur hôte.
 
 Installer l'extra avant d'activer l'adapter:
 

@@ -311,6 +311,12 @@ endpoint: http://127.0.0.1:4318
 service_name: todo-list-service
 ```
 
+Pour voir l'environnement dans les ressources OpenTelemetry, ajouter au runtime:
+
+```bash
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=local
+```
+
 Relancer l'API, appeler Swagger ou `curl`, puis chercher le service `todo-list-service` dans Jaeger.
 
 ## LangSmith ou OpenTelemetry ?
