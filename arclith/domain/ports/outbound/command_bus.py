@@ -18,4 +18,4 @@ class CommandPublisher(ABC):
         routing_key: str | None = None,
         correlation_id: str | None = None,
     ) -> None:
-        ...
+        raise NotImplementedError

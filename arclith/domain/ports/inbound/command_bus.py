@@ -13,4 +13,4 @@ class CommandHandler(ABC):
     @abstractmethod
     async def handle(self, payload: Mapping[str, Any], headers: Mapping[str, str]) -> None:
         """Validate a transport DTO, then invoke the matching use case."""
-        ...
+        raise NotImplementedError
