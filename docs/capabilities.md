@@ -106,6 +106,28 @@ Activation:
 repository: mongodb
 ```
 
+`duckdb` est adapté aux développements locaux, tests d'intégration légers et démonstrations
+analytiques qui ont besoin d'un état durable sans serveur MongoDB. La CLI génère
+`config/adapters/outbound/duckdb.yaml` avec un chemin local explicite; `data/` est le défaut
+compatible avec un projet généré.
+
+Préférer `memory` pour les tests unitaires et smokes sans persistance. Préférer `mongodb` quand
+plusieurs processus ou canaux Arclith doivent partager le même état, par exemple API, MCP et agent
+LangGraph. DuckDB couvre l'entre-deux local: persistance fichier, SQL analytique et setup
+zéro service.
+
+Formats DuckDB acceptés par `DuckDBSettings`: dossier explicite avec `/`, `.csv`, `.parquet`,
+`.json` ou `.arrow`.
+
+```yaml
+# config/adapters/adapters.yaml
+repository: duckdb
+
+# config/adapters/outbound/duckdb.yaml
+multitenant: false
+path: data/
+```
+
 ### `api`
 
 Capacité inbound pour exposer les cas d'usage via HTTP REST.

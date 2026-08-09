@@ -60,6 +60,34 @@ def test_add_duckdb_adapter_non_interactive(tmp_path: Path) -> None:
     ).read_text(encoding="utf-8")
 
 
+def test_add_duckdb_adapter_generates_loadable_directory_config_idempotently(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            adapter="duckdb",
+            duckdb_path="data/",
+            yes=True,
+        )
+
+    from arclith import Arclith
+
+    app = Arclith(project_dir / "config")
+    duckdb_config = (project_dir / "config" / "adapters" / "outbound" / "duckdb.yaml").read_text(
+        encoding="utf-8"
+    )
+    container = (
+        project_dir / "src" / "demo_service" / "infrastructure" / "containers" / "widget_container.py"
+    ).read_text(encoding="utf-8")
+
+    assert app.config.adapters.repository == "duckdb"
+    assert app.config.adapters.duckdb is not None
+    assert app.config.adapters.duckdb.path == "data/"
+    assert duckdb_config == "multitenant: false\npath: data/\n"
+    assert container.count('register("duckdb", _build_duckdb)') == 1
+
+
 def test_add_mongodb_adapter_uses_non_interactive_params(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
 

@@ -355,9 +355,18 @@ def test_load_config_dir_raises_if_not_directory():
 
 # ── DuckDBSettings / SoftDeleteSettings ──────────────────────────────────────
 
-def test_duckdb_settings_file_path():
-    s = DuckDBSettings(path="data/entities.csv")
-    assert s.path == "data/entities.csv"
+@pytest.mark.parametrize(
+    "path",
+    [
+        "data/entities.csv",
+        "data/entities.parquet",
+        "data/entities.json",
+        "data/entities.arrow",
+    ],
+)
+def test_duckdb_settings_file_path_supported_extensions(path: str):
+    s = DuckDBSettings(path=path)
+    assert s.path == path
 
 
 def test_duckdb_settings_directory_path():
@@ -366,7 +375,7 @@ def test_duckdb_settings_directory_path():
 
 
 def test_duckdb_settings_invalid_extension():
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match=r"Format '.txt' non supporté par DuckDB"):
         DuckDBSettings(path="data/file.txt")
 
 

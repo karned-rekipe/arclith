@@ -203,6 +203,10 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert payload[0]["name"] == "repository"
     assert [adapter["name"] for adapter in payload[0]["adapters"]] == ["memory", "mongodb", "duckdb", "mariadb"]
     assert payload[0]["adapters"][0]["entity_scoped"] is True
+    duckdb = payload[0]["adapters"][2]
+    assert duckdb["name"] == "duckdb"
+    assert duckdb["config_path"] == "config/adapters/outbound/duckdb.yaml"
+    assert [parameter["name"] for parameter in duckdb["parameters"]] == ["path"]
     assert payload[1]["name"] == "api"
     assert [adapter["name"] for adapter in payload[1]["adapters"]] == ["fastapi"]
     assert payload[2]["name"] == "mcp"
