@@ -52,8 +52,9 @@ def test_secrets_capability_catalog_declares_env_adapter() -> None:
     assert capability is not None
     assert capability.layer == "outbound"
     assert capability.activation_config_key is None
-    assert capability.adapter_names() == ("env",)
+    assert capability.adapter_names() == ("env", "yaml")
     env = capability.get_adapter("env")
+    yaml = capability.get_adapter("yaml")
     assert env is not None
     assert env.config_path is None
     assert env.secret_resolver == "env"
@@ -62,6 +63,12 @@ def test_secrets_capability_catalog_declares_env_adapter() -> None:
     assert env.parameters[0].required is True
     assert [mapping.field_path for mapping in env.secret_mappings] == ["{field_path}"]
     assert [mapping.secret_key for mapping in env.secret_mappings] == ["{secret_key}"]
+    assert yaml is not None
+    assert yaml.config_path is None
+    assert yaml.secret_resolver == "yaml"
+    assert yaml.gitignore_entries == ("secrets.yaml",)
+    assert [file_template.path for file_template in yaml.file_templates] == ["secrets.yaml.template"]
+    assert [parameter.name for parameter in yaml.parameters] == ["field_path", "secret_key", "path"]
 
 
 def test_observability_capability_catalog_declares_langsmith() -> None:
@@ -318,11 +325,15 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "cache.redis_url"
     ]
     secrets = payload_by_name["secrets"]
-    assert [adapter["name"] for adapter in secrets["adapters"]] == ["env"]
+    assert [adapter["name"] for adapter in secrets["adapters"]] == ["env", "yaml"]
     env = secrets["adapters"][0]
+    yaml_adapter = secrets["adapters"][1]
     assert env["secret_resolver"] == "env"
     assert [parameter["name"] for parameter in env["parameters"]] == ["field_path", "secret_key"]
     assert env["parameters"][0]["required"] is True
+    assert yaml_adapter["secret_resolver"] == "yaml"
+    assert yaml_adapter["gitignore_entries"] == ["secrets.yaml"]
+    assert [template["path"] for template in yaml_adapter["file_templates"]] == ["secrets.yaml.template"]
     assert [adapter["name"] for adapter in payload_by_name["api"]["adapters"]] == ["fastapi"]
     assert [adapter["name"] for adapter in payload_by_name["mcp"]["adapters"]] == ["fastmcp"]
     auth = payload_by_name["auth"]

@@ -232,10 +232,11 @@ Capacité outbound transverse pour résoudre les secrets avant validation Pydant
 Elle ne génère jamais de valeur réelle: elle ne déclare que le resolver et les mappings dans
 `config/secrets.yaml`.
 
-Adaptateur disponible:
+Adaptateurs disponibles:
 
 - `env`: lit les valeurs depuis les variables d'environnement du processus, compatible Docker,
   Kubernetes, CI/CD et plateformes cloud.
+- `yaml`: lit un fichier YAML local gitignoré pour POC et développement sans Vault.
 
 Ajouter un mapping avec une clé explicite:
 
@@ -275,6 +276,43 @@ prime toujours sur le nom dérivé, ce qui permet de garder les conventions d'é
 `arclith-cli` fusionne les nouveaux mappings dans `config/secrets.yaml` sans supprimer les mappings
 existants. Si un secret requis manque et que le champ cible n'est pas explicitement `null`, le
 chargement de configuration échoue avec un message `Secrets non résolus` qui liste le champ concerné.
+
+Pour un fallback local, utiliser `secrets/yaml` :
+
+```bash
+arclith-cli add-adapter \
+  --capability secrets \
+  --adapter yaml \
+  --param field_path=adapters.mongodb.uri \
+  --param path=secrets.yaml \
+  --yes
+```
+
+Résultat côté configuration:
+
+```yaml
+# config/secrets.yaml
+resolver: yaml
+yaml:
+  path: secrets.yaml
+mappings:
+  adapters.mongodb.uri: ""
+```
+
+Le CLI génère aussi `secrets.yaml.template` sans valeur réelle et ajoute `secrets.yaml` à
+`.gitignore`. Copier le template localement puis renseigner la valeur sensible dans le fichier
+ignoré:
+
+```yaml
+# secrets.yaml
+adapters:
+  mongodb:
+    uri: mongodb://localhost:27017/my_service
+```
+
+Le fichier local suit le format imbriqué du `field_path`: `adapters.mongodb.uri` devient
+`adapters -> mongodb -> uri`. Le resolver YAML ignore la clé descriptive du mapping et lit toujours
+le chemin imbriqué, ce qui évite de stocker des secrets sous des noms plats non typés.
 
 ### `api`
 

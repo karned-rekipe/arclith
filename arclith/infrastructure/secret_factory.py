@@ -30,7 +30,9 @@ def build_secret_resolver(raw_config: dict, base_path: Path | None = None) -> Se
             case "yaml":
                 yaml_cfg: dict = secrets.get("yaml") or {}
                 default_path = str(base_path / "secrets.yaml") if base_path else "secrets.yaml"
-                path: str = yaml_cfg.get("path", default_path)
+                path = Path(str(yaml_cfg.get("path", default_path)))
+                if base_path is not None and not path.is_absolute():
+                    path = base_path / path
                 from arclith.adapters.outbound.yaml.secret_adapter import YamlSecretAdapter
                 return YamlSecretAdapter(path=path)
             case "env":
@@ -45,4 +47,3 @@ def build_secret_resolver(raw_config: dict, base_path: Path | None = None) -> Se
         return ChainSecretAdapter([_make(n) for n in chain_names])
 
     return _make(resolver_type)
-

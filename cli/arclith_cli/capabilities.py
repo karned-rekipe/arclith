@@ -65,6 +65,8 @@ class AdapterSpec:
     file_templates: tuple[FileTemplateSpec, ...] = ()
     secret_mappings: tuple[SecretMappingSpec, ...] = ()
     secret_resolver: str | None = None
+    secret_config_template: str = ""
+    gitignore_entries: tuple[str, ...] = ()
     parameters: tuple[ParameterSpec, ...] = ()
     entity_scoped: bool = True
 
@@ -80,6 +82,9 @@ class AdapterSpec:
     def has_secret_mappings(self) -> bool:
         return bool(self.secret_mappings)
 
+    def has_secret_config(self) -> bool:
+        return bool(self.secret_config_template)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
@@ -91,6 +96,8 @@ class AdapterSpec:
             "file_templates": [file_template.to_dict() for file_template in self.file_templates],
             "secret_mappings": [secret_mapping.to_dict() for secret_mapping in self.secret_mappings],
             "secret_resolver": self.secret_resolver,
+            "secret_config_template": bool(self.secret_config_template),
+            "gitignore_entries": list(self.gitignore_entries),
             "parameters": [parameter.to_dict() for parameter in self.parameters],
             "entity_scoped": self.entity_scoped,
         }
@@ -374,6 +381,55 @@ SECRETS_CAPABILITY = CapabilitySpec(
                     kind="string",
                     prompt="Variable d'environnement explicite (vide = dérivée du champ)",
                     default="",
+                ),
+            ),
+            entity_scoped=False,
+        ),
+        AdapterSpec(
+            name="yaml",
+            capability="secrets",
+            layer="outbound",
+            description="Resolver YAML local gitignoré pour POC et développement sans Vault.",
+            secret_resolver="yaml",
+            secret_config_template="""\
+yaml:
+  path: "{path}"
+""",
+            secret_mappings=(
+                SecretMappingSpec(
+                    field_path="{field_path}",
+                    secret_key="{secret_key}",
+                ),
+            ),
+            file_templates=(
+                FileTemplateSpec(
+                    path="secrets.yaml.template",
+                    template="""\
+# Copiez ce fichier vers secrets.yaml pour le développement local.
+# Ne commitez jamais secrets.yaml.
+{secret_template_yaml}
+""",
+                ),
+            ),
+            gitignore_entries=("secrets.yaml",),
+            parameters=(
+                ParameterSpec(
+                    name="field_path",
+                    kind="string",
+                    prompt="Champ de configuration à alimenter",
+                    required=True,
+                ),
+                ParameterSpec(
+                    name="secret_key",
+                    kind="string",
+                    prompt="Clé descriptive du secret (ignorée par le resolver YAML)",
+                    default="",
+                ),
+                ParameterSpec(
+                    name="path",
+                    kind="string",
+                    prompt="Chemin du fichier YAML local",
+                    default="secrets.yaml",
                 ),
             ),
             entity_scoped=False,
