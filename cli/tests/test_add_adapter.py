@@ -289,24 +289,37 @@ def test_add_langsmith_skips_missing_empty_api_key(tmp_path: Path) -> None:
 
 def test_add_fastapi_api_adapter_generates_inbound_config_only(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
+    config_path = project_dir / "config" / "adapters" / "inbound" / "fastapi.yaml"
 
-    for _ in range(2):
-        add_adapter_cmd(
-            project_dir=project_dir,
-            capability_name="api",
-            adapter="fastapi",
-            adapter_params={
-                "host": "127.0.0.1",
-                "port": "8080",
-                "reload": "false",
-            },
-            yes=True,
-        )
-
-    config = (project_dir / "config" / "adapters" / "inbound" / "fastapi.yaml").read_text(
-        encoding="utf-8"
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="api",
+        adapter="fastapi",
+        adapter_params={
+            "host": "127.0.0.1",
+            "port": "8080",
+            "reload": "false",
+        },
+        yes=True,
     )
-    assert config == "host: 127.0.0.1\nport: 8080\nreload: false\n"
+    first_config = config_path.read_text(encoding="utf-8")
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="api",
+        adapter="fastapi",
+        adapter_params={
+            "host": "127.0.0.1",
+            "port": "8080",
+            "reload": "false",
+        },
+        yes=True,
+    )
+    second_config = config_path.read_text(encoding="utf-8")
+    config = yaml.safe_load(second_config)
+
+    assert second_config == first_config
+    assert config == {"host": "127.0.0.1", "port": 8080, "reload": False}
     assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     )
