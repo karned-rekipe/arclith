@@ -156,7 +156,7 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
    - `mariadb` → `host`, `port`, `database`, `user`, `driver`, `table_prefix`
      (`url` et `password` sont mappés via `config/secrets.yaml`)
    - `cache/memory` → `jwks_ttl`, `tenant_uri_ttl`
-   - `cache/redis` → `REDIS_URL`, `jwks_ttl`, `tenant_uri_ttl`
+   - `cache/redis` → `redis_url`, `jwks_ttl`, `tenant_uri_ttl`
    - `fastapi` → `host`, `port`, `reload`
    - `fastmcp` → `host`, `port`
    - `lmstudio` → `model_name`, `base_url`, `api_key`

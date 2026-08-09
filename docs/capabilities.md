@@ -55,7 +55,7 @@ arclith-cli capabilities --json
 
 Capacité outbound pour la persistance des entités métier derrière un port repository.
 
-Adapters disponibles:
+Adaptateurs disponibles:
 
 - `memory`: stockage volatile pour dev, tests et smoke locaux;
 - `mongodb`: repository async MongoDB, single-tenant ou multitenant;
@@ -169,7 +169,7 @@ Capacité outbound transverse pour le cache technique utilisé par JWT JWKS, ide
 résolution tenant. Elle n'est pas liée aux entités métier et ne doit pas être confondue avec
 `repository/memory`, qui stocke les entités derrière un port repository.
 
-Adapters disponibles:
+Adaptateurs disponibles:
 
 - `memory`: cache local par processus pour développement, tests, smokes locaux et worker unique.
 - `redis`: cache partagé pour workers multiples, réplicas Kubernetes ou processus API/MCP/agent

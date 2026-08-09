@@ -6,7 +6,7 @@ class RedisCacheAdapter(CachePort):
         try:
             from redis.asyncio import Redis  # type: ignore[import-untyped]
         except ModuleNotFoundError as exc:
-            if exc.name is not None and not exc.name.startswith("redis"):
+            if exc.name != "redis":
                 raise
             raise ModuleNotFoundError("Package redis manquant : uv add 'arclith[cache]'") from None
         self._client = Redis.from_url(url, decode_responses=True)
