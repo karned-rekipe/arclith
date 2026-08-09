@@ -375,6 +375,12 @@ les transitions et les appels aux cas d'usage applicatifs. Arclith garde le câb
 chargement de configuration, création du `StateGraph`, compilation, entrypoint Studio et lecture de
 `.env`.
 
+Le flux cible reste: humain ou canal conversationnel -> LangGraph Agent Server -> `agent.py` ->
+ports applicatifs -> use cases. Un LLM se branche derrière `LLMPort` via `config/adapters/outbound/lm.yaml`;
+l'observabilité se branche via `observability.enabled` (`langsmith`, `opentelemetry`, ou les deux).
+Les nodes LangGraph ne doivent pas appeler les repositories directement: ils traduisent l'intention,
+préparent des commandes ou DTO, puis appellent les ports et use cases du projet.
+
 ## Ajouter un adapter
 
 Le chemin standard est:

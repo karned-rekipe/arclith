@@ -1,3 +1,5 @@
+import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -681,7 +683,7 @@ def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(tmp_path: Path
     )
 
     package_root = project_dir / "src" / "demo_service"
-    langgraph_json = (project_dir / "langgraph.json").read_text(encoding="utf-8")
+    langgraph_json = json.loads((project_dir / "langgraph.json").read_text(encoding="utf-8"))
     langgraph_config = (project_dir / "config" / "adapters" / "inbound" / "langgraph.yaml").read_text(
         encoding="utf-8"
     )
@@ -690,7 +692,11 @@ def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(tmp_path: Path
     assert (project_dir / "config" / "adapters" / "inbound" / "langgraph.yaml").exists()
     assert (package_root / "adapters" / "inbound" / "langgraph" / "__init__.py").exists()
     assert agent_file.exists()
-    assert '"todo_agent": "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"' in langgraph_json
+    assert langgraph_json["graphs"] == {
+        "todo_agent": "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"
+    }
+    assert langgraph_json["dependencies"] == ["."]
+    assert langgraph_json["env"] == ".env"
     adapters_yaml = (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     )
@@ -698,10 +704,44 @@ def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(tmp_path: Path
     assert "agent:" not in adapters_yaml
     assert 'name: "todo_agent"' in langgraph_config
     assert 'entrypoint: "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"' in langgraph_config
-    assert "agent = arclith.langgraph(AgentState, register_agent, name=\"todo_agent\")" in agent_file.read_text(
-        encoding="utf-8"
-    )
+    generated_agent = agent_file.read_text(encoding="utf-8")
+    assert "Template minimal volontaire" in generated_agent
+    assert "agent = arclith.langgraph(AgentState, register_agent, name=\"todo_agent\")" in generated_agent
     assert not (package_root / "adapters" / "outbound" / "langgraph").exists()
+
+
+@pytest.mark.asyncio
+async def test_add_langgraph_agent_adapter_generates_compilable_minimal_agent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pytest.importorskip("langgraph.graph")
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="agent",
+        adapter="langgraph",
+        adapter_params={"graph_name": "todo_agent"},
+        yes=True,
+    )
+
+    agent_file = project_dir / "src" / "demo_service" / "adapters" / "inbound" / "langgraph" / "agent.py"
+    monkeypatch.chdir(project_dir)
+    monkeypatch.syspath_prepend(str(project_dir / "src"))
+    spec = importlib.util.spec_from_file_location(
+        "demo_service.adapters.inbound.langgraph.agent",
+        agent_file,
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+        assert await module.agent.ainvoke({"messages": []}) == {"messages": []}
+    finally:
+        sys.modules.pop(spec.name, None)
 
 
 def test_add_non_entity_adapter_rejects_entity_selection(tmp_path: Path) -> None:

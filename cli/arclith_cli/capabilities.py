@@ -514,6 +514,8 @@ class AgentState(TypedDict, total=False):
 arclith = Arclith("config")
 
 
+# Template minimal volontaire: remplacer AgentState, run_agent et les edges par
+# l'état, les noeuds et les transitions propres au projet.
 async def run_agent(state: AgentState) -> AgentState:
     return state
 

@@ -282,6 +282,9 @@ L'adapter `agent/langgraph` génère `langgraph.json`, `config/adapters/inbound/
 pour définir l'état, les nœuds et les transitions de son agent. Comme `fastapi` et `fastmcp`,
 LangGraph est configuré par son nom produit dans `AppConfig.langgraph`, sans clé générique
 `adapters.agent`.
+Le flux attendu est: utilisateur ou canal conversationnel -> LangGraph Agent Server -> `agent.py` ->
+ports et use cases applicatifs. Les nodes peuvent utiliser un `LLMPort` configuré par `llm/*` et les
+traces via `observability/*`, sans appeler les repositories directement.
 
 L'adapter `observability/langsmith` demande le projet LangSmith, l'endpoint, l'activation du tracing et
 `LANGSMITH_API_KEY`. Elle génère `config/adapters/outbound/langsmith.yaml`, ajoute `langsmith` à
