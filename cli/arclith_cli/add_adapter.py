@@ -326,7 +326,30 @@ def _resolve_parameter(
     if parameter.required and not resolved:
         console.print(f"[red]✗[/red] Paramètre requis manquant: [bold]{parameter.name}[/bold].")
         raise typer.Exit(1)
+    _assert_allowed_parameter_value(parameter, resolved)
     return resolved
+
+
+def _assert_allowed_parameter_value(parameter: ParameterSpec, value: str) -> None:
+    if not parameter.choices:
+        return
+
+    values = _split_csv_values(value) if parameter.csv_choices else [value.strip()]
+    unknown = [item for item in values if item not in parameter.choices]
+    if not unknown:
+        return
+
+    allowed = ", ".join(parameter.choices)
+    received = ", ".join(unknown)
+    console.print(
+        f"[red]✗[/red] Valeur invalide pour [bold]{parameter.name}[/bold]: {received}. "
+        f"Valeurs: {allowed}."
+    )
+    raise typer.Exit(1)
+
+
+def _split_csv_values(value: str) -> list[str]:
+    return [item.strip() for item in value.split(",") if item.strip()]
 
 
 def _default_string_value(parameter: ParameterSpec, project_dir: Path) -> str:
@@ -571,6 +594,7 @@ def _file_template_vars(
         "langgraph_entrypoint": langgraph_entrypoint,
         "graph_name": graph_name,
         "secret_template_yaml": _secret_template_yaml(str(params.get("field_path") or "")),
+        "secret_chain_yaml": _secret_chain_yaml(str(params.get("resolvers") or "")),
     }
 
 
@@ -586,6 +610,11 @@ def _secret_template_yaml(field_path: str) -> str:
         current = current[key]
     current[keys[-1]] = "replace-me"
     return yaml.safe_dump(data, sort_keys=False, allow_unicode=True).rstrip("\n")
+
+
+def _secret_chain_yaml(resolvers: str) -> str:
+    values = _split_csv_values(resolvers or "env,vault,yaml")
+    return "".join(f"  - {value}\n" for value in values).rstrip("\n")
 
 
 def _update_active_capability(project_dir: Path, capability: CapabilitySpec, adapter: AdapterSpec) -> None:

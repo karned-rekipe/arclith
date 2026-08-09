@@ -108,6 +108,18 @@ def test_builds_chain_resolver() -> None:
     assert isinstance(build_secret_resolver(data), ChainSecretAdapter)
 
 
+def test_chain_unknown_resolver_raises() -> None:
+    data = {
+        "secrets": {
+            "resolver": "chain",
+            "chain": ["env", "unknown"],
+            "mappings": {"x": "y"},
+        }
+    }
+    with pytest.raises(ValueError, match="Unknown secret resolver"):
+        build_secret_resolver(data)
+
+
 def test_chain_defaults_to_yaml_when_no_chain_key(tmp_path: Path) -> None:
     (tmp_path / "secrets.yaml").write_text("")
     data = {

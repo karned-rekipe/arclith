@@ -363,6 +363,51 @@ Le mount `kv` doit être un engine KV v2. Avec `hvac`, Arclith lit le secret via
 `mount_point=kv` et attend la valeur applicative dans le champ `value`. Pour une policy dédiée, le
 chemin de lecture Vault correspondant est `kv/data/apps/demo/mongodb`.
 
+Pour combiner plusieurs environnements, utiliser `secrets/chain`. L'ordre est explicite et le
+premier resolver qui retourne une valeur gagne:
+
+```bash
+arclith-cli add-adapter \
+  --capability secrets \
+  --adapter chain \
+  --param field_path=adapters.mongodb.uri \
+  --param secret_key=apps/demo/mongodb \
+  --param resolvers=env,vault,yaml \
+  --param addr=http://vault:8200 \
+  --param mount=kv \
+  --param path=secrets.yaml \
+  --yes
+```
+
+Résultat:
+
+```yaml
+# config/secrets.yaml
+resolver: chain
+chain:
+  - env
+  - vault
+  - yaml
+vault:
+  addr: http://vault:8200
+  mount: kv
+yaml:
+  path: secrets.yaml
+mappings:
+  adapters.mongodb.uri: apps/demo/mongodb
+```
+
+Profils recommandés:
+
+- local POC: `yaml`, ou `chain` avec `env,yaml` pour permettre une surcharge ponctuelle;
+- CI/CD et plateformes cloud: `env`, injecté par le système de déploiement;
+- production avec secret manager: `vault`, ou `chain` avec `env,vault` si certains secrets sont
+  injectés par la plateforme.
+
+La CLI refuse les noms inconnus dans `resolvers`; les valeurs supportées sont `env`, `vault` et
+`yaml`. Si aucun resolver ne trouve la valeur et que le champ cible n'est pas explicitement `null`,
+le chargement échoue toujours avec `Secrets non résolus` et le champ manquant.
+
 ### `api`
 
 Capacité inbound pour exposer les cas d'usage via HTTP REST.
