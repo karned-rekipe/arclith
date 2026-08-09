@@ -292,6 +292,51 @@ tenant_uri_ttl: {tenant_uri_ttl}
             ),
             entity_scoped=False,
         ),
+        AdapterSpec(
+            name="redis",
+            capability="cache",
+            layer="outbound",
+            description="Cache Redis partagé pour déploiements multi-worker ou multi-réplicas.",
+            config_path="config/adapters/inbound/cache.yaml",
+            config_template="""\
+backend: redis
+redis_url: ""
+jwks_ttl: {jwks_ttl}
+tenant_uri_ttl: {tenant_uri_ttl}
+""",
+            env_path=".env",
+            env_template="""\
+REDIS_URL={redis_url}
+""",
+            secret_mappings=(
+                SecretMappingSpec(
+                    field_path="cache.redis_url",
+                    secret_key="REDIS_URL",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="redis_url",
+                    kind="string",
+                    prompt="REDIS_URL",
+                    default="redis://127.0.0.1:6379",
+                    secret=True,
+                ),
+                ParameterSpec(
+                    name="jwks_ttl",
+                    kind="string",
+                    prompt="TTL JWKS en secondes",
+                    default="3600",
+                ),
+                ParameterSpec(
+                    name="tenant_uri_ttl",
+                    kind="string",
+                    prompt="TTL tenant en secondes",
+                    default="300",
+                ),
+            ),
+            entity_scoped=False,
+        ),
     ),
 )
 

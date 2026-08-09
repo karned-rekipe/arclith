@@ -28,13 +28,22 @@ def test_cache_capability_catalog_declares_memory_adapter() -> None:
     assert capability is not None
     assert capability.layer == "outbound"
     assert capability.activation_config_key is None
-    assert capability.adapter_names() == ("memory",)
+    assert capability.adapter_names() == ("memory", "redis")
     memory = capability.get_adapter("memory")
+    redis = capability.get_adapter("redis")
     assert memory is not None
     assert memory.capability == "cache"
     assert memory.config_path == "config/adapters/inbound/cache.yaml"
     assert memory.entity_scoped is False
     assert [parameter.name for parameter in memory.parameters] == ["jwks_ttl", "tenant_uri_ttl"]
+    assert redis is not None
+    assert redis.capability == "cache"
+    assert redis.config_path == "config/adapters/inbound/cache.yaml"
+    assert redis.env_path == ".env"
+    assert redis.entity_scoped is False
+    assert [parameter.name for parameter in redis.parameters] == ["redis_url", "jwks_ttl", "tenant_uri_ttl"]
+    assert [mapping.field_path for mapping in redis.secret_mappings] == ["cache.redis_url"]
+    assert [mapping.secret_key for mapping in redis.secret_mappings] == ["REDIS_URL"]
 
 
 def test_observability_capability_catalog_declares_langsmith() -> None:
@@ -212,6 +221,7 @@ def test_capability_catalog_is_json_serializable() -> None:
     assert "repository" in encoded
     assert "mongodb" in encoded
     assert "cache" in encoded
+    assert "redis" in encoded
     assert "api" in encoded
     assert "fastapi" in encoded
     assert "mcp" in encoded
@@ -254,12 +264,22 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "MARIADB_PASSWORD",
     ]
     cache = payload_by_name["cache"]
-    assert [adapter["name"] for adapter in cache["adapters"]] == ["memory"]
+    assert [adapter["name"] for adapter in cache["adapters"]] == ["memory", "redis"]
     assert cache["adapters"][0]["capability"] == "cache"
     assert cache["adapters"][0]["entity_scoped"] is False
     assert [parameter["name"] for parameter in cache["adapters"][0]["parameters"]] == [
         "jwks_ttl",
         "tenant_uri_ttl",
+    ]
+    assert cache["adapters"][1]["capability"] == "cache"
+    assert cache["adapters"][1]["entity_scoped"] is False
+    assert [parameter["name"] for parameter in cache["adapters"][1]["parameters"]] == [
+        "redis_url",
+        "jwks_ttl",
+        "tenant_uri_ttl",
+    ]
+    assert [mapping["field_path"] for mapping in cache["adapters"][1]["secret_mappings"]] == [
+        "cache.redis_url"
     ]
     assert [adapter["name"] for adapter in payload_by_name["api"]["adapters"]] == ["fastapi"]
     assert [adapter["name"] for adapter in payload_by_name["mcp"]["adapters"]] == ["fastmcp"]

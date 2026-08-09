@@ -142,6 +142,7 @@ arclith-cli add-adapter --capability agent --adapter langgraph --param graph_nam
 arclith-cli add-adapter --capability observability --adapter langsmith
 arclith-cli add-adapter --capability observability --adapter opentelemetry --param service_name=my_recipe_service --yes
 arclith-cli add-adapter --capability cache --adapter memory --yes
+arclith-cli add-adapter --capability cache --adapter redis --param redis_url=redis://redis:6379 --yes
 arclith-cli add-adapter --capability repository --adapter memory --entity Recipe --yes
 ```
 
@@ -155,6 +156,7 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
    - `mariadb` → `host`, `port`, `database`, `user`, `driver`, `table_prefix`
      (`url` et `password` sont mappés via `config/secrets.yaml`)
    - `cache/memory` → `jwks_ttl`, `tenant_uri_ttl`
+   - `cache/redis` → `redis_url`, `jwks_ttl`, `tenant_uri_ttl`
    - `fastapi` → `host`, `port`, `reload`
    - `fastmcp` → `host`, `port`
    - `lmstudio` → `model_name`, `base_url`, `api_key`
@@ -329,6 +331,14 @@ config/
 tenant. Ce cache est strictement local au processus Python: il suffit pour le développement, les
 tests et un worker unique. Passer à Redis dès qu'il faut partager le cache entre plusieurs workers,
 réplicas, ou processus séparés API/MCP/agent.
+
+`cache/redis` génère le même fichier avec `backend: redis`, mappe `cache.redis_url` vers
+`REDIS_URL` dans `config/secrets.yaml` et écrit la valeur fournie dans `.env` local gitignoré.
+Installer l'extra avant de lancer le service:
+
+```bash
+uv add "arclith[cache]"
+```
 
 Pour changer l'adapter actif sans passer par le wizard :
 
