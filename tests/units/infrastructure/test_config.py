@@ -160,6 +160,20 @@ def test_load_config_dir_mcp_via_fastmcp_alias():
     assert config.mcp.port == 8888
 
 
+def test_load_config_dir_probe_scoped():
+    path = _make_config_dir({
+        "adapters/inbound/probe.yaml": {
+            "host": "127.0.0.1",
+            "port": 9100,
+            "enabled": False,
+        }
+    })
+    config = load_config_dir(path)
+    assert config.probe.host == "127.0.0.1"
+    assert config.probe.port == 9100
+    assert config.probe.enabled is False
+
+
 def test_load_config_dir_cache_scoped():
     path = _make_config_dir({
         "adapters/inbound/cache.yaml": {

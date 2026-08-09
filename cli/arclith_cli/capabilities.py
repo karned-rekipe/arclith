@@ -644,6 +644,48 @@ port: {port}
     ),
 )
 
+PROBE_CAPABILITY = CapabilitySpec(
+    name="probe",
+    layer="inbound",
+    description="Serveur de probes health, readiness, info et metrics.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="server",
+            capability="probe",
+            layer="inbound",
+            description="Serveur HTTP transverse exposant /health, /ready, /info et /metrics.",
+            config_path="config/adapters/inbound/probe.yaml",
+            config_template="""\
+host: {host}
+port: {port}
+enabled: {enabled}
+""",
+            parameters=(
+                ParameterSpec(
+                    name="host",
+                    kind="string",
+                    prompt="Host du serveur de probes",
+                    default="0.0.0.0",
+                ),
+                ParameterSpec(
+                    name="port",
+                    kind="string",
+                    prompt="Port du serveur de probes",
+                    default="9000",
+                ),
+                ParameterSpec(
+                    name="enabled",
+                    kind="boolean",
+                    prompt="Activer le serveur de probes",
+                    default=True,
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
 AUTH_CAPABILITY = CapabilitySpec(
     name="auth",
     layer="inbound",
@@ -1148,6 +1190,7 @@ CAPABILITY_CATALOG = (
     SECRETS_CAPABILITY,
     API_CAPABILITY,
     MCP_CAPABILITY,
+    PROBE_CAPABILITY,
     AUTH_CAPABILITY,
     TENANT_CAPABILITY,
     LICENSE_CAPABILITY,

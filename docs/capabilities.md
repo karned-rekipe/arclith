@@ -516,6 +516,57 @@ compatible API/MCP/probes. L'instrumentation MCP reste transverse: enregistrer l
 `mcp`, puis appeler `Arclith.instrument_mcp(mcp)` si les probes sont activées. Cette instrumentation
 ne fait pas partie de la capability `mcp/fastmcp`.
 
+### `probe`
+
+Capacité inbound transverse pour configurer le serveur de probes Arclith. Elle ne dépend d'aucun
+adapter métier: l'application enregistre ses readiness checks et Arclith expose les transports
+actifs via `run_with_probes(..., transports=[...])`.
+
+Adapter disponible:
+
+- `server`: serveur HTTP léger exposant `/health`, `/ready`, `/info` et `/metrics`.
+
+```bash
+arclith-cli add-adapter \
+  --capability probe \
+  --adapter server \
+  --param host=127.0.0.1 \
+  --param port=9000 \
+  --param enabled=true \
+  --yes
+```
+
+Résultat:
+
+```yaml
+# config/adapters/inbound/probe.yaml
+host: 127.0.0.1
+port: 9000
+enabled: true
+```
+
+Contrat HTTP réel:
+
+- `GET /health`: `200`, `{"status": "ok"}`.
+- `GET /ready`: `200`, `{"status": "ready"}` sans check ou si tous les checks retournent `True`;
+  `503`, `{"status": "not_ready"}` si un check retourne `False` ou lève une exception.
+- `GET /info`: service, version, Python, plateforme, uptime et `active_transports`.
+- `GET /metrics`: `collected_at` et métriques par transport collecté, par exemple `api` et `mcp`.
+
+Exemple de readiness DB côté application:
+
+```python
+async def db_ready() -> bool:
+    await database.ping()
+    return True
+
+arclith.add_readiness_check(db_ready)
+arclith.run_with_probes(_run_api, _run_mcp_http, transports=["api", "mcp_http"])
+```
+
+`enabled: false` conserve la configuration mais ne démarre pas de serveur en arrière-plan. Les
+métriques MCP restent explicites: enregistrer les tools, puis appeler `arclith.instrument_mcp(mcp)`.
+
 ### `tenant`
 
 Capacité inbound transverse pour résoudre un `TenantContext` depuis un claim JWT et Vault KV v2.

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import asyncio
 import threading
-import time
 from typing import Any
 
 import pytest
@@ -270,4 +268,3 @@ class TestEventBusCollectorProtocol:
             transport = "event_bus"
 
         assert not isinstance(BadCollector(), EventBusCollectorProtocol)
-
