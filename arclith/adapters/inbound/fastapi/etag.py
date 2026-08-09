@@ -31,8 +31,8 @@ class ETaggerMiddleware:
         1. Client sends `If-Match: "v1"` header
         2. Middleware extracts expected version
         3. Handler receives expected version in request state
-        4. Service validates version → 409 Conflict if mismatch
-        5. On success, response includes new `ETag: "v2"`
+        4. Service validates version and rejects stale mutations
+        5. Mutations keep their original response headers
 
     Workflow (conditional GET - cache validation):
         1. Client sends `If-None-Match: "v1"` header
@@ -43,7 +43,7 @@ class ETaggerMiddleware:
     Benefits:
         - No version field in PUT/PATCH payloads (cleaner API)
         - Standard HTTP semantics (CDN/proxy compatible)
-        - 412 Precondition Failed for version conflicts
+        - Application-level validation can reject version conflicts
         - 304 Not Modified for cache validation
     """
 
@@ -82,41 +82,84 @@ class ETaggerMiddleware:
         if if_none_match:
             scope["state"]["if_none_match"] = if_none_match
 
-        # Capture response to inject ETag
         response_data: dict[str, Any] = {"status": 200, "headers": [], "body": b""}
 
         async def _send_wrapper(message: Any) -> None:
             if message["type"] == "http.response.start":
                 response_data["status"] = message["status"]
                 response_data["headers"] = list(message.get("headers", []))
-
-                # Don't modify message yet - we'll do it after collecting body
-                await send(message)
-
             elif message["type"] == "http.response.body":
                 response_data["body"] += message.get("body", b"")
 
-                # If response is complete, inject ETag
-                if not message.get("more_body", False):
-                    # Try to extract version from response body
-                    etag = self._extract_etag_from_body(response_data["body"], response_data["status"])
-
-                    if etag and method == "GET":
-                        # Check If-None-Match for cache validation
-                        if if_none_match and if_none_match.strip('"') == etag.strip('"'):
-                            # Version matches → 304 Not Modified
-                            self._logger.info(
-                                "💾 Cache hit (304 Not Modified)",
-                                if_none_match = if_none_match,
-                                etag = etag,
-                            )
-                            # Note: We already sent the start message, so we can't change status
-                            # This is a limitation - would need to buffer the entire response
-                            # For now, just log and continue
-
-                await send(message)
-
         await self._app(scope, receive, _send_wrapper)
+        await self._send_response(send, method, if_none_match, response_data)
+
+    async def _send_response(
+            self,
+            send: Any,
+            method: str,
+            if_none_match: str | None,
+            response_data: dict[str, Any],
+    ) -> None:
+        etag = self._extract_etag_from_body(response_data["body"], response_data["status"])
+        if method != "GET" or etag is None:
+            await self._send_original_response(send, response_data)
+            return
+
+        if if_none_match and self._etag_matches(if_none_match, etag):
+            self._logger.info(
+                "💾 Cache hit (304 Not Modified)",
+                if_none_match=if_none_match,
+                etag=etag,
+            )
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 304,
+                    "headers": self._headers_with_etag(response_data["headers"], etag, drop_body_headers=True),
+                }
+            )
+            await send({"type": "http.response.body", "body": b""})
+            return
+
+        await send(
+            {
+                "type": "http.response.start",
+                "status": response_data["status"],
+                "headers": self._headers_with_etag(response_data["headers"], etag),
+            }
+        )
+        await send({"type": "http.response.body", "body": response_data["body"]})
+
+    @staticmethod
+    async def _send_original_response(send: Any, response_data: dict[str, Any]) -> None:
+        await send(
+            {
+                "type": "http.response.start",
+                "status": response_data["status"],
+                "headers": response_data["headers"],
+            }
+        )
+        await send({"type": "http.response.body", "body": response_data["body"]})
+
+    @staticmethod
+    def _headers_with_etag(
+            headers: list[tuple[bytes, bytes]],
+            etag: str,
+            *,
+            drop_body_headers: bool = False,
+    ) -> list[tuple[bytes, bytes]]:
+        dropped = {b"etag"}
+        if drop_body_headers:
+            dropped.update({b"content-length"})
+        filtered = [(key, value) for key, value in headers if key.lower() not in dropped]
+        return [*filtered, (b"etag", etag.encode("utf-8"))]
+
+    @staticmethod
+    def _etag_matches(if_none_match: str, etag: str) -> bool:
+        candidates = [candidate.strip() for candidate in if_none_match.split(",")]
+        normalized_etag = etag.strip('"')
+        return any(candidate.strip('"') == normalized_etag for candidate in candidates)
 
     def _parse_etag(self, etag: str) -> int | None:
         """Parse ETag header to extract version number.
@@ -144,7 +187,7 @@ class ETaggerMiddleware:
 
     def _extract_etag_from_body(self, body: bytes, status: int) -> str | None:
         """Extract version from JSON response body to generate ETag.
-        
+
         Only for successful responses (2xx) with JSON body containing 'version' field.
         """
         if not (200 <= status < 300):
