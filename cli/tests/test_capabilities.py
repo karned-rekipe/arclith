@@ -97,6 +97,20 @@ def test_mcp_capability_catalog_declares_fastmcp() -> None:
     assert [parameter.name for parameter in fastmcp.parameters] == ["host", "port"]
 
 
+def test_auth_capability_catalog_declares_keycloak() -> None:
+    capability = get_capability("auth")
+
+    assert capability is not None
+    assert capability.layer == "inbound"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("keycloak",)
+    keycloak = capability.get_adapter("keycloak")
+    assert keycloak is not None
+    assert keycloak.config_path == "config/adapters/inbound/keycloak.yaml"
+    assert keycloak.entity_scoped is False
+    assert [parameter.name for parameter in keycloak.parameters] == ["url", "realm", "audience", "client_id"]
+
+
 def test_llm_capability_catalog_declares_model_adapters() -> None:
     capability = get_capability("llm")
 
@@ -226,6 +240,8 @@ def test_capability_catalog_is_json_serializable() -> None:
     assert "fastapi" in encoded
     assert "mcp" in encoded
     assert "fastmcp" in encoded
+    assert "auth" in encoded
+    assert "keycloak" in encoded
     assert "llm" in encoded
     assert "lmstudio" in encoded
     assert "agent" in encoded
@@ -283,6 +299,13 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     ]
     assert [adapter["name"] for adapter in payload_by_name["api"]["adapters"]] == ["fastapi"]
     assert [adapter["name"] for adapter in payload_by_name["mcp"]["adapters"]] == ["fastmcp"]
+    auth = payload_by_name["auth"]
+    assert [adapter["name"] for adapter in auth["adapters"]] == ["keycloak"]
+    keycloak_parameters = {parameter["name"]: parameter for parameter in auth["adapters"][0]["parameters"]}
+    assert keycloak_parameters["url"]["default"] == "http://localhost:8080"
+    assert keycloak_parameters["realm"]["default"] == "rekipe"
+    assert keycloak_parameters["audience"]["default"] == "null"
+    assert keycloak_parameters["client_id"]["default"] == "null"
     llm = payload_by_name["llm"]
     assert [adapter["name"] for adapter in llm["adapters"]] == ["lmstudio", "openai", "anthropic"]
     openai = llm["adapters"][1]

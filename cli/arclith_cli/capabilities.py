@@ -417,6 +417,55 @@ port: {port}
     ),
 )
 
+AUTH_CAPABILITY = CapabilitySpec(
+    name="auth",
+    layer="inbound",
+    description="Authentification JWT Keycloak mutualisée FastAPI et FastMCP.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="keycloak",
+            capability="auth",
+            layer="inbound",
+            description="JWT RS256 via JWKS Keycloak et Swagger UI OAuth2 PKCE.",
+            config_path="config/adapters/inbound/keycloak.yaml",
+            config_template="""\
+url: "{url}"
+realm: "{realm}"
+audience: {audience}
+client_id: {client_id}
+""",
+            parameters=(
+                ParameterSpec(
+                    name="url",
+                    kind="string",
+                    prompt="URL Keycloak",
+                    default="http://localhost:8080",
+                ),
+                ParameterSpec(
+                    name="realm",
+                    kind="string",
+                    prompt="Realm Keycloak",
+                    default="rekipe",
+                ),
+                ParameterSpec(
+                    name="audience",
+                    kind="string",
+                    prompt="Audience JWT attendue",
+                    default="null",
+                ),
+                ParameterSpec(
+                    name="client_id",
+                    kind="string",
+                    prompt="Client public Swagger UI PKCE",
+                    default="null",
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
 LLM_CAPABILITY = CapabilitySpec(
     name="llm",
     layer="outbound",
@@ -779,6 +828,7 @@ CAPABILITY_CATALOG = (
     CACHE_CAPABILITY,
     API_CAPABILITY,
     MCP_CAPABILITY,
+    AUTH_CAPABILITY,
     LLM_CAPABILITY,
     AGENT_CAPABILITY,
     OBSERVABILITY_CAPABILITY,

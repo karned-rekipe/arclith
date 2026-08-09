@@ -47,13 +47,40 @@ config.yaml (keycloak / tenant / license / cache)
 
 ## Configuration
 
-```yaml
-# config.yaml
+Depuis un projet généré par `arclith-cli`, la configuration Keycloak peut être
+ajoutée sans toucher aux routers ni aux tools :
 
-keycloak:
-  url: http://keycloak:8080        # URL de base Keycloak
-  realm: rekipe                    # Realm cible
-  audience: rekipe-api             # Vérification aud dans le JWT (null = désactivé)
+```bash
+arclith-cli add-adapter \
+  --capability auth \
+  --adapter keycloak \
+  --param url=http://keycloak:8080 \
+  --param realm=rekipe \
+  --param audience=rekipe-api \
+  --param client_id=swagger-public \
+  --yes
+```
+
+Le CLI génère `config/adapters/inbound/keycloak.yaml`, chargé comme section
+`keycloak` par `Arclith("config")`. `audience` valide les tokens reçus par
+l'API ou les tools MCP. `client_id` sert uniquement au client public Swagger UI
+OAuth2 PKCE ; il peut différer de l'audience si le realm sépare clients front,
+Swagger et services machine-to-machine.
+
+```yaml
+# config/adapters/inbound/keycloak.yaml
+
+url: http://keycloak:8080        # URL de base Keycloak
+realm: rekipe                    # Realm cible
+audience: rekipe-api             # Vérification aud dans le JWT (null = désactivé)
+client_id: swagger-public        # Client public Swagger UI OAuth2 PKCE
+```
+
+Les autres sections restent dans leurs fichiers de configuration dédiés ou dans
+un `config.yaml` consolidé selon le mode de déploiement :
+
+```yaml
+# config.yaml consolidé
 
 license:
   role: rekipe:licensed            # Realm role requis — omis = pas de vérification licence
@@ -319,7 +346,7 @@ async def my_endpoint(
 
 **Avantages de `Depends` :**
 
-1. **Swagger UI** — `HTTPBearer` est automatiquement détecté par FastAPI, le bouton "Authorize" apparaît.
+1. **Swagger UI** — avec `config.keycloak`, le bouton "Authorize" expose le schéma OAuth2 PKCE Keycloak.
 2. **Typage complet** — `Annotated[dict, Depends(...)]` est visible par mypy/pyright.
 3. **Composabilité** — plusieurs `Depends` peuvent se chaîner (`inject_tenant` dépend lui-même du JWT).
 4. **Testabilité** — `app.dependency_overrides[require_auth] = lambda: {"sub": "test-user"}` pour les tests.
@@ -342,20 +369,22 @@ app.dependency_overrides[require_auth] = lambda: {"sub": "test-user-id"}
 Quand `config.keycloak` est présent, `Arclith.fastapi()` :
 1. Injecte le schéma OAuth2 PKCE dans l'OpenAPI spec (`/openapi.json`)
 2. Pré-configure `swagger_ui_init_oauth` avec `clientId` et PKCE
-3. Ajoute `bearerAuth` via `_http_bearer` (détecté automatiquement par FastAPI)
+3. Remplace le schéma `HTTPBearer` généré par FastAPI par le seul schéma
+   `keycloak` pour éviter un champ bearer vide et confus dans Swagger UI
 
-Le bouton **"Authorize"** apparaît dans Swagger UI (`/docs`). Deux options :
+Le bouton **"Authorize"** apparaît dans Swagger UI (`/docs`) avec un seul schéma
+`keycloak (OAuth2, authorizationCode)`.
 
-**Option A — OAuth2 PKCE (recommandé en dev)** :
+**Option A — OAuth2 PKCE (recommandé en dev et démonstration)** :
 1. Cliquer "Authorize"
 2. Sélectionner le schéma `keycloak (OAuth2, authorizationCode)`
 3. Scopes : `openid profile`
 4. Keycloak redirige → login → token automatiquement injecté
 
-**Option B — Bearer manuel** :
-1. Obtenir un token via `curl` ou Postman
-2. Cliquer "Authorize" → `bearerAuth (HTTP, Bearer)`
-3. Coller le token JWT brut (sans `Bearer `)
+**Option B — bearer machine-to-machine hors Swagger UI** :
+Swagger UI reste volontairement en OAuth2 PKCE. Les clients techniques, tests
+automatisés, MCP HTTP/SSE et appels Postman/curl utilisent le même pipeline
+serveur avec `Authorization: Bearer <access_token>`.
 
 ```bash
 # Obtenir un token Keycloak (client_credentials pour M2M)
@@ -363,6 +392,9 @@ curl -s -X POST \
   "http://keycloak:8080/realms/rekipe/protocol/openid-connect/token" \
   -d "grant_type=client_credentials&client_id=my-service&client_secret=$SECRET" \
   | jq -r .access_token
+
+# Appeler une route protégée avec ce token
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/v1/recipes
 ```
 
 ---

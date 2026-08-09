@@ -426,6 +426,48 @@ def test_add_fastmcp_mcp_adapter_generates_inbound_config_only(tmp_path: Path) -
     ]
 
 
+def test_add_keycloak_auth_adapter_generates_loadable_inbound_config(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+    config_path = project_dir / "config" / "adapters" / "inbound" / "keycloak.yaml"
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="auth",
+            adapter="keycloak",
+            adapter_params={
+                "url": "https://auth.example.test",
+                "realm": "rekipe",
+                "audience": "rekipe-api",
+                "client_id": "swagger-public",
+            },
+            yes=True,
+        )
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+
+    assert config == {
+        "url": "https://auth.example.test",
+        "realm": "rekipe",
+        "audience": "rekipe-api",
+        "client_id": "swagger-public",
+    }
+    assert "auth:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
+    package_root = project_dir / "src" / "demo_service"
+    assert not (package_root / "adapters" / "inbound" / "keycloak").exists()
+
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+
+    assert arclith.config.keycloak is not None
+    assert arclith.config.keycloak.url == "https://auth.example.test"
+    assert arclith.config.keycloak.realm == "rekipe"
+    assert arclith.config.keycloak.audience == "rekipe-api"
+    assert arclith.config.keycloak.client_id == "swagger-public"
+
+
 def test_add_lmstudio_llm_adapter_generates_lm_config_only(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
 
