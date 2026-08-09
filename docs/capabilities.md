@@ -259,7 +259,7 @@ Cette capacité n'a pas de clé d'activation dans `config/adapters/adapters.yaml
 `config/adapters/outbound/lm.yaml` est chargé directement dans `AppConfig.adapters.lm`.
 
 Pour LM Studio, `model_name` doit correspondre au modèle réellement chargé dans l'application
-locale. Le `api_key` peut rester une valeur factice comme `lm-studio` si LM Studio n'authentifie pas
+locale. L'`api_key` peut rester une valeur factice comme `lm-studio` si LM Studio n'authentifie pas
 les requêtes. Les tests Arclith valident uniquement la construction du provider OpenAI-compatible;
 ils n'appellent pas de modèle réel.
 
