@@ -481,6 +481,44 @@ Le module `routes` appartient au projet consommateur: il construit ou injecte se
 appelle les ports applicatifs. `arclith-cli add-adapter --capability api --adapter fastapi` ne
 génère pas ces routes pour éviter de mélanger transport HTTP et logique métier.
 
+### `http`
+
+Capacité inbound pour configurer les middlewares HTTP transverses de `Arclith.fastapi()` sans
+modifier les routes métier.
+
+Adapter disponible:
+
+- `idempotency`: middleware `Idempotency-Key` pour éviter les doubles mutations `POST`.
+
+```bash
+arclith-cli add-adapter \
+  --capability http \
+  --adapter idempotency \
+  --param enabled=true \
+  --param ttl_seconds=86400 \
+  --param required=false \
+  --yes
+```
+
+Résultat fusionné dans `config/http.yaml` sans écraser `etag` ni `cache_control`:
+
+```yaml
+idempotency:
+  enabled: true
+  ttl_seconds: 86400
+  required: false
+```
+
+Quand `enabled: true`, `Arclith.fastapi()` ajoute `IdempotencyMiddleware`. Le client fournit
+`Idempotency-Key` sur les `POST`; au premier succès `2xx`, la réponse est stockée dans le cache
+technique pendant `ttl_seconds`. Une requête suivante avec la même clé et le même path rejoue la
+réponse stockée avec `X-Idempotency-Replay: true`. Les réponses `4xx` et `5xx` ne sont pas mises en
+cache. Avec `required: true`, un `POST` sans header est rejeté en `400`.
+
+Le cache sous-jacent est `cache/memory` par défaut: il suffit en développement ou mono-processus.
+En multi-worker, Kubernetes ou API/MCP séparés, configurer `cache/redis` pour partager les clés
+idempotentes entre processus.
+
 ### `mcp`
 
 Capacité inbound pour exposer les cas d'usage via MCP.

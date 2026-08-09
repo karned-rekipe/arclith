@@ -686,6 +686,53 @@ enabled: {enabled}
     ),
 )
 
+HTTP_CAPABILITY = CapabilitySpec(
+    name="http",
+    layer="inbound",
+    description="Middlewares HTTP transverses pour FastAPI.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="idempotency",
+            capability="http",
+            layer="inbound",
+            description="Middleware Idempotency-Key pour éviter les doubles mutations POST.",
+            merge_config_templates=(
+                FileTemplateSpec(
+                    path="config/http.yaml",
+                    template="""\
+idempotency:
+  enabled: {enabled}
+  ttl_seconds: {ttl_seconds}
+  required: {required}
+""",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="enabled",
+                    kind="boolean",
+                    prompt="Activer le middleware idempotency",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="ttl_seconds",
+                    kind="string",
+                    prompt="TTL idempotency en secondes",
+                    default="86400",
+                ),
+                ParameterSpec(
+                    name="required",
+                    kind="boolean",
+                    prompt="Exiger Idempotency-Key sur les POST",
+                    default=False,
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
 AUTH_CAPABILITY = CapabilitySpec(
     name="auth",
     layer="inbound",
@@ -1191,6 +1238,7 @@ CAPABILITY_CATALOG = (
     API_CAPABILITY,
     MCP_CAPABILITY,
     PROBE_CAPABILITY,
+    HTTP_CAPABILITY,
     AUTH_CAPABILITY,
     TENANT_CAPABILITY,
     LICENSE_CAPABILITY,

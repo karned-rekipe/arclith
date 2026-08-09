@@ -141,7 +141,7 @@ def add_adapter(
         typer.Option(
             "--capability",
             help=(
-                "Capacité cible: repository, cache, logger, secrets, api, mcp, probe, "
+                "Capacité cible: repository, cache, logger, secrets, api, mcp, probe, http, "
                 "auth, tenant, license, llm, agent ou observability"
             ),
         ),

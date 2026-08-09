@@ -173,6 +173,25 @@ def test_probe_capability_catalog_declares_server() -> None:
     assert [parameter.name for parameter in server.parameters] == ["host", "port", "enabled"]
 
 
+def test_http_capability_catalog_declares_idempotency() -> None:
+    capability = get_capability("http")
+
+    assert capability is not None
+    assert capability.layer == "inbound"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("idempotency",)
+    idempotency = capability.get_adapter("idempotency")
+    assert idempotency is not None
+    assert idempotency.config_path is None
+    assert [template.path for template in idempotency.merge_config_templates] == ["config/http.yaml"]
+    assert idempotency.entity_scoped is False
+    assert [parameter.name for parameter in idempotency.parameters] == [
+        "enabled",
+        "ttl_seconds",
+        "required",
+    ]
+
+
 def test_auth_capability_catalog_declares_keycloak() -> None:
     capability = get_capability("auth")
 
@@ -359,6 +378,8 @@ def test_capability_catalog_is_json_serializable() -> None:
     assert "fastmcp" in encoded
     assert "probe" in encoded
     assert "server" in encoded
+    assert "http" in encoded
+    assert "idempotency" in encoded
     assert "auth" in encoded
     assert "keycloak" in encoded
     assert "tenant" in encoded
@@ -457,6 +478,16 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "host",
         "port",
         "enabled",
+    ]
+    http = payload_by_name["http"]
+    assert [adapter["name"] for adapter in http["adapters"]] == ["idempotency"]
+    idempotency = http["adapters"][0]
+    assert idempotency["config_path"] is None
+    assert [template["path"] for template in idempotency["merge_config_templates"]] == ["config/http.yaml"]
+    assert [parameter["name"] for parameter in idempotency["parameters"]] == [
+        "enabled",
+        "ttl_seconds",
+        "required",
     ]
     auth = payload_by_name["auth"]
     assert [adapter["name"] for adapter in auth["adapters"]] == ["keycloak"]
