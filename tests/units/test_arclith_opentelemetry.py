@@ -1,10 +1,21 @@
+import logging
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 from arclith import Arclith
+from arclith.arclith import _UvicornLogInterceptHandler
 from arclith.adapters.outbound.opentelemetry import fastapi as otel_fastapi
+from arclith.domain.ports.outbound.logger import Logger, LogLevel
+
+
+class CapturingLogger(Logger):
+    def __init__(self) -> None:
+        self.records: list[dict[str, Any]] = []
+
+    def log(self, level: LogLevel, message: str, **metadata: Any) -> None:
+        self.records.append({"level": level, "message": message, "metadata": metadata})
 
 
 def _make_config_dir(tmp_path: Path) -> Path:
@@ -78,3 +89,25 @@ def test_fastapi_instruments_opentelemetry_after_middlewares(tmp_path: Path, mon
     Arclith(_make_config_dir(tmp_path)).fastapi()
 
     assert events == ["observability", "http", "opentelemetry"]
+
+
+def test_uvicorn_log_interceptor_keeps_injected_trace_metadata() -> None:
+    logger = CapturingLogger()
+    record = logging.LogRecord("uvicorn.access", logging.INFO, __file__, 1, "request finished", (), None)
+    record.otelTraceID = "0" * 31 + "1"
+    record.otelSpanID = "0" * 15 + "2"
+    record.otelTraceSampled = True
+
+    _UvicornLogInterceptHandler(logger).emit(record)
+
+    assert logger.records == [
+        {
+            "level": LogLevel.INFO,
+            "message": "request finished",
+            "metadata": {
+                "trace_id": "0" * 31 + "1",
+                "span_id": "0" * 15 + "2",
+                "trace_sampled": True,
+            },
+        }
+    ]

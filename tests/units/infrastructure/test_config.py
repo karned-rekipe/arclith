@@ -213,6 +213,8 @@ def test_load_config_dir_opentelemetry_scoped():
         "adapters/outbound/opentelemetry.yaml": {
             "service_name": "demo-api",
             "endpoint": "http://otel-collector:4318",
+            "traces_endpoint": "http://otel-collector:4318/v1/custom-traces",
+            "metrics_endpoint": "http://otel-collector:4318/v1/custom-metrics",
             "protocol": "http/protobuf",
             "traces": True,
             "metrics": True,
@@ -226,6 +228,8 @@ def test_load_config_dir_opentelemetry_scoped():
     assert config.adapters.opentelemetry is not None
     assert config.adapters.opentelemetry.service_name == "demo-api"
     assert config.adapters.opentelemetry.endpoint == "http://otel-collector:4318"
+    assert config.adapters.opentelemetry.traces_endpoint == "http://otel-collector:4318/v1/custom-traces"
+    assert config.adapters.opentelemetry.metrics_endpoint == "http://otel-collector:4318/v1/custom-metrics"
     assert config.adapters.opentelemetry.metrics is True
     assert config.adapters.opentelemetry.metrics_export_interval_millis == 15000
 

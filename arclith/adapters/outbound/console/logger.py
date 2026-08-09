@@ -3,6 +3,7 @@ from typing import Any
 
 from loguru import logger as loguru_logger
 
+from arclith.adapters.outbound.opentelemetry.correlation import current_trace_metadata
 from arclith.domain.ports.outbound.logger import Logger, LogLevel
 
 _LEVEL_EMOJI = {
@@ -22,5 +23,5 @@ loguru_logger.add(sys.stderr, format = _FORMAT)
 class ConsoleLogger(Logger):
     def log(self, level: LogLevel, message: str, **metadata: Any) -> None:
         emoji = _LEVEL_EMOJI.get(level.value, "💬")
-        bound = loguru_logger.bind(level_emoji = emoji, meta = metadata)
+        bound = loguru_logger.bind(level_emoji = emoji, meta = {**metadata, **current_trace_metadata()})
         getattr(bound, level.value.lower())(message)

@@ -332,6 +332,8 @@ def test_add_opentelemetry_observability_adapter_uses_catalog_params(tmp_path: P
         adapter_params={
             "service_name": "demo-api",
             "endpoint": "http://otel-collector:4318",
+            "traces_endpoint": "http://otel-collector:4318/custom/traces",
+            "metrics_endpoint": "http://otel-collector:4318/custom/metrics",
             "protocol": "http/protobuf",
             "traces": "true",
             "metrics": "true",
@@ -347,6 +349,8 @@ def test_add_opentelemetry_observability_adapter_uses_catalog_params(tmp_path: P
     )
     assert 'service_name: "demo-api"' in config
     assert 'endpoint: "http://otel-collector:4318"' in config
+    assert "traces_endpoint: http://otel-collector:4318/custom/traces" in config
+    assert "metrics_endpoint: http://otel-collector:4318/custom/metrics" in config
     assert 'protocol: "http/protobuf"' in config
     assert "headers_env: OTEL_EXPORTER_OTLP_HEADERS" in config
     assert "traces: true" in config
@@ -389,6 +393,12 @@ def test_add_observability_adapters_accumulates_enabled_backends(tmp_path: Path)
         (project_dir / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8")
     )
     assert adapters_config["observability"]["enabled"] == ["langsmith", "opentelemetry"]
+
+    config = (project_dir / "config" / "adapters" / "outbound" / "opentelemetry.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "traces_endpoint: null" in config
+    assert "metrics_endpoint: null" in config
 
 
 def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(tmp_path: Path) -> None:

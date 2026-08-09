@@ -9,6 +9,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncIterator, Literal, TypeVar, overload
 
+from arclith.adapters.outbound.opentelemetry.correlation import log_record_trace_metadata
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.outbound.logger import Logger, LogLevel
 from arclith.domain.ports.outbound.repository import Repository
@@ -52,6 +53,7 @@ class _UvicornLogInterceptHandler(logging.Handler):
         self._logger.log(
             _LEVEL_MAP.get(record.levelname, LogLevel.INFO),
             message,
+            **log_record_trace_metadata(record),
         )
 class Arclith:
     def __init__(self, config_path: str | Path) -> None:

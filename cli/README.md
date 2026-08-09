@@ -159,7 +159,7 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
    - `anthropic` → `model_name`, `ANTHROPIC_API_KEY`
    - `langgraph` → `graph_name`
    - `langsmith` → `tracing`, `project`, `endpoint`, `LANGSMITH_API_KEY`
-   - `opentelemetry` → `service_name`, `endpoint`, `protocol`, `traces`, `metrics`, `instrument_fastapi`
+   - `opentelemetry` → `service_name`, `endpoint`, `traces_endpoint`, `metrics_endpoint`, `protocol`, `traces`, `metrics`, `instrument_fastapi`
    - `memory` → aucun paramètre
 4. **Activation** — met à jour `config/adapters/adapters.yaml` pour les capacités activables (`repository: <adapter>` ou `observability.enabled: [<adapter>, ...]`) ; `api/fastapi`, `mcp/fastmcp`, `llm/*` et `agent/langgraph` sont exposés par leurs fichiers de configuration scopés
 5. **Récapitulatif** — liste des fichiers créés ou remplacés avant confirmation
@@ -224,6 +224,9 @@ jour `.env`, l'ajoute à `observability.enabled` et branche l'instrumentation Fa
 `Arclith.fastapi()` construit l'application. Il peut être activé en même temps que LangSmith.
 Le fichier `opentelemetry.yaml` ne porte pas de flag `enabled`: l'activation se fait uniquement dans
 `observability.enabled`.
+L'endpoint global est utilisé par défaut; `traces_endpoint` et `metrics_endpoint` peuvent cibler des
+routes OTLP distinctes. Pour taguer l'environnement, définir
+`OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=local` dans l'environnement runtime.
 
 Parcours complet avec entité, API, LangGraph, LangSmith et LM Studio:
 [`docs/agent-quickstart.md`](../docs/agent-quickstart.md).

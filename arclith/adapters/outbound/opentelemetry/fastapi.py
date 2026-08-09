@@ -48,26 +48,45 @@ def _configure_opentelemetry(
     if _CONFIGURATION_STATE.configured or not (settings.traces or settings.metrics):
         return
 
-    try:
-        from opentelemetry.instrumentation.logging import LoggingInstrumentor
-        from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
-    except ImportError as exc:
-        raise RuntimeError(
-            'observability.enabled contient opentelemetry; installez l\'extra "arclith[opentelemetry]".'
-        ) from exc
-
-    resource = Resource.create({
-        SERVICE_NAME: settings.service_name or service_name,
-        SERVICE_VERSION: service_version,
-    })
+    resource = _build_resource(settings, service_name=service_name, service_version=service_version)
 
     if settings.traces:
         _configure_traces(settings, resource)
     if settings.metrics:
         _configure_metrics(settings, resource)
 
-    LoggingInstrumentor().instrument(set_logging_format=False)
+    _instrument_logging_correlation()
     _CONFIGURATION_STATE.configured = True
+
+
+def _build_resource(
+    settings: "OpenTelemetrySettings",
+    *,
+    service_name: str,
+    service_version: str,
+) -> Any:
+    try:
+        from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
+    except ImportError as exc:
+        raise RuntimeError(
+            'observability.enabled contient opentelemetry; installez l\'extra "arclith[opentelemetry]".'
+        ) from exc
+
+    return Resource.create({
+        SERVICE_NAME: settings.service_name or service_name,
+        SERVICE_VERSION: service_version,
+    })
+
+
+def _instrument_logging_correlation() -> None:
+    try:
+        from opentelemetry.instrumentation.logging import LoggingInstrumentor
+    except ImportError as exc:
+        raise RuntimeError(
+            'observability.enabled contient opentelemetry; installez l\'extra "arclith[opentelemetry]".'
+        ) from exc
+
+    LoggingInstrumentor().instrument(set_logging_format=False, inject_trace_context=True)
 
 
 def _configure_traces(settings: "OpenTelemetrySettings", resource: Any) -> None:

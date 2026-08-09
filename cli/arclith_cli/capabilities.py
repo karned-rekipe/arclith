@@ -581,6 +581,8 @@ LANGSMITH_API_KEY={api_key}
             config_template="""\
 service_name: "{service_name}"
 endpoint: "{endpoint}"
+traces_endpoint: {traces_endpoint}
+metrics_endpoint: {metrics_endpoint}
 protocol: "{protocol}"
 headers_env: OTEL_EXPORTER_OTLP_HEADERS
 traces: {traces}
@@ -607,6 +609,18 @@ OTEL_EXPORTER_OTLP_HEADERS={headers}
                     kind="string",
                     prompt="OTLP endpoint",
                     default="http://localhost:4318",
+                ),
+                ParameterSpec(
+                    name="traces_endpoint",
+                    kind="string",
+                    prompt="OTLP traces endpoint",
+                    default="null",
+                ),
+                ParameterSpec(
+                    name="metrics_endpoint",
+                    kind="string",
+                    prompt="OTLP metrics endpoint",
+                    default="null",
                 ),
                 ParameterSpec(
                     name="protocol",

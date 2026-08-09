@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 
 from arclith.adapters.outbound.opentelemetry.fastapi import (
+    _build_resource,
     _configure_opentelemetry,
     _headers_from_env,
+    _instrument_logging_correlation,
     _resolve_endpoint,
     instrument_fastapi_app,
 )
@@ -19,6 +21,37 @@ def test_configure_opentelemetry_skips_when_exports_disabled() -> None:
     settings = OpenTelemetrySettings(traces=False, metrics=False)
 
     _configure_opentelemetry(settings, service_name="demo", service_version="1.0.0")
+
+
+def test_build_resource_adds_service_identity_and_environment(monkeypatch) -> None:
+    monkeypatch.setenv("OTEL_RESOURCE_ATTRIBUTES", "deployment.environment.name=local")
+
+    resource = _build_resource(
+        OpenTelemetrySettings(service_name="configured-service"),
+        service_name="fallback-service",
+        service_version="1.2.3",
+    )
+
+    assert resource.attributes["service.name"] == "configured-service"
+    assert resource.attributes["service.version"] == "1.2.3"
+    assert resource.attributes["deployment.environment.name"] == "local"
+
+
+def test_instrument_logging_correlation_injects_trace_context(monkeypatch) -> None:
+    calls: list[dict[str, bool]] = []
+
+    class FakeLoggingInstrumentor:
+        def instrument(self, **kwargs: bool) -> None:
+            calls.append(kwargs)
+
+    monkeypatch.setattr(
+        "opentelemetry.instrumentation.logging.LoggingInstrumentor",
+        FakeLoggingInstrumentor,
+    )
+
+    _instrument_logging_correlation()
+
+    assert calls == [{"set_logging_format": False, "inject_trace_context": True}]
 
 
 def test_resolve_endpoint_uses_explicit_value() -> None:
