@@ -339,16 +339,13 @@ def _build_merged_dict(config_dir: Path) -> dict:
 
 
 def _resolve_secrets(data: dict, base_path: Path) -> dict:
-    from contextlib import suppress
-
     from arclith.infrastructure.secret_factory import build_secret_resolver
     from arclith.infrastructure.secret_loader import resolve_dict_secrets
 
     resolver = build_secret_resolver(data, base_path)
-    if resolver:
-        with suppress(Exception):
-            data = resolve_dict_secrets(data, resolver)
-    return data
+    if resolver is None:
+        return data
+    return resolve_dict_secrets(data, resolver)
 
 
 # ── Public loaders ────────────────────────────────────────────────────────────

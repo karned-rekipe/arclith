@@ -273,6 +273,13 @@ Pour OpenAI et Anthropic, la CLI génère `config/secrets.yaml` avec un resolver
 `adapters.lm.api_key` soit alimenté par `OPENAI_API_KEY` ou `ANTHROPIC_API_KEY` sans écrire la clé
 dans `lm.yaml`.
 
+Pour OpenAI, `model_name` est un placeholder généré par défaut: passer explicitement le modèle
+souhaité via `--param model_name=...`. La clé réelle ne doit pas être commitée: soit elle est passée
+à la CLI pour être fusionnée dans `.env` local gitignoré, soit elle est fournie au runtime par
+variable d'environnement, soit `config/secrets.yaml` est basculé vers un resolver Vault. Si le
+resolver `env` est actif et que `OPENAI_API_KEY` manque au démarrage, `load_config_dir()` échoue avec
+un message `Secrets non résolus` qui liste `adapters.lm.api_key`.
+
 ### `observability`
 
 Capacité outbound pour brancher l'observabilité et le banc de test agent.
@@ -455,7 +462,7 @@ Pour OpenAI:
 arclith-cli add-adapter \
   --capability llm \
   --adapter openai \
-  --param model_name=gpt-4o-mini \
+  --param model_name="<model-id-openai>" \
   --param api_key="$OPENAI_API_KEY" \
   --yes
 ```
