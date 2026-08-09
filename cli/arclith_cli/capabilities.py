@@ -740,6 +740,34 @@ tenant_uri_ttl: {tenant_uri_ttl}
     ),
 )
 
+LICENSE_CAPABILITY = CapabilitySpec(
+    name="license",
+    layer="inbound",
+    description="Validation d'accès par rôle realm Keycloak.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="role",
+            capability="license",
+            layer="inbound",
+            description="Vérifie un rôle dans realm_access.roles via RoleLicenseValidator.",
+            config_path="config/adapters/inbound/license.yaml",
+            config_template="""\
+role: "{role}"
+""",
+            parameters=(
+                ParameterSpec(
+                    name="role",
+                    kind="string",
+                    prompt="Rôle realm Keycloak requis",
+                    default="rekipe:licensed",
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
 LLM_CAPABILITY = CapabilitySpec(
     name="llm",
     layer="outbound",
@@ -1105,6 +1133,7 @@ CAPABILITY_CATALOG = (
     MCP_CAPABILITY,
     AUTH_CAPABILITY,
     TENANT_CAPABILITY,
+    LICENSE_CAPABILITY,
     LLM_CAPABILITY,
     AGENT_CAPABILITY,
     OBSERVABILITY_CAPABILITY,

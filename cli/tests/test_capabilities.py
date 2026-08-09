@@ -182,6 +182,20 @@ def test_tenant_capability_catalog_declares_vault() -> None:
     ]
 
 
+def test_license_capability_catalog_declares_role() -> None:
+    capability = get_capability("license")
+
+    assert capability is not None
+    assert capability.layer == "inbound"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("role",)
+    role = capability.get_adapter("role")
+    assert role is not None
+    assert role.config_path == "config/adapters/inbound/license.yaml"
+    assert role.entity_scoped is False
+    assert [parameter.name for parameter in role.parameters] == ["role"]
+
+
 def test_llm_capability_catalog_declares_model_adapters() -> None:
     capability = get_capability("llm")
 
@@ -316,6 +330,8 @@ def test_capability_catalog_is_json_serializable() -> None:
     assert "auth" in encoded
     assert "keycloak" in encoded
     assert "tenant" in encoded
+    assert "license" in encoded
+    assert "role" in encoded
     assert "llm" in encoded
     assert "lmstudio" in encoded
     assert "agent" in encoded
@@ -410,6 +426,14 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert [template["path"] for template in tenant_vault["merge_config_templates"]] == [
         "config/adapters/inbound/cache.yaml"
     ]
+    license_capability = payload_by_name["license"]
+    assert [adapter["name"] for adapter in license_capability["adapters"]] == ["role"]
+    role_parameters = {
+        parameter["name"]: parameter
+        for parameter in license_capability["adapters"][0]["parameters"]
+    }
+    assert license_capability["adapters"][0]["config_path"] == "config/adapters/inbound/license.yaml"
+    assert role_parameters["role"]["default"] == "rekipe:licensed"
     llm = payload_by_name["llm"]
     assert [adapter["name"] for adapter in llm["adapters"]] == ["lmstudio", "openai", "anthropic"]
     openai = llm["adapters"][1]

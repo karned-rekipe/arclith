@@ -520,6 +520,35 @@ Les coordonnées sont génériques par adapter: un secret tenant peut fournir `u
 MongoDB, ou `bucket_name`/`endpoint_url` pour un futur adapter S3. En mode single-tenant
 (`multitenant: false`), `make_inject_tenant_uri` bypass le pipeline JWT/Vault sans erreur.
 
+### `license`
+
+Capacité inbound transverse pour valider un realm role Keycloak après décodage JWT. Elle ne génère
+pas de router FastAPI ni de tool MCP: `Arclith.auth_dependency()` applique la même règle aux deux
+transports quand `config.license` est présent.
+
+Adapter disponible:
+
+- `role`: configure `LicenseSettings.role` et utilise `RoleLicenseValidator`.
+
+```bash
+arclith-cli add-adapter \
+  --capability license \
+  --adapter role \
+  --param role=rekipe:licensed \
+  --yes
+```
+
+Résultat:
+
+```yaml
+# config/adapters/inbound/license.yaml
+role: rekipe:licensed
+```
+
+L'absence de `config/adapters/inbound/license.yaml` désactive la vérification de licence sans
+changer les routes. Les erreurs restent séparées: `401` pour une authentification manquante ou
+invalide, `403` pour un token valide sans le rôle configuré.
+
 ### `llm`
 
 Capacité outbound pour configurer le modèle utilisé par les interpréteurs d'intention et agents.
