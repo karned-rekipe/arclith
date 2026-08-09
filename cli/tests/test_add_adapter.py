@@ -3,6 +3,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 import typer
@@ -1253,6 +1254,82 @@ def test_add_yaml_secrets_adapter_generates_template_and_preserves_real_secret_f
 
     assert arclith.config.adapters.mongodb is not None
     assert arclith.config.adapters.mongodb.uri == "mongodb://local:27017"
+
+
+def test_add_vault_secrets_adapter_generates_safe_config_and_resolves_with_fake_hvac(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    outbound_dir = project_dir / "config" / "adapters" / "outbound"
+    outbound_dir.mkdir(parents=True, exist_ok=True)
+    (outbound_dir / "mongodb.yaml").write_text(
+        "uri: null\n"
+        "db_name: demo\n"
+        "collection_name: null\n"
+        "multitenant: false\n",
+        encoding="utf-8",
+    )
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="secrets",
+            adapter="vault",
+            adapter_params={
+                "field_path": "adapters.mongodb.uri",
+                "secret_key": "apps/demo/mongodb",
+                "addr": "http://vault:8200",
+                "mount": "kv-app",
+            },
+            yes=True,
+        )
+    secrets_text = (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
+    secrets = yaml.safe_load(secrets_text)
+
+    assert secrets["resolver"] == "vault"
+    assert secrets["vault"] == {"addr": "http://vault:8200", "mount": "kv-app"}
+    assert secrets["mappings"] == {"adapters.mongodb.uri": "apps/demo/mongodb"}
+    assert "VAULT_TOKEN" not in secrets_text
+    assert "mongodb://vault:27017" not in secrets_text
+
+    fake_client = MagicMock()
+    fake_client.is_authenticated.return_value = True
+    fake_client.secrets.kv.v2.read_secret_version.return_value = {
+        "data": {"data": {"value": "mongodb://vault:27017"}}
+    }
+    fake_hvac = MagicMock()
+    fake_hvac.Client.return_value = fake_client
+    monkeypatch.setitem(sys.modules, "hvac", fake_hvac)
+    monkeypatch.setenv("VAULT_TOKEN", "test-token")
+
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+
+    assert arclith.config.adapters.mongodb is not None
+    assert arclith.config.adapters.mongodb.uri == "mongodb://vault:27017"
+    fake_hvac.Client.assert_called_with(url="http://vault:8200", token="test-token")
+    fake_client.secrets.kv.v2.read_secret_version.assert_called_once_with(
+        path="apps/demo/mongodb",
+        mount_point="kv-app",
+        raise_on_deleted_version=True,
+    )
+
+
+def test_add_vault_secrets_adapter_requires_secret_key(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="secrets",
+            adapter="vault",
+            adapter_params={"field_path": "adapters.mongodb.uri"},
+            yes=True,
+        )
+
+    assert not (project_dir / "config" / "secrets.yaml").exists()
 
 
 def test_boolean_string_default_false_is_false(tmp_path: Path) -> None:
