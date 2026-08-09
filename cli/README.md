@@ -141,18 +141,20 @@ arclith-cli add-adapter --capability llm --adapter lmstudio --param model_name=q
 arclith-cli add-adapter --capability agent --adapter langgraph --param graph_name=recipe_agent --yes
 arclith-cli add-adapter --capability observability --adapter langsmith
 arclith-cli add-adapter --capability observability --adapter opentelemetry --param service_name=my_recipe_service --yes
+arclith-cli add-adapter --capability cache --adapter memory --yes
 arclith-cli add-adapter --capability repository --adapter memory --entity Recipe --yes
 ```
 
 **Étapes du wizard :**
 
 1. **Type d'adapter** — selon la capacité : `memory` · `mongodb` · `duckdb` · `mariadb` · `fastapi` · `fastmcp` · `lmstudio` · `openai` · `anthropic` · `langgraph` · `langsmith` · `opentelemetry`
-2. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour les transports globaux, `llm/*`, `agent/langgraph` et les adapters d'observability
+2. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour les transports globaux, `cache/*`, `llm/*`, `agent/langgraph` et les adapters d'observability
 3. **Paramètres** — questions spécifiques à l'adapter :
    - `mongodb` → `db_name`, `collection_name`, `multitenant`
    - `duckdb` → `path`
    - `mariadb` → `host`, `port`, `database`, `user`, `driver`, `table_prefix`
      (`url` et `password` sont mappés via `config/secrets.yaml`)
+   - `cache/memory` → `jwks_ttl`, `tenant_uri_ttl`
    - `fastapi` → `host`, `port`, `reload`
    - `fastmcp` → `host`, `port`
    - `lmstudio` → `model_name`, `base_url`, `api_key`
@@ -161,13 +163,13 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
    - `langgraph` → `graph_name`
    - `langsmith` → `tracing`, `project`, `endpoint`, `LANGSMITH_API_KEY`
    - `opentelemetry` → `service_name`, `endpoint`, `traces_endpoint`, `metrics_endpoint`, `protocol`, `traces`, `metrics`, `instrument_fastapi`
-   - `memory` → aucun paramètre
-4. **Activation** — met à jour `config/adapters/adapters.yaml` pour les capacités activables (`repository: <adapter>` ou `observability.enabled: [<adapter>, ...]`) ; `api/fastapi`, `mcp/fastmcp`, `llm/*` et `agent/langgraph` sont exposés par leurs fichiers de configuration scopés
+   - `repository/memory` → aucun paramètre
+4. **Activation** — met à jour `config/adapters/adapters.yaml` pour les capacités activables (`repository: <adapter>` ou `observability.enabled: [<adapter>, ...]`) ; `api/fastapi`, `mcp/fastmcp`, `cache/*`, `llm/*` et `agent/langgraph` sont exposés par leurs fichiers de configuration scopés
 5. **Récapitulatif** — liste des fichiers créés ou remplacés avant confirmation
 
 | Option | Défaut | Description |
 |--------|--------|-------------|
-| `--capability` | `repository` | Capacité cible du catalogue standardisé (`repository`, `api`, `mcp`, `llm`, `agent`, `observability`) |
+| `--capability` | `repository` | Capacité cible du catalogue standardisé (`repository`, `cache`, `api`, `mcp`, `llm`, `agent`, `observability`) |
 | `--adapter` / `-a` | interactif | Adapter du catalogue : `memory`, `mongodb`, `duckdb`, `mariadb`, `fastapi`, `fastmcp`, `lmstudio`, `openai`, `anthropic`, `langgraph`, `langsmith`, `opentelemetry` |
 | `--entity` / `-e` | auto si une seule entité | Entité cible, liste séparée par virgule acceptée |
 | `--all-entities` | `false` | Génère l'adapter pour toutes les entités détectées |
@@ -322,6 +324,11 @@ config/
       license.yaml                # license: { role }
       cache.yaml                  # cache: { backend, redis_url, … }
 ```
+
+`cache/memory` génère `config/adapters/inbound/cache.yaml` avec `backend: memory` et les TTL JWKS /
+tenant. Ce cache est strictement local au processus Python: il suffit pour le développement, les
+tests et un worker unique. Passer à Redis dès qu'il faut partager le cache entre plusieurs workers,
+réplicas, ou processus séparés API/MCP/agent.
 
 Pour changer l'adapter actif sans passer par le wizard :
 

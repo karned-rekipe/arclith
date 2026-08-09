@@ -259,6 +259,42 @@ multitenant: false
     ),
 )
 
+CACHE_CAPABILITY = CapabilitySpec(
+    name="cache",
+    layer="outbound",
+    description="Cache transverse pour JWT JWKS, idempotency et résolution tenant.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="memory",
+            capability="cache",
+            layer="outbound",
+            description="Cache local par processus pour dev, tests et exécution mono-worker.",
+            config_path="config/adapters/inbound/cache.yaml",
+            config_template="""\
+backend: memory
+jwks_ttl: {jwks_ttl}
+tenant_uri_ttl: {tenant_uri_ttl}
+""",
+            parameters=(
+                ParameterSpec(
+                    name="jwks_ttl",
+                    kind="string",
+                    prompt="TTL JWKS en secondes",
+                    default="3600",
+                ),
+                ParameterSpec(
+                    name="tenant_uri_ttl",
+                    kind="string",
+                    prompt="TTL tenant en secondes",
+                    default="300",
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
 API_CAPABILITY = CapabilitySpec(
     name="api",
     layer="inbound",
@@ -695,6 +731,7 @@ OTEL_EXPORTER_OTLP_HEADERS={headers}
 
 CAPABILITY_CATALOG = (
     REPOSITORY_CAPABILITY,
+    CACHE_CAPABILITY,
     API_CAPABILITY,
     MCP_CAPABILITY,
     LLM_CAPABILITY,

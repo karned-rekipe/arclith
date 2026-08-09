@@ -22,6 +22,21 @@ def test_repository_capability_catalog_declares_standard_adapters() -> None:
     assert memory.parameters == ()
 
 
+def test_cache_capability_catalog_declares_memory_adapter() -> None:
+    capability = get_capability("cache")
+
+    assert capability is not None
+    assert capability.layer == "outbound"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("memory",)
+    memory = capability.get_adapter("memory")
+    assert memory is not None
+    assert memory.capability == "cache"
+    assert memory.config_path == "config/adapters/inbound/cache.yaml"
+    assert memory.entity_scoped is False
+    assert [parameter.name for parameter in memory.parameters] == ["jwks_ttl", "tenant_uri_ttl"]
+
+
 def test_observability_capability_catalog_declares_langsmith() -> None:
     capability = get_capability("observability")
 
@@ -196,6 +211,7 @@ def test_capability_catalog_is_json_serializable() -> None:
 
     assert "repository" in encoded
     assert "mongodb" in encoded
+    assert "cache" in encoded
     assert "api" in encoded
     assert "fastapi" in encoded
     assert "mcp" in encoded
@@ -219,14 +235,15 @@ def test_capabilities_command_outputs_json_catalog() -> None:
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
-    assert payload[0]["name"] == "repository"
-    assert [adapter["name"] for adapter in payload[0]["adapters"]] == ["memory", "mongodb", "duckdb", "mariadb"]
-    assert payload[0]["adapters"][0]["entity_scoped"] is True
-    duckdb = payload[0]["adapters"][2]
+    payload_by_name = {capability["name"]: capability for capability in payload}
+    repository = payload_by_name["repository"]
+    assert [adapter["name"] for adapter in repository["adapters"]] == ["memory", "mongodb", "duckdb", "mariadb"]
+    assert repository["adapters"][0]["entity_scoped"] is True
+    duckdb = repository["adapters"][2]
     assert duckdb["name"] == "duckdb"
     assert duckdb["config_path"] == "config/adapters/outbound/duckdb.yaml"
     assert [parameter["name"] for parameter in duckdb["parameters"]] == ["path"]
-    mariadb = payload[0]["adapters"][3]
+    mariadb = repository["adapters"][3]
     assert mariadb["name"] == "mariadb"
     assert [mapping["field_path"] for mapping in mariadb["secret_mappings"]] == [
         "adapters.mariadb.url",
@@ -236,27 +253,32 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "MARIADB_URL",
         "MARIADB_PASSWORD",
     ]
-    assert payload[1]["name"] == "api"
-    assert [adapter["name"] for adapter in payload[1]["adapters"]] == ["fastapi"]
-    assert payload[2]["name"] == "mcp"
-    assert [adapter["name"] for adapter in payload[2]["adapters"]] == ["fastmcp"]
-    assert payload[3]["name"] == "llm"
-    assert [adapter["name"] for adapter in payload[3]["adapters"]] == ["lmstudio", "openai", "anthropic"]
-    openai = payload[3]["adapters"][1]
+    cache = payload_by_name["cache"]
+    assert [adapter["name"] for adapter in cache["adapters"]] == ["memory"]
+    assert cache["adapters"][0]["capability"] == "cache"
+    assert cache["adapters"][0]["entity_scoped"] is False
+    assert [parameter["name"] for parameter in cache["adapters"][0]["parameters"]] == [
+        "jwks_ttl",
+        "tenant_uri_ttl",
+    ]
+    assert [adapter["name"] for adapter in payload_by_name["api"]["adapters"]] == ["fastapi"]
+    assert [adapter["name"] for adapter in payload_by_name["mcp"]["adapters"]] == ["fastmcp"]
+    llm = payload_by_name["llm"]
+    assert [adapter["name"] for adapter in llm["adapters"]] == ["lmstudio", "openai", "anthropic"]
+    openai = llm["adapters"][1]
     openai_parameters = {parameter["name"]: parameter for parameter in openai["parameters"]}
     assert openai_parameters["model_name"]["default"] == "remplacer-par-model-id-openai"
     assert openai_parameters["api_key"]["secret"] is True
     assert openai_parameters["api_key"]["default"] == ""
-    anthropic = payload[3]["adapters"][2]
+    anthropic = llm["adapters"][2]
     anthropic_parameters = {parameter["name"]: parameter for parameter in anthropic["parameters"]}
     assert anthropic_parameters["model_name"]["default"] == "remplacer-par-model-id-anthropic"
     assert anthropic_parameters["api_key"]["secret"] is True
     assert anthropic_parameters["api_key"]["default"] == ""
-    assert payload[4]["name"] == "agent"
-    assert [adapter["name"] for adapter in payload[4]["adapters"]] == ["langgraph"]
-    assert payload[5]["name"] == "observability"
-    assert [adapter["name"] for adapter in payload[5]["adapters"]] == ["langsmith", "opentelemetry"]
-    langsmith = payload[5]["adapters"][0]
+    assert [adapter["name"] for adapter in payload_by_name["agent"]["adapters"]] == ["langgraph"]
+    observability = payload_by_name["observability"]
+    assert [adapter["name"] for adapter in observability["adapters"]] == ["langsmith", "opentelemetry"]
+    langsmith = observability["adapters"][0]
     langsmith_parameters = {parameter["name"]: parameter for parameter in langsmith["parameters"]}
     assert langsmith_parameters["api_key"]["secret"] is True
     assert langsmith_parameters["api_key"]["default"] == ""
