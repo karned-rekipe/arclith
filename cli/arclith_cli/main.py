@@ -140,7 +140,10 @@ def add_adapter(
         str,
         typer.Option(
             "--capability",
-            help="Capacité cible: repository, cache, secrets, api, mcp, auth, tenant, llm, agent ou observability",
+            help=(
+                "Capacité cible: repository, cache, secrets, api, mcp, auth, tenant, "
+                "license, llm, agent ou observability"
+            ),
         ),
     ] = "repository",
     adapter: Annotated[

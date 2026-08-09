@@ -76,6 +76,31 @@ audience: rekipe-api             # Vérification aud dans le JWT (null = désact
 client_id: swagger-public        # Client public Swagger UI OAuth2 PKCE
 ```
 
+La licence par rôle Keycloak se configure aussi sans changer les routers FastAPI
+ni les tools MCP :
+
+```bash
+arclith-cli add-adapter \
+  --capability license \
+  --adapter role \
+  --param role=rekipe:licensed \
+  --yes
+```
+
+Le CLI génère `config/adapters/inbound/license.yaml`, chargé comme section
+`license` par `Arclith("config")`.
+
+```yaml
+# config/adapters/inbound/license.yaml
+role: rekipe:licensed
+```
+
+Si `config.license` existe, `Arclith.auth_dependency()` ajoute automatiquement
+`RoleLicenseValidator(config.license.role)` au pipeline partagé FastAPI/MCP. Si
+la section est absente, seul le JWT est vérifié. Un token absent ou invalide
+reste une erreur `401`, tandis qu'un token valide sans le rôle demandé retourne
+`403`.
+
 Les autres sections restent dans leurs fichiers de configuration dédiés ou dans
 un `config.yaml` consolidé selon le mode de déploiement :
 
