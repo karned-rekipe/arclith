@@ -375,7 +375,7 @@ def test_duckdb_settings_directory_path():
 
 
 def test_duckdb_settings_invalid_extension():
-    with pytest.raises(ValidationError, match=r"Format '.txt' non supporté par DuckDB"):
+    with pytest.raises(ValidationError, match=r"Format '\.txt' non supporté par DuckDB"):
         DuckDBSettings(path="data/file.txt")
 
 
