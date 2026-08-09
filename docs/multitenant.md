@@ -59,6 +59,29 @@ En mode **single-tenant** (`multitenant: false` sur tous les adapters), le pipel
 
 ## Configuration
 
+Depuis un projet généré, la configuration minimale MongoDB multitenant + tenant Vault peut être
+posée par la CLI :
+
+```bash
+arclith-cli add-adapter \
+  --capability repository \
+  --adapter mongodb \
+  --param db_name=fallback_db \
+  --param collection_name=null \
+  --param multitenant=true \
+  --yes
+
+arclith-cli add-adapter \
+  --capability tenant \
+  --adapter vault \
+  --param addr=http://vault:8200 \
+  --param mount=kv \
+  --param path_prefix=rekipe/tenants \
+  --param tenant_claim=tenant_id \
+  --param tenant_uri_ttl=300 \
+  --yes
+```
+
 ```yaml
 adapters:
   repository: mongodb
@@ -117,8 +140,8 @@ inject_tenant = make_inject_tenant_uri(
     ),
     license_validator=RoleLicenseValidator(role=config.license.role),
     tenant_resolvers=[
-        VaultTenantResolver("mongodb",    addr=..., path_prefix=..., cache=cache),
-        VaultTenantResolver("s3_client",  addr=..., path_prefix=..., cache=cache),
+        VaultTenantResolver("mongodb", addr=..., mount=..., path_prefix=..., cache=cache),
+        VaultTenantResolver("s3_client", addr=..., mount=..., path_prefix=..., cache=cache),
     ],
 )
 ```
@@ -132,27 +155,32 @@ Pas de filtrage, pas d'hypothèse sur les clés — chaque adaptateur lit ce don
 
 ```bash
 vault kv put kv/rekipe/tenants/client-a \
-  mongodb_uri="mongodb://user:pass@mongo-a:27017" \
-  mongodb_db="client_a" \
-  s3_bucket="client-a-data" \
+  uri="mongodb://user:pass@mongo-a:27017" \
+  db_name="client_a" \
+  bucket_name="client-a-data" \
   s3_region="eu-west-1" \
   s3_endpoint="https://s3.eu-west-1.amazonaws.com"
 ```
 
-> Les clés peuvent être organisées librement. La convention de nommage (`mongodb_uri`, `s3_bucket`…)
-> est définie par le projet — arclith ne l'impose pas.
+Le préfixe `rekipe/tenants` vient de `tenant.vault_path_prefix`; `client-a` vient du claim JWT
+configuré par `tenant.tenant_claim`. `VaultTenantResolver` lit `kv/<path_prefix>/<tenant_id>` en KV
+v2, expose tous les champs tels quels, puis chaque adapter consomme sa propre tranche de
+`TenantContext`.
+
+> Les clés peuvent être organisées librement. La convention de nommage (`uri`, `db_name`,
+> `bucket_name`...) est définie par le projet et par l'adapter consommateur; arclith ne l'impose pas.
 
 Chaque adaptateur lit sa tranche :
 
 ```python
 # Dans le repository MongoDB du tenant
 coords = get_adapter_tenant_context("mongodb")
-uri = coords.get("mongodb_uri") or self._config.uri
-db  = coords.get("mongodb_db")  or self._config.db_name
+uri = coords.get("uri") or self._config.uri
+db  = coords.get("db_name") or self._config.db_name
 
 # Dans le client S3 du tenant
 coords = get_adapter_tenant_context("s3_client")
-bucket   = coords.require("s3_bucket")
+bucket   = coords.require("bucket_name")
 region   = coords.get("s3_region", "eu-west-1")
 endpoint = coords.get("s3_endpoint")
 

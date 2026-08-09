@@ -435,6 +435,10 @@ def _list_generated_files(
         cfg = project_dir / adapter.config_path
         files.append((cfg, "remplacé ⚠" if cfg.exists() else "créé"))
 
+    for merge_template in adapter.merge_config_templates:
+        cfg = project_dir / render(merge_template.path, {})
+        files.append((cfg, "mis à jour" if cfg.exists() else "créé"))
+
     if adapter.has_env() and adapter.env_path:
         env_file = project_dir / adapter.env_path
         files.append((env_file, "mis à jour" if env_file.exists() else "créé"))
@@ -497,6 +501,11 @@ def _generate(
         cfg_path = project_dir / adapter.config_path
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(render(adapter.config_template, params), encoding="utf-8")
+        console.print(f"[green]✓[/green] {cfg_path.relative_to(project_dir)}")
+
+    for merge_template in adapter.merge_config_templates:
+        cfg_path = project_dir / render(merge_template.path, params)
+        _merge_yaml_file(cfg_path, render(merge_template.template, params))
         console.print(f"[green]✓[/green] {cfg_path.relative_to(project_dir)}")
 
     if adapter.has_env() and adapter.env_path:
@@ -702,6 +711,17 @@ def _merge_env_file(env_path: Path, updates: dict[str, str]) -> None:
             merged_lines.append(f"{key}={value}")
 
     env_path.write_text("\n".join(merged_lines).rstrip("\n") + "\n", encoding="utf-8")
+
+
+def _merge_yaml_file(path: Path, rendered_yaml: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing = _read_yaml_mapping(path)
+    update = yaml.safe_load(rendered_yaml) or {}
+    if not isinstance(update, dict):
+        console.print("[red]✗[/red] La configuration YAML générée doit être un mapping.")
+        raise typer.Exit(1)
+    merged = _deep_merge_mapping(existing, update)
+    path.write_text(yaml.safe_dump(merged, sort_keys=False, allow_unicode=True), encoding="utf-8")
 
 
 def _merge_secrets_file(

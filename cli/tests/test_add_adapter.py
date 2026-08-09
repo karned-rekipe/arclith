@@ -469,6 +469,63 @@ def test_add_keycloak_auth_adapter_generates_loadable_inbound_config(tmp_path: P
     assert arclith.config.keycloak.client_id == "swagger-public"
 
 
+def test_add_vault_tenant_adapter_with_mongodb_multitenant_loads_config(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+    cache_path = project_dir / "config" / "adapters" / "inbound" / "cache.yaml"
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(
+        "backend: memory\n"
+        "jwks_ttl: 1200\n"
+        "tenant_uri_ttl: 180\n",
+        encoding="utf-8",
+    )
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        adapter="mongodb",
+        activate=True,
+        db_name="fallback_db",
+        adapter_params={"collection_name": "widgets"},
+        multitenant=True,
+        yes=True,
+    )
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="tenant",
+        adapter="vault",
+        adapter_params={
+            "addr": "http://vault:8200",
+            "mount": "kv-tenants",
+            "path_prefix": "rekipe/tenants",
+            "tenant_claim": "tenant_id",
+            "tenant_uri_ttl": "45",
+        },
+        yes=True,
+    )
+
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+    tenant_config = (project_dir / "config" / "adapters" / "inbound" / "tenant.yaml").read_text(
+        encoding="utf-8"
+    )
+    cache_config = yaml.safe_load(cache_path.read_text(encoding="utf-8"))
+
+    assert arclith.config.adapters.repository == "mongodb"
+    assert arclith.config.adapters.mongodb is not None
+    assert arclith.config.adapters.mongodb.multitenant is True
+    assert arclith.config.tenant is not None
+    assert arclith.config.tenant.vault_addr == "http://vault:8200"
+    assert arclith.config.tenant.vault_mount == "kv-tenants"
+    assert arclith.config.tenant.vault_path_prefix == "rekipe/tenants"
+    assert arclith.config.tenant.tenant_claim == "tenant_id"
+    assert arclith.config.cache.backend == "memory"
+    assert arclith.config.cache.jwks_ttl == 1200
+    assert arclith.config.cache.tenant_uri_ttl == 45
+    assert cache_config == {"backend": "memory", "jwks_ttl": 1200, "tenant_uri_ttl": 45}
+    assert 'vault_addr: "http://vault:8200"' in tenant_config
+
+
 def test_add_lmstudio_llm_adapter_generates_lm_config_only(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
 
