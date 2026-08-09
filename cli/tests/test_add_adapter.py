@@ -427,6 +427,40 @@ def test_add_fastmcp_mcp_adapter_generates_inbound_config_only(tmp_path: Path) -
     ]
 
 
+def test_add_probe_server_adapter_generates_loadable_inbound_config(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="probe",
+        adapter="server",
+        adapter_params={
+            "host": "127.0.0.1",
+            "port": "9100",
+            "enabled": "false",
+        },
+        yes=True,
+    )
+
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+    config = (project_dir / "config" / "adapters" / "inbound" / "probe.yaml").read_text(
+        encoding="utf-8"
+    )
+    package_root = project_dir / "src" / "demo_service"
+
+    assert config == "host: 127.0.0.1\nport: 9100\nenabled: false\n"
+    assert arclith.config.probe.host == "127.0.0.1"
+    assert arclith.config.probe.port == 9100
+    assert arclith.config.probe.enabled is False
+    assert "probe:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert not (package_root / "adapters" / "inbound" / "server").exists()
+    assert not (package_root / "adapters" / "outbound" / "server").exists()
+
+
 def test_add_keycloak_auth_adapter_generates_loadable_inbound_config(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
     config_path = project_dir / "config" / "adapters" / "inbound" / "keycloak.yaml"

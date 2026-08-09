@@ -3,8 +3,6 @@ from __future__ import annotations
 import time
 from typing import Any
 
-import pytest
-
 from arclith.adapters.inbound.probes.server import ProbeServer
 
 
@@ -172,4 +170,3 @@ class TestProbeServerRoutes:
         client = self._client(server)
         data = client.get("/info").json()
         assert data["uptime_s"] >= 5.0
-

@@ -159,6 +159,20 @@ def test_mcp_capability_catalog_declares_fastmcp() -> None:
     assert [parameter.name for parameter in fastmcp.parameters] == ["host", "port"]
 
 
+def test_probe_capability_catalog_declares_server() -> None:
+    capability = get_capability("probe")
+
+    assert capability is not None
+    assert capability.layer == "inbound"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("server",)
+    server = capability.get_adapter("server")
+    assert server is not None
+    assert server.config_path == "config/adapters/inbound/probe.yaml"
+    assert server.entity_scoped is False
+    assert [parameter.name for parameter in server.parameters] == ["host", "port", "enabled"]
+
+
 def test_auth_capability_catalog_declares_keycloak() -> None:
     capability = get_capability("auth")
 
@@ -343,6 +357,8 @@ def test_capability_catalog_is_json_serializable() -> None:
     assert "fastapi" in encoded
     assert "mcp" in encoded
     assert "fastmcp" in encoded
+    assert "probe" in encoded
+    assert "server" in encoded
     assert "auth" in encoded
     assert "keycloak" in encoded
     assert "tenant" in encoded
@@ -433,6 +449,15 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert chain_parameters["resolvers"]["csv_choices"] is True
     assert [adapter["name"] for adapter in payload_by_name["api"]["adapters"]] == ["fastapi"]
     assert [adapter["name"] for adapter in payload_by_name["mcp"]["adapters"]] == ["fastmcp"]
+    probe = payload_by_name["probe"]
+    assert [adapter["name"] for adapter in probe["adapters"]] == ["server"]
+    probe_server = probe["adapters"][0]
+    assert probe_server["config_path"] == "config/adapters/inbound/probe.yaml"
+    assert [parameter["name"] for parameter in probe_server["parameters"]] == [
+        "host",
+        "port",
+        "enabled",
+    ]
     auth = payload_by_name["auth"]
     assert [adapter["name"] for adapter in auth["adapters"]] == ["keycloak"]
     keycloak_parameters = {parameter["name"]: parameter for parameter in auth["adapters"][0]["parameters"]}
