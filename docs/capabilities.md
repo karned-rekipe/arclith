@@ -183,6 +183,23 @@ reload: true
 Cette capacité n'a pas de clé d'activation dans `config/adapters/adapters.yaml`: le chemin
 `config/adapters/inbound/fastapi.yaml` est chargé directement dans `AppConfig.api`.
 
+La CLI configure uniquement le runtime FastAPI. Les routers métier restent dans le projet généré et
+doivent traduire HTTP vers les ports inbound ou les use cases applicatifs, jamais vers un repository
+concret. Le branchement attendu est donc:
+
+```python
+from arclith import Arclith
+from my_service.adapters.inbound.fastapi.routes import router
+
+arclith = Arclith("config")
+app = arclith.fastapi()
+app.include_router(router)
+```
+
+Le module `routes` appartient au projet consommateur: il construit ou injecte ses use cases, puis
+appelle les ports applicatifs. `arclith-cli add-adapter --capability api --adapter fastapi` ne
+génère pas ces routes pour éviter de mélanger transport HTTP et logique métier.
+
 ### `mcp`
 
 Capacité inbound pour exposer les cas d'usage via MCP.
