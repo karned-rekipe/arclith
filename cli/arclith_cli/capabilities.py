@@ -357,6 +357,22 @@ REDIS_URL={redis_url}
     ),
 )
 
+LOGGER_CAPABILITY = CapabilitySpec(
+    name="logger",
+    layer="outbound",
+    description="Logger applicatif partagé par les use cases et adapters.",
+    activation_config_key="logger",
+    adapters=(
+        AdapterSpec(
+            name="console",
+            capability="logger",
+            layer="outbound",
+            description="Logger console Loguru enrichi avec les métadonnées OpenTelemetry courantes.",
+            entity_scoped=False,
+        ),
+    ),
+)
+
 SECRETS_CAPABILITY = CapabilitySpec(
     name="secrets",
     layer="outbound",
@@ -1128,6 +1144,7 @@ OTEL_EXPORTER_OTLP_HEADERS={headers}
 CAPABILITY_CATALOG = (
     REPOSITORY_CAPABILITY,
     CACHE_CAPABILITY,
+    LOGGER_CAPABILITY,
     SECRETS_CAPABILITY,
     API_CAPABILITY,
     MCP_CAPABILITY,

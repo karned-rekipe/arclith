@@ -46,6 +46,20 @@ def test_cache_capability_catalog_declares_memory_adapter() -> None:
     assert [mapping.secret_key for mapping in redis.secret_mappings] == ["REDIS_URL"]
 
 
+def test_logger_capability_catalog_declares_console_adapter() -> None:
+    capability = get_capability("logger")
+
+    assert capability is not None
+    assert capability.layer == "outbound"
+    assert capability.activation_config_key == "logger"
+    assert capability.adapter_names() == ("console",)
+    console = capability.get_adapter("console")
+    assert console is not None
+    assert console.config_path is None
+    assert console.entity_scoped is False
+    assert console.parameters == ()
+
+
 def test_secrets_capability_catalog_declares_env_adapter() -> None:
     capability = get_capability("secrets")
 
@@ -321,6 +335,8 @@ def test_capability_catalog_is_json_serializable() -> None:
     assert "mongodb" in encoded
     assert "cache" in encoded
     assert "redis" in encoded
+    assert "logger" in encoded
+    assert "console" in encoded
     assert "secrets" in encoded
     assert "env" in encoded
     assert "api" in encoded
@@ -387,6 +403,11 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert [mapping["field_path"] for mapping in cache["adapters"][1]["secret_mappings"]] == [
         "cache.redis_url"
     ]
+    logger = payload_by_name["logger"]
+    assert logger["activation_config_key"] == "logger"
+    assert [adapter["name"] for adapter in logger["adapters"]] == ["console"]
+    assert logger["adapters"][0]["entity_scoped"] is False
+    assert logger["adapters"][0]["config_path"] is None
     secrets = payload_by_name["secrets"]
     assert [adapter["name"] for adapter in secrets["adapters"]] == ["env", "yaml", "vault", "chain"]
     env = secrets["adapters"][0]

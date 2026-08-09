@@ -163,6 +163,42 @@ En single-tenant, `database` est requis quand `url` n'est pas fourni par les sec
 multitenant, le contexte tenant peut fournir `url`, `database`, `user`, `password`, `host`, `port`,
 `driver` ou `table_prefix`.
 
+### `logger`
+
+Capacité outbound pour le logger applicatif partagé par les use cases et les adapters. L'adapter
+actuel reste volontairement unique: `console`. Il est explicite dans le catalogue pour garder le
+contrat remplaçable plus tard sans changer les ports applicatifs.
+
+Adapter disponible:
+
+- `console`: logger Loguru vers `stderr`, derrière le port `Logger`.
+
+```bash
+arclith-cli add-adapter \
+  --capability logger \
+  --adapter console \
+  --yes
+```
+
+Résultat:
+
+```yaml
+# config/adapters/adapters.yaml
+logger: console
+```
+
+`Arclith.logger` respecte `config.adapters.logger`; toute valeur inconnue est rejetée avec la liste
+des adapters supportés. Le format console actuel est:
+
+```text
+YYYY-MM-DD HH:mm:ss | <emoji> <LEVEL> | <message> | <metadata>
+```
+
+Quand OpenTelemetry est actif et qu'un span courant existe, `ConsoleLogger` ajoute `trace_id`,
+`span_id` et `trace_sampled` aux métadonnées. Le logger console ne fournit pas encore de sortie JSON,
+de rotation ou d'export externe: ces variantes devront être ajoutées comme nouveaux adapters du même
+catalogue.
+
 ### `cache`
 
 Capacité outbound transverse pour le cache technique utilisé par JWT JWKS, idempotency et

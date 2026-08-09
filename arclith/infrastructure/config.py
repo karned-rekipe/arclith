@@ -129,6 +129,7 @@ _REPOSITORY_CONFIG_SECTIONS: dict[str, str] = {
     "duckdb": "duckdb",
     "mariadb": "mariadb",
 }
+_LOGGER_ADAPTERS = {"console"}
 _OBSERVABILITY_CONFIG_SECTIONS: dict[ObservabilityAdapter, str] = {
     "langsmith": "langsmith",
     "opentelemetry": "opentelemetry",
@@ -147,7 +148,7 @@ class SoftDeleteSettings(BaseModel):
 
 
 class AdaptersSettings(BaseModel):
-    logger: Literal["console"] = "console"
+    logger: str = "console"
     repository: str = "memory"
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     mongodb: MongoDBSettings | None = None
@@ -168,6 +169,14 @@ class AdaptersSettings(BaseModel):
                 return self.mariadb.multitenant if self.mariadb else False
             case _:
                 return False
+
+    @field_validator("logger")
+    @classmethod
+    def must_be_supported_logger_adapter(cls, v: str) -> str:
+        if v not in _LOGGER_ADAPTERS:
+            supported = ", ".join(sorted(_LOGGER_ADAPTERS))
+            raise ValueError(f"logger={v} non supporte. Adapters logger supportes: {supported}")
+        return v
 
     @model_validator(mode="after")
     def validate_repository_config(self) -> "AdaptersSettings":

@@ -35,6 +35,11 @@ def test_custom_repository_adapter_name_is_allowed():
     assert config.adapters.multitenant is False
 
 
+def test_unknown_logger_adapter_is_rejected():
+    with pytest.raises(ValidationError, match="logger=custom non supporte"):
+        AppConfig.model_validate({"adapters": {"logger": "custom"}})
+
+
 def test_default_retention_is_none():
     assert AppConfig().soft_delete.retention_days is None
 
