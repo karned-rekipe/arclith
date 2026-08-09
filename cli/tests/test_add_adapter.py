@@ -1184,6 +1184,30 @@ def test_add_cache_redis_adapter_generates_secret_mapping(
     assert app.config.cache.tenant_uri_ttl == 120
 
 
+def test_add_console_logger_adapter_generates_explicit_default_selector(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+    adapters_path = project_dir / "config" / "adapters" / "adapters.yaml"
+    adapters_path.write_text("repository: memory\nobservability:\n  enabled: []\n", encoding="utf-8")
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="logger",
+        adapter="console",
+        yes=True,
+    )
+
+    from arclith import Arclith
+    from arclith.adapters.outbound.console.logger import ConsoleLogger
+
+    arclith = Arclith(project_dir / "config")
+    package_root = project_dir / "src" / "demo_service"
+
+    assert "logger: console" in adapters_path.read_text(encoding="utf-8")
+    assert arclith.config.adapters.logger == "console"
+    assert isinstance(arclith.logger, ConsoleLogger)
+    assert not (package_root / "adapters" / "outbound" / "console").exists()
+
+
 def test_add_env_secrets_adapter_preserves_existing_mappings_and_uses_explicit_key(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

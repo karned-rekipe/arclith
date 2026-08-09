@@ -68,7 +68,14 @@ class Arclith:
     @cached_property
     def logger(self) -> Logger:
         from arclith.adapters.outbound.console.logger import ConsoleLogger
-        return ConsoleLogger()
+
+        if self.config.adapters.logger == "console":
+            return ConsoleLogger()
+
+        raise ValueError(
+            f"logger={self.config.adapters.logger} non supporte. "
+            "Adapters logger supportes: console"
+        )
     @overload
     def repository(
         self,
