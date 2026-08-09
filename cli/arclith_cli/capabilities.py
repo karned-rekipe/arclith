@@ -197,12 +197,12 @@ path: {path}
             description="Repository MariaDB async optionnel, pilote par SQLAlchemy et asyncmy.",
             config_path="config/adapters/outbound/mariadb.yaml",
             config_template="""\
-url: null   # a mapper via config/secrets.yaml ou resolver env/vault si vous fournissez une URL complete
+url: null   # à mapper via config/secrets.yaml ou resolver env/vault si vous fournissez une URL complète
 host: {host}
 port: {port}
 database: {database}
 user: {user}
-password: null   # a mapper via config/secrets.yaml ou resolver env/vault
+password: null   # à mapper via config/secrets.yaml ou resolver env/vault
 driver: {driver}
 table_prefix: "{table_prefix}"
 multitenant: false
