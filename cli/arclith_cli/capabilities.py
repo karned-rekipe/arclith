@@ -754,6 +754,37 @@ etag:
             ),
             entity_scoped=False,
         ),
+        AdapterSpec(
+            name="cache-control",
+            capability="http",
+            layer="inbound",
+            description="Directives Cache-Control FastAPI pour lectures GET et mutations.",
+            merge_config_templates=(
+                FileTemplateSpec(
+                    path="config/http.yaml",
+                    template="""\
+cache_control:
+  get_single_max_age: {get_single_max_age}
+  get_list_max_age: {get_list_max_age}
+""",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="get_single_max_age",
+                    kind="string",
+                    prompt="TTL Cache-Control des GET ressource unique",
+                    default="300",
+                ),
+                ParameterSpec(
+                    name="get_list_max_age",
+                    kind="string",
+                    prompt="TTL Cache-Control des GET collection",
+                    default="60",
+                ),
+            ),
+            entity_scoped=False,
+        ),
     ),
 )
 
