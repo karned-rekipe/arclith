@@ -152,6 +152,7 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
    - `mongodb` → `db_name`, `collection_name`, `multitenant`
    - `duckdb` → `path`
    - `mariadb` → `host`, `port`, `database`, `user`, `driver`, `table_prefix`
+     (`url` et `password` sont mappés via `config/secrets.yaml`)
    - `fastapi` → `host`, `port`, `reload`
    - `fastmcp` → `host`, `port`
    - `lmstudio` → `model_name`, `base_url`, `api_key`
@@ -328,4 +329,6 @@ observability:
     - opentelemetry
 ```
 
-Pour MariaDB, ne committez pas le mot de passe. Mappez `adapters.mariadb.password` ou `adapters.mariadb.url` via `config/secrets.yaml`, un resolver `env` ou Vault.
+Pour MariaDB, ne committez pas le mot de passe ni l'URL complète si elle contient des identifiants.
+La CLI mappe `adapters.mariadb.password` vers `MARIADB_PASSWORD` et `adapters.mariadb.url` vers
+`MARIADB_URL` dans `config/secrets.yaml`; remplacer le resolver `env` par Vault selon l'environnement.

@@ -418,8 +418,15 @@ def test_mariadb_settings_with_database():
     assert settings.table_prefix == "app_"
 
 
+def test_mariadb_settings_with_url_only():
+    settings = MariaDBSettings(url="mysql+asyncmy://app@localhost:3306/demo")
+
+    assert settings.url == "mysql+asyncmy://app@localhost:3306/demo"
+    assert settings.database is None
+
+
 def test_mariadb_settings_requires_url_or_database():
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="database est requis quand url n'est pas configure"):
         MariaDBSettings()
 
 
@@ -446,7 +453,7 @@ def test_mongodb_requires_section():
 
 
 def test_mariadb_requires_section():
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match=r"repository=mariadb mais aucune section \[adapters.mariadb\]"):
         AppConfig.model_validate({"adapters": {"repository": "mariadb"}})
 
 
@@ -639,3 +646,35 @@ def test_adapters_mongodb_uri_loaded_from_env_mapping(monkeypatch: pytest.Monkey
     assert config.adapters.mongodb is not None
     assert config.adapters.mongodb.uri == "mongodb://env-mongo:27017"
     assert config.adapters.mongodb.db_name == "demo_shared"
+
+
+def test_adapters_mariadb_url_and_password_loaded_from_env_mapping(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MARIADB_URL", "mysql+asyncmy://env-app@db:3306/env_demo")
+    monkeypatch.setenv("MARIADB_PASSWORD", "env-password")
+    config_dir = _make_config_dir({
+        "adapters/adapters.yaml": {"repository": "mariadb"},
+        "adapters/outbound/mariadb.yaml": {
+            "url": None,
+            "host": "127.0.0.1",
+            "port": 3306,
+            "database": "demo_shared",
+            "user": "app",
+            "password": None,
+            "driver": "asyncmy",
+            "table_prefix": "",
+            "multitenant": False,
+        },
+        "secrets.yaml": {
+            "resolver": "env",
+            "mappings": {
+                "adapters.mariadb.url": "MARIADB_URL",
+                "adapters.mariadb.password": "MARIADB_PASSWORD",
+            },
+        },
+    })
+
+    config = load_config_dir(config_dir)
+
+    assert config.adapters.mariadb is not None
+    assert config.adapters.mariadb.url == "mysql+asyncmy://env-app@db:3306/env_demo"
+    assert config.adapters.mariadb.password == "env-password"
