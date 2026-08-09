@@ -202,7 +202,8 @@ class Arclith:
         Adds ``components.securitySchemes.keycloak`` so Swagger UI shows an
         "Authorize" button that triggers the PKCE flow against Keycloak.
         Endpoints using ``make_require_auth`` / ``HTTPBearer`` also expose
-        the ``bearerAuth`` scheme automatically via FastAPI introspection.
+        the same runtime bearer dependency; the OpenAPI schema is rewritten so
+        Swagger UI presents only the Keycloak OAuth2 flow.
         """
         kc = self.config.keycloak
         if kc is None:
@@ -234,8 +235,8 @@ class Arclith:
 
             # Replace HTTPBearer with keycloak in route security so Swagger UI
             # only shows the OAuth2 scheme (no confusing empty HTTPBearer field).
-            # The server still accepts any valid Bearer token — HTTPBearer stays
-            # in securitySchemes for programmatic clients.
+            # The server still accepts any valid Bearer token at runtime because
+            # HTTPBearer remains the FastAPI dependency implementation.
             for path_item in schema.get("paths", {}).values():
                 for operation in path_item.values():
                     if not isinstance(operation, dict):
