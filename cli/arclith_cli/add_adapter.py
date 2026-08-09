@@ -280,6 +280,8 @@ def _resolve_adapter_params(
 def _normalize_adapter_params(adapter: AdapterSpec, params: dict[str, Any]) -> dict[str, Any]:
     if adapter.capability == "http" and adapter.name == "cache-control":
         return _normalize_cache_control_params(params)
+    if adapter.capability == "command-bus" and adapter.name == "rabbitmq":
+        return _normalize_rabbitmq_command_bus_params(params)
     return params
 
 
@@ -298,6 +300,27 @@ def _normalize_cache_control_params(params: dict[str, Any]) -> dict[str, Any]:
             console.print(
                 f"[red]✗[/red] Valeur invalide pour [bold]{name}[/bold]: {value}. "
                 "Utilisez une valeur >= 0."
+            )
+            raise typer.Exit(1)
+        normalized[name] = value
+    return normalized
+
+
+def _normalize_rabbitmq_command_bus_params(params: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(params)
+    for name in ("prefetch", "concurrency"):
+        raw_value = str(normalized[name]).strip()
+        try:
+            value = int(raw_value)
+        except ValueError:
+            console.print(
+                f"[red]✗[/red] Valeur entière invalide pour [bold]{name}[/bold]: {raw_value}."
+            )
+            raise typer.Exit(1) from None
+        if value <= 0:
+            console.print(
+                f"[red]✗[/red] Valeur invalide pour [bold]{name}[/bold]: {value}. "
+                "Utilisez une valeur > 0."
             )
             raise typer.Exit(1)
         normalized[name] = value

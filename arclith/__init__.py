@@ -3,9 +3,12 @@ from typing import TYPE_CHECKING
 from arclith.adapters.inbound.schemas.base_schema import BaseSchema
 from arclith.adapters.outbound.memory.repository import InMemoryRepository
 from arclith.adapters.outbound.mongodb.config import MongoDBConfig
+from arclith.application.command_bus import CommandDispatcher, CommandEnvelope
 from arclith.application.services.base_service import BaseService
 from arclith.arclith import Arclith
 from arclith.domain.models.entity import Entity
+from arclith.domain.ports.inbound.command_bus import CommandHandler
+from arclith.domain.ports.outbound.command_bus import CommandPublisher
 from arclith.domain.ports.outbound.logger import Logger, LogLevel
 from arclith.domain.ports.outbound.repository import Repository
 from arclith.infrastructure.adapter_registry import AdapterRegistry
@@ -22,6 +25,10 @@ __all__ = [
     "Logger",
     "LogLevel",
     "BaseService",
+    "CommandDispatcher",
+    "CommandEnvelope",
+    "CommandHandler",
+    "CommandPublisher",
     "BaseSchema",
     "ConsoleLogger",
     "InMemoryRepository",

@@ -142,7 +142,7 @@ def add_adapter(
             "--capability",
             help=(
                 "Capacité cible: repository, cache, logger, secrets, api, mcp, probe, http, "
-                "auth, tenant, license, llm, agent ou observability"
+                "command-bus, auth, tenant, license, llm, agent ou observability"
             ),
         ),
     ] = "repository",

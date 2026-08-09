@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 import traceback
@@ -19,6 +20,8 @@ from arclith.infrastructure.repository_factory import RepositoryRegistry
 if TYPE_CHECKING:
     import fastmcp as _fastmcp
     from fastapi import FastAPI
+    from arclith.adapters.bidirectional.rabbitmq import RabbitMQCommandBus
+    from arclith.application.command_bus import CommandDispatcher
 
 T = TypeVar("T", bound=Entity)
 R = TypeVar("R", bound=Repository[Any])
@@ -103,6 +106,26 @@ class Arclith:
         from arclith.infrastructure.repository_factory import build_repository
 
         return build_repository(self.config, entity_class, self.logger, registry=registry)
+
+    def rabbitmq_command_bus(self) -> "RabbitMQCommandBus":
+        if not self.config.command_bus.is_enabled("rabbitmq"):
+            raise RuntimeError(
+                "command_bus.enabled doit contenir rabbitmq pour utiliser rabbitmq_command_bus()."
+            )
+        from arclith.adapters.bidirectional.rabbitmq import RabbitMQCommandBus
+
+        return RabbitMQCommandBus(self.config.command_bus.rabbitmq, self.logger)
+
+    def run_command_bus(self, dispatcher: "CommandDispatcher") -> None:
+        async def _run() -> None:
+            bus = self.rabbitmq_command_bus()
+            try:
+                await bus.run(dispatcher)
+            finally:
+                await bus.close()
+
+        asyncio.run(_run())
+
     def fastapi(self, **kwargs: Any) -> "FastAPI":
         from fastapi import FastAPI
 

@@ -248,6 +248,36 @@ tests agent.
 
 ---
 
+## ADR-012 — Command Bus RabbitMQ use-case first
+
+**Date :** 2026-08-09
+
+**Contexte :** Certains services doivent consommer des commandes via RabbitMQ et publier des
+commandes vers d'autres workers. Le même adapter technique porte donc une surface inbound
+(`message -> handler -> use case`) et outbound (`publisher -> exchange`).
+
+**Décision :** déclarer une capability `command-bus` avec un layer explicite `bidirectional`.
+RabbitMQ reste un adapter optionnel derrière `arclith[rabbitmq]`. Le domaine expose seulement les
+ports `CommandHandler` et `CommandPublisher`; aucune dépendance aio-pika ne traverse vers le coeur
+métier. La config runtime est portée par `config/command_bus.yaml` et `AppConfig.command_bus`.
+
+**Pourquoi pas l'alternative évidente (classer RabbitMQ uniquement inbound ou outbound) :**
+Un worker RabbitMQ consomme et peut publier des commandes critiques avec le même channel fiable.
+Le ranger arbitrairement dans un seul layer masquerait cette réalité et pousserait les projets à
+dupliquer le câblage. Le layer `bidirectional` rend le compromis explicite sans autoriser l'adapter à
+contourner les use cases.
+
+**Conséquence sur le code :**
+
+- `CommandDispatcher` mappe `CommandEnvelope.command_type` vers un `CommandHandler` projet.
+- Les handlers transforment le payload en DTO/command applicative, puis appellent un use case ou port
+  inbound.
+- `RabbitMQCommandBus` utilise ack manuel, publisher confirms, prefetch strictement positif et DLX
+  configurable.
+- `Arclith.run_command_bus(dispatcher)` fournit un runner bloquant compatible worker Docker.
+
+---
+
 **Contexte :** Exposer les services via le Model Context Protocol.
 
 **Décision :** `fastmcp>=3.1.0` avec trois transports : stdio, SSE, streamable-HTTP.

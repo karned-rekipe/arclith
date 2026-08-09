@@ -8,11 +8,13 @@ from pydantic import ValidationError
 from arclith.infrastructure.config import (
     AppConfig,
     CacheControlSettings,
+    CommandBusSettings,
     DuckDBSettings,
     LangGraphSettings,
     LangSmithSettings,
     MariaDBSettings,
     OpenTelemetrySettings,
+    RabbitMQCommandBusSettings,
     SoftDeleteSettings,
     _deep_merge,
     _resolve_key_path,
@@ -27,6 +29,7 @@ from arclith.infrastructure.config import (
 def test_default_config_uses_memory():
     assert AppConfig().adapters.repository == "memory"
     assert AppConfig().adapters.observability.enabled == []
+    assert AppConfig().command_bus.enabled == []
 
 
 def test_custom_repository_adapter_name_is_allowed():
@@ -449,6 +452,27 @@ def test_cache_control_zero_max_age_is_valid():
 
     assert settings.get_single_max_age == 0
     assert settings.get_list_max_age == 0
+
+
+def test_command_bus_settings_detect_enabled_adapter():
+    settings = CommandBusSettings(enabled=["rabbitmq"])
+
+    assert settings.is_enabled("rabbitmq") is True
+
+
+def test_command_bus_settings_rejects_duplicate_enabled_adapter():
+    with pytest.raises(ValidationError, match="command_bus.enabled ne doit pas contenir de doublons"):
+        CommandBusSettings(enabled=["rabbitmq", "rabbitmq"])
+
+
+def test_rabbitmq_command_bus_settings_rejects_unbounded_prefetch():
+    with pytest.raises(ValidationError, match="prefetch/concurrency doivent etre > 0"):
+        RabbitMQCommandBusSettings(prefetch=0)
+
+
+def test_rabbitmq_command_bus_settings_rejects_empty_names():
+    with pytest.raises(ValidationError, match="ne doivent pas etre vides"):
+        RabbitMQCommandBusSettings(queue=" ")
 
 
 def test_mongodb_uri_optional_at_parse_time():

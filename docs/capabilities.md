@@ -567,6 +567,75 @@ Les mutations `POST`, `PUT`, `PATCH` et `DELETE` restent non cacheables avec
 `no-cache, no-store, must-revalidate`. Si une route définit déjà `Cache-Control`, le middleware
 préserve ce header. Les TTL négatifs sont refusés au chargement de config.
 
+### `command-bus`
+
+Capacité bidirectionnelle pour consommer et publier des commandes applicatives sans contourner les
+ports et use cases du projet.
+
+Adapter disponible:
+
+- `rabbitmq`: worker et publisher RabbitMQ avec ack manuel, publisher confirms, prefetch borné et
+  DLX configurable.
+
+```bash
+arclith-cli add-adapter \
+  --capability command-bus \
+  --adapter rabbitmq \
+  --param url=amqp://guest:guest@127.0.0.1:5672/ \
+  --param exchange=arclith.commands \
+  --param exchange_type=topic \
+  --param queue=arclith.commands \
+  --param routing_key=commands \
+  --param prefetch=10 \
+  --param consumer_name=arclith-command-worker \
+  --param concurrency=1 \
+  --param publisher_confirms=true \
+  --param durable=true \
+  --param retry_enabled=true \
+  --param retry_requeue=false \
+  --param dead_letter_exchange=arclith.commands.dlx \
+  --param dead_letter_routing_key=commands.dead \
+  --yes
+```
+
+Résultat fusionné dans `config/command_bus.yaml`:
+
+```yaml
+enabled:
+  - rabbitmq
+rabbitmq:
+  url: "amqp://guest:guest@127.0.0.1:5672/"
+  exchange: "arclith.commands"
+  exchange_type: "topic"
+  queue: "arclith.commands"
+  routing_key: "commands"
+  prefetch: 10
+  consumer_name: "arclith-command-worker"
+  concurrency: 1
+  publisher_confirms: true
+  durable: true
+  retry_enabled: true
+  retry_requeue: false
+  dead_letter_exchange: "arclith.commands.dlx"
+  dead_letter_routing_key: "commands.dead"
+```
+
+Le worker consomme un message JSON, construit une `CommandEnvelope`, puis `CommandDispatcher`
+appelle le `CommandHandler` du projet. Le handler transforme le payload en DTO/command métier et
+appelle un use case ou port inbound; il ne doit pas appeler un repository concret. Sur succès,
+l'adapter ack le message après retour du handler. Sur erreur de décodage ou de handler, il nack avec
+`requeue=false` par défaut pour laisser RabbitMQ router vers la DLX configurée. `prefetch` et
+`concurrency` doivent rester strictement positifs; `prefetch=0` est refusé pour éviter une fenêtre
+d'unacked illimitée.
+
+Installer l'extra avant d'utiliser le worker réel:
+
+```bash
+uv add "arclith[rabbitmq]"
+```
+
+Voir aussi la référence dédiée [Command Bus](command-bus.md).
+
 ### `mcp`
 
 Capacité inbound pour exposer les cas d'usage via MCP.

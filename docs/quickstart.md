@@ -236,7 +236,7 @@ Le même service applicatif peut être exposé par plusieurs adapters:
 
 - FastAPI pour HTTP;
 - FastMCP pour les outils MCP;
-- un bus plus tard pour RabbitMQ, Kafka ou autre.
+- `command-bus/rabbitmq` pour un worker RabbitMQ.
 
 La règle à conserver: l'inbound transforme le protocole en appel de cas d'usage. Il ne contient pas
 le métier.
