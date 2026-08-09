@@ -201,7 +201,9 @@ uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
 
 L'adapter `llm/lmstudio` génère `config/adapters/outbound/lm.yaml`, chargé dans
-`AppConfig.adapters.lm`. Les adapters `llm/openai` et `llm/anthropic` génèrent aussi un mapping
+`AppConfig.adapters.lm`. Adapter `model_name` au modèle chargé dans LM Studio et utiliser
+`host.docker.internal` comme `base_url` si le projet tourne dans Docker alors que LM Studio tourne
+sur l'hôte. Les adapters `llm/openai` et `llm/anthropic` génèrent aussi un mapping
 `config/secrets.yaml` vers `OPENAI_API_KEY` ou `ANTHROPIC_API_KEY`.
 
 L'adapter `repository/mongodb` génère `config/adapters/outbound/mongodb.yaml` avec `uri: null`, puis

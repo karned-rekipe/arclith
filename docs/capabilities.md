@@ -258,6 +258,17 @@ base_url: "http://127.0.0.1:1234/v1"
 Cette capacité n'a pas de clé d'activation dans `config/adapters/adapters.yaml`: le chemin
 `config/adapters/outbound/lm.yaml` est chargé directement dans `AppConfig.adapters.lm`.
 
+Pour LM Studio, `model_name` doit correspondre au modèle réellement chargé dans l'application
+locale. Le `api_key` peut rester une valeur factice comme `lm-studio` si LM Studio n'authentifie pas
+les requêtes. Les tests Arclith valident uniquement la construction du provider OpenAI-compatible;
+ils n'appellent pas de modèle réel.
+
+Choisir le `base_url` selon l'emplacement du processus qui exécute Arclith:
+
+- service lancé sur la même machine que LM Studio: `http://127.0.0.1:1234/v1`;
+- service lancé dans Docker et LM Studio sur l'hôte: `http://host.docker.internal:1234/v1`;
+- service et LM Studio dans le même réseau Docker: utiliser le nom DNS du service LM Studio.
+
 Pour OpenAI et Anthropic, la CLI génère `config/secrets.yaml` avec un resolver `env`, afin que
 `adapters.lm.api_key` soit alimenté par `OPENAI_API_KEY` ou `ANTHROPIC_API_KEY` sans écrire la clé
 dans `lm.yaml`.

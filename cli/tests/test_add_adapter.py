@@ -430,6 +430,16 @@ def test_add_lmstudio_llm_adapter_generates_lm_config_only(tmp_path: Path) -> No
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "outbound" / "lmstudio").exists()
 
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+
+    assert arclith.config.adapters.lm is not None
+    assert arclith.config.adapters.lm.provider == "openai"
+    assert arclith.config.adapters.lm.model_name == "qwen/qwen3.5-9b"
+    assert arclith.config.adapters.lm.api_key == "lm-studio"
+    assert arclith.config.adapters.lm.base_url == "http://127.0.0.1:1234/v1"
+
 
 def test_add_openai_llm_adapter_generates_secret_mapping(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
