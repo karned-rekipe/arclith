@@ -461,6 +461,51 @@ def test_add_probe_server_adapter_generates_loadable_inbound_config(tmp_path: Pa
     assert not (package_root / "adapters" / "outbound" / "server").exists()
 
 
+def test_add_http_idempotency_adapter_merges_http_config(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+    http_path = project_dir / "config" / "http.yaml"
+    http_path.write_text(
+        "etag:\n"
+        "  enabled: true\n"
+        "cache_control:\n"
+        "  get_single_max_age: 120\n"
+        "  get_list_max_age: 30\n",
+        encoding="utf-8",
+    )
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="http",
+            adapter="idempotency",
+            adapter_params={
+                "enabled": "false",
+                "ttl_seconds": "7200",
+                "required": "true",
+            },
+            yes=True,
+        )
+
+    from arclith import Arclith
+
+    config = yaml.safe_load(http_path.read_text(encoding="utf-8"))
+    arclith = Arclith(project_dir / "config")
+    package_root = project_dir / "src" / "demo_service"
+
+    assert config == {
+        "etag": {"enabled": True},
+        "cache_control": {"get_single_max_age": 120, "get_list_max_age": 30},
+        "idempotency": {"enabled": False, "ttl_seconds": 7200, "required": True},
+    }
+    assert arclith.config.http.idempotency.enabled is False
+    assert arclith.config.http.idempotency.ttl_seconds == 7200
+    assert arclith.config.http.idempotency.required is True
+    assert "http:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert not (package_root / "adapters" / "inbound" / "idempotency").exists()
+
+
 def test_add_keycloak_auth_adapter_generates_loadable_inbound_config(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
     config_path = project_dir / "config" / "adapters" / "inbound" / "keycloak.yaml"

@@ -26,7 +26,7 @@ Tous les endpoints FastAPI DOIVENT déclarer explicitement leur `status_code` et
 | Endpoint             | Status                        | Response Body                   | Headers                      | Cas                            |
 |----------------------|-------------------------------|---------------------------------|------------------------------|--------------------------------|
 | `POST /v1/resources` | **201 Created**               | `{ "data": { "uuid": "..." } }` | `Location`, `Link`           | Succès création                |
-|                      | **200 OK**                    | `{ "data": { "uuid": "..." } }` | `X-Idempotency-Replay: true` | Cache hit idempotency          |
+|                      | **2xx original rejoué**       | `{ "data": { "uuid": "..." } }` | `X-Idempotency-Replay: true` | Cache hit idempotency          |
 |                      | **400 Bad Request**           | `{ "detail": "..." }`           | —                            | Erreur syntaxe (JSON malformé) |
 |                      | **422 Unprocessable Entity**  | `{ "detail": [...] }`           | —                            | Validation métier échouée      |
 |                      | **500 Internal Server Error** | `{ "detail": "..." }`           | —                            | Erreur serveur                 |
@@ -37,7 +37,7 @@ Tous les endpoints FastAPI DOIVENT déclarer explicitement leur `status_code` et
 2. **Location header** : `Location: /v1/resources/{uuid}` (RFC 7231)
 3. **Link header** : `Link: </v1/resources/{uuid}>; rel="self", ...` (RFC 8288 - HATEOAS)
 4. **Prefer header** : Si client envoie `Prefer: return=representation` → retourner objet complet (RFC 7240)
-5. **Idempotency-Key** : Header optionnel (requis en prod e-commerce) → 200 si cache hit (voir `docs/idempotency.md`)
+5. **Idempotency-Key** : Header optionnel (requis en prod e-commerce) → rejoue la réponse `2xx` cachée (voir `docs/idempotency.md`)
 
 **Exemple cURL :**
 

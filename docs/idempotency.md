@@ -16,7 +16,7 @@ par défaut.
 
 1. Client envoie `POST /orders` avec `Idempotency-Key: <uuid>`
 2. Middleware vérifie le cache
-    - **Hit** → retourne la réponse cachée (200 au lieu de 201)
+    - **Hit** → rejoue la réponse cachée avec `X-Idempotency-Replay: true`
     - **Miss** → exécute la requête, cache la réponse si 2xx
 3. Requêtes suivantes avec la même clé retournent la réponse cachée
 
@@ -28,6 +28,11 @@ idempotency:
   ttl_seconds: 86400  # 24 hours
   required: false  # true = reject POST sans Idempotency-Key
 ```
+
+Le cache utilisé par le middleware est le cache technique Arclith. `cache/memory`
+est adapté aux tests et au mono-processus; utiliser `cache/redis` dès que plusieurs
+workers, replicas Kubernetes ou processus API/MCP doivent partager les clés
+idempotentes.
 
 ### Usage Client
 
@@ -49,7 +54,7 @@ curl -X POST https://api.example.com/v1/orders \
   -H "Content-Type: application/json" \
   -d '{"product_id": "123", "quantity": 1}'
 
-# Returns: 200 OK (cached)
+# Returns: status original rejoué (cached)
 # Response: {"status": "success", "data": {"uuid": "..."}} (same UUID)
 # Header: X-Idempotency-Replay: true
 ```
@@ -245,4 +250,3 @@ paths:
 - **PayPal:** [Idempotency](https://developer.paypal.com/api/rest/reference/idempotency/)
 - **AWS:
   ** [Making idempotent API requests](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-
