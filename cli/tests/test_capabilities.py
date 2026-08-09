@@ -101,6 +101,10 @@ def test_llm_capability_catalog_declares_model_adapters() -> None:
     assert anthropic.config_path == "config/adapters/outbound/lm.yaml"
     assert anthropic.env_path == ".env"
     assert anthropic.entity_scoped is False
+    anthropic_parameters = {parameter.name: parameter for parameter in anthropic.parameters}
+    assert anthropic_parameters["model_name"].default == "remplacer-par-model-id-anthropic"
+    assert anthropic_parameters["api_key"].secret is True
+    assert anthropic_parameters["api_key"].default == ""
     assert [mapping.secret_key for mapping in anthropic.secret_mappings] == ["ANTHROPIC_API_KEY"]
 
 
@@ -240,6 +244,11 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert openai_parameters["model_name"]["default"] == "remplacer-par-model-id-openai"
     assert openai_parameters["api_key"]["secret"] is True
     assert openai_parameters["api_key"]["default"] == ""
+    anthropic = payload[3]["adapters"][2]
+    anthropic_parameters = {parameter["name"]: parameter for parameter in anthropic["parameters"]}
+    assert anthropic_parameters["model_name"]["default"] == "remplacer-par-model-id-anthropic"
+    assert anthropic_parameters["api_key"]["secret"] is True
+    assert anthropic_parameters["api_key"]["default"] == ""
     assert payload[4]["name"] == "agent"
     assert [adapter["name"] for adapter in payload[4]["adapters"]] == ["langgraph"]
     assert payload[5]["name"] == "observability"

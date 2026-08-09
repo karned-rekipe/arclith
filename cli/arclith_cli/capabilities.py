@@ -448,7 +448,7 @@ ANTHROPIC_API_KEY={api_key}
                     name="model_name",
                     kind="string",
                     prompt="Modèle Anthropic",
-                    default="claude-sonnet-4-5",
+                    default="remplacer-par-model-id-anthropic",
                 ),
                 ParameterSpec(
                     name="api_key",

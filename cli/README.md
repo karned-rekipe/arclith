@@ -206,6 +206,8 @@ L'adapter `llm/lmstudio` génère `config/adapters/outbound/lm.yaml`, chargé da
 sur l'hôte. Les adapters `llm/openai` et `llm/anthropic` génèrent aussi un mapping
 `config/secrets.yaml` vers `OPENAI_API_KEY` ou `ANTHROPIC_API_KEY`; la clé réelle reste dans `.env`
 local gitignoré, l'environnement runtime ou Vault.
+Utiliser `llm/anthropic` pour Claude via le provider Anthropic; utiliser `llm/openai` pour OpenAI,
+LM Studio ou tout endpoint OpenAI-compatible avec `base_url`.
 
 L'adapter `repository/mongodb` génère `config/adapters/outbound/mongodb.yaml` avec `uri: null`, puis
 mappe `adapters.mongodb.uri` vers `MONGODB_URI` dans `config/secrets.yaml`. L'URI réelle reste dans

@@ -10,9 +10,15 @@ def build_pydantic_ai_model(settings: LMSettings):
     qui n'installent pas l'extra [langgraph].
     """
     if settings.provider == "anthropic":
-        from pydantic_ai.models.anthropic import AnthropicModel
-        from pydantic_ai.profiles.anthropic import AnthropicModelProfile
-        from pydantic_ai.providers.anthropic import AnthropicProvider
+        try:
+            from pydantic_ai.models.anthropic import AnthropicModel
+            from pydantic_ai.profiles.anthropic import AnthropicModelProfile
+            from pydantic_ai.providers.anthropic import AnthropicProvider
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "Le provider LLM 'anthropic' requiert l'extra optionnel "
+                "`arclith[langgraph]` avec le support pydantic-ai Anthropic."
+            ) from exc
 
         return AnthropicModel(
             settings.model_name,
@@ -24,8 +30,14 @@ def build_pydantic_ai_model(settings: LMSettings):
     if not settings.base_url:
         raise ValueError("base_url is required for provider='openai'")
 
-    from pydantic_ai.models.openai import OpenAIChatModel, OpenAIModelProfile
-    from pydantic_ai.providers.openai import OpenAIProvider
+    try:
+        from pydantic_ai.models.openai import OpenAIChatModel, OpenAIModelProfile
+        from pydantic_ai.providers.openai import OpenAIProvider
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "Le provider LLM 'openai' requiert l'extra optionnel "
+            "`arclith[langgraph]` avec le support pydantic-ai OpenAI."
+        ) from exc
 
     return OpenAIChatModel(
         settings.model_name,

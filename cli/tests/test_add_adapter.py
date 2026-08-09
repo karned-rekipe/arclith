@@ -531,6 +531,64 @@ def test_add_openai_llm_adapter_without_key_does_not_generate_fake_secret(
     assert "sk-" not in captured.err
 
 
+def test_add_anthropic_llm_adapter_generates_idempotent_secret_mapping(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    (project_dir / ".env").write_text(
+        "EXISTING=value\nANTHROPIC_API_KEY=existing-local-key\n",
+        encoding="utf-8",
+    )
+    (project_dir / "config" / "secrets.yaml").write_text(
+        "resolver: env\nmappings:\n  adapters.lm.api_key: ANTHROPIC_API_KEY\n",
+        encoding="utf-8",
+    )
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="llm",
+            adapter="anthropic",
+            adapter_params={
+                "model_name": "claude-dev-model",
+            },
+            yes=True,
+        )
+    captured = capsys.readouterr()
+
+    config = (project_dir / "config" / "adapters" / "outbound" / "lm.yaml").read_text(
+        encoding="utf-8"
+    )
+    env = (project_dir / ".env").read_text(encoding="utf-8")
+    secrets = yaml.safe_load((project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8"))
+
+    assert "provider: anthropic" in config
+    assert 'model_name: "claude-dev-model"' in config
+    assert 'api_key: ""' in config
+    assert env.count("ANTHROPIC_API_KEY=existing-local-key") == 1
+    assert "EXISTING=value" in env
+    assert secrets["resolver"] == "env"
+    assert secrets["mappings"]["adapters.lm.api_key"] == "ANTHROPIC_API_KEY"
+    assert list(secrets["mappings"]).count("adapters.lm.api_key") == 1
+    assert "llm:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "existing-local-key" not in captured.out
+    assert "existing-local-key" not in captured.err
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+
+    assert arclith.config.adapters.lm is not None
+    assert arclith.config.adapters.lm.provider == "anthropic"
+    assert arclith.config.adapters.lm.model_name == "claude-dev-model"
+    assert arclith.config.adapters.lm.api_key == "sk-ant-test"
+
+
 def test_add_opentelemetry_observability_adapter_uses_catalog_params(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
     (project_dir / ".env").write_text("EXISTING=value\n", encoding="utf-8")
