@@ -16,6 +16,8 @@ class ParameterSpec:
     default_from_project_name: bool = False
     secret: bool = False
     required: bool = False
+    choices: tuple[str, ...] = ()
+    csv_choices: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -26,6 +28,8 @@ class ParameterSpec:
             "default_from_project_name": self.default_from_project_name,
             "secret": self.secret,
             "required": self.required,
+            "choices": list(self.choices),
+            "csv_choices": self.csv_choices,
         }
 
 
@@ -475,6 +479,69 @@ vault:
                     kind="string",
                     prompt="Mount KV v2",
                     default="kv",
+                ),
+            ),
+            entity_scoped=False,
+        ),
+        AdapterSpec(
+            name="chain",
+            capability="secrets",
+            layer="outbound",
+            description="Resolver ordonné avec fallback entre env, Vault et YAML.",
+            secret_resolver="chain",
+            secret_config_template="""\
+chain:
+{secret_chain_yaml}
+vault:
+  addr: "{addr}"
+  mount: "{mount}"
+yaml:
+  path: "{path}"
+""",
+            secret_mappings=(
+                SecretMappingSpec(
+                    field_path="{field_path}",
+                    secret_key="{secret_key}",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="field_path",
+                    kind="string",
+                    prompt="Champ de configuration à alimenter",
+                    required=True,
+                ),
+                ParameterSpec(
+                    name="secret_key",
+                    kind="string",
+                    prompt="Chemin Vault relatif au mount ou clé explicite",
+                    required=True,
+                ),
+                ParameterSpec(
+                    name="resolvers",
+                    kind="string",
+                    prompt="Resolvers ordonnés séparés par virgule",
+                    default="env,vault,yaml",
+                    choices=("env", "vault", "yaml"),
+                    csv_choices=True,
+                ),
+                ParameterSpec(
+                    name="addr",
+                    kind="string",
+                    prompt="Adresse Vault",
+                    default="http://127.0.0.1:8200",
+                ),
+                ParameterSpec(
+                    name="mount",
+                    kind="string",
+                    prompt="Mount KV v2",
+                    default="kv",
+                ),
+                ParameterSpec(
+                    name="path",
+                    kind="string",
+                    prompt="Chemin du fichier YAML local",
+                    default="secrets.yaml",
                 ),
             ),
             entity_scoped=False,

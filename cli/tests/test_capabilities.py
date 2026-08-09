@@ -52,10 +52,11 @@ def test_secrets_capability_catalog_declares_env_adapter() -> None:
     assert capability is not None
     assert capability.layer == "outbound"
     assert capability.activation_config_key is None
-    assert capability.adapter_names() == ("env", "yaml", "vault")
+    assert capability.adapter_names() == ("env", "yaml", "vault", "chain")
     env = capability.get_adapter("env")
     yaml = capability.get_adapter("yaml")
     vault = capability.get_adapter("vault")
+    chain = capability.get_adapter("chain")
     assert env is not None
     assert env.config_path is None
     assert env.secret_resolver == "env"
@@ -77,6 +78,20 @@ def test_secrets_capability_catalog_declares_env_adapter() -> None:
     assert [parameter.name for parameter in vault.parameters] == ["field_path", "secret_key", "addr", "mount"]
     assert vault.parameters[0].required is True
     assert vault.parameters[1].required is True
+    assert chain is not None
+    assert chain.config_path is None
+    assert chain.secret_resolver == "chain"
+    assert chain.entity_scoped is False
+    assert [parameter.name for parameter in chain.parameters] == [
+        "field_path",
+        "secret_key",
+        "resolvers",
+        "addr",
+        "mount",
+        "path",
+    ]
+    assert chain.parameters[2].choices == ("env", "vault", "yaml")
+    assert chain.parameters[2].csv_choices is True
 
 
 def test_observability_capability_catalog_declares_langsmith() -> None:
@@ -333,10 +348,11 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "cache.redis_url"
     ]
     secrets = payload_by_name["secrets"]
-    assert [adapter["name"] for adapter in secrets["adapters"]] == ["env", "yaml", "vault"]
+    assert [adapter["name"] for adapter in secrets["adapters"]] == ["env", "yaml", "vault", "chain"]
     env = secrets["adapters"][0]
     yaml_adapter = secrets["adapters"][1]
     vault_adapter = secrets["adapters"][2]
+    chain_adapter = secrets["adapters"][3]
     assert env["secret_resolver"] == "env"
     assert [parameter["name"] for parameter in env["parameters"]] == ["field_path", "secret_key"]
     assert env["parameters"][0]["required"] is True
@@ -350,6 +366,10 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "addr",
         "mount",
     ]
+    assert chain_adapter["secret_resolver"] == "chain"
+    chain_parameters = {parameter["name"]: parameter for parameter in chain_adapter["parameters"]}
+    assert chain_parameters["resolvers"]["choices"] == ["env", "vault", "yaml"]
+    assert chain_parameters["resolvers"]["csv_choices"] is True
     assert [adapter["name"] for adapter in payload_by_name["api"]["adapters"]] == ["fastapi"]
     assert [adapter["name"] for adapter in payload_by_name["mcp"]["adapters"]] == ["fastmcp"]
     auth = payload_by_name["auth"]

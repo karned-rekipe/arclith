@@ -1332,6 +1332,63 @@ def test_add_vault_secrets_adapter_requires_secret_key(tmp_path: Path) -> None:
     assert not (project_dir / "config" / "secrets.yaml").exists()
 
 
+def test_add_chain_secrets_adapter_preserves_mappings_and_renders_ordered_fallback(
+    tmp_path: Path,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    (project_dir / "config" / "secrets.yaml").write_text(
+        "resolver: env\n"
+        "mappings:\n"
+        "  adapters.lm.api_key: OPENAI_API_KEY\n",
+        encoding="utf-8",
+    )
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="secrets",
+            adapter="chain",
+            adapter_params={
+                "field_path": "adapters.mongodb.uri",
+                "secret_key": "apps/demo/mongodb",
+                "resolvers": "env,vault,yaml",
+                "addr": "http://vault:8200",
+                "mount": "kv-app",
+                "path": "secrets.yaml",
+            },
+            yes=True,
+        )
+    secrets = yaml.safe_load((project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8"))
+
+    assert secrets["resolver"] == "chain"
+    assert secrets["chain"] == ["env", "vault", "yaml"]
+    assert secrets["vault"] == {"addr": "http://vault:8200", "mount": "kv-app"}
+    assert secrets["yaml"] == {"path": "secrets.yaml"}
+    assert secrets["mappings"] == {
+        "adapters.lm.api_key": "OPENAI_API_KEY",
+        "adapters.mongodb.uri": "apps/demo/mongodb",
+    }
+
+
+def test_add_chain_secrets_adapter_rejects_unknown_resolver(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="secrets",
+            adapter="chain",
+            adapter_params={
+                "field_path": "adapters.mongodb.uri",
+                "secret_key": "apps/demo/mongodb",
+                "resolvers": "env,unknown",
+            },
+            yes=True,
+        )
+
+    assert not (project_dir / "config" / "secrets.yaml").exists()
+
+
 def test_boolean_string_default_false_is_false(tmp_path: Path) -> None:
     parameter = ParameterSpec(name="multitenant", kind="boolean", prompt="multitenant", default="false")
 
