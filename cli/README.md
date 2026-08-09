@@ -132,7 +132,7 @@ arclith-cli add-adapter
 Mode direct, utile pour CI, scripts de migration ou commandes reproductibles :
 
 ```bash
-arclith-cli add-adapter --adapter mongodb --entity Recipe --db-name my_recipe_service --yes
+arclith-cli add-adapter --adapter mongodb --entity Recipe --db-name my_recipe_service --param collection_name=recipes --yes
 arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activate --yes
 arclith-cli add-adapter --adapter mariadb --entity Recipe --param database=my_recipe_service --param user=app --yes
 arclith-cli add-adapter --capability api --adapter fastapi --param port=8080 --yes
@@ -149,7 +149,7 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
 1. **Type d'adapter** — selon la capacité : `memory` · `mongodb` · `duckdb` · `mariadb` · `fastapi` · `fastmcp` · `lmstudio` · `openai` · `anthropic` · `langgraph` · `langsmith` · `opentelemetry`
 2. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour les transports globaux, `llm/*`, `agent/langgraph` et les adapters d'observability
 3. **Paramètres** — questions spécifiques à l'adapter :
-   - `mongodb` → `db_name`, `multitenant`
+   - `mongodb` → `db_name`, `collection_name`, `multitenant`
    - `duckdb` → `path`
    - `mariadb` → `host`, `port`, `database`, `user`, `driver`, `table_prefix`
    - `fastapi` → `host`, `port`, `reload`
@@ -202,6 +202,10 @@ uv run langgraph dev --no-browser --allow-blocking --port 2024
 L'adapter `llm/lmstudio` génère `config/adapters/outbound/lm.yaml`, chargé dans
 `AppConfig.adapters.lm`. Les adapters `llm/openai` et `llm/anthropic` génèrent aussi un mapping
 `config/secrets.yaml` vers `OPENAI_API_KEY` ou `ANTHROPIC_API_KEY`.
+
+L'adapter `repository/mongodb` génère `config/adapters/outbound/mongodb.yaml` avec `uri: null`, puis
+mappe `adapters.mongodb.uri` vers `MONGODB_URI` dans `config/secrets.yaml`. L'URI réelle reste dans
+l'environnement, un fichier local de secrets ou Vault selon le resolver choisi.
 
 L'adapter `agent/langgraph` génère `langgraph.json`, `config/adapters/inbound/langgraph.yaml` et
 `src/<package>/adapters/inbound/langgraph/agent.py`. Le projet ne modifie ensuite que ce fichier pour

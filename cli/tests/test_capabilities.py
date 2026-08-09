@@ -152,7 +152,9 @@ def test_repository_adapter_specs_include_config_and_parameters() -> None:
 
     assert mongodb is not None
     assert mongodb.config_path == "config/adapters/outbound/mongodb.yaml"
-    assert [parameter.name for parameter in mongodb.parameters] == ["db_name", "multitenant"]
+    assert [parameter.name for parameter in mongodb.parameters] == ["db_name", "collection_name", "multitenant"]
+    assert [mapping.field_path for mapping in mongodb.secret_mappings] == ["adapters.mongodb.uri"]
+    assert [mapping.secret_key for mapping in mongodb.secret_mappings] == ["MONGODB_URI"]
     assert duckdb is not None
     assert duckdb.config_path == "config/adapters/outbound/duckdb.yaml"
     assert [parameter.name for parameter in duckdb.parameters] == ["path"]

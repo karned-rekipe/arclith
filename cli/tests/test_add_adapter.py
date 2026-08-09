@@ -69,6 +69,7 @@ def test_add_mongodb_adapter_uses_non_interactive_params(tmp_path: Path) -> None
         entity_names=["Widget"],
         activate=False,
         db_name="demo_shared",
+        adapter_params={"collection_name": "widgets"},
         multitenant=True,
         yes=True,
     )
@@ -76,11 +77,40 @@ def test_add_mongodb_adapter_uses_non_interactive_params(tmp_path: Path) -> None
     mongodb_config = (project_dir / "config" / "adapters" / "outbound" / "mongodb.yaml").read_text(
         encoding="utf-8"
     )
+    assert "uri: null" in mongodb_config
     assert "multitenant: true" in mongodb_config
     assert "db_name: demo_shared" in mongodb_config
+    assert "collection_name: widgets" in mongodb_config
+    secrets = (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
+    assert "resolver: env" in secrets
+    assert "adapters.mongodb.uri: MONGODB_URI" in secrets
+    assert "mongodb://" not in secrets
     assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     )
+
+
+def test_add_mongodb_adapter_generates_loadable_single_tenant_config(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        adapter="mongodb",
+        entity_names=["Widget"],
+        db_name="demo_shared",
+        yes=True,
+    )
+
+    from arclith import Arclith
+
+    app = Arclith(project_dir / "config")
+
+    assert app.config.adapters.repository == "mongodb"
+    assert app.config.adapters.mongodb is not None
+    assert app.config.adapters.mongodb.uri is None
+    assert app.config.adapters.mongodb.db_name == "demo_shared"
+    assert app.config.adapters.mongodb.collection_name is None
+    assert app.config.adapters.mongodb.multitenant is False
 
 
 def test_add_mariadb_adapter_uses_catalog_params(tmp_path: Path) -> None:
