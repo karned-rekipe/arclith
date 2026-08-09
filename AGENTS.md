@@ -29,7 +29,7 @@ Fournir les primitives réutilisables pour construire des services en architectu
 ## Flux nominal Pull Request
 
 - Après création ou mise à jour d'une PR, consulter les commentaires et conversations GitHub générés par Copilot.
-- Traiter les commentaires Copilot actionnables comme des retours de review normaux: corriger le code, les tests ou la documentation concernés.
+- Traiter les commentaires Copilot actionnables comme des retours de review normaux : corriger le code, les tests ou la documentation concernés.
 - Résoudre les conversations Copilot une fois le point traité. Si un commentaire n'est pas actionnable, répondre avec la justification technique avant de résoudre.
 
 ## Architecture
