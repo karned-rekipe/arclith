@@ -141,8 +141,8 @@ REPOSITORY_CAPABILITY = CapabilitySpec(
             config_template="""\
 uri: null   # single-tenant: mappez adapters.mongodb.uri via config/secrets.yaml, env ou Vault
 db_name: {db_name}   # fallback multitenant si le secret tenant ne fournit pas db_name
-collection_name: {collection_name}   # null = nom derive de la classe entite
-multitenant: {multitenant}   # true = uri/db_name resolus par requete via JWT -> VaultTenantResolver
+collection_name: {collection_name}   # null = nom dérivé de la classe entité
+multitenant: {multitenant}   # true = uri/db_name résolus par requête via JWT -> VaultTenantResolver
 """,
             secret_mappings=(
                 SecretMappingSpec(
