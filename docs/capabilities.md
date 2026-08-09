@@ -480,6 +480,46 @@ compatible API/MCP/probes. L'instrumentation MCP reste transverse: enregistrer l
 `mcp`, puis appeler `Arclith.instrument_mcp(mcp)` si les probes sont activées. Cette instrumentation
 ne fait pas partie de la capability `mcp/fastmcp`.
 
+### `tenant`
+
+Capacité inbound transverse pour résoudre un `TenantContext` depuis un claim JWT et Vault KV v2.
+Elle s'utilise avec un repository tenant-level, par exemple `repository/mongodb` en
+`multitenant: true`.
+
+Adapter disponible:
+
+- `vault`: configure `TenantSettings` pour `VaultTenantResolver`.
+
+```bash
+arclith-cli add-adapter \
+  --capability tenant \
+  --adapter vault \
+  --param addr=http://vault:8200 \
+  --param mount=kv \
+  --param path_prefix=rekipe/tenants \
+  --param tenant_claim=tenant_id \
+  --param tenant_uri_ttl=300 \
+  --yes
+```
+
+Résultat:
+
+```yaml
+# config/adapters/inbound/tenant.yaml
+vault_addr: http://vault:8200
+vault_mount: kv
+vault_path_prefix: rekipe/tenants
+tenant_claim: tenant_id
+
+# config/adapters/inbound/cache.yaml
+tenant_uri_ttl: 300
+```
+
+`tenant_uri_ttl` est fusionné dans `cache.yaml` sans écraser `backend`, `redis_url` ni `jwks_ttl`.
+Les coordonnées sont génériques par adapter: un secret tenant peut fournir `uri`/`db_name` pour
+MongoDB, ou `bucket_name`/`endpoint_url` pour un futur adapter S3. En mode single-tenant
+(`multitenant: false`), `make_inject_tenant_uri` bypass le pipeline JWT/Vault sans erreur.
+
 ### `llm`
 
 Capacité outbound pour configurer le modèle utilisé par les interpréteurs d'intention et agents.

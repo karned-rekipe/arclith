@@ -64,6 +64,7 @@ class AdapterSpec:
     description: str
     config_path: str | None = None
     config_template: str = ""
+    merge_config_templates: tuple[FileTemplateSpec, ...] = ()
     env_path: str | None = None
     env_template: str = ""
     file_templates: tuple[FileTemplateSpec, ...] = ()
@@ -96,6 +97,7 @@ class AdapterSpec:
             "layer": self.layer,
             "description": self.description,
             "config_path": self.config_path,
+            "merge_config_templates": [file_template.to_dict() for file_template in self.merge_config_templates],
             "env_path": self.env_path,
             "file_templates": [file_template.to_dict() for file_template in self.file_templates],
             "secret_mappings": [secret_mapping.to_dict() for secret_mapping in self.secret_mappings],
@@ -675,6 +677,69 @@ client_id: {client_id}
     ),
 )
 
+TENANT_CAPABILITY = CapabilitySpec(
+    name="tenant",
+    layer="inbound",
+    description="Résolution tenant multitenant depuis un claim JWT.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="vault",
+            capability="tenant",
+            layer="inbound",
+            description="Tenant resolver Vault KV v2 pour coordonnées par adapter.",
+            config_path="config/adapters/inbound/tenant.yaml",
+            config_template="""\
+vault_addr: "{addr}"
+vault_mount: "{mount}"
+vault_path_prefix: "{path_prefix}"
+tenant_claim: "{tenant_claim}"
+""",
+            merge_config_templates=(
+                FileTemplateSpec(
+                    path="config/adapters/inbound/cache.yaml",
+                    template="""\
+tenant_uri_ttl: {tenant_uri_ttl}
+""",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="addr",
+                    kind="string",
+                    prompt="Adresse Vault",
+                    default="http://127.0.0.1:8200",
+                ),
+                ParameterSpec(
+                    name="mount",
+                    kind="string",
+                    prompt="Mount KV v2",
+                    default="kv",
+                ),
+                ParameterSpec(
+                    name="path_prefix",
+                    kind="string",
+                    prompt="Préfixe Vault des tenants",
+                    default="rekipe/tenants",
+                ),
+                ParameterSpec(
+                    name="tenant_claim",
+                    kind="string",
+                    prompt="Claim JWT tenant",
+                    default="sub",
+                ),
+                ParameterSpec(
+                    name="tenant_uri_ttl",
+                    kind="string",
+                    prompt="TTL cache tenant en secondes",
+                    default="300",
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
 LLM_CAPABILITY = CapabilitySpec(
     name="llm",
     layer="outbound",
@@ -1039,6 +1104,7 @@ CAPABILITY_CATALOG = (
     API_CAPABILITY,
     MCP_CAPABILITY,
     AUTH_CAPABILITY,
+    TENANT_CAPABILITY,
     LLM_CAPABILITY,
     AGENT_CAPABILITY,
     OBSERVABILITY_CAPABILITY,

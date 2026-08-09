@@ -159,6 +159,29 @@ def test_auth_capability_catalog_declares_keycloak() -> None:
     assert [parameter.name for parameter in keycloak.parameters] == ["url", "realm", "audience", "client_id"]
 
 
+def test_tenant_capability_catalog_declares_vault() -> None:
+    capability = get_capability("tenant")
+
+    assert capability is not None
+    assert capability.layer == "inbound"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("vault",)
+    vault = capability.get_adapter("vault")
+    assert vault is not None
+    assert vault.config_path == "config/adapters/inbound/tenant.yaml"
+    assert [template.path for template in vault.merge_config_templates] == [
+        "config/adapters/inbound/cache.yaml"
+    ]
+    assert vault.entity_scoped is False
+    assert [parameter.name for parameter in vault.parameters] == [
+        "addr",
+        "mount",
+        "path_prefix",
+        "tenant_claim",
+        "tenant_uri_ttl",
+    ]
+
+
 def test_llm_capability_catalog_declares_model_adapters() -> None:
     capability = get_capability("llm")
 
@@ -292,6 +315,7 @@ def test_capability_catalog_is_json_serializable() -> None:
     assert "fastmcp" in encoded
     assert "auth" in encoded
     assert "keycloak" in encoded
+    assert "tenant" in encoded
     assert "llm" in encoded
     assert "lmstudio" in encoded
     assert "agent" in encoded
@@ -379,6 +403,13 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert keycloak_parameters["realm"]["default"] == "rekipe"
     assert keycloak_parameters["audience"]["default"] == "null"
     assert keycloak_parameters["client_id"]["default"] == "null"
+    tenant = payload_by_name["tenant"]
+    assert [adapter["name"] for adapter in tenant["adapters"]] == ["vault"]
+    tenant_vault = tenant["adapters"][0]
+    assert tenant_vault["config_path"] == "config/adapters/inbound/tenant.yaml"
+    assert [template["path"] for template in tenant_vault["merge_config_templates"]] == [
+        "config/adapters/inbound/cache.yaml"
+    ]
     llm = payload_by_name["llm"]
     assert [adapter["name"] for adapter in llm["adapters"]] == ["lmstudio", "openai", "anthropic"]
     openai = llm["adapters"][1]
