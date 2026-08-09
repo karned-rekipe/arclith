@@ -9,6 +9,7 @@ from arclith.adapters.outbound.opentelemetry.correlation import current_trace_me
 from arclith.application.command_bus import (
     CommandDispatcher,
     CommandEnvelope,
+    InvalidCommandMessageError,
     decode_command_message,
     encode_command_message,
 )
@@ -123,6 +124,18 @@ class RabbitMQCommandBus(CommandPublisher):
                 headers=headers,
                 fallback_command_type=fallback_command_type,
             )
+        except InvalidCommandMessageError as exc:
+            await message.nack(requeue=False)
+            self._logger.error(
+                "RabbitMQ command payload rejected",
+                command_type=fallback_command_type,
+                correlation_id=headers.get("correlation_id"),
+                retry_requeue=False,
+                error=str(exc),
+            )
+            return
+
+        try:
             await dispatcher.dispatch(envelope)
         except Exception as exc:
             await message.nack(requeue=self._settings.retry_enabled and self._settings.retry_requeue)

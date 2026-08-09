@@ -201,6 +201,71 @@ async def test_rabbitmq_command_bus_publish_configures_reliable_channel(logger) 
         "type": "todo.create",
         "payload": {"title": "write docs"},
     }
+    await bus.close()
+    assert connection.closed is True
+
+
+async def test_rabbitmq_command_bus_connect_can_disable_retry_dlx(logger) -> None:
+    connection = FakeConnection()
+
+    async def connector(url: str) -> FakeConnection:
+        assert url == "amqp://broker/"
+        return connection
+
+    settings = RabbitMQCommandBusSettings(
+        url="amqp://broker/",
+        exchange_type="direct",
+        retry_enabled=False,
+    )
+    bus = RabbitMQCommandBus(
+        settings,
+        logger,
+        connector=connector,
+        aio_pika_module=FakeAioPika,
+    )
+
+    await bus.connect()
+
+    channel = connection.channel_instance
+    assert channel is not None
+    assert channel.exchanges["arclith.commands"].exchange_type == "direct"
+    assert "arclith.commands.dlx" not in channel.exchanges
+    assert channel.queue is not None
+    assert channel.queue.arguments is None
+
+
+async def test_rabbitmq_command_bus_publish_adds_current_traceparent(
+    logger,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = FakeConnection()
+
+    async def connector(url: str) -> FakeConnection:
+        assert url == "amqp://broker/"
+        return connection
+
+    monkeypatch.setattr(
+        "arclith.adapters.bidirectional.rabbitmq.command_bus.current_trace_metadata",
+        lambda: {
+            "trace_id": "a" * 32,
+            "span_id": "b" * 16,
+            "trace_sampled": True,
+        },
+    )
+    settings = RabbitMQCommandBusSettings(url="amqp://broker/")
+    bus = RabbitMQCommandBus(
+        settings,
+        logger,
+        connector=connector,
+        aio_pika_module=FakeAioPika,
+    )
+
+    await bus.publish("todo.create", {"title": "write docs"})
+
+    channel = connection.channel_instance
+    assert channel is not None
+    message, _routing_key = channel.exchanges["arclith.commands"].published[0]
+    assert message.headers["traceparent"] == f"00-{'a' * 32}-{'b' * 16}-01"
 
 
 async def test_rabbitmq_command_bus_acks_after_dispatch_success(logger) -> None:
@@ -228,6 +293,22 @@ async def test_rabbitmq_command_bus_nacks_to_dlx_after_dispatch_error(logger) ->
         correlation_id="corr-1",
     )
     bus = RabbitMQCommandBus(RabbitMQCommandBusSettings(), logger, aio_pika_module=FakeAioPika)
+
+    await bus.handle_message(message, dispatcher)
+
+    assert message.acked is False
+    assert message.nacked is False
+
+
+async def test_rabbitmq_command_bus_invalid_json_never_requeues(logger) -> None:
+    dispatcher = CommandDispatcher([RecordingHandler()])
+    message = FakeIncomingMessage(
+        b"{invalid",
+        headers={"command_type": "todo.create"},
+        correlation_id="corr-1",
+    )
+    settings = RabbitMQCommandBusSettings(retry_requeue=True)
+    bus = RabbitMQCommandBus(settings, logger, aio_pika_module=FakeAioPika)
 
     await bus.handle_message(message, dispatcher)
 

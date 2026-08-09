@@ -73,8 +73,6 @@ omit = [
     "arclith/adapters/inbound/license/*",
     # Requires Redis (integration test)
     "arclith/adapters/outbound/redis/*",
-    # Requires RabbitMQ (integration test)
-    "arclith/adapters/bidirectional/rabbitmq/*",
     # Requires Vault (integration test)
     "arclith/adapters/outbound/vault/*",
     # Memory cache — tested implicitly through auth pipeline
