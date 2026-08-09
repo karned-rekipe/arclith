@@ -1,5 +1,7 @@
 import importlib.util
 import json
+import re
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -1766,6 +1768,64 @@ def test_add_chain_secrets_adapter_rejects_unknown_resolver(tmp_path: Path) -> N
         )
 
     assert not (project_dir / "config" / "secrets.yaml").exists()
+
+
+def test_add_runtime_docker_image_generates_hardened_templates(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="runtime",
+        adapter="docker-image",
+        adapter_params={
+            "api_port": "8100",
+            "mcp_port": "8101",
+            "probe_port": "9100",
+            "agent_port": "2024",
+        },
+        yes=True,
+    )
+
+    dockerfile = (project_dir / "Dockerfile").read_text(encoding="utf-8")
+    dockerignore = (project_dir / ".dockerignore").read_text(encoding="utf-8")
+    entrypoint_path = project_dir / "arclith-run"
+    entrypoint = entrypoint_path.read_text(encoding="utf-8")
+    assert "FROM python:3.13-slim-bookworm AS builder" in dockerfile
+    assert "FROM python:3.13-slim-bookworm AS runtime" in dockerfile
+    assert "uv sync --frozen --no-dev --no-install-project" in dockerfile
+    assert "uv sync --frozen --no-dev" in dockerfile
+    assert "USER 1001:1001" in dockerfile
+    assert "EXPOSE 8100 8101 9100 2024" in dockerfile
+    assert 'ENTRYPOINT ["./arclith-run"]' in dockerfile
+    assert 'CMD ["api"]' in dockerfile
+    assert "MODE=api" not in dockerfile
+    assert re.search(r"(?m)^ARG .*SECRET|^ARG .*TOKEN|^ARG .*PASSWORD", dockerfile) is None
+    assert re.search(r"(?m)^ENV .*SECRET|^ENV .*TOKEN|^ENV .*PASSWORD", dockerfile) is None
+    assert ".env" in dockerignore
+    assert "secrets.yaml" in dockerignore
+    assert "*.pem" in dockerignore
+    assert 'if [ -n "${ARCLITH_RUNTIME_MODE:-}" ]; then' in entrypoint
+    assert "api)" in entrypoint
+    assert "mcp|mcp_http)" in entrypoint
+    assert "bus|command_bus|command-bus)" in entrypoint
+    assert "agent)" in entrypoint
+    assert "all)" in entrypoint
+    assert entrypoint_path.stat().st_mode & stat.S_IXUSR
+
+
+def test_add_runtime_docker_image_rejects_invalid_port(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="runtime",
+            adapter="docker-image",
+            adapter_params={"api_port": "0"},
+            yes=True,
+        )
+
+    assert not (project_dir / "Dockerfile").exists()
 
 
 def test_boolean_string_default_false_is_false(tmp_path: Path) -> None:

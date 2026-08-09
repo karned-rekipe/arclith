@@ -282,6 +282,8 @@ def _normalize_adapter_params(adapter: AdapterSpec, params: dict[str, Any]) -> d
         return _normalize_cache_control_params(params)
     if adapter.capability == "command-bus" and adapter.name == "rabbitmq":
         return _normalize_rabbitmq_command_bus_params(params)
+    if adapter.capability == "runtime" and adapter.name == "docker-image":
+        return _normalize_docker_image_params(params)
     return params
 
 
@@ -321,6 +323,33 @@ def _normalize_rabbitmq_command_bus_params(params: dict[str, Any]) -> dict[str, 
             console.print(
                 f"[red]✗[/red] Valeur invalide pour [bold]{name}[/bold]: {value}. "
                 "Utilisez une valeur > 0."
+            )
+            raise typer.Exit(1)
+        normalized[name] = value
+    return normalized
+
+
+def _normalize_docker_image_params(params: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(params)
+    uv_version = str(normalized["uv_version"]).strip()
+    if not uv_version:
+        console.print("[red]✗[/red] Version uv invalide: valeur vide.")
+        raise typer.Exit(1)
+    normalized["uv_version"] = uv_version
+
+    for name in ("api_port", "mcp_port", "probe_port", "agent_port"):
+        raw_value = str(normalized[name]).strip()
+        try:
+            value = int(raw_value)
+        except ValueError:
+            console.print(
+                f"[red]✗[/red] Port entier invalide pour [bold]{name}[/bold]: {raw_value}."
+            )
+            raise typer.Exit(1) from None
+        if value <= 0 or value > 65535:
+            console.print(
+                f"[red]✗[/red] Port invalide pour [bold]{name}[/bold]: {value}. "
+                "Utilisez une valeur entre 1 et 65535."
             )
             raise typer.Exit(1)
         normalized[name] = value
@@ -583,6 +612,8 @@ def _generate(
         generated_path = project_dir / render(file_template.path, params)
         generated_path.parent.mkdir(parents=True, exist_ok=True)
         generated_path.write_text(render(file_template.template, params), encoding="utf-8")
+        if generated_path.name == "arclith-run":
+            generated_path.chmod(0o755)
         console.print(f"[green]✓[/green] {generated_path.relative_to(project_dir)}")
 
     import_vars = _import_vars(paths)

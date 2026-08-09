@@ -238,6 +238,32 @@ def test_command_bus_capability_catalog_declares_rabbitmq() -> None:
     ]
 
 
+def test_runtime_capability_catalog_declares_docker_image() -> None:
+    capability = get_capability("runtime")
+
+    assert capability is not None
+    assert capability.layer == "runtime"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("docker-image",)
+    docker_image = capability.get_adapter("docker-image")
+    assert docker_image is not None
+    assert docker_image.layer == "runtime"
+    assert docker_image.config_path is None
+    assert [template.path for template in docker_image.file_templates] == [
+        "Dockerfile",
+        ".dockerignore",
+        "arclith-run",
+    ]
+    assert docker_image.entity_scoped is False
+    assert [parameter.name for parameter in docker_image.parameters] == [
+        "uv_version",
+        "api_port",
+        "mcp_port",
+        "probe_port",
+        "agent_port",
+    ]
+
+
 def test_auth_capability_catalog_declares_keycloak() -> None:
     capability = get_capability("auth")
 
@@ -430,6 +456,8 @@ def test_capability_catalog_is_json_serializable() -> None:
     assert "cache-control" in encoded
     assert "command-bus" in encoded
     assert "rabbitmq" in encoded
+    assert "runtime" in encoded
+    assert "docker-image" in encoded
     assert "auth" in encoded
     assert "keycloak" in encoded
     assert "tenant" in encoded
@@ -571,6 +599,22 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "retry_requeue",
         "dead_letter_exchange",
         "dead_letter_routing_key",
+    ]
+    runtime = payload_by_name["runtime"]
+    assert runtime["layer"] == "runtime"
+    assert [adapter["name"] for adapter in runtime["adapters"]] == ["docker-image"]
+    docker_image = runtime["adapters"][0]
+    assert [template["path"] for template in docker_image["file_templates"]] == [
+        "Dockerfile",
+        ".dockerignore",
+        "arclith-run",
+    ]
+    assert [parameter["name"] for parameter in docker_image["parameters"]] == [
+        "uv_version",
+        "api_port",
+        "mcp_port",
+        "probe_port",
+        "agent_port",
     ]
     auth = payload_by_name["auth"]
     assert [adapter["name"] for adapter in auth["adapters"]] == ["keycloak"]

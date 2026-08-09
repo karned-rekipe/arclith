@@ -9,6 +9,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.tree import Tree
 
+from .runtime_templates import DOCKERIGNORE_TEMPLATE, render_arclith_run, render_dockerfile
+
 console = Console()
 
 _PROJECT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
@@ -161,25 +163,61 @@ dist/
         f'''"""Application entrypoint for {project_name}."""
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 
 from arclith import Arclith
 
 _CONFIG = Path(__file__).parent / "config"
+_MODE = os.getenv("MODE", "api")
+_VALID_MODES = {{"api", "mcp_http", "mcp_sse", "all"}}
+
+if _MODE not in _VALID_MODES:
+    print(
+        f"Unsupported MODE={{_MODE!r}}. Expected one of: {{', '.join(sorted(_VALID_MODES))}}.",
+        file=sys.stderr,
+    )
+    sys.exit(64)
 
 arclith = Arclith(_CONFIG)
 app = arclith.fastapi()
+
+
+def build_mcp():
+    return arclith.fastmcp("{project_name} MCP")
 
 
 def _run_api() -> None:
     arclith.run_api("main:app")
 
 
+def _run_mcp_http() -> None:
+    arclith.run_mcp_http(build_mcp())
+
+
+def _run_mcp_sse() -> None:
+    arclith.run_mcp_sse(build_mcp())
+
+
 if __name__ == "__main__":
-    arclith.run_with_probes(_run_api, transports=["api"])
+    match _MODE:
+        case "api":
+            arclith.run_with_probes(_run_api, transports=["api"])
+        case "mcp_http":
+            arclith.run_with_probes(_run_mcp_http, transports=["mcp_http"])
+        case "mcp_sse":
+            arclith.run_with_probes(_run_mcp_sse, transports=["mcp_sse"])
+        case "all":
+            arclith.run_with_probes(_run_api, _run_mcp_http, transports=["api", "mcp_http"])
 ''',
         encoding="utf-8",
     )
+    (target_dir / "Dockerfile").write_text(render_dockerfile(), encoding="utf-8")
+    (target_dir / ".dockerignore").write_text(DOCKERIGNORE_TEMPLATE, encoding="utf-8")
+    entrypoint = target_dir / "arclith-run"
+    entrypoint.write_text(render_arclith_run(), encoding="utf-8")
+    entrypoint.chmod(0o755)
 
 
 def _write_config(target_dir: Path, project_name: str) -> None:

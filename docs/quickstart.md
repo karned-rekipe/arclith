@@ -310,7 +310,32 @@ LangGraph, LangSmith et LLM local LM Studio, suivre:
 
 - [Quickstart agent Arclith from scratch](agent-quickstart.md)
 
-## 6. Valider avant commit
+## 6. Construire l'image runtime
+
+Les projets créés avec `arclith-cli init` incluent un Dockerfile runtime. Pour un projet existant:
+
+```bash
+arclith-cli add-adapter --capability runtime --adapter docker-image --yes
+uv lock
+docker build -t pantry-agent:local .
+```
+
+La même image démarre les transports par argument:
+
+```bash
+docker run --rm -p 8100:8100 -p 9000:9000 pantry-agent:local api
+docker run --rm -p 8101:8101 -p 9000:9000 pantry-agent:local mcp_http
+docker run --rm --env ARCLITH_RUNTIME_MODE=all -p 8100:8100 -p 8101:8101 -p 9000:9000 pantry-agent:local
+```
+
+Pour `bus`, ajouter d'abord `command-bus/rabbitmq` et implémenter le runner `MODE=bus` dans
+`main.py`. Pour `agent`, ajouter `agent/langgraph`; `arclith-run agent` utilise `langgraph.json` ou
+`ARCLITH_AGENT_COMMAND`.
+
+Les secrets restent hors image: utiliser l'environnement runtime, Docker secrets, Vault ou fichiers
+montés. Le `.dockerignore` généré exclut `.env`, `secrets.yaml` et les clés privées.
+
+## 7. Valider avant commit
 
 ```bash
 make quality
@@ -343,5 +368,6 @@ make demo-smoke
 - Sample fonctionnel: `../_sample`
 - CLI: `cli/README.md`
 - Capacités standardisées: `docs/capabilities.md`
+- Runtime Docker: `docs/runtime-docker.md`
 - Architecture: `arclith/docs/architecture.md`
 - Decisions: `docs/decisions.md`

@@ -3,8 +3,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from .runtime_templates import (
+    ARCLITH_RUN_TEMPLATE,
+    DEFAULT_AGENT_PORT,
+    DEFAULT_API_PORT,
+    DEFAULT_MCP_PORT,
+    DEFAULT_PROBE_PORT,
+    DEFAULT_UV_VERSION,
+    DOCKERFILE_TEMPLATE,
+    DOCKERIGNORE_TEMPLATE,
+)
+
 ParameterKind = Literal["string", "boolean"]
-LayerKind = Literal["inbound", "outbound", "bidirectional"]
+LayerKind = Literal["inbound", "outbound", "bidirectional", "runtime"]
 
 
 @dataclass(frozen=True)
@@ -915,6 +926,59 @@ rabbitmq:
     ),
 )
 
+RUNTIME_CAPABILITY = CapabilitySpec(
+    name="runtime",
+    layer="runtime",
+    description="Runtime de deploiement standardise pour images et processus Arclith.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="docker-image",
+            capability="runtime",
+            layer="runtime",
+            description="Dockerfile multi-stage non-root et entrypoint arclith-run multi-transport.",
+            file_templates=(
+                FileTemplateSpec(path="Dockerfile", template=DOCKERFILE_TEMPLATE),
+                FileTemplateSpec(path=".dockerignore", template=DOCKERIGNORE_TEMPLATE),
+                FileTemplateSpec(path="arclith-run", template=ARCLITH_RUN_TEMPLATE),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="uv_version",
+                    kind="string",
+                    prompt="Version uv pinnee dans le builder Docker",
+                    default=DEFAULT_UV_VERSION,
+                ),
+                ParameterSpec(
+                    name="api_port",
+                    kind="string",
+                    prompt="Port expose FastAPI",
+                    default=DEFAULT_API_PORT,
+                ),
+                ParameterSpec(
+                    name="mcp_port",
+                    kind="string",
+                    prompt="Port expose FastMCP",
+                    default=DEFAULT_MCP_PORT,
+                ),
+                ParameterSpec(
+                    name="probe_port",
+                    kind="string",
+                    prompt="Port expose probes /health",
+                    default=DEFAULT_PROBE_PORT,
+                ),
+                ParameterSpec(
+                    name="agent_port",
+                    kind="string",
+                    prompt="Port expose LangGraph agent",
+                    default=DEFAULT_AGENT_PORT,
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
 AUTH_CAPABILITY = CapabilitySpec(
     name="auth",
     layer="inbound",
@@ -1422,6 +1486,7 @@ CAPABILITY_CATALOG = (
     PROBE_CAPABILITY,
     HTTP_CAPABILITY,
     COMMAND_BUS_CAPABILITY,
+    RUNTIME_CAPABILITY,
     AUTH_CAPABILITY,
     TENANT_CAPABILITY,
     LICENSE_CAPABILITY,
