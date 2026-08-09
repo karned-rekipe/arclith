@@ -278,6 +278,37 @@ contourner les use cases.
 
 ---
 
+## ADR-013 — Image Docker runtime unique et non-root
+
+**Date :** 2026-08-09
+
+**Contexte :** Les projets Arclith peuvent exposer les mêmes cas d'usage via API FastAPI, MCP,
+worker RabbitMQ ou agent LangGraph. Générer une image par transport pousserait à rebuilder pour un
+simple choix de runtime et augmenterait le risque d'images divergentes.
+
+**Décision :** déclarer une capability `runtime` avec l'adapter `docker-image`. Le Dockerfile généré
+est multi-stage, Python 3.13, installe les dépendances avec `uv sync --frozen`, puis exécute l'image
+finale sous l'utilisateur non-root `1001:1001`. Le choix du transport passe par l'entrypoint
+`arclith-run`, via un argument, `ARCLITH_RUNTIME_MODE` ou `MODE`.
+
+**Pourquoi pas l'alternative évidente (un Dockerfile par transport) :**
+API, MCP, bus et agent partagent le même code applicatif et la même config Arclith. Des images
+séparées multiplieraient les locks, les scans et les chemins de déploiement sans isoler davantage la
+logique métier. Un entrypoint runtime garde le rebuild réservé aux changements de code ou de
+dépendances.
+
+**Conséquence sur le code :**
+
+- `arclith-cli init` génère `Dockerfile`, `.dockerignore` et `arclith-run`.
+- `arclith-cli add-adapter --capability runtime --adapter docker-image` régénère ces fichiers dans
+  un projet existant.
+- Les secrets ne sont jamais fournis par `ARG`/`ENV` de build; ils restent dans l'environnement
+  runtime, Docker secrets, Vault ou fichiers montés.
+- Le mode `agent` reste configurable avec `ARCLITH_AGENT_COMMAND` pour ne pas figer un serveur
+  LangGraph unique.
+
+---
+
 **Contexte :** Exposer les services via le Model Context Protocol.
 
 **Décision :** `fastmcp>=3.1.0` avec trois transports : stdio, SSE, streamable-HTTP.

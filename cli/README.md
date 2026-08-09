@@ -13,7 +13,8 @@ uv tool install "git+https://github.com/karned-rekipe/arclith.git#subdirectory=c
 ### `init` — Initialiser un projet minimal
 
 Crée un projet Arclith vide de métier, avec le layout canonique `src/<package>/...`, une
-configuration minimale et un `main.py` prêt à recevoir les adapters.
+configuration minimale, un `main.py` prêt à recevoir les adapters et le runtime Docker standard
+(`Dockerfile`, `.dockerignore`, `arclith-run`).
 
 ```bash
 # Mode interactif
@@ -49,7 +50,9 @@ arclith-cli new MealPlan meal-plan-service --dir ~/projects --port 8500
 | `--dir` / `-d` | `.` | Répertoire parent |
 | `--ref` | `main` | Branche/tag du template |
 
-Le projet généré utilise un layout `src/<package>/...` pour le code applicatif et un dossier `config/` structuré par adapter (voir section [Configuration](#configuration)).
+Le projet généré utilise un layout `src/<package>/...` pour le code applicatif et un dossier
+`config/` structuré par adapter (voir section [Configuration](#configuration)). Le Dockerfile du
+template est régénéré côté CLI pour appliquer le contrat `runtime/docker-image` courant.
 
 ---
 
@@ -141,6 +144,7 @@ arclith-cli add-adapter --capability llm --adapter lmstudio --param model_name=q
 arclith-cli add-adapter --capability agent --adapter langgraph --param graph_name=recipe_agent --yes
 arclith-cli add-adapter --capability observability --adapter langsmith
 arclith-cli add-adapter --capability observability --adapter opentelemetry --param service_name=my_recipe_service --yes
+arclith-cli add-adapter --capability runtime --adapter docker-image --yes
 arclith-cli add-adapter --capability cache --adapter memory --yes
 arclith-cli add-adapter --capability cache --adapter redis --param redis_url=redis://redis:6379 --yes
 arclith-cli add-adapter --capability repository --adapter memory --entity Recipe --yes
@@ -148,8 +152,8 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
 
 **Étapes du wizard :**
 
-1. **Type d'adapter** — selon la capacité : `memory` · `mongodb` · `duckdb` · `mariadb` · `fastapi` · `fastmcp` · `lmstudio` · `openai` · `anthropic` · `langgraph` · `langsmith` · `opentelemetry`
-2. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour les transports globaux, `cache/*`, `llm/*`, `agent/langgraph` et les adapters d'observability
+1. **Type d'adapter** — selon la capacité : `memory` · `mongodb` · `duckdb` · `mariadb` · `fastapi` · `fastmcp` · `rabbitmq` · `docker-image` · `lmstudio` · `openai` · `anthropic` · `langgraph` · `langsmith` · `opentelemetry`
+2. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour les transports globaux, `cache/*`, `llm/*`, `agent/langgraph`, `runtime/docker-image` et les adapters d'observability
 3. **Paramètres** — questions spécifiques à l'adapter :
    - `mongodb` → `db_name`, `collection_name`, `multitenant`
    - `duckdb` → `path`
@@ -166,14 +170,15 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
    - `langsmith` → `tracing`, `project`, `endpoint`, `LANGSMITH_API_KEY`
    - `opentelemetry` → `service_name`, `endpoint`, `traces_endpoint`, `metrics_endpoint`, `protocol`, `traces`, `metrics`, `instrument_fastapi`
    - `command-bus/rabbitmq` → `url`, `exchange`, `exchange_type`, `queue`, `routing_key`, `prefetch`, `consumer_name`, `concurrency`, `publisher_confirms`, `durable`, `retry_enabled`, `retry_requeue`, `dead_letter_exchange`, `dead_letter_routing_key`
+   - `runtime/docker-image` → `uv_version`, `api_port`, `mcp_port`, `probe_port`, `agent_port`
    - `repository/memory` → aucun paramètre
-4. **Activation** — met à jour `config/adapters/adapters.yaml` pour les capacités activables (`repository: <adapter>` ou `observability.enabled: [<adapter>, ...]`) ; `api/fastapi`, `mcp/fastmcp`, `cache/*`, `llm/*`, `agent/langgraph` et `command-bus/rabbitmq` sont exposés par leurs fichiers de configuration scopés
+4. **Activation** — met à jour `config/adapters/adapters.yaml` pour les capacités activables (`repository: <adapter>` ou `observability.enabled: [<adapter>, ...]`) ; `api/fastapi`, `mcp/fastmcp`, `cache/*`, `llm/*`, `agent/langgraph`, `command-bus/rabbitmq` et `runtime/docker-image` sont exposés par leurs fichiers dédiés
 5. **Récapitulatif** — liste des fichiers créés ou remplacés avant confirmation
 
 | Option | Défaut | Description |
 |--------|--------|-------------|
-| `--capability` | `repository` | Capacité cible du catalogue standardisé (`repository`, `cache`, `api`, `mcp`, `http`, `command-bus`, `llm`, `agent`, `observability`) |
-| `--adapter` / `-a` | interactif | Adapter du catalogue : `memory`, `mongodb`, `duckdb`, `mariadb`, `fastapi`, `fastmcp`, `idempotency`, `etag`, `cache-control`, `rabbitmq`, `lmstudio`, `openai`, `anthropic`, `langgraph`, `langsmith`, `opentelemetry` |
+| `--capability` | `repository` | Capacité cible du catalogue standardisé (`repository`, `cache`, `api`, `mcp`, `http`, `command-bus`, `runtime`, `llm`, `agent`, `observability`) |
+| `--adapter` / `-a` | interactif | Adapter du catalogue : `memory`, `mongodb`, `duckdb`, `mariadb`, `fastapi`, `fastmcp`, `idempotency`, `etag`, `cache-control`, `rabbitmq`, `docker-image`, `lmstudio`, `openai`, `anthropic`, `langgraph`, `langsmith`, `opentelemetry` |
 | `--entity` / `-e` | auto si une seule entité | Entité cible, liste séparée par virgule acceptée |
 | `--all-entities` | `false` | Génère l'adapter pour toutes les entités détectées |
 | `--activate/--no-activate` | `--activate` | Met à jour `config/adapters/adapters.yaml` quand la capacité expose une clé d'activation |
@@ -194,6 +199,20 @@ src/<package>/infrastructure/containers/<entity>_container.py  # RepositoryRegis
 ```
 
 > ⚠️ `src/<package>/infrastructure/containers/<entity>_container.py` est **régénéré intégralement** si le fichier existe déjà — un avertissement est affiché dans le récapitulatif.
+
+**Runtime Docker :**
+
+```bash
+arclith-cli add-adapter --capability runtime --adapter docker-image --yes
+uv lock
+docker build -t my-recipe-service:local .
+docker run --rm -p 8000:8000 -p 9000:9000 my-recipe-service:local api
+```
+
+L'adapter `runtime/docker-image` génère `Dockerfile`, `.dockerignore` et `arclith-run`. Une seule
+image peut démarrer `api`, `mcp_http`, `mcp_sse`, `bus`, `agent` ou `all` par argument ou via
+`ARCLITH_RUNTIME_MODE`. Les secrets restent hors build; `.env`, `secrets.yaml` et les clés privées
+sont exclus du contexte Docker.
 
 **LangGraph / LangSmith :**
 

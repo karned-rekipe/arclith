@@ -636,6 +636,41 @@ uv add "arclith[rabbitmq]"
 
 Voir aussi la référence dédiée [Command Bus](command-bus.md).
 
+### `runtime`
+
+Capacité de déploiement pour générer une image Docker Arclith multi-stage, non-root et
+multi-transport.
+
+Adapter disponible:
+
+- `docker-image`: génère `Dockerfile`, `.dockerignore` et `arclith-run`.
+
+```bash
+arclith-cli add-adapter \
+  --capability runtime \
+  --adapter docker-image \
+  --param api_port=8000 \
+  --param mcp_port=8001 \
+  --param probe_port=9000 \
+  --param agent_port=2024 \
+  --yes
+```
+
+Contrat runtime:
+
+- `api`: démarre `MODE=api python main.py`;
+- `mcp` ou `mcp_http`: démarre `MODE=mcp_http python main.py`;
+- `mcp_sse`: démarre `MODE=mcp_sse python main.py`;
+- `bus`: démarre `MODE=bus python main.py`;
+- `agent`: démarre `langgraph dev` via `langgraph.json`, ou `ARCLITH_AGENT_COMMAND` si défini;
+- `all`: démarre `MODE=all python main.py`.
+
+Le Dockerfile utilise `uv sync --frozen` et nécessite donc un `uv.lock` à jour. Aucun secret n'est
+accepté au build: `.env`, `secrets.yaml` et les clés privées sont exclus par `.dockerignore`. Les
+secrets doivent venir de l'environnement runtime, Docker secrets, Vault ou fichiers montés.
+
+Voir aussi la référence dédiée [Runtime Docker](runtime-docker.md).
+
 ### `mcp`
 
 Capacité inbound pour exposer les cas d'usage via MCP.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 from pathlib import Path
@@ -99,6 +100,30 @@ def test_init_scaffold_creates_blank_project_then_core_files(temp_workspace: Pat
     ).exists()
 
 
+def test_new_rejects_port_without_room_for_mcp(temp_workspace: Path):
+    project_dir = temp_workspace / "bad-port-service"
+
+    result = subprocess.run(
+        [
+            "arclith-cli",
+            "new",
+            "Plan",
+            "bad-port-service",
+            "--dir",
+            str(temp_workspace),
+            "--port",
+            "65535",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode != 0
+    assert not project_dir.exists()
+    assert "Port MCP invalide" in result.stdout + result.stderr
+
+
 def test_scaffold_and_run(temp_workspace: Path):
     """Test that scaffolded project installs and runs successfully."""
     project_dir = temp_workspace / "test-plan-service"
@@ -113,7 +138,7 @@ def test_scaffold_and_run(temp_workspace: Path):
             "--dir",
             str(temp_workspace),
             "--port",
-            "9000",
+            "8100",
             *_template_args(),
         ],
         capture_output=True,
@@ -182,9 +207,15 @@ def test_scaffold_and_run(temp_workspace: Path):
     for dirname in expected_dirs:
         assert (project_dir / dirname).is_dir(), f"Missing expected directory: {dirname}"
     
-    expected_files = ["Dockerfile", "Makefile"]
+    expected_files = ["Dockerfile", "Makefile", ".dockerignore", "arclith-run"]
     for fname in expected_files:
         assert (project_dir / fname).exists(), f"Missing expected file: {fname}"
+    dockerfile = (project_dir / "Dockerfile").read_text(encoding="utf-8")
+    assert "uv sync --frozen --no-dev --no-install-project" in dockerfile
+    assert "USER 1001:1001" in dockerfile
+    assert "EXPOSE 8100 8101 9000 2024" in dockerfile
+    assert 'ENTRYPOINT ["./arclith-run"]' in dockerfile
+    assert (project_dir / "arclith-run").stat().st_mode & stat.S_IXUSR
 
     # Step 6 — validate core scaffolding through the CLI entry point
     result = subprocess.run(

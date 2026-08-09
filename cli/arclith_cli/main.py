@@ -19,6 +19,7 @@ from .core_scaffold import add_entity_cmd, add_intent_interpreter_cmd, add_useca
 from .export_config import export_config_cmd
 from .init_project import init_project_cmd
 from .rename import EntityNames, apply_rename
+from .runtime_templates import DOCKERIGNORE_TEMPLATE, render_arclith_run, render_dockerfile
 from .scaffold import download_and_extract
 from .updater import run_update
 
@@ -81,6 +82,7 @@ def new(
     """Créer un nouveau projet [bold]arclith[/bold] scaffoldé depuis le template officiel [dim]_sample[/dim]."""
     entity = entity or _prompt_entity()
     project_name = project_name or _prompt_project()
+    _validate_runtime_ports(api_port=port, mcp_port=port + 1)
 
     names = EntityNames.from_input(entity)
     target_dir = directory.resolve() / project_name
@@ -112,6 +114,7 @@ def new(
 
     with console.status("[bold]Renommage de l'entité…[/bold]"):
         apply_rename(target_dir, names, project_name=project_name, port=port)
+        _write_runtime_files(target_dir, api_port=port, mcp_port=port + 1)
 
     console.print("[green]✓[/green] Renommage terminé")
     _print_summary(target_dir, project_name, port)
@@ -142,7 +145,7 @@ def add_adapter(
             "--capability",
             help=(
                 "Capacité cible: repository, cache, logger, secrets, api, mcp, probe, http, "
-                "command-bus, auth, tenant, license, llm, agent ou observability"
+                "command-bus, runtime, auth, tenant, license, llm, agent ou observability"
             ),
         ),
     ] = "repository",
@@ -367,6 +370,28 @@ def _parse_param_options(values: list[str] | None) -> dict[str, str]:
             raise typer.Exit(1)
         result[key] = value.strip()
     return result
+
+
+def _write_runtime_files(target_dir: Path, *, api_port: int, mcp_port: int) -> None:
+    _validate_runtime_ports(api_port=api_port, mcp_port=mcp_port)
+    (target_dir / "Dockerfile").write_text(
+        render_dockerfile(api_port=str(api_port), mcp_port=str(mcp_port)),
+        encoding="utf-8",
+    )
+    (target_dir / ".dockerignore").write_text(DOCKERIGNORE_TEMPLATE, encoding="utf-8")
+    entrypoint = target_dir / "arclith-run"
+    entrypoint.write_text(render_arclith_run(), encoding="utf-8")
+    entrypoint.chmod(0o755)
+
+
+def _validate_runtime_ports(*, api_port: int, mcp_port: int) -> None:
+    for label, value in (("REST", api_port), ("MCP", mcp_port)):
+        if value <= 0 or value > 65535:
+            console.print(
+                f"[red]✗[/red] Port {label} invalide: [bold]{value}[/bold]. "
+                "Utilisez une valeur entre 1 et 65535."
+            )
+            raise typer.Exit(1)
 
 
 def _print_summary(target_dir: Path, project_name: str, port: int) -> None:

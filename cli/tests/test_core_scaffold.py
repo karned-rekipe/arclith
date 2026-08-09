@@ -1,3 +1,5 @@
+import re
+import stat
 from pathlib import Path
 
 import pytest
@@ -41,6 +43,9 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
     assert generated == tmp_path / "todo-list-service"
     assert (generated / "pyproject.toml").exists()
     assert (generated / "main.py").exists()
+    assert (generated / "Dockerfile").exists()
+    assert (generated / ".dockerignore").exists()
+    assert (generated / "arclith-run").exists()
     assert (generated / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8") == (
         "logger: console\n"
         "repository: memory\n"
@@ -55,6 +60,32 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
     assert (package_root / "adapters" / "inbound" / "__init__.py").exists()
     assert (package_root / "infrastructure" / "containers" / "__init__.py").exists()
     assert sorted(path.name for path in (package_root / "domain" / "models").glob("*.py")) == ["__init__.py"]
+
+    dockerfile = (generated / "Dockerfile").read_text(encoding="utf-8")
+    dockerignore = (generated / ".dockerignore").read_text(encoding="utf-8")
+    main = (generated / "main.py").read_text(encoding="utf-8")
+    arclith_run = generated / "arclith-run"
+    entrypoint = arclith_run.read_text(encoding="utf-8")
+    assert "FROM python:3.13-slim-bookworm AS builder" in dockerfile
+    assert "FROM python:3.13-slim-bookworm AS runtime" in dockerfile
+    assert "uv sync --frozen --no-dev --no-install-project" in dockerfile
+    assert "uv sync --frozen --no-dev" in dockerfile
+    assert "USER 1001:1001" in dockerfile
+    assert 'ENTRYPOINT ["./arclith-run"]' in dockerfile
+    assert 'CMD ["api"]' in dockerfile
+    assert "MODE=api" not in dockerfile
+    assert "LANGGRAPH_PORT=2024" in dockerfile
+    assert re.search(r"(?m)^ARG .*SECRET|^ARG .*TOKEN|^ARG .*PASSWORD", dockerfile) is None
+    assert ".env" in dockerignore
+    assert "secrets.yaml" in dockerignore
+    assert "id_rsa" in dockerignore
+    assert 'if [ -n "${ARCLITH_RUNTIME_MODE:-}" ]; then' in entrypoint
+    assert "api|mcp|mcp_http|mcp_sse|bus|command_bus|command-bus|agent|all) shift ;;" in entrypoint
+    assert "bus|command_bus|command-bus)" in entrypoint
+    assert "langgraph dev" in entrypoint
+    assert '_VALID_MODES = {"api", "mcp_http", "mcp_sse", "all"}' in main
+    assert 'arclith.run_with_probes(_run_api, _run_mcp_http, transports=["api", "mcp_http"])' in main
+    assert arclith_run.stat().st_mode & stat.S_IXUSR
 
 
 def test_init_project_refuses_existing_directory(tmp_path: Path) -> None:
