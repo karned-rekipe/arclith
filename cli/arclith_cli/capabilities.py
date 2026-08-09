@@ -730,6 +730,30 @@ idempotency:
             ),
             entity_scoped=False,
         ),
+        AdapterSpec(
+            name="etag",
+            capability="http",
+            layer="inbound",
+            description="Middleware ETag et If-None-Match pour les lectures GET cacheables.",
+            merge_config_templates=(
+                FileTemplateSpec(
+                    path="config/http.yaml",
+                    template="""\
+etag:
+  enabled: {enabled}
+""",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="enabled",
+                    kind="boolean",
+                    prompt="Activer le middleware ETag",
+                    default=True,
+                ),
+            ),
+            entity_scoped=False,
+        ),
     ),
 )
 

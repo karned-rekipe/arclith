@@ -109,6 +109,11 @@ Durée pendant laquelle la réponse est considérée "fraîche" sans revalidatio
 
 Le cache HTTP est plus efficace couplé avec ETag (RFC 7232).
 
+Dans Arclith, `ETaggerMiddleware` s'applique aux réponses `GET` JSON `2xx` qui exposent un champ
+`version` ou `data.version`. Les `POST`, `PUT`, `PATCH` et `DELETE` ne reçoivent pas de header de
+cache en sortie; `If-Match` sur `PUT`/`PATCH` reste disponible côté requête pour l'optimistic
+locking applicatif.
+
 **Workflow:**
 
 1. **Première requête:**
@@ -297,4 +302,3 @@ cache_control:
 - **RFC 7234:** [Caching](https://www.rfc-editor.org/rfc/rfc7234.html)
 - **MDN:** [Cache-Control](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control)
 - **Google Web Fundamentals:** [HTTP Caching](https://web.dev/http-cache/)
-

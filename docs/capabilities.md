@@ -489,6 +489,7 @@ modifier les routes métier.
 Adapter disponible:
 
 - `idempotency`: middleware `Idempotency-Key` pour éviter les doubles mutations `POST`.
+- `etag`: middleware `ETag` / `If-None-Match` pour les lectures `GET` cacheables.
 
 ```bash
 arclith-cli add-adapter \
@@ -518,6 +519,27 @@ cache. Avec `required: true`, un `POST` sans header est rejeté en `400`.
 Le cache sous-jacent est `cache/memory` par défaut: il suffit en développement ou mono-processus.
 En multi-worker, Kubernetes ou API/MCP séparés, configurer `cache/redis` pour partager les clés
 idempotentes entre processus.
+
+```bash
+arclith-cli add-adapter \
+  --capability http \
+  --adapter etag \
+  --param enabled=true \
+  --yes
+```
+
+Résultat fusionné dans `config/http.yaml`:
+
+```yaml
+etag:
+  enabled: true
+```
+
+Quand `enabled: true`, `Arclith.fastapi()` ajoute `ETaggerMiddleware`. Le middleware concerne les
+réponses `GET` JSON `2xx` qui contiennent `version` ou `data.version`: il ajoute `ETag: "v<version>"`
+et retourne `304 Not Modified` sans body si `If-None-Match` correspond. Les mutations ne reçoivent
+pas de header de cache en sortie; `If-Match` sur `PUT`/`PATCH` est seulement exposé via
+`request.state.expected_version` pour que la route ou le service valide l'optimistic locking.
 
 ### `mcp`
 

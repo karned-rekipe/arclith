@@ -179,8 +179,9 @@ def test_http_capability_catalog_declares_idempotency() -> None:
     assert capability is not None
     assert capability.layer == "inbound"
     assert capability.activation_config_key is None
-    assert capability.adapter_names() == ("idempotency",)
+    assert capability.adapter_names() == ("idempotency", "etag")
     idempotency = capability.get_adapter("idempotency")
+    etag = capability.get_adapter("etag")
     assert idempotency is not None
     assert idempotency.config_path is None
     assert [template.path for template in idempotency.merge_config_templates] == ["config/http.yaml"]
@@ -190,6 +191,11 @@ def test_http_capability_catalog_declares_idempotency() -> None:
         "ttl_seconds",
         "required",
     ]
+    assert etag is not None
+    assert etag.config_path is None
+    assert [template.path for template in etag.merge_config_templates] == ["config/http.yaml"]
+    assert etag.entity_scoped is False
+    assert [parameter.name for parameter in etag.parameters] == ["enabled"]
 
 
 def test_auth_capability_catalog_declares_keycloak() -> None:
@@ -380,6 +386,7 @@ def test_capability_catalog_is_json_serializable() -> None:
     assert "server" in encoded
     assert "http" in encoded
     assert "idempotency" in encoded
+    assert "etag" in encoded
     assert "auth" in encoded
     assert "keycloak" in encoded
     assert "tenant" in encoded
@@ -480,8 +487,9 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "enabled",
     ]
     http = payload_by_name["http"]
-    assert [adapter["name"] for adapter in http["adapters"]] == ["idempotency"]
+    assert [adapter["name"] for adapter in http["adapters"]] == ["idempotency", "etag"]
     idempotency = http["adapters"][0]
+    etag = http["adapters"][1]
     assert idempotency["config_path"] is None
     assert [template["path"] for template in idempotency["merge_config_templates"]] == ["config/http.yaml"]
     assert [parameter["name"] for parameter in idempotency["parameters"]] == [
@@ -489,6 +497,9 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "ttl_seconds",
         "required",
     ]
+    assert etag["config_path"] is None
+    assert [template["path"] for template in etag["merge_config_templates"]] == ["config/http.yaml"]
+    assert [parameter["name"] for parameter in etag["parameters"]] == ["enabled"]
     auth = payload_by_name["auth"]
     assert [adapter["name"] for adapter in auth["adapters"]] == ["keycloak"]
     keycloak_parameters = {parameter["name"]: parameter for parameter in auth["adapters"][0]["parameters"]}
