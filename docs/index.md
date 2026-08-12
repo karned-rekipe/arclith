@@ -1,41 +1,38 @@
-# Arclith
+# Arclith Academy
 
-Arclith est un framework Python 3.13 pour construire des microservices en architecture hexagonale.
-Il sert de socle commun pour structurer les projets autour du domaine, des ports, des use cases et
-des adapters.
+Arclith est le socle Python 3.13 pour construire des microservices hexagonaux.
 
-## Liens Rapides
+Le chemin recommandé est simple :
 
-- [Repository GitHub](https://github.com/karned-rekipe/arclith)
-- [Sample fonctionnel](https://github.com/karned-rekipe/_sample)
-- [Backlog GitHub Project](https://github.com/orgs/karned-rekipe/projects/5)
-- [Issues](https://github.com/karned-rekipe/arclith/issues)
-- [PyPI arclith](https://pypi.org/project/arclith/)
-- [PyPI arclith-cli](https://pypi.org/project/arclith-cli/)
+1. démarrer vite avec un quickstart ;
+2. comprendre les fondations ;
+3. suivre un projet guidé ;
+4. ajouter les capacités de production ;
+5. approfondir seulement quand le besoin apparaît.
 
-## Parcours Initiatique
+## Démarrer
 
-Le chemin recommandé pour découvrir le projet est le tutoriel Todo. Il joue le rôle de formation
-guidée pour les nouveaux venus:
+- [Quickstart API](quickstarts/api.md)
+- [Quickstart MCP](quickstarts/mcp.md)
+- [Quickstart bus](quickstarts/bus.md)
+- [Quickstart agent](quickstarts/agent.md)
 
-- [Vue d'ensemble](tutorials/todo-list/index.md)
-- [Initialiser le projet](tutorials/todo-list/01-init-project.md)
-- [Créer l'entité](tutorials/todo-list/02-create-entity.md)
-- [Créer les use cases](tutorials/todo-list/03-create-usecase.md)
-- [Exposer une API](tutorials/todo-list/04-api.md)
-- [Exposer un MCP](tutorials/todo-list/05-mcp.md)
-- [Ajouter un agent](tutorials/todo-list/06-agent.md)
-- [Brancher les services locaux](tutorials/todo-list/07-local-services.md)
+## Se Former
 
-## Démarrer Vite
+- [C'est quoi Arclith ?](foundations/what-is-arclith.md)
+- [Le chemin hexagonal](foundations/hexagonal-flow.md)
+- [Structure d'une page de formation](learning/page-format.md)
+- [Parcours Todo](tutorials/todo-list/index.md)
 
-- [Quickstart Arclith](quickstart.md)
-- [Quickstart Agent](agent-quickstart.md)
-- [Capacités standardisées](capabilities.md)
-- [Tutoriel Docker complet](runtime-docker.md)
+## Produire
+
+- [Baseline production](production/baseline.md)
+- [Docker](runtime-docker.md)
+- [Kubernetes](runtime-docker/kubernetes.md)
 
 ## Référence
 
-La référence maintenue est cette documentation Pages, versionnée dans le dépôt et validée par
-MkDocs. Le Wiki GitHub peut servir de brouillon, mais les décisions et guides durables doivent être
-rapatriés dans `docs/`.
+- [Catalogue des capabilities](capabilities.md)
+- [Auth](auth.md)
+- [Command Bus](command-bus.md)
+- [HTTP](http-conventions.md)
