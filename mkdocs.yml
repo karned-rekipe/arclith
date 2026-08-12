@@ -25,18 +25,17 @@ extra_css:
 nav:
   - Accueil: index.md
   - Quickstarts:
-      - Quickstart Arclith: quickstart.md
-      - Quickstart Agent: agent-quickstart.md
-      - Capacités: capabilities.md
-  - Tutoriel Docker:
-      - Vue d'ensemble: runtime-docker.md
-      - 1. Build: runtime-docker/build.md
-      - 2. Lancement local API: runtime-docker/local-api.md
-      - 3. Lancement local MCP: runtime-docker/local-mcp.md
-      - 4. Lancement local agent: runtime-docker/local-agent.md
-      - 5. Autres modes locaux: runtime-docker/local-other-modes.md
-      - 6. Docker Compose: runtime-docker/docker-compose.md
-      - 7. Kubernetes: runtime-docker/kubernetes.md
+      - API: quickstarts/api.md
+      - MCP: quickstarts/mcp.md
+      - Bus: quickstarts/bus.md
+      - Agent: quickstarts/agent.md
+  - Foundations:
+      - C'est quoi Arclith ?: foundations/what-is-arclith.md
+      - Le chemin hexagonal: foundations/hexagonal-flow.md
+      - Modes runtime: foundations/runtime-modes.md
+  - Formation:
+      - Parcours: learning/training-path.md
+      - Format d'une page: learning/page-format.md
   - Tutoriel Todo:
       - Vue d'ensemble: tutorials/todo-list/index.md
       - Préparer LM Studio: tutorials/todo-list/00-lm-studio.md
@@ -64,7 +63,44 @@ nav:
           - 6.6 Noeuds et graphe: tutorials/todo-list/06-agent-nodes-graph.md
           - 6.7 Tests et Studio: tutorials/todo-list/06-agent-tests-studio.md
       - Annexes locales: tutorials/todo-list/07-local-services.md
+  - Production:
+      - Baseline: production/baseline.md
+      - Docker:
+          - Vue d'ensemble: runtime-docker.md
+          - 1. Build: runtime-docker/build.md
+          - 2. Lancement local API: runtime-docker/local-api.md
+          - 3. Lancement local MCP: runtime-docker/local-mcp.md
+          - 4. Lancement local agent: runtime-docker/local-agent.md
+          - 5. Autres modes locaux: runtime-docker/local-other-modes.md
+          - 6. Docker Compose: runtime-docker/docker-compose.md
+          - 7. Kubernetes: runtime-docker/kubernetes.md
+  - Capabilities:
+      - Catalogue: capabilities.md
+      - API: capabilities/api.md
+      - MCP: capabilities/mcp.md
+      - Agent: capabilities/agent.md
+      - Command Bus: capabilities/command-bus.md
+      - Probe: capabilities/probe.md
+      - Runtime: capabilities/runtime.md
+      - Repository: capabilities/repository.md
+      - Cache: capabilities/cache.md
+      - Logger: capabilities/logger.md
+      - Secrets: capabilities/secrets.md
+      - Auth: capabilities/auth.md
+      - Tenant: capabilities/tenant.md
+      - License: capabilities/license.md
+      - HTTP: capabilities/http.md
+      - LLM: capabilities/llm.md
+      - Observability: capabilities/observability.md
+  - Deep Dives:
+      - API: deep-dives/api.md
+      - MCP: deep-dives/mcp.md
+      - Bus: deep-dives/bus.md
+      - Agent: deep-dives/agent.md
+      - Configuration: deep-dives/configuration.md
   - Référence:
+      - Ancien quickstart complet: quickstart.md
+      - Ancien quickstart agent: agent-quickstart.md
       - Auth: auth.md
       - HTTP: http-conventions.md
       - Command Bus: command-bus.md
