@@ -10,6 +10,14 @@ Ajouter un agent LangGraph minimal à un service.
 
 ## Étapes
 
+Si tu n'as pas encore de projet :
+
+```bash
+uvx --from arclith-cli arclith-cli init todo-agent --dir .
+cd todo-agent
+uv sync
+```
+
 ```bash
 uv add "arclith[langgraph]"
 uvx --from arclith-cli arclith-cli add-adapter \
@@ -49,4 +57,4 @@ transitions pour appeler ses use cases.
 
 ## Suite
 
-Lire [agent/langgraph](../capabilities/agent.md).
+Lire [agent/langgraph](../capabilities/agent.md), puis le [parcours Todo agent](../tutorials/todo-list/06-agent.md).

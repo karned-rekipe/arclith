@@ -25,6 +25,7 @@ extra_css:
 nav:
   - Accueil: index.md
   - Quickstarts:
+      - Vue d'ensemble: quickstarts/index.md
       - API: quickstarts/api.md
       - MCP: quickstarts/mcp.md
       - Bus: quickstarts/bus.md

@@ -40,4 +40,4 @@ Si `/health` ne répond pas, le serveur n'est pas encore prêt ou le port `9000`
 
 ## Suite
 
-Lire [api/fastapi](../capabilities/api.md).
+Lire [MCP](mcp.md), puis [api/fastapi](../capabilities/api.md).
