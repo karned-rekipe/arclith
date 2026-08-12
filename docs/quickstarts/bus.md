@@ -20,7 +20,7 @@ Dans le projet Arclith :
 
 ```bash
 uv add "arclith[rabbitmq]"
-arclith-cli add-adapter \
+uvx --from arclith-cli arclith-cli add-adapter \
   --capability command-bus \
   --adapter rabbitmq \
   --yes

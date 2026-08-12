@@ -12,7 +12,7 @@ Ajouter un agent LangGraph minimal à un service.
 
 ```bash
 uv add "arclith[langgraph]"
-arclith-cli add-adapter \
+uvx --from arclith-cli arclith-cli add-adapter \
   --capability agent \
   --adapter langgraph \
   --yes
@@ -21,7 +21,7 @@ arclith-cli add-adapter \
 Pour un LLM local :
 
 ```bash
-arclith-cli add-adapter \
+uvx --from arclith-cli arclith-cli add-adapter \
   --capability llm \
   --adapter lmstudio \
   --param model_name="<model-id-lm-studio>" \
