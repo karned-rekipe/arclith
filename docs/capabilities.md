@@ -2,39 +2,47 @@
 
 Une capability est une brique activable par `arclith-cli add-adapter`.
 
-## Règle
+## Lire Le Catalogue
 
-Chaque capability du catalogue CLI doit avoir sa page dédiée dans cette section.
+Le catalogue CLI est la source de vérité technique. Cette page sert de carte de
+lecture et chaque ligne renvoie vers la fiche dédiée.
 
 ```bash
 arclith-cli capabilities
 arclith-cli capabilities --json
 ```
 
-## Inbound
+## Matrice
 
-- [api](capabilities/api.md)
-- [mcp](capabilities/mcp.md)
-- [auth](capabilities/auth.md)
-- [tenant](capabilities/tenant.md)
-- [license](capabilities/license.md)
-- [probe](capabilities/probe.md)
-- [http](capabilities/http.md)
-- [agent](capabilities/agent.md)
+| Capability | Couche | Adapters | Quand la lire |
+|---|---|---|---|
+| [api](capabilities/api.md) | inbound | `fastapi` | exposer des endpoints HTTP |
+| [mcp](capabilities/mcp.md) | inbound | `fastmcp` | exposer des tools MCP |
+| [agent](capabilities/agent.md) | inbound | `langgraph` | exposer un agent LangGraph |
+| [auth](capabilities/auth.md) | inbound | `keycloak` | sécuriser API ou MCP |
+| [tenant](capabilities/tenant.md) | inbound | `vault` | résoudre un contexte tenant |
+| [license](capabilities/license.md) | inbound | `role` | contrôler un droit d'accès |
+| [probe](capabilities/probe.md) | inbound | `server` | exposer `/health` et `/ready` |
+| [http](capabilities/http.md) | inbound | `idempotency`, `etag`, `cache-control` | durcir les conventions HTTP |
+| [repository](capabilities/repository.md) | outbound | `memory`, `mongodb`, `duckdb`, `mariadb` | persister les entités |
+| [cache](capabilities/cache.md) | outbound | `memory`, `redis` | partager JWKS, tenants et idempotence |
+| [logger](capabilities/logger.md) | outbound | `console` | standardiser les logs |
+| [secrets](capabilities/secrets.md) | outbound | `env`, `yaml`, `vault`, `chain` | résoudre les secrets |
+| [llm](capabilities/llm.md) | outbound | `lmstudio`, `openai`, `anthropic` | configurer les modèles |
+| [observability](capabilities/observability.md) | outbound | `langsmith`, `opentelemetry` | tracer runtime et agents |
+| [command-bus](capabilities/command-bus.md) | bidirectional | `rabbitmq` | consommer et publier des commandes |
+| [runtime](capabilities/runtime.md) | runtime | `docker-image` | générer le runtime conteneur |
 
-## Outbound
+## Parcours Fréquents
 
-- [repository](capabilities/repository.md)
-- [cache](capabilities/cache.md)
-- [logger](capabilities/logger.md)
-- [secrets](capabilities/secrets.md)
-- [llm](capabilities/llm.md)
-- [observability](capabilities/observability.md)
-
-## Bidirectionnel Et Runtime
-
-- [command-bus](capabilities/command-bus.md)
-- [runtime](capabilities/runtime.md)
+| Besoin | Lire |
+|---|---|
+| API minimale | [Quickstart API](quickstarts/api.md), puis [api/fastapi](capabilities/api.md) |
+| MCP minimal | [Quickstart MCP](quickstarts/mcp.md), puis [mcp/fastmcp](capabilities/mcp.md) |
+| Bus RabbitMQ | [Quickstart Bus](quickstarts/bus.md), puis [command-bus/rabbitmq](capabilities/command-bus.md) |
+| Agent local | [Quickstart Agent](quickstarts/agent.md), puis [agent/langgraph](capabilities/agent.md) |
+| Service production | [Baseline production](production/baseline.md), puis les pages de la section Production |
+| Déploiement | [Runtime Docker](runtime-docker.md), puis [Docker Compose](runtime-docker/docker-compose.md) |
 
 ## Ajouter Une Capability
 
@@ -44,4 +52,6 @@ Une PR qui ajoute ou modifie une capability doit mettre à jour :
 2. la page dédiée ;
 3. cet index ;
 4. le quickstart si le flux est fréquent ;
-5. la baseline production si la capability appartient au socle de production.
+5. la baseline production si la capability appartient au socle de production ;
+6. les captures, vidéos ou supports de formation quand la capability introduit
+   un nouveau geste utilisateur.
