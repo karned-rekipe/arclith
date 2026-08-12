@@ -4,6 +4,38 @@
 
 ---
 
+## [0.16.0] — 2026-08-12
+
+### Added
+
+- **Capabilities `arclith-cli` complètes** — le catalogue expose maintenant les adapters standardisés
+  pour repository memory/MongoDB/DuckDB/MariaDB, API FastAPI, MCP FastMCP, LLM LM Studio/OpenAI/
+  Anthropic, agent LangGraph, observabilité LangSmith/OpenTelemetry, cache memory/Redis, auth
+  Keycloak, secrets env/YAML/Vault/chain, tenant Vault, licence par rôle, logger console, probes,
+  middlewares HTTP, command bus RabbitMQ et runtime Docker.
+- **Command bus RabbitMQ** — extra `arclith[rabbitmq]`, settings `command_bus`, publisher et worker
+  avec ack manuel, publisher confirms, prefetch/concurrency bornés, DLX/retry et propagation
+  `correlation_id`/`traceparent`.
+- **Runtime Docker** — adapter `runtime/docker-image` générant `Dockerfile`, `.dockerignore` et
+  `arclith-run` pour une image Python 3.13 multi-stage, non-root, configurable au runtime pour API,
+  MCP, bus, agent ou mode combiné.
+- **OpenTelemetry OTLP** — configuration et adapter de traces/metrics OTLP avec corrélation
+  `trace_id`/`span_id` et instrumentation FastAPI/logging.
+- **Tutoriel Todo complet** — walkthrough POC-source-faithful couvrant API, MCP, agent LangGraph,
+  MongoDB partagé, LangSmith et Jaeger.
+
+### Changed
+
+- **Versions release** — `arclith` passe à `0.16.0`; `arclith-cli` passe à `0.13.0`
+  et dépend de `arclith>=0.16.0`.
+
+### Fixed
+
+- **MongoDB dates** — sérialisation correcte des champs `date` dans l'adapter MongoDB.
+- **Docs MkDocs** — rendu des blocs de code stabilisé.
+
+---
+
 ## [0.15.0] — 2026-08-07
 
 ### Changed
