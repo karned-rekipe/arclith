@@ -36,6 +36,10 @@ nav:
       - Modes runtime: foundations/runtime-modes.md
   - Formation:
       - Parcours: learning/training-path.md
+      - Préparer son poste: learning/setup.md
+      - Comprendre le modèle: learning/foundations.md
+      - Quickstarts essentiels: learning/quickstarts.md
+      - Validation finale: learning/validation.md
       - Format d'une page: learning/page-format.md
   - Tutoriel Todo:
       - Vue d'ensemble: tutorials/todo-list/index.md
