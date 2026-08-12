@@ -77,6 +77,30 @@ docker run --rm --env ARCLITH_RUNTIME_MODE=bus my-service:local
 docker run --rm -p 2024:2024 my-service:local agent
 ```
 
+Les ports à droite de `-p` sont les ports écoutés dans le conteneur. Ils doivent correspondre aux
+fichiers de configuration du projet, par exemple `config/adapters/inbound/fastapi.yaml` pour
+FastAPI et `config/adapters/inbound/probe.yaml` pour les probes. Les ports à gauche sont les ports
+exposés sur le poste.
+
+Par exemple, si FastAPI est configuré sur `8120`, publier l'API sur le même port:
+
+```bash
+docker run --rm -p 8120:8120 -p 9000:9000 my-service:local api
+curl -fsS http://127.0.0.1:8120/openapi.json
+curl -fsS http://127.0.0.1:9000/health
+```
+
+Ou garder `8000` côté poste en le routant vers `8120` dans le conteneur:
+
+```bash
+docker run --rm -p 8000:8120 -p 9000:9000 my-service:local api
+curl -fsS http://127.0.0.1:8000/openapi.json
+curl -fsS http://127.0.0.1:9000/health
+```
+
+Sans `-d`, `docker run` garde le terminal attaché au serveur. Lancer les `curl` depuis un second
+terminal, ou utiliser le smoke détaché plus bas.
+
 Contrat des modes:
 
 | Mode | Action |
@@ -107,27 +131,41 @@ Le `HEALTHCHECK` interroge `/health` sur `ARCLITH_PROBE_PORT`, `9000` par défau
 (
   set -eu
 
-  container_id="$(docker run --rm -d -p 8000:8000 -p 9000:9000 my-service:local api)"
+  API_CONTAINER_PORT="${API_CONTAINER_PORT:-8000}"
+  API_HOST_PORT="${API_HOST_PORT:-$API_CONTAINER_PORT}"
+  PROBE_CONTAINER_PORT="${PROBE_CONTAINER_PORT:-9000}"
+  PROBE_HOST_PORT="${PROBE_HOST_PORT:-$PROBE_CONTAINER_PORT}"
+
+  container_id="$(
+    docker run --rm -d \
+      -p "$API_HOST_PORT:$API_CONTAINER_PORT" \
+      -p "$PROBE_HOST_PORT:$PROBE_CONTAINER_PORT" \
+      my-service:local api
+  )"
   cleanup() {
     docker stop "$container_id" >/dev/null 2>&1 || true
   }
   trap cleanup EXIT
 
-  ready=0
-  for _ in $(seq 1 30); do
-    if curl -fsS http://127.0.0.1:9000/health >/dev/null 2>&1; then
-      ready=1
-      break
+  # Le HEALTHCHECK Docker utilise /health; /openapi.json est un smoke API additionnel.
+  for endpoint in "$PROBE_HOST_PORT/health" "$API_HOST_PORT/openapi.json"; do
+    ready=0
+    for _ in $(seq 1 30); do
+      if curl -fsS "http://127.0.0.1:$endpoint" >/dev/null 2>&1; then
+        ready=1
+        break
+      fi
+      sleep 1
+    done
+
+    if [ "$ready" -ne 1 ]; then
+      docker logs "$container_id"
+      exit 1
     fi
-    sleep 1
   done
 
-  if [ "$ready" -ne 1 ]; then
-    docker logs "$container_id"
-    exit 1
-  fi
-
-  curl -fsS http://127.0.0.1:9000/health
+  curl -fsS "http://127.0.0.1:$PROBE_HOST_PORT/health"
+  curl -fsS "http://127.0.0.1:$API_HOST_PORT/openapi.json" >/dev/null
 )
 ```
 
@@ -179,36 +217,50 @@ containers:
 
 ## Validation Locale
 
-Le smoke Docker ne pousse aucune image. Il attend explicitement que les probes soient disponibles,
-car `docker run -d` rend la main avant que Uvicorn ait terminé son démarrage:
+Le smoke Docker ne pousse aucune image. Il attend explicitement que les probes et l'API soient
+disponibles, car `docker run -d` rend la main avant que les serveurs Uvicorn aient terminé leur
+démarrage:
 
 ```bash
 (
   set -eu
 
+  API_CONTAINER_PORT="${API_CONTAINER_PORT:-8000}"
+  API_HOST_PORT="${API_HOST_PORT:-$API_CONTAINER_PORT}"
+  PROBE_CONTAINER_PORT="${PROBE_CONTAINER_PORT:-9000}"
+  PROBE_HOST_PORT="${PROBE_HOST_PORT:-$PROBE_CONTAINER_PORT}"
+
   uv lock
   docker build -t my-service:local .
 
-  container_id="$(docker run --rm -d -p 8000:8000 -p 9000:9000 my-service:local api)"
+  container_id="$(
+    docker run --rm -d \
+      -p "$API_HOST_PORT:$API_CONTAINER_PORT" \
+      -p "$PROBE_HOST_PORT:$PROBE_CONTAINER_PORT" \
+      my-service:local api
+  )"
   cleanup() {
     docker stop "$container_id" >/dev/null 2>&1 || true
   }
   trap cleanup EXIT
 
-  ready=0
-  for _ in $(seq 1 30); do
-    if curl -fsS http://127.0.0.1:9000/health >/dev/null 2>&1; then
-      ready=1
-      break
+  for endpoint in "$PROBE_HOST_PORT/health" "$API_HOST_PORT/openapi.json"; do
+    ready=0
+    for _ in $(seq 1 30); do
+      if curl -fsS "http://127.0.0.1:$endpoint" >/dev/null 2>&1; then
+        ready=1
+        break
+      fi
+      sleep 1
+    done
+
+    if [ "$ready" -ne 1 ]; then
+      docker logs "$container_id"
+      exit 1
     fi
-    sleep 1
   done
 
-  if [ "$ready" -ne 1 ]; then
-    docker logs "$container_id"
-    exit 1
-  fi
-
-  curl -fsS http://127.0.0.1:9000/health
+  curl -fsS "http://127.0.0.1:$PROBE_HOST_PORT/health"
+  curl -fsS "http://127.0.0.1:$API_HOST_PORT/openapi.json" >/dev/null
 )
 ```
