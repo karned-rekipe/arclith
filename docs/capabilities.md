@@ -669,7 +669,7 @@ Le Dockerfile utilise `uv sync --frozen` et nécessite donc un `uv.lock` à jour
 accepté au build: `.env`, `secrets.yaml` et les clés privées sont exclus par `.dockerignore`. Les
 secrets doivent venir de l'environnement runtime, Docker secrets, Vault ou fichiers montés.
 
-Voir aussi la référence dédiée [Runtime Docker](runtime-docker.md).
+Voir aussi le tutoriel dédié [Docker](runtime-docker.md).
 
 ### `mcp`
 

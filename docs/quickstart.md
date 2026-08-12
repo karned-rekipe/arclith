@@ -368,6 +368,6 @@ make demo-smoke
 - Sample fonctionnel: `../_sample`
 - CLI: `cli/README.md`
 - Capacités standardisées: `docs/capabilities.md`
-- Runtime Docker: `docs/runtime-docker.md`
+- Tutoriel Docker: `docs/runtime-docker.md`
 - Architecture: `arclith/docs/architecture.md`
 - Decisions: `docs/decisions.md`
