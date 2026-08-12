@@ -10,6 +10,14 @@ Ajouter la capability RabbitMQ et vérifier le bootstrap bus.
 
 ## Étapes
 
+Si tu n'as pas encore de projet :
+
+```bash
+uvx --from arclith-cli arclith-cli init todo-bus --dir .
+cd todo-bus
+uv sync
+```
+
 ```bash
 docker run --rm -d --name arclith-rabbitmq \
   -p 5672:5672 -p 15672:15672 \
@@ -61,4 +69,4 @@ docker rm -f arclith-rabbitmq
 
 ## Suite
 
-Lire [command-bus/rabbitmq](../capabilities/command-bus.md).
+Lire [Agent](agent.md), puis [command-bus/rabbitmq](../capabilities/command-bus.md).

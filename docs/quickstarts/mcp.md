@@ -44,4 +44,4 @@ Le test protocolaire complet est traité dans le [Deep Dive MCP](../deep-dives/m
 
 ## Suite
 
-Lire [mcp/fastmcp](../capabilities/mcp.md).
+Lire [Bus](bus.md), puis [mcp/fastmcp](../capabilities/mcp.md).
