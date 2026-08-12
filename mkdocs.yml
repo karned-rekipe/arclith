@@ -65,7 +65,6 @@ nav:
       - Cache: caching.md
       - Décisions: decisions.md
       - Release: release.md
-      - OAuth2 Troubleshooting: oauth2-troubleshooting.md
 
 validation:
   nav:
