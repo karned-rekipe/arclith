@@ -147,6 +147,7 @@ Le `HEALTHCHECK` interroge `/health` sur `ARCLITH_PROBE_PORT`, `9000` par défau
   }
   trap cleanup EXIT
 
+  # Le HEALTHCHECK Docker utilise /health; /openapi.json est un smoke API additionnel.
   for endpoint in "$PROBE_HOST_PORT/health" "$API_HOST_PORT/openapi.json"; do
     ready=0
     for _ in $(seq 1 30); do
