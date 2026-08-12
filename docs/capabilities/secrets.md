@@ -2,6 +2,11 @@
 
 Résolution de secrets avant validation de la configuration Arclith.
 
+## Objectif
+
+Remplacer les valeurs sensibles dans la configuration par des références
+résolues au runtime.
+
 ## Adapters
 
 | Adapter | Usage |
@@ -22,7 +27,7 @@ arclith-cli add-adapter \
   --yes
 ```
 
-## Configuration
+## Configuration Générée
 
 ```yaml
 # config/secrets.yaml
@@ -35,16 +40,42 @@ mappings:
   adapters.mongodb.uri: apps/my-service/mongodb
 ```
 
-## Règle
+## Resolvers
 
-Aucune valeur secrète réelle ne doit être commitée.
+| Resolver | À Utiliser Quand |
+|---|---|
+| `env` | Docker, CI/CD, Kubernetes |
+| `yaml` | POC local avec fichier gitignoré |
+| `vault` | production |
+| `chain` | fallback ordonné `env`, `vault`, `yaml` |
+
+## Mappings
+
+```yaml
+mappings:
+  adapters.mongodb.uri: apps/my-service/mongodb
+  adapters.mariadb.password: apps/my-service/mariadb/password
+  cache.redis_url: apps/my-service/redis
+```
+
+La clé de gauche est le champ Arclith. La valeur de droite est la référence dans
+le resolver choisi.
+
+## Règles
+
+- Aucune valeur secrète réelle ne doit être commitée.
+- Ne pas injecter de secret au build Docker.
+- Préférer Vault comme source de vérité en production.
+- Garder les fichiers YAML locaux gitignorés.
+- Documenter propriétaire, rotation et usage de chaque secret.
 
 ## Validation
 
 ```bash
 uv run python -c "from arclith.infrastructure.config import load_config_dir; load_config_dir('config')"
+git diff --check
 ```
 
 ## Suite
 
-Lire [Baseline production](../production/baseline.md).
+Lire [Secrets et Vault](../production/secrets.md), puis [tenant](tenant.md).
