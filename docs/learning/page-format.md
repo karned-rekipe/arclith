@@ -31,6 +31,8 @@ Utiliser ce bloc quand une capture ou une vidéo doit être ajoutée :
     Vidéo attendue : durée cible et scénario.
 ```
 
+Les règles de production sont dans [Captures et vidéos](media.md).
+
 ## Validation
 
 Chaque page opérationnelle doit fournir une commande ou une observation concrète.
