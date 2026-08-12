@@ -104,13 +104,31 @@ Le Dockerfile expose par défaut:
 Le `HEALTHCHECK` interroge `/health` sur `ARCLITH_PROBE_PORT`, `9000` par défaut:
 
 ```bash
-container_id="$(docker run --rm -d -p 8000:8000 -p 9000:9000 my-service:local api)"
-for _ in $(seq 1 30); do
-  curl -fsS http://127.0.0.1:9000/health >/dev/null 2>&1 && break
-  sleep 1
-done
-curl -fsS http://127.0.0.1:9000/health
-docker stop "$container_id"
+(
+  set -eu
+
+  container_id="$(docker run --rm -d -p 8000:8000 -p 9000:9000 my-service:local api)"
+  cleanup() {
+    docker stop "$container_id" >/dev/null 2>&1 || true
+  }
+  trap cleanup EXIT
+
+  ready=0
+  for _ in $(seq 1 30); do
+    if curl -fsS http://127.0.0.1:9000/health >/dev/null 2>&1; then
+      ready=1
+      break
+    fi
+    sleep 1
+  done
+
+  if [ "$ready" -ne 1 ]; then
+    docker logs "$container_id"
+    exit 1
+  fi
+
+  curl -fsS http://127.0.0.1:9000/health
+)
 ```
 
 ## Secrets
