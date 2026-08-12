@@ -15,7 +15,7 @@ API, MCP, agent, bus, persistance et runtime.
 - Quickstart framework: [docs/quickstart.md](docs/quickstart.md)
 - Quickstart agent: [docs/agent-quickstart.md](docs/agent-quickstart.md)
 - Référence des capacités CLI: [docs/capabilities.md](docs/capabilities.md)
-- Runtime Docker: [docs/runtime-docker.md](docs/runtime-docker.md)
+- Tutoriel Docker: [docs/runtime-docker.md](docs/runtime-docker.md)
 - Repository: [karned-rekipe/arclith](https://github.com/karned-rekipe/arclith)
 - Sample fonctionnel: [karned-rekipe/_sample](https://github.com/karned-rekipe/_sample)
 - Backlog: [GitHub Project](https://github.com/orgs/karned-rekipe/projects/5)
@@ -76,7 +76,7 @@ Le parcours recommandé pour un nouveau venu est:
    ajouter les adapters nécessaires via `arclith-cli`.
 5. Lire les références spécialisées quand le besoin apparaît: [auth](docs/auth.md),
    [HTTP](docs/http-conventions.md), [command bus](docs/command-bus.md),
-   [runtime Docker](docs/runtime-docker.md), [cache](docs/caching.md) et
+   [tutoriel Docker](docs/runtime-docker.md), [cache](docs/caching.md) et
    [décisions d'architecture](docs/decisions.md).
 
 ## Layout Canonique

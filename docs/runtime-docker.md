@@ -1,107 +1,38 @@
-# Runtime Docker Arclith
+# Tutoriel Docker Arclith
 
-## Objectif
+Ce parcours explique comment passer d'un projet Arclith local à une image Docker exploitable, puis
+comment lancer cette même image en local, avec Docker Compose et avec Kubernetes.
 
-`runtime/docker-image` standardise une image Docker Arclith unique pour plusieurs transports. Le
-choix du processus se fait au runtime par argument d'entrypoint, `ARCLITH_RUNTIME_MODE` ou `MODE`;
-il ne nécessite pas de rebuild.
+L'idée directrice est simple: une seule image immutable, plusieurs processus au runtime. L'image
+contient le code, les dépendances verrouillées et l'entrypoint `arclith-run`. Le choix du transport
+se fait par argument (`api`, `mcp_http`, `mcp_sse`, `agent`, `bus`, `all`) ou par variable
+`ARCLITH_RUNTIME_MODE` / `MODE`.
 
 ```text
-docker image
+image Docker Arclith
   -> arclith-run
-  -> MODE=api | mcp_http | mcp_sse | bus | agent | all
+  -> api | mcp_http | mcp_sse | agent | bus | all
   -> main.py ou LangGraph
 ```
 
-Le framework ne génère pas de logique métier. Le projet reste responsable des runners déclarés dans
-`main.py`, des handlers RabbitMQ et du graphe LangGraph.
+## Parcours
 
-## Génération
+1. [Build](runtime-docker/build.md): générer les fichiers runtime, préparer la configuration
+   conteneur, construire et inspecter l'image.
+2. [Lancement local API](runtime-docker/local-api.md): lancer FastAPI en conteneur, exposer
+   `/openapi.json` et valider les probes.
+3. [Lancement local MCP](runtime-docker/local-mcp.md): lancer FastMCP en `streamable-http` et
+   vérifier l'accès client.
+4. [Lancement local agent](runtime-docker/local-agent.md): lancer le runtime LangGraph/agent et
+   gérer les variables LLM hors image.
+5. [Lancement local autres possibilités](runtime-docker/local-other-modes.md): modes `all`,
+   `mcp_sse`, `bus` et overrides runtime.
+6. [Docker Compose](runtime-docker/docker-compose.md): orchestrer API, MCP, agent, worker et
+   dépendances locales.
+7. [Kubernetes](runtime-docker/kubernetes.md): déployer l'image en workloads séparés, avec probes,
+   secrets, ressources et sécurité.
 
-Les projets créés par `arclith-cli init` incluent déjà `Dockerfile`, `.dockerignore` et
-`arclith-run`. Pour ajouter ou régénérer ces fichiers dans un projet existant:
-
-```bash
-arclith-cli add-adapter \
-  --capability runtime \
-  --adapter docker-image \
-  --param api_port=8000 \
-  --param mcp_port=8001 \
-  --param probe_port=9000 \
-  --param agent_port=2024 \
-  --yes
-```
-
-Fichiers générés:
-
-```text
-Dockerfile
-.dockerignore
-arclith-run
-```
-
-## Build Déterministe
-
-Le Dockerfile est multi-stage:
-
-- `builder`: installe `uv`, lit `pyproject.toml` et `uv.lock`, puis exécute `uv sync --frozen`.
-- `runtime`: repart d'une image Python 3.13 slim, copie uniquement l'environnement virtuel et le
-  contexte filtré par `.dockerignore`, puis lance sous l'utilisateur non-root `1001:1001`.
-
-Avant de construire l'image, verrouiller les dépendances:
-
-```bash
-uv lock
-docker build -t my-service:local .
-```
-
-Les dépendances optionnelles sont gouvernées par le `pyproject.toml` du projet. Pour une image qui
-doit lancer un worker RabbitMQ ou un agent LangGraph, ajouter les extras correspondants avant le
-lock:
-
-```bash
-uv add "arclith[rabbitmq]"
-uv add "arclith[langgraph]"
-uv lock
-```
-
-## Modes Runtime
-
-L'entrypoint accepte un argument explicite:
-
-```bash
-docker run --rm -p 8000:8000 -p 9000:9000 my-service:local api
-docker run --rm -p 8001:8001 -p 9000:9000 my-service:local mcp_http
-docker run --rm --env MODE=all -p 8000:8000 -p 8001:8001 -p 9000:9000 my-service:local
-docker run --rm --env ARCLITH_RUNTIME_MODE=bus my-service:local
-docker run --rm -p 2024:2024 my-service:local agent
-```
-
-Les ports à droite de `-p` sont les ports écoutés dans le conteneur. Ils doivent correspondre aux
-fichiers de configuration du projet, par exemple `config/adapters/inbound/fastapi.yaml` pour
-FastAPI et `config/adapters/inbound/probe.yaml` pour les probes. Les ports à gauche sont les ports
-exposés sur le poste.
-
-Par exemple, si FastAPI est configuré sur `8120`, publier l'API sur le même port:
-
-```bash
-docker run --rm -p 8120:8120 -p 9000:9000 my-service:local api
-curl -fsS http://127.0.0.1:8120/openapi.json
-curl -fsS http://127.0.0.1:9000/health
-```
-
-Ou garder `8000` côté poste en le routant vers `8120` dans le conteneur:
-
-```bash
-docker run --rm -p 8000:8120 -p 9000:9000 my-service:local api
-curl -fsS http://127.0.0.1:8000/openapi.json
-curl -fsS http://127.0.0.1:9000/health
-```
-
-Sans `-d`, `docker run` garde le terminal attaché au serveur. Lancer les `curl` depuis un second
-terminal, ou utiliser le smoke détaché plus bas.
-
-Contrat des modes:
+## Contrat Runtime
 
 | Mode | Action |
 |---|---|
@@ -112,155 +43,29 @@ Contrat des modes:
 | `agent` | `langgraph dev` ou `ARCLITH_AGENT_COMMAND` |
 | `all` | `MODE=all python main.py` |
 
-`api` est le `CMD` par défaut. Les modes `bus`, `mcp_*` et `all` supposent que `main.py` les
-implémente. Le mode `agent` utilise `langgraph.json`; si le projet a besoin d'un serveur agent
-différent, définir `ARCLITH_AGENT_COMMAND`.
+Les modes `bus`, `agent` et `all` supposent que le projet a bien les adapters, runners et
+dépendances nécessaires. Arclith fournit le socle runtime; le projet garde la responsabilité de son
+métier, de ses handlers et de son graphe.
 
-## Probes Et Healthcheck
+## Principes SOTA
 
-Le Dockerfile expose par défaut:
+- Construire depuis un `uv.lock` à jour avec `uv sync --frozen`.
+- Ne jamais injecter de secrets au build; utiliser l'environnement runtime, Docker secrets,
+  Kubernetes Secret ou Vault.
+- Garder un processus principal par conteneur en production. Réutiliser la même image avec des
+  arguments différents plutôt que créer plusieurs images.
+- Exposer les services conteneur sur `0.0.0.0`; réserver `127.0.0.1` aux lancements hors Docker.
+- Valider `/health`, `/ready` et le endpoint métier exposé par le transport, pas seulement le fait
+  que le conteneur soit `running`.
+- Taguer les images avec une version immutable et, en déploiement, préférer un digest ou un tag de
+  release à `latest`.
+- Faire sortir logs et métriques sur les canaux standards: stdout/stderr, probes Arclith,
+  OpenTelemetry si activé.
 
-- `8000`: FastAPI.
-- `8001`: FastMCP.
-- `9000`: probes Arclith.
-- `2024`: LangGraph local server.
+## Références Officielles
 
-Le `HEALTHCHECK` interroge `/health` sur `ARCLITH_PROBE_PORT`, `9000` par défaut:
-
-```bash
-(
-  set -eu
-
-  API_CONTAINER_PORT="${API_CONTAINER_PORT:-8000}"
-  API_HOST_PORT="${API_HOST_PORT:-$API_CONTAINER_PORT}"
-  PROBE_CONTAINER_PORT="${PROBE_CONTAINER_PORT:-9000}"
-  PROBE_HOST_PORT="${PROBE_HOST_PORT:-$PROBE_CONTAINER_PORT}"
-
-  container_id="$(
-    docker run --rm -d \
-      -p "$API_HOST_PORT:$API_CONTAINER_PORT" \
-      -p "$PROBE_HOST_PORT:$PROBE_CONTAINER_PORT" \
-      my-service:local api
-  )"
-  cleanup() {
-    docker stop "$container_id" >/dev/null 2>&1 || true
-  }
-  trap cleanup EXIT
-
-  # Le HEALTHCHECK Docker utilise /health; /openapi.json est un smoke API additionnel.
-  for endpoint in "$PROBE_HOST_PORT/health" "$API_HOST_PORT/openapi.json"; do
-    ready=0
-    for _ in $(seq 1 30); do
-      if curl -fsS "http://127.0.0.1:$endpoint" >/dev/null 2>&1; then
-        ready=1
-        break
-      fi
-      sleep 1
-    done
-
-    if [ "$ready" -ne 1 ]; then
-      docker logs "$container_id"
-      exit 1
-    fi
-  done
-
-  curl -fsS "http://127.0.0.1:$PROBE_HOST_PORT/health"
-  curl -fsS "http://127.0.0.1:$API_HOST_PORT/openapi.json" >/dev/null
-)
-```
-
-## Secrets
-
-Aucun secret ne doit être fourni au build. Ne pas utiliser `ARG` ou `ENV` pour des tokens,
-mots de passe ou clés privées dans le Dockerfile. Fournir les secrets au runtime:
-
-- variables d'environnement injectées par l'orchestrateur;
-- Docker secrets montés en fichiers;
-- Vault ou adapter `secrets/chain`;
-- fichiers montés hors image, jamais copiés dans les layers.
-
-Le `.dockerignore` généré exclut notamment `.env`, `secrets.yaml`, les clés privées, `.venv`,
-les caches et les artefacts de couverture.
-
-## Compose Et Kubernetes
-
-En Compose, préférer l'argument d'entrypoint et `depends_on.condition: service_healthy` pour les
-dépendances locales:
-
-```yaml
-services:
-  api:
-    image: my-service:local
-    command: ["api"]
-    ports:
-      - "8000:8000"
-      - "9000:9000"
-
-  worker:
-    image: my-service:local
-    command: ["bus"]
-    environment:
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-```
-
-En Kubernetes, garder la même image et changer seulement `args`:
-
-```yaml
-containers:
-  - name: api
-    image: my-service:local
-    args: ["api"]
-```
-
-## Validation Locale
-
-Le smoke Docker ne pousse aucune image. Il attend explicitement que les probes et l'API soient
-disponibles, car `docker run -d` rend la main avant que les serveurs Uvicorn aient terminé leur
-démarrage:
-
-```bash
-(
-  set -eu
-
-  API_CONTAINER_PORT="${API_CONTAINER_PORT:-8000}"
-  API_HOST_PORT="${API_HOST_PORT:-$API_CONTAINER_PORT}"
-  PROBE_CONTAINER_PORT="${PROBE_CONTAINER_PORT:-9000}"
-  PROBE_HOST_PORT="${PROBE_HOST_PORT:-$PROBE_CONTAINER_PORT}"
-
-  uv lock
-  docker build -t my-service:local .
-
-  container_id="$(
-    docker run --rm -d \
-      -p "$API_HOST_PORT:$API_CONTAINER_PORT" \
-      -p "$PROBE_HOST_PORT:$PROBE_CONTAINER_PORT" \
-      my-service:local api
-  )"
-  cleanup() {
-    docker stop "$container_id" >/dev/null 2>&1 || true
-  }
-  trap cleanup EXIT
-
-  for endpoint in "$PROBE_HOST_PORT/health" "$API_HOST_PORT/openapi.json"; do
-    ready=0
-    for _ in $(seq 1 30); do
-      if curl -fsS "http://127.0.0.1:$endpoint" >/dev/null 2>&1; then
-        ready=1
-        break
-      fi
-      sleep 1
-    done
-
-    if [ "$ready" -ne 1 ]; then
-      docker logs "$container_id"
-      exit 1
-    fi
-  done
-
-  curl -fsS "http://127.0.0.1:$PROBE_HOST_PORT/health"
-  curl -fsS "http://127.0.0.1:$API_HOST_PORT/openapi.json" >/dev/null
-)
-```
+- [Docker build best practices](https://docs.docker.com/build/building/best-practices/)
+- [Docker build secrets](https://docs.docker.com/build/building/secrets/)
+- [Docker Compose startup order](https://docs.docker.com/compose/how-tos/startup-order/)
+- [Kubernetes security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
+- [Kubernetes Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/)

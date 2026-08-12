@@ -28,6 +28,15 @@ nav:
       - Quickstart Arclith: quickstart.md
       - Quickstart Agent: agent-quickstart.md
       - Capacités: capabilities.md
+  - Tutoriel Docker:
+      - Vue d'ensemble: runtime-docker.md
+      - 1. Build: runtime-docker/build.md
+      - 2. Lancement local API: runtime-docker/local-api.md
+      - 3. Lancement local MCP: runtime-docker/local-mcp.md
+      - 4. Lancement local agent: runtime-docker/local-agent.md
+      - 5. Autres modes locaux: runtime-docker/local-other-modes.md
+      - 6. Docker Compose: runtime-docker/docker-compose.md
+      - 7. Kubernetes: runtime-docker/kubernetes.md
   - Tutoriel Todo:
       - Vue d'ensemble: tutorials/todo-list/index.md
       - Préparer LM Studio: tutorials/todo-list/00-lm-studio.md
@@ -59,7 +68,6 @@ nav:
       - Auth: auth.md
       - HTTP: http-conventions.md
       - Command Bus: command-bus.md
-      - Runtime Docker: runtime-docker.md
       - Idempotence: idempotency.md
       - Multitenant: multitenant.md
       - Cache: caching.md
