@@ -66,6 +66,11 @@ nav:
       - Annexes locales: tutorials/todo-list/07-local-services.md
   - Production:
       - Baseline: production/baseline.md
+      - Auth: production/auth.md
+      - Cache: production/cache.md
+      - Secrets et Vault: production/secrets.md
+      - Observabilité: production/observability.md
+      - Runtime et probes: production/runtime.md
       - Docker:
           - Vue d'ensemble: runtime-docker.md
           - 1. Build: runtime-docker/build.md
