@@ -29,6 +29,9 @@ la page courante échoue.
 | 4 | [Projet Todo](../tutorials/todo-list/index.md) | service complet |
 | 5 | [Validation finale](validation.md) | critères de passage validés |
 
+Le format des supports vidéo et captures est décrit dans
+[Captures et vidéos](media.md).
+
 ## Parcours Production
 
 Après le parcours court:

@@ -41,6 +41,7 @@ nav:
       - Quickstarts essentiels: learning/quickstarts.md
       - Validation finale: learning/validation.md
       - Format d'une page: learning/page-format.md
+      - Captures et vidéos: learning/media.md
   - Tutoriel Todo:
       - Vue d'ensemble: tutorials/todo-list/index.md
       - Préparer LM Studio: tutorials/todo-list/00-lm-studio.md
