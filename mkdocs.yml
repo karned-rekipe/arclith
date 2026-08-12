@@ -24,6 +24,7 @@ extra_css:
 
 nav:
   - Accueil: index.md
+  - Carte: map.md
   - Quickstarts:
       - Vue d'ensemble: quickstarts/index.md
       - API: quickstarts/api.md
