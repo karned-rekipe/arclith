@@ -2,11 +2,16 @@
 
 Logger applicatif partagé par les use cases et les adapters.
 
+## Objectif
+
+Fournir un port de logging commun pour les use cases, adapters et runners, avec
+des métadonnées exploitables par l'observabilité.
+
 ## Adapter
 
 | Adapter | Usage |
 |---|---|
-| `console` | logs Loguru vers `stderr` |
+| `console` | logs Loguru vers `stderr`, enrichis si OpenTelemetry est actif |
 
 ## Commande
 
@@ -21,9 +26,20 @@ arclith-cli add-adapter --capability logger --adapter console --yes
 logger: console
 ```
 
-## Règle
+## Utiliser
 
-Les use cases reçoivent un logger injecté. Ils n'utilisent pas `print()`.
+```python
+logger = arclith.logger
+logger.info("todo created", todo_uuid=str(todo.uuid))
+```
+
+## Règles
+
+- Les use cases reçoivent un logger injecté.
+- Ne pas utiliser `print()` pour les logs applicatifs.
+- Ne jamais logger de token, mot de passe ou payload sensible.
+- Ajouter `correlation_id`, `tenant_id` ou `trace_id` quand disponibles.
+- Laisser Uvicorn passer par l'interception Arclith.
 
 ## Validation
 

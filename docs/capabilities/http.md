@@ -2,6 +2,11 @@
 
 Middlewares HTTP transverses pour FastAPI.
 
+## Objectif
+
+Standardiser les comportements HTTP qui évitent les doubles mutations,
+améliorent le cache et sécurisent les mises à jour concurrentes.
+
 ## Adapters
 
 | Adapter | Usage |
@@ -33,9 +38,21 @@ cache_control:
   get_list_max_age: 60
 ```
 
-## Règle
+## Comportements
 
-En production multi-worker, associer ces middlewares à [cache/redis](cache.md).
+| Adapter | Entrée | Sortie |
+|---|---|---|
+| `idempotency` | `Idempotency-Key` sur `POST` | replay d'une réponse déjà traitée |
+| `etag` | `If-Match`, `If-None-Match` | version attendue ou `304` |
+| `cache-control` | méthode et chemin HTTP | header `Cache-Control` adapté |
+
+## Règles
+
+- En production multi-worker, associer ces middlewares à [cache/redis](cache.md).
+- Exiger `Idempotency-Key` sur les mutations critiques.
+- Utiliser ETag pour les ressources versionnées.
+- Mettre `no-store` sur les mutations et payloads sensibles.
+- Tester les headers publics dans les tests API.
 
 ## Validation
 
@@ -48,4 +65,4 @@ curl -i -X POST http://127.0.0.1:8000/v1/items/ \
 
 ## Suite
 
-Lire [HTTP](../http-conventions.md).
+Lire [API](api.md), puis [HTTP](../http-conventions.md).
