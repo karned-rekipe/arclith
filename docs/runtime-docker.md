@@ -5,8 +5,8 @@ comment lancer cette même image en local, avec Docker Compose et avec Kubernete
 
 L'idée directrice est simple: une seule image immutable, plusieurs processus au runtime. L'image
 contient le code, les dépendances verrouillées et l'entrypoint `arclith-run`. Le choix du transport
-se fait par argument (`api`, `mcp_http`, `agent`, `bus`, `all`) ou par variable
-`ARCLITH_RUNTIME_MODE`.
+se fait par argument (`api`, `mcp_http`, `mcp_sse`, `agent`, `bus`, `all`) ou par variable
+`ARCLITH_RUNTIME_MODE` / `MODE`.
 
 ```text
 image Docker Arclith
