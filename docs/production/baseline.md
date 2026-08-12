@@ -2,7 +2,7 @@
 
 Cette page donne la configuration de base à viser pour un service Arclith de production.
 
-## Socle
+## Socle Minimal
 
 | Besoin | Capability |
 |---|---|
@@ -15,6 +15,14 @@ Cette page donne la configuration de base à viser pour un service Arclith de pr
 | Probes | [probe/server](../capabilities/probe.md) |
 | Observabilité | [observability/opentelemetry](../capabilities/observability.md) |
 | Runtime | [runtime/docker-image](../capabilities/runtime.md) |
+
+## Parcours
+
+1. [Auth production](auth.md)
+2. [Cache production](cache.md)
+3. [Secrets et Vault](secrets.md)
+4. [Observabilité production](observability.md)
+5. [Runtime et probes](runtime.md)
 
 ## Commandes De Départ
 
@@ -50,5 +58,5 @@ docker build -t my-service:local .
 
 ## Suite
 
-Lire les fiches capabilities, puis [Docker Compose](../runtime-docker/docker-compose.md) et
-[Kubernetes](../runtime-docker/kubernetes.md).
+Lire les pages du parcours ci-dessus, puis [Docker Compose](../runtime-docker/docker-compose.md)
+et [Kubernetes](../runtime-docker/kubernetes.md).
