@@ -2,6 +2,11 @@
 
 Runtime de déploiement standardisé.
 
+## Objectif
+
+Générer une image unique capable de lancer les transports Arclith fréquents sans
+rebuild: API, MCP, bus et agent.
+
 ## Adapter
 
 | Adapter | Usage |
@@ -31,14 +36,34 @@ arclith-run
 | `bus` | `MODE=bus python main.py` |
 | `agent` | `langgraph dev` ou `ARCLITH_AGENT_COMMAND` |
 
+## Variables Utiles
+
+| Variable | Usage |
+|---|---|
+| `MODE` | mode par défaut si aucun argument n'est passé |
+| `ARCLITH_API_PORT` | port exposé API |
+| `ARCLITH_MCP_PORT` | port exposé MCP |
+| `ARCLITH_PROBE_PORT` | port probes |
+| `ARCLITH_AGENT_PORT` | port LangGraph |
+| `ARCLITH_AGENT_COMMAND` | commande agent personnalisée |
+
+## Règles
+
+- Une image par service, plusieurs modes de lancement.
+- Aucun secret dans les layers Docker.
+- Utilisateur non-root dans l'image finale.
+- Configuration et secrets injectés au runtime.
+- Readiness vérifiée via `probe/server`.
+
 ## Validation
 
 ```bash
 docker build -t my-service:local .
-docker run --rm -p 9000:9000 my-service:local api
+docker run --rm -d --name my-service -p 9000:9000 my-service:local api
 curl -fsS http://127.0.0.1:9000/health
+docker stop my-service
 ```
 
 ## Suite
 
-Lire [Tutoriel Docker](../runtime-docker.md).
+Lire [Runtime et probes](../production/runtime.md), puis [Tutoriel Docker](../runtime-docker.md).
