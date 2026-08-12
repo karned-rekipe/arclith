@@ -104,8 +104,13 @@ Le Dockerfile expose par défaut:
 Le `HEALTHCHECK` interroge `/health` sur `ARCLITH_PROBE_PORT`, `9000` par défaut:
 
 ```bash
-docker run --rm -p 8000:8000 -p 9000:9000 my-service:local api
+container_id="$(docker run --rm -d -p 8000:8000 -p 9000:9000 my-service:local api)"
+for _ in $(seq 1 30); do
+  curl -fsS http://127.0.0.1:9000/health >/dev/null 2>&1 && break
+  sleep 1
+done
 curl -fsS http://127.0.0.1:9000/health
+docker stop "$container_id"
 ```
 
 ## Secrets
@@ -156,12 +161,36 @@ containers:
 
 ## Validation Locale
 
-Le smoke Docker ne pousse aucune image:
+Le smoke Docker ne pousse aucune image. Il attend explicitement que les probes soient disponibles,
+car `docker run -d` rend la main avant que Uvicorn ait terminé son démarrage:
 
 ```bash
-uv lock
-docker build -t my-service:local .
-docker run --rm -d --name my-service-smoke -p 8000:8000 -p 9000:9000 my-service:local api
-curl -fsS http://127.0.0.1:9000/health
-docker rm -f my-service-smoke
+(
+  set -eu
+
+  uv lock
+  docker build -t my-service:local .
+
+  container_id="$(docker run --rm -d -p 8000:8000 -p 9000:9000 my-service:local api)"
+  cleanup() {
+    docker stop "$container_id" >/dev/null 2>&1 || true
+  }
+  trap cleanup EXIT
+
+  ready=0
+  for _ in $(seq 1 30); do
+    if curl -fsS http://127.0.0.1:9000/health >/dev/null 2>&1; then
+      ready=1
+      break
+    fi
+    sleep 1
+  done
+
+  if [ "$ready" -ne 1 ]; then
+    docker logs "$container_id"
+    exit 1
+  fi
+
+  curl -fsS http://127.0.0.1:9000/health
+)
 ```
