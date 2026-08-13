@@ -16,6 +16,7 @@ from arclith.infrastructure.config import (
     OpenTelemetrySettings,
     RabbitMQCommandBusSettings,
     SoftDeleteSettings,
+    StorageSettings,
     _deep_merge,
     _resolve_key_path,
     export_config_yaml,
@@ -28,6 +29,7 @@ from arclith.infrastructure.config import (
 
 def test_default_config_uses_memory():
     assert AppConfig().adapters.repository == "memory"
+    assert AppConfig().adapters.storage is None
     assert AppConfig().adapters.observability.enabled == []
     assert AppConfig().command_bus.enabled == []
 
@@ -70,6 +72,7 @@ def test_resolve_output_adapter():
     assert _resolve_key_path(Path("adapters/outbound/mongodb.yaml")) == ["adapters", "mongodb"]
     assert _resolve_key_path(Path("adapters/outbound/duckdb.yaml")) == ["adapters", "duckdb"]
     assert _resolve_key_path(Path("adapters/outbound/mariadb.yaml")) == ["adapters", "mariadb"]
+    assert _resolve_key_path(Path("adapters/outbound/storage.yaml")) == ["adapters", "storage"]
 
 
 def test_resolve_input_alias_fastapi():
@@ -238,6 +241,58 @@ def test_load_config_dir_mariadb_scoped():
     assert config.adapters.mariadb is not None
     assert config.adapters.mariadb.database == "demo"
     assert config.adapters.mariadb.user == "app"
+
+
+def test_load_config_dir_storage_filesystem_scoped():
+    path = _make_config_dir({
+        "adapters/outbound/storage.yaml": {
+            "adapter": "filesystem",
+            "root_path": "/data/files",
+            "prefix": "uploads",
+            "create_root": False,
+            "multitenant": False,
+        },
+    })
+    config = load_config_dir(path)
+
+    assert config.adapters.storage is not None
+    assert config.adapters.storage.adapter == "filesystem"
+    assert config.adapters.storage.root_path == "/data/files"
+    assert config.adapters.storage.prefix == "uploads"
+    assert config.adapters.storage.create_root is False
+    assert config.adapters.storage.multitenant is False
+
+
+@pytest.mark.parametrize(
+    ("payload", "missing"),
+    [
+        ({"adapter": "filesystem"}, "root_path"),
+        ({"adapter": "s3"}, "bucket_name"),
+        ({"adapter": "gcs"}, "bucket_name"),
+        ({"adapter": "azure-blob", "account_url": "https://account.blob.core.windows.net"}, "container_name"),
+    ],
+)
+def test_storage_single_tenant_requires_backend_target(payload: dict[str, str], missing: str) -> None:
+    with pytest.raises(ValidationError, match=missing):
+        StorageSettings.model_validate(payload)
+
+
+@pytest.mark.parametrize("adapter", ["filesystem", "s3", "azure-blob", "gcs"])
+def test_storage_multitenant_allows_tenant_resolved_target(adapter: str) -> None:
+    settings = StorageSettings.model_validate({"adapter": adapter, "multitenant": True})
+
+    assert settings.adapter == adapter
+    assert settings.multitenant is True
+
+
+@pytest.mark.parametrize("prefix", ["../uploads", "uploads/../private", "/uploads", "uploads//drafts"])
+def test_storage_prefix_rejects_traversal(prefix: str) -> None:
+    with pytest.raises(ValidationError, match="storage key"):
+        StorageSettings.model_validate({
+            "adapter": "filesystem",
+            "root_path": "/data/files",
+            "prefix": prefix,
+        })
 
 
 def test_load_config_dir_langsmith_scoped():

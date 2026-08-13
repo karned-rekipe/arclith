@@ -868,6 +868,113 @@ def test_add_lmstudio_llm_adapter_generates_lm_config_only(tmp_path: Path) -> No
     assert arclith.config.adapters.lm.base_url == "http://127.0.0.1:1234/v1"
 
 
+@pytest.mark.parametrize(
+    ("adapter", "params", "expected"),
+    [
+        (
+            "filesystem",
+            {
+                "root_path": "/data/files",
+                "prefix": "uploads",
+                "create_root": "true",
+                "multitenant": "false",
+            },
+            {
+                "adapter": "filesystem",
+                "root_path": "/data/files",
+                "prefix": "uploads",
+                "create_root": True,
+                "multitenant": False,
+            },
+        ),
+        (
+            "s3",
+            {
+                "bucket_name": "arclith-files",
+                "prefix": "uploads",
+                "region_name": "eu-west-3",
+                "endpoint_url": "null",
+                "force_path_style": "false",
+                "multitenant": "false",
+            },
+            {
+                "adapter": "s3",
+                "bucket_name": "arclith-files",
+                "prefix": "uploads",
+                "region_name": "eu-west-3",
+                "endpoint_url": None,
+                "force_path_style": False,
+                "multitenant": False,
+            },
+        ),
+        (
+            "azure-blob",
+            {
+                "account_url": "https://account.blob.core.windows.net",
+                "container_name": "arclith-files",
+                "prefix": "uploads",
+                "multitenant": "false",
+            },
+            {
+                "adapter": "azure-blob",
+                "account_url": "https://account.blob.core.windows.net",
+                "container_name": "arclith-files",
+                "prefix": "uploads",
+                "multitenant": False,
+            },
+        ),
+        (
+            "gcs",
+            {
+                "bucket_name": "arclith-files",
+                "prefix": "uploads",
+                "project_id": "null",
+                "multitenant": "false",
+            },
+            {
+                "adapter": "gcs",
+                "bucket_name": "arclith-files",
+                "prefix": "uploads",
+                "project_id": None,
+                "multitenant": False,
+            },
+        ),
+    ],
+)
+def test_add_storage_adapter_generates_loadable_config_only(
+    tmp_path: Path,
+    adapter: str,
+    params: dict[str, str],
+    expected: dict[str, object],
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    config_path = project_dir / "config" / "adapters" / "outbound" / "storage.yaml"
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="storage",
+        adapter=adapter,
+        adapter_params=params,
+        yes=True,
+    )
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+
+    assert config == expected
+    assert "storage:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+        encoding="utf-8"
+    )
+    package_root = project_dir / "src" / "demo_service"
+    assert not (package_root / "adapters" / "outbound" / adapter).exists()
+
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+
+    assert arclith.config.adapters.storage is not None
+    assert arclith.config.adapters.storage.adapter == adapter
+    assert arclith.config.adapters.storage.prefix == "uploads"
+
+
 def test_add_openai_llm_adapter_generates_secret_mapping(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

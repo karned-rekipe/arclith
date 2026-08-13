@@ -29,6 +29,7 @@ Chaque capability possède son propre fichier quand c'est pertinent:
 | MCP | `config/adapters/inbound/fastmcp.yaml` |
 | Agent | `config/adapters/inbound/langgraph.yaml` |
 | Repository | `config/adapters/outbound/mongodb.yaml` |
+| Storage | `config/adapters/outbound/storage.yaml` |
 | LLM | `config/adapters/outbound/lm.yaml` |
 | Command Bus | `config/command_bus.yaml` |
 
@@ -99,6 +100,7 @@ mal configuré.
 
 - [Capability Secrets](../capabilities/secrets.md)
 - [Capability Tenant](../capabilities/tenant.md)
+- [Capability Storage](../capabilities/storage.md)
 - [Capability LLM](../capabilities/llm.md)
 - [Baseline production](../production/baseline.md)
 
