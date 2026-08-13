@@ -44,6 +44,7 @@ fiche dédiée:
 - [Agent](capabilities/agent.md)
 - [Command Bus](capabilities/command-bus.md)
 - [Repository](capabilities/repository.md)
+- [Storage](capabilities/storage.md)
 - [Auth](capabilities/auth.md)
 - [Tenant](capabilities/tenant.md)
 - [License](capabilities/license.md)

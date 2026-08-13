@@ -432,6 +432,56 @@ def test_repository_adapter_specs_include_config_and_parameters() -> None:
     ]
 
 
+def test_storage_capability_catalog_declares_object_storage_adapters() -> None:
+    capability = get_capability("storage")
+
+    assert capability is not None
+    assert capability.layer == "outbound"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("filesystem", "s3", "azure-blob", "gcs")
+
+    filesystem = capability.get_adapter("filesystem")
+    s3 = capability.get_adapter("s3")
+    azure_blob = capability.get_adapter("azure-blob")
+    gcs = capability.get_adapter("gcs")
+
+    assert filesystem is not None
+    assert filesystem.config_path == "config/adapters/outbound/storage.yaml"
+    assert filesystem.entity_scoped is False
+    assert [parameter.name for parameter in filesystem.parameters] == [
+        "root_path",
+        "prefix",
+        "create_root",
+        "multitenant",
+    ]
+    assert s3 is not None
+    assert s3.config_path == "config/adapters/outbound/storage.yaml"
+    assert [parameter.name for parameter in s3.parameters] == [
+        "bucket_name",
+        "prefix",
+        "region_name",
+        "endpoint_url",
+        "force_path_style",
+        "multitenant",
+    ]
+    assert azure_blob is not None
+    assert azure_blob.config_path == "config/adapters/outbound/storage.yaml"
+    assert [parameter.name for parameter in azure_blob.parameters] == [
+        "account_url",
+        "container_name",
+        "prefix",
+        "multitenant",
+    ]
+    assert gcs is not None
+    assert gcs.config_path == "config/adapters/outbound/storage.yaml"
+    assert [parameter.name for parameter in gcs.parameters] == [
+        "bucket_name",
+        "prefix",
+        "project_id",
+        "multitenant",
+    ]
+
+
 def test_capability_catalog_is_json_serializable() -> None:
     payload = capability_catalog_as_dict()
 
@@ -439,6 +489,10 @@ def test_capability_catalog_is_json_serializable() -> None:
 
     assert "repository" in encoded
     assert "mongodb" in encoded
+    assert "storage" in encoded
+    assert "filesystem" in encoded
+    assert "azure-blob" in encoded
+    assert "gcs" in encoded
     assert "cache" in encoded
     assert "redis" in encoded
     assert "logger" in encoded
@@ -500,6 +554,34 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert [mapping["secret_key"] for mapping in mariadb["secret_mappings"]] == [
         "MARIADB_URL",
         "MARIADB_PASSWORD",
+    ]
+    storage = payload_by_name["storage"]
+    assert storage["layer"] == "outbound"
+    assert storage["activation_config_key"] is None
+    assert [adapter["name"] for adapter in storage["adapters"]] == [
+        "filesystem",
+        "s3",
+        "azure-blob",
+        "gcs",
+    ]
+    filesystem = storage["adapters"][0]
+    assert filesystem["config_path"] == "config/adapters/outbound/storage.yaml"
+    assert filesystem["entity_scoped"] is False
+    assert [parameter["name"] for parameter in filesystem["parameters"]] == [
+        "root_path",
+        "prefix",
+        "create_root",
+        "multitenant",
+    ]
+    s3 = storage["adapters"][1]
+    assert s3["config_path"] == "config/adapters/outbound/storage.yaml"
+    assert [parameter["name"] for parameter in s3["parameters"]] == [
+        "bucket_name",
+        "prefix",
+        "region_name",
+        "endpoint_url",
+        "force_path_style",
+        "multitenant",
     ]
     cache = payload_by_name["cache"]
     assert [adapter["name"] for adapter in cache["adapters"]] == ["memory", "redis"]

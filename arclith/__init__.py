@@ -9,6 +9,19 @@ from arclith.arclith import Arclith
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.inbound.command_bus import CommandHandler
 from arclith.domain.ports.outbound.command_bus import CommandPublisher
+from arclith.domain.ports.outbound.file_storage import (
+    FileStorageConflict,
+    FileStorageError,
+    FileStorageInvalidKey,
+    FileStorageNotFound,
+    FileStoragePermissionDenied,
+    FileStoragePort,
+    FileStorageUnavailable,
+    StoredObject,
+    StoredObjectMetadata,
+    StoredObjectStream,
+    normalize_storage_key,
+)
 from arclith.domain.ports.outbound.logger import Logger, LogLevel
 from arclith.domain.ports.outbound.repository import Repository
 from arclith.infrastructure.adapter_registry import AdapterRegistry
@@ -22,6 +35,17 @@ if TYPE_CHECKING:  # pragma: no cover - for static type checkers only
 __all__ = [
     "Entity",
     "Repository",
+    "FileStoragePort",
+    "StoredObject",
+    "StoredObjectMetadata",
+    "StoredObjectStream",
+    "FileStorageError",
+    "FileStorageInvalidKey",
+    "FileStorageNotFound",
+    "FileStorageConflict",
+    "FileStorageUnavailable",
+    "FileStoragePermissionDenied",
+    "normalize_storage_key",
     "Logger",
     "LogLevel",
     "BaseService",

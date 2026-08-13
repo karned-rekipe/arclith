@@ -95,6 +95,7 @@ nav:
       - Probe: capabilities/probe.md
       - Runtime: capabilities/runtime.md
       - Repository: capabilities/repository.md
+      - Storage: capabilities/storage.md
       - Cache: capabilities/cache.md
       - Logger: capabilities/logger.md
       - Secrets: capabilities/secrets.md

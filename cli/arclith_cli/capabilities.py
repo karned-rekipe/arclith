@@ -287,6 +287,193 @@ multitenant: false
     ),
 )
 
+STORAGE_CAPABILITY = CapabilitySpec(
+    name="storage",
+    layer="outbound",
+    description="Stockage de fichiers et blobs derrière un port FileStoragePort.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="filesystem",
+            capability="storage",
+            layer="outbound",
+            description="Stockage fichier local, typiquement monté dans Docker via un volume.",
+            config_path="config/adapters/outbound/storage.yaml",
+            config_template="""\
+adapter: filesystem
+root_path: "{root_path}"
+prefix: "{prefix}"
+create_root: {create_root}
+multitenant: {multitenant}
+""",
+            parameters=(
+                ParameterSpec(
+                    name="root_path",
+                    kind="string",
+                    prompt="Chemin conteneur du dossier de fichiers",
+                    default="/data/files",
+                ),
+                ParameterSpec(
+                    name="prefix",
+                    kind="string",
+                    prompt="Préfixe d'objets",
+                    default="",
+                ),
+                ParameterSpec(
+                    name="create_root",
+                    kind="boolean",
+                    prompt="Créer le dossier racine au démarrage",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="multitenant",
+                    kind="boolean",
+                    prompt="Résoudre le stockage par tenant",
+                    default=False,
+                ),
+            ),
+            entity_scoped=False,
+        ),
+        AdapterSpec(
+            name="s3",
+            capability="storage",
+            layer="outbound",
+            description="Stockage objet AWS S3 compatible MinIO via endpoint custom.",
+            config_path="config/adapters/outbound/storage.yaml",
+            config_template="""\
+adapter: s3
+bucket_name: "{bucket_name}"
+prefix: "{prefix}"
+region_name: "{region_name}"
+endpoint_url: {endpoint_url}
+force_path_style: {force_path_style}
+multitenant: {multitenant}
+""",
+            parameters=(
+                ParameterSpec(
+                    name="bucket_name",
+                    kind="string",
+                    prompt="Bucket S3",
+                    default="my-bucket",
+                ),
+                ParameterSpec(
+                    name="prefix",
+                    kind="string",
+                    prompt="Préfixe d'objets",
+                    default="",
+                ),
+                ParameterSpec(
+                    name="region_name",
+                    kind="string",
+                    prompt="Région AWS",
+                    default="eu-west-3",
+                ),
+                ParameterSpec(
+                    name="endpoint_url",
+                    kind="string",
+                    prompt="Endpoint S3 custom ou null",
+                    default="null",
+                ),
+                ParameterSpec(
+                    name="force_path_style",
+                    kind="boolean",
+                    prompt="Forcer le path-style S3",
+                    default=False,
+                ),
+                ParameterSpec(
+                    name="multitenant",
+                    kind="boolean",
+                    prompt="Résoudre le stockage par tenant",
+                    default=False,
+                ),
+            ),
+            entity_scoped=False,
+        ),
+        AdapterSpec(
+            name="azure-blob",
+            capability="storage",
+            layer="outbound",
+            description="Stockage objet Azure Blob Storage.",
+            config_path="config/adapters/outbound/storage.yaml",
+            config_template="""\
+adapter: azure-blob
+account_url: "{account_url}"
+container_name: "{container_name}"
+prefix: "{prefix}"
+multitenant: {multitenant}
+""",
+            parameters=(
+                ParameterSpec(
+                    name="account_url",
+                    kind="string",
+                    prompt="URL du compte Azure Blob",
+                    default="https://<account>.blob.core.windows.net",
+                ),
+                ParameterSpec(
+                    name="container_name",
+                    kind="string",
+                    prompt="Container Azure Blob",
+                    default="my-container",
+                ),
+                ParameterSpec(
+                    name="prefix",
+                    kind="string",
+                    prompt="Préfixe d'objets",
+                    default="",
+                ),
+                ParameterSpec(
+                    name="multitenant",
+                    kind="boolean",
+                    prompt="Résoudre le stockage par tenant",
+                    default=False,
+                ),
+            ),
+            entity_scoped=False,
+        ),
+        AdapterSpec(
+            name="gcs",
+            capability="storage",
+            layer="outbound",
+            description="Stockage objet Google Cloud Storage.",
+            config_path="config/adapters/outbound/storage.yaml",
+            config_template="""\
+adapter: gcs
+bucket_name: "{bucket_name}"
+prefix: "{prefix}"
+project_id: {project_id}
+multitenant: {multitenant}
+""",
+            parameters=(
+                ParameterSpec(
+                    name="bucket_name",
+                    kind="string",
+                    prompt="Bucket Google Cloud Storage",
+                    default="my-bucket",
+                ),
+                ParameterSpec(
+                    name="prefix",
+                    kind="string",
+                    prompt="Préfixe d'objets",
+                    default="",
+                ),
+                ParameterSpec(
+                    name="project_id",
+                    kind="string",
+                    prompt="Project ID GCP ou null",
+                    default="null",
+                ),
+                ParameterSpec(
+                    name="multitenant",
+                    kind="boolean",
+                    prompt="Résoudre le stockage par tenant",
+                    default=False,
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
 CACHE_CAPABILITY = CapabilitySpec(
     name="cache",
     layer="outbound",
@@ -1478,6 +1665,7 @@ OTEL_EXPORTER_OTLP_HEADERS={headers}
 
 CAPABILITY_CATALOG = (
     REPOSITORY_CAPABILITY,
+    STORAGE_CAPABILITY,
     CACHE_CAPABILITY,
     LOGGER_CAPABILITY,
     SECRETS_CAPABILITY,

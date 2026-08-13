@@ -25,6 +25,7 @@ arclith-cli capabilities --json
 | [probe](capabilities/probe.md) | inbound | `server` | exposer `/health` et `/ready` |
 | [http](capabilities/http.md) | inbound | `idempotency`, `etag`, `cache-control` | durcir les conventions HTTP |
 | [repository](capabilities/repository.md) | outbound | `memory`, `mongodb`, `duckdb`, `mariadb` | persister les entités |
+| [storage](capabilities/storage.md) | outbound | `filesystem`, `s3`, `azure-blob`, `gcs` | stocker fichiers et blobs |
 | [cache](capabilities/cache.md) | outbound | `memory`, `redis` | partager JWKS, tenants et idempotence |
 | [logger](capabilities/logger.md) | outbound | `console` | standardiser les logs |
 | [secrets](capabilities/secrets.md) | outbound | `env`, `yaml`, `vault`, `chain` | résoudre les secrets |
@@ -41,6 +42,7 @@ arclith-cli capabilities --json
 | MCP minimal | [Quickstart MCP](quickstarts/mcp.md), puis [mcp/fastmcp](capabilities/mcp.md) |
 | Bus RabbitMQ | [Quickstart Bus](quickstarts/bus.md), puis [command-bus/rabbitmq](capabilities/command-bus.md) |
 | Agent local | [Quickstart Agent](quickstarts/agent.md), puis [agent/langgraph](capabilities/agent.md) |
+| Fichiers et blobs | [storage](capabilities/storage.md), puis [secrets](capabilities/secrets.md) pour les credentials |
 | Service production | [Baseline production](production/baseline.md), puis les pages de la section Production |
 | Déploiement | [Runtime Docker](runtime-docker.md), puis [Docker Compose](runtime-docker/docker-compose.md) |
 

@@ -12,6 +12,7 @@ Cette page donne la configuration de base à viser pour un service Arclith de pr
 | Secrets | [secrets/vault](../capabilities/secrets.md) ou [secrets/chain](../capabilities/secrets.md) |
 | Cache partagé | [cache/redis](../capabilities/cache.md) |
 | Repository | [repository/mongodb](../capabilities/repository.md) ou [repository/mariadb](../capabilities/repository.md) |
+| Fichiers et blobs | [storage](../capabilities/storage.md), si le service manipule des fichiers |
 | Probes | [probe/server](../capabilities/probe.md) |
 | Observabilité | [observability/opentelemetry](../capabilities/observability.md) |
 | Runtime | [runtime/docker-image](../capabilities/runtime.md) |
@@ -44,6 +45,7 @@ arclith-cli add-adapter --capability runtime --adapter docker-image --yes
 
 - Aucun secret réel dans Git.
 - `cache/redis` dès qu'il y a plusieurs workers, réplicas ou processus.
+- `storage` dès qu'un fichier doit survivre au processus ou être partagé entre replicas.
 - `probe/server` obligatoire avant Docker ou Kubernetes.
 - Les adapters inbound appellent les use cases, jamais les repositories concrets.
 - L'image Docker reçoit les secrets au runtime, jamais au build.
