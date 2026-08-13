@@ -34,3 +34,4 @@ def test_public_file_storage_exports():
     assert isinstance(registry, arclith.FileStorageRegistry)
     assert arclith.build_file_storage is not None
     assert arclith.FilesystemFileStorage is not None
+    assert arclith.S3FileStorage is not None

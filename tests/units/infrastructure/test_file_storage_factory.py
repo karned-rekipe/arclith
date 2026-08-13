@@ -4,6 +4,7 @@ import pytest
 
 from arclith import Arclith
 from arclith.adapters.outbound.filesystem import FilesystemFileStorage
+from arclith.adapters.outbound.s3 import S3FileStorage
 from arclith.domain.ports.outbound.file_storage import FileStoragePort
 from arclith.infrastructure.config import AppConfig, StorageSettings
 from arclith.infrastructure.file_storage_factory import (
@@ -27,6 +28,25 @@ def test_build_file_storage_returns_filesystem_adapter(logger, tmp_path: Path) -
     storage = build_file_storage(config, logger)
 
     assert isinstance(storage, FilesystemFileStorage)
+
+
+def test_build_file_storage_returns_s3_adapter(logger) -> None:
+    config = AppConfig.model_validate({
+        "adapters": {
+            "storage": {
+                "adapter": "s3",
+                "bucket_name": "arclith-files",
+                "prefix": "uploads",
+                "region_name": "eu-west-3",
+                "endpoint_url": "http://127.0.0.1:9000",
+                "force_path_style": True,
+            }
+        }
+    })
+
+    storage = build_file_storage(config, logger)
+
+    assert isinstance(storage, S3FileStorage)
 
 
 def test_build_file_storage_requires_storage_config(logger) -> None:

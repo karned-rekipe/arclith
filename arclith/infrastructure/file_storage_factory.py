@@ -41,7 +41,11 @@ def build_file_storage(
 
 
 def default_file_storage_registry() -> FileStorageRegistry:
-    return FileStorageRegistry().register("filesystem", _build_filesystem_file_storage)
+    return (
+        FileStorageRegistry()
+        .register("filesystem", _build_filesystem_file_storage)
+        .register("s3", _build_s3_file_storage)
+    )
 
 
 def _build_filesystem_file_storage(config: AppConfig, _logger: Logger) -> FileStoragePort:
@@ -58,5 +62,24 @@ def _build_filesystem_file_storage(config: AppConfig, _logger: Logger) -> FileSt
             root_path=settings.root_path,
             prefix=settings.prefix,
             create_root=settings.create_root,
+        )
+    )
+
+
+def _build_s3_file_storage(config: AppConfig, _logger: Logger) -> FileStoragePort:
+    from arclith.adapters.outbound.s3 import S3FileStorage, S3StorageConfig
+
+    settings = config.adapters.storage
+    if settings is None:
+        raise ValueError("S3 storage settings are required")
+
+    return S3FileStorage(
+        S3StorageConfig(
+            bucket_name=settings.bucket_name,
+            prefix=settings.prefix,
+            region_name=settings.region_name,
+            endpoint_url=settings.endpoint_url,
+            force_path_style=settings.force_path_style,
+            multitenant=settings.multitenant,
         )
     )

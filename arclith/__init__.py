@@ -4,6 +4,7 @@ from arclith.adapters.inbound.schemas.base_schema import BaseSchema
 from arclith.adapters.outbound.filesystem import FilesystemFileStorage, FilesystemStorageConfig
 from arclith.adapters.outbound.memory.repository import InMemoryRepository
 from arclith.adapters.outbound.mongodb.config import MongoDBConfig
+from arclith.adapters.outbound.s3 import S3FileStorage, S3StorageConfig
 from arclith.application.command_bus import CommandDispatcher, CommandEnvelope
 from arclith.application.services.base_service import BaseService
 from arclith.arclith import Arclith
@@ -54,6 +55,8 @@ __all__ = [
     "normalize_storage_key",
     "FilesystemFileStorage",
     "FilesystemStorageConfig",
+    "S3FileStorage",
+    "S3StorageConfig",
     "Logger",
     "LogLevel",
     "BaseService",

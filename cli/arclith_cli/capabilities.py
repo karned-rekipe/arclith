@@ -342,6 +342,7 @@ multitenant: {multitenant}
             config_path="config/adapters/outbound/storage.yaml",
             config_template="""\
 adapter: s3
+# Credentials: chaîne AWS par défaut, variables d'environnement, rôle IAM ou TenantContext.
 bucket_name: "{bucket_name}"
 prefix: "{prefix}"
 region_name: "{region_name}"
