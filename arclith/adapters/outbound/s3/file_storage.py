@@ -4,7 +4,7 @@ import tempfile
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, NoReturn
 
 from arclith.adapters.context import get_adapter_tenant_context
 from arclith.domain.models.tenant import AdapterTenantCoords
@@ -452,7 +452,7 @@ def _provider_error_code(error: Exception) -> str | None:
     return str(code)
 
 
-def _raise_s3_storage_error(error: Exception, *, key: str) -> None:
+def _raise_s3_storage_error(error: Exception, *, key: str) -> NoReturn:
     code = _provider_error_code(error)
     error_name = type(error).__name__
     if code in _NOT_FOUND_CODES:
