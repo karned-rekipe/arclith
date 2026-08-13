@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from arclith.adapters.inbound.schemas.base_schema import BaseSchema
+from arclith.adapters.outbound.filesystem import FilesystemFileStorage, FilesystemStorageConfig
 from arclith.adapters.outbound.memory.repository import InMemoryRepository
 from arclith.adapters.outbound.mongodb.config import MongoDBConfig
 from arclith.application.command_bus import CommandDispatcher, CommandEnvelope
@@ -26,6 +27,11 @@ from arclith.domain.ports.outbound.logger import Logger, LogLevel
 from arclith.domain.ports.outbound.repository import Repository
 from arclith.infrastructure.adapter_registry import AdapterRegistry
 from arclith.infrastructure.config import AppConfig, LMSettings, export_config_yaml, load_config_dir, load_config_file
+from arclith.infrastructure.file_storage_factory import (
+    FileStorageRegistry,
+    build_file_storage,
+    default_file_storage_registry,
+)
 from arclith.infrastructure.project_layout import ProjectLayout, ProjectLayoutKind, canonical_project_layout
 from arclith.infrastructure.repository_factory import RepositoryRegistry, build_repository, default_repository_registry
 
@@ -46,6 +52,8 @@ __all__ = [
     "FileStorageUnavailable",
     "FileStoragePermissionDenied",
     "normalize_storage_key",
+    "FilesystemFileStorage",
+    "FilesystemStorageConfig",
     "Logger",
     "LogLevel",
     "BaseService",
@@ -66,6 +74,9 @@ __all__ = [
     "RepositoryRegistry",
     "build_repository",
     "default_repository_registry",
+    "FileStorageRegistry",
+    "build_file_storage",
+    "default_file_storage_registry",
     "ProjectLayout",
     "ProjectLayoutKind",
     "canonical_project_layout",

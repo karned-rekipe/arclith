@@ -662,6 +662,12 @@ def test_export_config_yaml_round_trip():
         "soft_delete.yaml": {"retention_days": 14},
         "adapters/adapters.yaml": {"repository": "duckdb"},
         "adapters/outbound/duckdb.yaml": {"path": "data/"},
+        "adapters/outbound/storage.yaml": {
+            "adapter": "filesystem",
+            "root_path": "/data/files",
+            "prefix": "uploads",
+            "create_root": True,
+        },
         "adapters/inbound/fastapi.yaml": {"port": 8765},
     })
     out = config_dir / "config.yaml"
@@ -673,6 +679,7 @@ def test_export_config_yaml_round_trip():
     assert from_dir.app.name == from_file.app.name
     assert from_dir.soft_delete.retention_days == from_file.soft_delete.retention_days
     assert from_dir.adapters.repository == from_file.adapters.repository
+    assert from_dir.adapters.storage == from_file.adapters.storage
     assert from_dir.api.port == from_file.api.port
 
 

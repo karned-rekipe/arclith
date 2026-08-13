@@ -949,17 +949,23 @@ def test_add_storage_adapter_generates_loadable_config_only(
 ) -> None:
     project_dir = _minimal_project(tmp_path)
     config_path = project_dir / "config" / "adapters" / "outbound" / "storage.yaml"
+    adapter_params = dict(params)
+    expected_config = dict(expected)
+    if adapter == "filesystem":
+        root_path = project_dir / "files"
+        adapter_params["root_path"] = str(root_path)
+        expected_config["root_path"] = str(root_path)
 
     add_adapter_cmd(
         project_dir=project_dir,
         capability_name="storage",
         adapter=adapter,
-        adapter_params=params,
+        adapter_params=adapter_params,
         yes=True,
     )
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
 
-    assert config == expected
+    assert config == expected_config
     assert "storage:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     )
@@ -973,6 +979,10 @@ def test_add_storage_adapter_generates_loadable_config_only(
     assert arclith.config.adapters.storage is not None
     assert arclith.config.adapters.storage.adapter == adapter
     assert arclith.config.adapters.storage.prefix == "uploads"
+    if adapter == "filesystem":
+        from arclith.adapters.outbound.filesystem import FilesystemFileStorage
+
+        assert isinstance(arclith.file_storage(), FilesystemFileStorage)
 
 
 def test_add_openai_llm_adapter_generates_secret_mapping(

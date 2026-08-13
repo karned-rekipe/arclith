@@ -1,0 +1,62 @@
+from collections.abc import Callable
+
+from arclith.domain.ports.outbound.file_storage import FileStoragePort
+from arclith.domain.ports.outbound.logger import Logger
+from arclith.infrastructure.config import AppConfig
+
+FileStorageFactory = Callable[[AppConfig, Logger], FileStoragePort]
+
+
+class FileStorageRegistry:
+    """Registry mapping file-storage adapter names to factories."""
+
+    def __init__(self) -> None:
+        self._factories: dict[str, FileStorageFactory] = {}
+
+    def register(self, name: str, factory: FileStorageFactory) -> "FileStorageRegistry":
+        self._factories[name] = factory
+        return self
+
+    def build(self, config: AppConfig, logger: Logger) -> FileStoragePort:
+        settings = config.adapters.storage
+        if settings is None:
+            raise ValueError("adapters.storage is required to build file storage")
+        if settings.adapter not in self._factories:
+            raise ValueError(
+                f"File storage adapter '{settings.adapter}' not registered. "
+                f"Available: {sorted(self._factories)}."
+            )
+        return self._factories[settings.adapter](config, logger)
+
+
+def build_file_storage(
+    config: AppConfig,
+    logger: Logger,
+    *,
+    registry: FileStorageRegistry | None = None,
+) -> FileStoragePort:
+    if registry is None:
+        return default_file_storage_registry().build(config, logger)
+    return registry.build(config, logger)
+
+
+def default_file_storage_registry() -> FileStorageRegistry:
+    return FileStorageRegistry().register("filesystem", _build_filesystem_file_storage)
+
+
+def _build_filesystem_file_storage(config: AppConfig, _logger: Logger) -> FileStoragePort:
+    from arclith.adapters.outbound.filesystem import FilesystemFileStorage, FilesystemStorageConfig
+
+    settings = config.adapters.storage
+    if settings is None:
+        raise ValueError("Filesystem storage settings are required")
+    if settings.root_path is None:
+        raise ValueError("Filesystem storage root_path is required")
+
+    return FilesystemFileStorage(
+        FilesystemStorageConfig(
+            root_path=settings.root_path,
+            prefix=settings.prefix,
+            create_root=settings.create_root,
+        )
+    )
