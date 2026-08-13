@@ -12,9 +12,11 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, Literal, TypeVar, overload
 
 from arclith.adapters.outbound.opentelemetry.correlation import log_record_trace_metadata
 from arclith.domain.models.entity import Entity
+from arclith.domain.ports.outbound.file_storage import FileStoragePort
 from arclith.domain.ports.outbound.logger import Logger, LogLevel
 from arclith.domain.ports.outbound.repository import Repository
 from arclith.infrastructure.config import AppConfig, load_config_dir, load_config_file
+from arclith.infrastructure.file_storage_factory import FileStorageRegistry
 from arclith.infrastructure.repository_factory import RepositoryRegistry
 
 if TYPE_CHECKING:
@@ -106,6 +108,15 @@ class Arclith:
         from arclith.infrastructure.repository_factory import build_repository
 
         return build_repository(self.config, entity_class, self.logger, registry=registry)
+
+    def file_storage(
+        self,
+        *,
+        registry: FileStorageRegistry | None = None,
+    ) -> FileStoragePort:
+        from arclith.infrastructure.file_storage_factory import build_file_storage
+
+        return build_file_storage(self.config, self.logger, registry=registry)
 
     def rabbitmq_command_bus(self) -> "RabbitMQCommandBus":
         if not self.config.command_bus.is_enabled("rabbitmq"):

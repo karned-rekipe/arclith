@@ -102,6 +102,116 @@ multitenant: false
 Monter `/data/files` sur un volume persistant dans Docker ou Kubernetes.
 `prefix` reste relatif à `root_path`.
 
+### Utilisation Locale
+
+```python
+from arclith import Arclith
+
+app = Arclith("config")
+storage = app.file_storage()
+
+async def save_invoice(content: bytes) -> str:
+    await storage.put(
+        "invoices/2026-08.pdf",
+        _single_chunk(content),
+        content_type="application/pdf",
+        metadata={"kind": "invoice"},
+    )
+    return "invoices/2026-08.pdf"
+
+async def _single_chunk(content: bytes):
+    yield content
+```
+
+Le chemin `root_path` est un détail d'infrastructure. Les use cases manipulent
+uniquement des clés relatives comme `invoices/2026-08.pdf`.
+
+### Metadata Filesystem
+
+L'adapter filesystem stocke le contenu dans `root_path/prefix/<key>` et les
+métadonnées dans un sidecar JSON sous `.arclith-storage-metadata/`.
+
+Cette stratégie garde le contenu lisible comme des fichiers standards, tout en
+préservant `content_type`, `checksum`, `etag` et `custom`. Le répertoire
+`.arclith-storage-metadata/` est réservé: une clé utilisateur ne peut pas
+commencer par ce préfixe.
+
+### Docker Compose
+
+```yaml
+services:
+  api:
+    image: my-service:local
+    command: ["api"]
+    user: "1001:1001"
+    volumes:
+      - file-storage:/data/files
+
+volumes:
+  file-storage:
+```
+
+Pour un bind mount local:
+
+```yaml
+services:
+  api:
+    volumes:
+      - ./var/files:/data/files
+```
+
+Le dossier hôte doit appartenir à l'UID/GID utilisé dans le conteneur, par
+exemple `1001:1001` si l'image suit la baseline non-root.
+
+### Kubernetes
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: my-service-files
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-service-api
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      containers:
+        - name: api
+          image: ghcr.io/karned-rekipe/my-service:0.1.0
+          volumeMounts:
+            - name: file-storage
+              mountPath: /data/files
+      volumes:
+        - name: file-storage
+          persistentVolumeClaim:
+            claimName: my-service-files
+```
+
+Avec plusieurs réplicas, un filesystem local ou un volume `ReadWriteOnce` ne
+garantit pas le partage entre pods. Utiliser un stockage partagé compatible ou
+un provider objet pour les workloads multi-réplicas.
+
+### Production
+
+- Exécuter l'image avec un utilisateur non-root qui peut écrire dans le volume.
+- Sauvegarder le volume comme une donnée applicative.
+- Éviter les symlinks dans `root_path`: l'adapter refuse ceux qui sortent de la
+  racine, mais la plateforme doit aussi contrôler les permissions.
+- Ne pas exposer `root_path` dans les erreurs retournées aux clients.
+
 ## AWS S3
 
 ```yaml

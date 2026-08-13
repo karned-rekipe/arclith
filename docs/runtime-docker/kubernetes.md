@@ -145,6 +145,54 @@ spec:
       targetPort: http
 ```
 
+## Persistent Volume Pour Storage Filesystem
+
+Quand la capability `storage/filesystem` est activée, monter un volume persistant
+sur le même chemin que `root_path`, par exemple `/data/files`.
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: my-service-files
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-service-api
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      containers:
+        - name: api
+          image: ghcr.io/karned-rekipe/my-service:0.1.0
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: file-storage
+              mountPath: /data/files
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: file-storage
+          persistentVolumeClaim:
+            claimName: my-service-files
+```
+
+Un PVC `ReadWriteOnce` convient à un seul writer. Pour plusieurs réplicas qui
+doivent partager les mêmes fichiers, choisir un storage class compatible
+`ReadWriteMany` ou basculer vers un provider objet.
+
 ## MCP, Agent Et Worker
 
 MCP réutilise l'image avec un autre argument:

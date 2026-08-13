@@ -117,6 +117,38 @@ volumes:
   mongo-data:
 ```
 
+## Ajouter Un Volume Filesystem Storage
+
+Pour `storage/filesystem`, l'application voit un chemin conteneur stable,
+typiquement `/data/files`.
+
+```yaml
+services:
+  api:
+    <<: *arclith-service
+    command: ["api"]
+    user: "1001:1001"
+    volumes:
+      - file-storage:/data/files
+
+volumes:
+  file-storage:
+```
+
+La config Arclith correspondante:
+
+```yaml
+# config/adapters/outbound/storage.yaml
+adapter: filesystem
+root_path: "/data/files"
+prefix: ""
+create_root: true
+multitenant: false
+```
+
+Pour un bind mount local, remplacer le volume nommé par `./var/files:/data/files`
+et ajuster les droits du dossier hôte pour l'UID/GID du conteneur.
+
 ## Réseaux Et Exposition
 
 Par défaut, Compose crée un réseau privé par projet. Exposer sur le host uniquement les transports
