@@ -68,8 +68,8 @@ class FilesystemFileStorage(FileStoragePort):
                             continue
                         digest.update(chunk)
                         size += len(chunk)
-                        file.write(chunk)
-                    file.flush()
+                        await asyncio.to_thread(file.write, chunk)
+                    await asyncio.to_thread(file.flush)
                 self._replace_file(tmp_path, target_path, normalized_key)
             finally:
                 if tmp_path.exists():
@@ -188,16 +188,22 @@ class FilesystemFileStorage(FileStoragePort):
         for part in relative_parent.parts:
             current = current / part
             if current.exists():
-                self._assert_contained(current, None)
-                if not current.is_dir():
-                    raise FileStorageConflict("filesystem storage parent path is not a directory")
+                self._assert_directory(current)
             else:
                 try:
-                    current.mkdir()
+                    current.mkdir(exist_ok=True)
+                    self._assert_directory(current)
+                except FileExistsError as e:
+                    raise FileStorageConflict("filesystem storage parent path is not a directory") from e
                 except PermissionError as e:
                     raise FileStoragePermissionDenied("filesystem storage parent is not writable") from e
                 except OSError as e:
                     raise FileStorageUnavailable("filesystem storage parent is unavailable") from e
+
+    def _assert_directory(self, path: Path) -> None:
+        self._assert_contained(path, None)
+        if not path.is_dir():
+            raise FileStorageConflict("filesystem storage parent path is not a directory")
 
     def _temporary_path(self, parent: Path) -> Path:
         with tempfile.NamedTemporaryFile(prefix=".arclith-", suffix=".tmp", dir=parent, delete=False) as file:

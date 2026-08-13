@@ -1,5 +1,7 @@
-from collections.abc import AsyncIterator
+import asyncio
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -77,6 +79,27 @@ async def test_filesystem_file_storage_overwrites_existing_file(tmp_path: Path) 
 
     assert stored.size == 6
     assert await _collect(stream.body) == b"second"
+
+
+@pytest.mark.asyncio
+async def test_filesystem_file_storage_offloads_write_operations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    storage = FilesystemFileStorage(FilesystemStorageConfig(root_path=tmp_path))
+    calls: list[str] = []
+    original_to_thread = asyncio.to_thread
+
+    async def spy_to_thread(func: Callable[..., Any], /, *args: Any, **kwargs: Any) -> Any:
+        calls.append(getattr(func, "__name__", type(func).__name__))
+        return await original_to_thread(func, *args, **kwargs)
+
+    monkeypatch.setattr(asyncio, "to_thread", spy_to_thread)
+
+    await storage.put("docs/readme.txt", _chunks(b"first", b"second"))
+
+    assert calls.count("write") == 2
+    assert "flush" in calls
 
 
 @pytest.mark.parametrize(
@@ -182,6 +205,32 @@ async def test_filesystem_file_storage_rejects_file_parent_path(tmp_path: Path) 
 
     with pytest.raises(FileStorageConflict, match="parent"):
         await storage.put("docs/readme.txt", _chunks(b"blocked"))
+
+
+@pytest.mark.asyncio
+async def test_filesystem_file_storage_tolerates_concurrent_parent_creation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    storage = FilesystemFileStorage(FilesystemStorageConfig(root_path=tmp_path))
+    raced_parent = tmp_path / "docs"
+    original_mkdir = Path.mkdir
+
+    def mkdir_with_race(
+        self: Path,
+        mode: int = 0o777,
+        parents: bool = False,
+        exist_ok: bool = False,
+    ) -> None:
+        if self == raced_parent and not raced_parent.exists():
+            original_mkdir(self, mode=mode, parents=parents, exist_ok=False)
+        original_mkdir(self, mode=mode, parents=parents, exist_ok=exist_ok)
+
+    monkeypatch.setattr(Path, "mkdir", mkdir_with_race)
+
+    await storage.put("docs/readme.txt", _chunks(b"content"))
+
+    assert (tmp_path / "docs" / "readme.txt").read_bytes() == b"content"
 
 
 @pytest.mark.asyncio
