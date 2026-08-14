@@ -401,8 +401,29 @@ adapter: azure-blob
 account_url: "{account_url}"
 container_name: "{container_name}"
 prefix: "{prefix}"
+connection_string: null
+account_key: null
+sas_token: null
+use_default_credential: {use_default_credential}
 multitenant: {multitenant}
+# Credentials: mappez connection_string, account_key ou sas_token via
+# config/secrets.yaml, Vault, ou TenantContext. use_default_credential=true
+# délègue à DefaultAzureCredential du SDK Azure.
 """,
+            secret_mappings=(
+                SecretMappingSpec(
+                    field_path="adapters.storage.connection_string",
+                    secret_key="AZURE_STORAGE_CONNECTION_STRING",
+                ),
+                SecretMappingSpec(
+                    field_path="adapters.storage.account_key",
+                    secret_key="AZURE_STORAGE_ACCOUNT_KEY",
+                ),
+                SecretMappingSpec(
+                    field_path="adapters.storage.sas_token",
+                    secret_key="AZURE_STORAGE_SAS_TOKEN",
+                ),
+            ),
             parameters=(
                 ParameterSpec(
                     name="account_url",
@@ -421,6 +442,12 @@ multitenant: {multitenant}
                     kind="string",
                     prompt="Préfixe d'objets",
                     default="",
+                ),
+                ParameterSpec(
+                    name="use_default_credential",
+                    kind="boolean",
+                    prompt="Utiliser DefaultAzureCredential",
+                    default=False,
                 ),
                 ParameterSpec(
                     name="multitenant",

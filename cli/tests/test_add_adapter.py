@@ -913,6 +913,7 @@ def test_add_lmstudio_llm_adapter_generates_lm_config_only(tmp_path: Path) -> No
                 "account_url": "https://account.blob.core.windows.net",
                 "container_name": "arclith-files",
                 "prefix": "uploads",
+                "use_default_credential": "false",
                 "multitenant": "false",
             },
             {
@@ -920,6 +921,10 @@ def test_add_lmstudio_llm_adapter_generates_lm_config_only(tmp_path: Path) -> No
                 "account_url": "https://account.blob.core.windows.net",
                 "container_name": "arclith-files",
                 "prefix": "uploads",
+                "connection_string": None,
+                "account_key": None,
+                "sas_token": None,
+                "use_default_credential": False,
                 "multitenant": False,
             },
         ),
@@ -972,6 +977,16 @@ def test_add_storage_adapter_generates_loadable_config_only(
     assert "storage:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     )
+    if adapter == "azure-blob":
+        secrets = yaml.safe_load(
+            (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
+        )
+        assert secrets["resolver"] == "env"
+        assert secrets["mappings"] == {
+            "adapters.storage.connection_string": "AZURE_STORAGE_CONNECTION_STRING",
+            "adapters.storage.account_key": "AZURE_STORAGE_ACCOUNT_KEY",
+            "adapters.storage.sas_token": "AZURE_STORAGE_SAS_TOKEN",
+        }
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "outbound" / adapter).exists()
 
