@@ -263,6 +263,30 @@ def test_load_config_dir_storage_filesystem_scoped():
     assert config.adapters.storage.multitenant is False
 
 
+def test_load_config_dir_storage_s3_scoped():
+    path = _make_config_dir({
+        "adapters/outbound/storage.yaml": {
+            "adapter": "s3",
+            "bucket_name": "arclith-files",
+            "prefix": "uploads",
+            "region_name": "eu-west-3",
+            "endpoint_url": "http://127.0.0.1:9000",
+            "force_path_style": True,
+            "multitenant": False,
+        },
+    })
+    config = load_config_dir(path)
+
+    assert config.adapters.storage is not None
+    assert config.adapters.storage.adapter == "s3"
+    assert config.adapters.storage.bucket_name == "arclith-files"
+    assert config.adapters.storage.prefix == "uploads"
+    assert config.adapters.storage.region_name == "eu-west-3"
+    assert config.adapters.storage.endpoint_url == "http://127.0.0.1:9000"
+    assert config.adapters.storage.force_path_style is True
+    assert config.adapters.storage.multitenant is False
+
+
 @pytest.mark.parametrize(
     ("payload", "missing"),
     [

@@ -214,6 +214,14 @@ un provider objet pour les workloads multi-réplicas.
 
 ## AWS S3
 
+Installer l'extra uniquement dans les services qui utilisent S3:
+
+```bash
+uv add "arclith[s3]"
+```
+
+L'installation de base d'Arclith ne charge pas `boto3`.
+
 ```yaml
 # config/adapters/outbound/storage.yaml
 adapter: s3
@@ -225,9 +233,130 @@ force_path_style: false
 multitenant: false
 ```
 
-`endpoint_url` permet de viser un backend compatible S3 comme MinIO.
-Les credentials AWS doivent venir de l'environnement, d'un secret manager ou de
-la capability [secrets](secrets.md).
+`endpoint_url: null` utilise AWS S3. Une URL explicite permet de viser MinIO ou
+un backend compatible S3. `force_path_style: true` est requis par beaucoup de
+backends locaux.
+
+### Credentials
+
+L'adapter garde la chaîne standard du SDK AWS par défaut. Ne pas écrire de clés
+dans `storage.yaml`.
+
+Sources courantes:
+
+- rôle IAM de la plateforme;
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`;
+- `AWS_PROFILE`;
+- `AWS_REGION` ou `AWS_DEFAULT_REGION` si `region_name` n'est pas configuré.
+
+En multitenant, le resolver tenant peut fournir les paramètres `bucket_name`,
+`prefix`, `endpoint_url`, `region_name`, `force_path_style`, `profile_name`,
+`aws_access_key_id`, `aws_secret_access_key` et `aws_session_token` dans
+`AdapterTenantCoords` pour l'adapter `s3`.
+
+### MinIO Local
+
+```yaml
+services:
+  minio:
+    image: quay.io/minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+  minio-init:
+    image: quay.io/minio/mc:latest
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done &&
+      mc mb -p local/arclith-files || true
+      "
+
+volumes:
+  minio-data:
+```
+
+Configuration Arclith depuis un conteneur du même compose:
+
+```yaml
+# config/adapters/outbound/storage.yaml
+adapter: s3
+bucket_name: "arclith-files"
+prefix: "uploads"
+region_name: "eu-west-3"
+endpoint_url: "http://minio:9000"
+force_path_style: true
+multitenant: false
+```
+
+Variables locales:
+
+```bash
+export AWS_ACCESS_KEY_ID=minioadmin
+export AWS_SECRET_ACCESS_KEY=minioadmin
+export AWS_DEFAULT_REGION=eu-west-3
+```
+
+Depuis la machine hôte hors Docker, utiliser
+`endpoint_url: "http://127.0.0.1:9000"`.
+
+### Use Case
+
+```python
+from collections.abc import AsyncIterator
+
+from arclith import FileStoragePort, StoredObjectStream
+
+
+class InvoiceStorageUseCase:
+    def __init__(self, storage: FileStoragePort) -> None:
+        self._storage = storage
+
+    async def upload_pdf(self, invoice_id: str, content: AsyncIterator[bytes]) -> str:
+        key = f"invoices/{invoice_id}.pdf"
+        await self._storage.put(
+            key,
+            content,
+            content_type="application/pdf",
+            metadata={"kind": "invoice"},
+        )
+        return key
+
+    async def download(self, key: str) -> StoredObjectStream:
+        return await self._storage.get(key)
+```
+
+Le use case dépend de `FileStoragePort`, jamais de `boto3`. La route FastAPI ou
+le tool MCP injecte le use case, pas le SDK S3.
+
+### IAM Minimal
+
+Pour un préfixe `uploads/` dans le bucket `my-bucket`, donner les permissions
+objet minimales:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::my-bucket/uploads/*"
+    }
+  ]
+}
+```
+
+`HeadObject` est couvert par `s3:GetObject`. Ajouter `s3:ListBucket` uniquement
+si un use case applicatif liste des objets; le port `FileStoragePort` actuel ne
+liste pas.
 
 ## Azure Blob
 
@@ -269,6 +398,18 @@ En mode single-tenant, la configuration doit contenir la cible backend minimale:
 En mode `multitenant: true`, l'adapter peut résoudre bucket, container ou
 racine filesystem depuis le contexte tenant. Le contrat reste le même pour les
 use cases.
+
+Pour S3, deux modèles sont recommandés:
+
+- bucket par tenant: isolation forte, IAM plus simple par bucket;
+- préfixe par tenant: mutualise le bucket, mais exige des policies bornées sur
+  `arn:aws:s3:::bucket/<tenant-prefix>/*`.
+
+Si les credentials sont résolus par tenant, stocker les clés dans le resolver
+tenant, pas dans Git. Les coordonnées S3 attendues dans `TenantContext` sont
+celles de l'adapter `s3`: `bucket_name`, `prefix`, `endpoint_url`,
+`region_name`, `force_path_style`, `profile_name`, `aws_access_key_id`,
+`aws_secret_access_key`, `aws_session_token`.
 
 ## Règles
 

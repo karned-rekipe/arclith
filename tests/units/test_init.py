@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 import pytest
 
 import arclith
@@ -6,6 +9,7 @@ import arclith
 def test_getattr_console_logger():
     cls = arclith.ConsoleLogger
     from arclith.adapters.outbound.console.logger import ConsoleLogger
+
     assert cls is ConsoleLogger
 
 
@@ -34,3 +38,38 @@ def test_public_file_storage_exports():
     assert isinstance(registry, arclith.FileStorageRegistry)
     assert arclith.build_file_storage is not None
     assert arclith.FilesystemFileStorage is not None
+    assert arclith.S3FileStorage is not None
+
+
+def test_import_arclith_does_not_require_s3_extra():
+    script = """
+import importlib.abc
+import sys
+
+
+class BlockS3Extras(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        if fullname == "boto3" or fullname.startswith("boto3."):
+            raise ModuleNotFoundError(fullname)
+        if fullname == "botocore" or fullname.startswith("botocore."):
+            raise ModuleNotFoundError(fullname)
+        return None
+
+
+sys.meta_path.insert(0, BlockS3Extras())
+
+import arclith
+
+arclith.default_file_storage_registry()
+assert arclith.S3FileStorage is not None
+print(arclith.__name__)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "arclith"
