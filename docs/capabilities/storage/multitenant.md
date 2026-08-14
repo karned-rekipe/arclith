@@ -50,7 +50,7 @@ resolver tenant, pas directement dans le use case.
 
 | Adapter | Coordonnees tenant |
 |---|---|
-| `s3` | `bucket_name`, `prefix`, `region_name`, `endpoint_url`, `force_path_style`, `profile_name`, `aws_access_key_id`, `aws_secret_access_key`, `aws_session_token` |
+| `s3` | `bucket_name`, `prefix`, `region_name` (`region`), `endpoint_url`, `force_path_style`, `profile_name`, `aws_access_key_id` (`access_key_id`), `aws_secret_access_key` (`secret_access_key`), `aws_session_token` (`session_token`) |
 | `azure-blob` | `account_url`, `blob_service_url`, `container_name`, `container`, `prefix`, `connection_string`, `conn_str`, `account_key`, `storage_account_key`, `sas_token`, `use_default_credential`, `default_credential`, `managed_identity` |
 | `gcs` | `bucket_name`, `prefix`, `project_id`, `project`, `credentials_path`, `service_account_file`, `credentials_json`, `service_account_json`, `credentials_json_b64`, `service_account_json_b64` |
 
