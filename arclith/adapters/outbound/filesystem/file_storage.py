@@ -3,11 +3,12 @@ import hashlib
 import json
 import tempfile
 from collections.abc import AsyncIterator, Mapping
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from arclith.adapters.outbound.filesystem.config import FilesystemStorageConfig
+from arclith.adapters.outbound.storage.transfer import DEFAULT_STORAGE_CHUNK_SIZE
 from arclith.domain.ports.outbound.file_storage import (
     FileStorageConflict,
     FileStorageInvalidKey,
@@ -21,15 +22,7 @@ from arclith.domain.ports.outbound.file_storage import (
     normalize_storage_key,
 )
 
-_CHUNK_SIZE = 1024 * 1024
 _METADATA_ROOT = ".arclith-storage-metadata"
-
-
-@dataclass(frozen=True)
-class FilesystemStorageConfig:
-    root_path: str | Path
-    prefix: str = ""
-    create_root: bool = True
 
 
 class FilesystemFileStorage(FileStoragePort):
@@ -230,7 +223,10 @@ class FilesystemFileStorage(FileStoragePort):
         try:
             with path.open("rb") as file:
                 while True:
-                    chunk = await asyncio.to_thread(file.read, _CHUNK_SIZE)
+                    chunk = await asyncio.to_thread(
+                        file.read,
+                        DEFAULT_STORAGE_CHUNK_SIZE,
+                    )
                     if not chunk:
                         break
                     yield chunk

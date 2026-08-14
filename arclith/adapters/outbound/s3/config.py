@@ -1,10 +1,12 @@
 from dataclasses import dataclass
 
 from arclith.adapters.context import get_adapter_tenant_context
-from arclith.domain.models.tenant import AdapterTenantCoords
-from arclith.domain.ports.outbound.file_storage import (
-    FileStorageUnavailable,
-    normalize_storage_key,
+from arclith.adapters.outbound.storage.config import (
+    optional_text,
+    tenant_bool,
+    tenant_first_text,
+    tenant_optional_text,
+    tenant_prefix,
 )
 
 
@@ -31,12 +33,6 @@ class ResolvedS3Config:
     aws_session_token: str | None = None
 
 
-def normalize_optional_prefix(prefix: str) -> str:
-    if not prefix:
-        return ""
-    return normalize_storage_key(prefix)
-
-
 def resolve_s3_config(
     config: S3StorageConfig,
     *,
@@ -44,10 +40,10 @@ def resolve_s3_config(
     key: str,
 ) -> ResolvedS3Config:
     base = ResolvedS3Config(
-        bucket_name=_optional_text(config.bucket_name),
+        bucket_name=optional_text(config.bucket_name),
         prefix=base_prefix,
-        region_name=_optional_text(config.region_name),
-        endpoint_url=_optional_text(config.endpoint_url),
+        region_name=optional_text(config.region_name),
+        endpoint_url=optional_text(config.endpoint_url),
         force_path_style=config.force_path_style,
     )
     if not config.multitenant:
@@ -58,74 +54,29 @@ def resolve_s3_config(
         return base
 
     return ResolvedS3Config(
-        bucket_name=_tenant_optional_text(coords, "bucket_name", base.bucket_name),
-        prefix=_tenant_prefix(coords, base.prefix),
-        region_name=_tenant_first_text(
+        bucket_name=tenant_optional_text(coords, "bucket_name", base.bucket_name),
+        prefix=tenant_prefix(coords, base.prefix),
+        region_name=tenant_first_text(
             coords, ("region_name", "region"), base.region_name
         ),
-        endpoint_url=_tenant_optional_text(coords, "endpoint_url", base.endpoint_url),
-        force_path_style=_tenant_bool(
-            coords, "force_path_style", base.force_path_style, key
+        endpoint_url=tenant_optional_text(coords, "endpoint_url", base.endpoint_url),
+        force_path_style=tenant_bool(
+            coords,
+            "force_path_style",
+            base.force_path_style,
+            key,
+            adapter_label="s3",
         ),
-        profile_name=_tenant_optional_text(coords, "profile_name", None),
-        aws_access_key_id=_tenant_first_text(
+        profile_name=tenant_optional_text(coords, "profile_name", None),
+        aws_access_key_id=tenant_first_text(
             coords, ("aws_access_key_id", "access_key_id"), None
         ),
-        aws_secret_access_key=_tenant_first_text(
+        aws_secret_access_key=tenant_first_text(
             coords,
             ("aws_secret_access_key", "secret_access_key"),
             None,
         ),
-        aws_session_token=_tenant_first_text(
+        aws_session_token=tenant_first_text(
             coords, ("aws_session_token", "session_token"), None
         ),
-    )
-
-
-def _tenant_prefix(coords: AdapterTenantCoords, fallback: str) -> str:
-    if "prefix" not in coords.params:
-        return fallback
-    return normalize_optional_prefix(coords.params["prefix"])
-
-
-def _tenant_optional_text(
-    coords: AdapterTenantCoords, key: str, fallback: str | None
-) -> str | None:
-    if key not in coords.params:
-        return fallback
-    return _optional_text(coords.params[key])
-
-
-def _tenant_first_text(
-    coords: AdapterTenantCoords,
-    keys: tuple[str, ...],
-    fallback: str | None,
-) -> str | None:
-    for key in keys:
-        if key in coords.params:
-            return _optional_text(coords.params[key])
-    return fallback
-
-
-def _optional_text(value: str | None) -> str | None:
-    if value is None:
-        return None
-    stripped = value.strip()
-    if not stripped:
-        return None
-    return stripped
-
-
-def _tenant_bool(
-    coords: AdapterTenantCoords, field: str, fallback: bool, key: str
-) -> bool:
-    if field not in coords.params:
-        return fallback
-    normalized = coords.params[field].strip().lower()
-    if normalized in {"1", "true", "yes", "on"}:
-        return True
-    if normalized in {"0", "false", "no", "off"}:
-        return False
-    raise FileStorageUnavailable(
-        f"s3 storage tenant field {field} must be boolean", key=key
     )

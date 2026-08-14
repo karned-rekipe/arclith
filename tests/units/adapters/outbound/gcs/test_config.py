@@ -1,9 +1,9 @@
 from arclith.adapters.context import set_tenant_context
 from arclith.adapters.outbound.gcs.config import (
     GCSStorageConfig,
-    normalize_optional_prefix,
     resolve_gcs_config,
 )
+from arclith.adapters.outbound.storage.config import normalize_optional_prefix
 from arclith.domain.models.tenant import AdapterTenantCoords, TenantContext
 
 
