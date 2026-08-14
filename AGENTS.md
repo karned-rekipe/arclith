@@ -28,9 +28,10 @@ Fournir les primitives réutilisables pour construire des services en architectu
 
 ## Flux nominal Pull Request
 
-- Après création ou mise à jour d'une PR, consulter les commentaires et conversations GitHub générés par Copilot.
+- Après création ou mise à jour d'une PR, consulter les commentaires et conversations GitHub générés par Copilot. Cette étape est obligatoire avant de considérer la PR prête.
 - Traiter les commentaires Copilot actionnables comme des retours de review normaux : corriger le code, les tests ou la documentation concernés.
 - Résoudre les conversations Copilot une fois le point traité. Si un commentaire n'est pas actionnable, répondre avec la justification technique avant de résoudre.
+- Avant le message final utilisateur, refaire une lecture thread-aware des commentaires Copilot/review et signaler explicitement le résultat.
 - Toute capability ajoutée ou modifiée doit être documentée dans la documentation Pages. Une PR qui touche au catalogue
   `arclith-cli` doit mettre à jour la page de capability correspondante, son lien dans `docs/capabilities.md` et, si le
   flux est courant, le quickstart associé.

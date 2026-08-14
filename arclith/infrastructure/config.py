@@ -144,6 +144,9 @@ class StorageSettings(BaseModel):
     account_url: str | None = None
     container_name: str | None = None
     project_id: str | None = None
+    credentials_path: str | None = None
+    credentials_json: str | None = None
+    credentials_json_b64: str | None = None
 
     @field_validator("prefix")
     @classmethod

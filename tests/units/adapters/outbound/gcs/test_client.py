@@ -97,16 +97,15 @@ def test_create_gcs_client_uses_json_credentials(
     assert captured["client"] == {"credentials": "credentials-from-info"}
 
 
-def test_create_gcs_client_uses_encoded_env_credentials(
+def test_create_gcs_client_uses_encoded_config_credentials(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, Any] = {}
     expected_client = object()
     _install_fake_google_modules(monkeypatch, captured, expected_client)
     encoded = base64.b64encode(b'{"type":"service_account"}').decode()
-    monkeypatch.setenv("ARCLITH_GCS_CREDENTIALS_JSON_B64", encoded)
 
-    gcs_client.create_gcs_client(_resolved_config())
+    gcs_client.create_gcs_client(_resolved_config(credentials_json_b64=encoded))
 
     assert captured["service_account_info"] == {"type": "service_account"}
     assert captured["client"] == {"credentials": "credentials-from-info"}

@@ -13,6 +13,8 @@ def test_resolve_gcs_config_uses_base_config_without_tenant_context() -> None:
             bucket_name="arclith-files",
             prefix="unused",
             project_id=" project-a ",
+            credentials_path=" /run/secrets/gcs.json ",
+            credentials_json_b64=" encoded ",
         ),
         base_prefix=normalize_optional_prefix("uploads"),
     )
@@ -20,7 +22,9 @@ def test_resolve_gcs_config_uses_base_config_without_tenant_context() -> None:
     assert resolved.bucket_name == "arclith-files"
     assert resolved.prefix == "uploads"
     assert resolved.project_id == "project-a"
-    assert resolved.credentials_path is None
+    assert resolved.credentials_path == "/run/secrets/gcs.json"
+    assert resolved.credentials_json is None
+    assert resolved.credentials_json_b64 == "encoded"
 
 
 def test_resolve_gcs_config_uses_tenant_defaults_when_fields_are_absent() -> None:
@@ -82,3 +86,31 @@ def test_resolve_gcs_config_uses_tenant_prefix_and_credentials_json() -> None:
     assert resolved.bucket_name == "fallback-bucket"
     assert resolved.prefix == "tenant-a"
     assert resolved.credentials_json == '{"type":"service_account"}'
+
+
+def test_resolve_gcs_config_keeps_base_credentials_without_tenant_override() -> None:
+    token = set_tenant_context(
+        TenantContext(
+            adapters={
+                "gcs": AdapterTenantCoords(
+                    params={
+                        "bucket_name": "tenant-bucket",
+                    }
+                )
+            }
+        )
+    )
+    try:
+        resolved = resolve_gcs_config(
+            GCSStorageConfig(
+                bucket_name="fallback-bucket",
+                credentials_json_b64="fallback-encoded",
+                multitenant=True,
+            ),
+            base_prefix="",
+        )
+    finally:
+        token.var.reset(token)
+
+    assert resolved.bucket_name == "tenant-bucket"
+    assert resolved.credentials_json_b64 == "fallback-encoded"

@@ -98,6 +98,9 @@ def _build_gcs_file_storage(config: AppConfig, _logger: Logger) -> FileStoragePo
             bucket_name=settings.bucket_name,
             prefix=settings.prefix,
             project_id=settings.project_id,
+            credentials_path=settings.credentials_path,
+            credentials_json=settings.credentials_json,
+            credentials_json_b64=settings.credentials_json_b64,
             multitenant=settings.multitenant,
         )
     )

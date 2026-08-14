@@ -294,6 +294,7 @@ def test_load_config_dir_storage_gcs_scoped():
             "bucket_name": "arclith-files",
             "prefix": "uploads",
             "project_id": "project-a",
+            "credentials_json_b64": "encoded",
             "multitenant": False,
         },
     })
@@ -304,7 +305,32 @@ def test_load_config_dir_storage_gcs_scoped():
     assert config.adapters.storage.bucket_name == "arclith-files"
     assert config.adapters.storage.prefix == "uploads"
     assert config.adapters.storage.project_id == "project-a"
+    assert config.adapters.storage.credentials_json_b64 == "encoded"
     assert config.adapters.storage.multitenant is False
+
+
+def test_load_config_dir_storage_gcs_credentials_from_secret_mapping(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("GCS_SERVICE_ACCOUNT_JSON_B64", "encoded-from-env")
+    path = _make_config_dir({
+        "adapters/outbound/storage.yaml": {
+            "adapter": "gcs",
+            "bucket_name": "arclith-files",
+            "credentials_json_b64": None,
+        },
+        "secrets.yaml": {
+            "resolver": "env",
+            "mappings": {
+                "adapters.storage.credentials_json_b64": "GCS_SERVICE_ACCOUNT_JSON_B64",
+            },
+        },
+    })
+    config = load_config_dir(path)
+
+    assert config.adapters.storage is not None
+    assert config.adapters.storage.adapter == "gcs"
+    assert config.adapters.storage.credentials_json_b64 == "encoded-from-env"
 
 
 @pytest.mark.parametrize(

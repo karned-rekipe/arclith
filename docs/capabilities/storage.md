@@ -387,6 +387,9 @@ adapter: gcs
 bucket_name: "my-bucket"
 prefix: ""
 project_id: null
+credentials_path: null
+credentials_json: null
+credentials_json_b64: null
 multitenant: false
 ```
 
@@ -402,10 +405,46 @@ clé de service account dans `storage.yaml`.
 Sources courantes:
 
 - Workload Identity sur GKE ou identité managée de la plateforme;
-- `GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-service-account.json`;
-- `ARCLITH_GCS_CREDENTIALS_PATH=/run/secrets/gcp-service-account.json`;
-- `ARCLITH_GCS_CREDENTIALS_JSON` pour un JSON injecté par secret manager;
-- `ARCLITH_GCS_CREDENTIALS_JSON_B64` pour un JSON encodé base64.
+- `GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-service-account.json`, chaîne
+  standard du SDK Google;
+- `credentials_path`, `credentials_json` ou `credentials_json_b64` résolus par
+  `config/secrets.yaml`, Vault, YAML local gitignoré ou le resolver `env`;
+- `credentials_path`, `credentials_json` ou `credentials_json_b64` fournis par
+  `TenantContext` en multitenant.
+
+Exemple avec le resolver `env`:
+
+```yaml
+# config/adapters/outbound/storage.yaml
+adapter: gcs
+bucket_name: "my-bucket"
+prefix: ""
+project_id: "my-project"
+credentials_json_b64: null
+multitenant: false
+```
+
+```yaml
+# config/secrets.yaml
+resolver: env
+mappings:
+  adapters.storage.credentials_json_b64: GCS_SERVICE_ACCOUNT_JSON_B64
+```
+
+Exemple avec Vault KV v2:
+
+```yaml
+# config/secrets.yaml
+resolver: vault
+vault:
+  addr: "http://vault:8200"
+  mount: "kv"
+mappings:
+  adapters.storage.credentials_json_b64: apps/my-service/gcs-service-account
+```
+
+Le secret Vault doit exposer sa valeur dans le champ `value`, comme les autres
+secrets Arclith.
 
 En multitenant, le resolver tenant peut fournir `bucket_name`, `prefix`,
 `project_id`, `credentials_path`, `credentials_json` ou `credentials_json_b64`
@@ -417,7 +456,7 @@ sont aussi acceptés.
 
 L'adapter retourne les métadonnées provider-neutral quand elles sont disponibles:
 
-- `content_type`, `size`, `etag`, `updated`;
+- `content_type`, `size`, `etag`, `last_modified`;
 - checksum `crc32c:<value>` ou `md5:<value>`;
 - metadata utilisateur;
 - `gcs_generation` et `gcs_metageneration` dans `custom`.
@@ -474,7 +513,7 @@ temporaire:
 
 ```bash
 export GOOGLE_APPLICATION_CREDENTIALS="$PWD/.secrets/gcs-sa.json"
-export ARCLITH_GCS_SMOKE_BUCKET="arclith-storage-smoke"
+export GCS_SMOKE_BUCKET="arclith-storage-smoke"
 ```
 
 Le test doit écrire, lire, stat, vérifier `exists`, supprimer puis revérifier

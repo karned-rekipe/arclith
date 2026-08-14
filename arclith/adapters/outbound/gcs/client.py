@@ -1,6 +1,5 @@
 import base64
 import json
-import os
 from collections.abc import Mapping
 from typing import Any
 
@@ -10,10 +9,6 @@ from arclith.domain.ports.outbound.file_storage import (
     FileStorageError,
     FileStorageUnavailable,
 )
-
-_CREDENTIALS_PATH_ENV = "ARCLITH_GCS_CREDENTIALS_PATH"
-_CREDENTIALS_JSON_ENV = "ARCLITH_GCS_CREDENTIALS_JSON"
-_CREDENTIALS_JSON_B64_ENV = "ARCLITH_GCS_CREDENTIALS_JSON_B64"
 
 
 def safe_create_gcs_client(resolved: ResolvedGCSConfig, *, key: str) -> Any:
@@ -58,19 +53,6 @@ def _credentials_from_sources(
         )
     if resolved.credentials_path is not None:
         return _credentials_from_file(resolved.credentials_path, service_account)
-
-    env_json = _optional_env(_CREDENTIALS_JSON_ENV)
-    if env_json is not None:
-        return _credentials_from_json(env_json, service_account)
-
-    env_json_b64 = _optional_env(_CREDENTIALS_JSON_B64_ENV)
-    if env_json_b64 is not None:
-        return _credentials_from_json_b64(env_json_b64, service_account)
-
-    env_path = _optional_env(_CREDENTIALS_PATH_ENV)
-    if env_path is not None:
-        return _credentials_from_file(env_path, service_account)
-
     return None
 
 
@@ -97,16 +79,6 @@ def _credentials_from_file(path: str, service_account: Any) -> Any:
         return service_account.Credentials.from_service_account_file(path)
     except Exception as e:
         raise FileStorageUnavailable("gcs storage credentials are invalid") from e
-
-
-def _optional_env(name: str) -> str | None:
-    value = os.getenv(name)
-    if value is None:
-        return None
-    stripped = value.strip()
-    if not stripped:
-        return None
-    return stripped
 
 
 def _without_none(values: Mapping[str, Any]) -> dict[str, Any]:
