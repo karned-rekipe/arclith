@@ -73,6 +73,8 @@ requires-dist = [
     { name = "fastmcp", specifier = ">=3.1.0" },
     { name = "fastmcp", marker = "extra == 'all'", specifier = "==3.1.0" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = "==3.1.0" },
+    { name = "google-cloud-storage", marker = "extra == 'all'", specifier = ">=3.3.0,<4.0.0" },
+    { name = "google-cloud-storage", marker = "extra == 'gcs'", specifier = ">=3.3.0,<4.0.0" },
     { name = "httpx", marker = "extra == 'all'", specifier = ">=0.27.0" },
     { name = "httpx", marker = "extra == 'auth'", specifier = ">=0.27.0" },
     { name = "hvac", marker = "extra == 'all'", specifier = "==2.3.0" },
@@ -114,7 +116,7 @@ requires-dist = [
     { name = "uvicorn", marker = "extra == 'all'", specifier = "==0.41.0" },
     { name = "uvicorn", marker = "extra == 'fastapi'", specifier = "==0.41.0" },
 ]
-provides-extras = ["mongodb", "duckdb", "mariadb", "fastapi", "mcp", "vault", "cache", "auth", "rabbitmq", "langgraph", "opentelemetry", "all", "s3"]
+provides-extras = ["mongodb", "duckdb", "mariadb", "fastapi", "mcp", "vault", "cache", "auth", "rabbitmq", "langgraph", "opentelemetry", "all", "s3", "gcs"]
 
 [package.metadata.requires-dev]
 dev = [

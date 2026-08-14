@@ -443,6 +443,9 @@ bucket_name: "{bucket_name}"
 prefix: "{prefix}"
 project_id: {project_id}
 multitenant: {multitenant}
+# Credentials: ADC, GOOGLE_APPLICATION_CREDENTIALS,
+# ARCLITH_GCS_CREDENTIALS_PATH, ARCLITH_GCS_CREDENTIALS_JSON,
+# ARCLITH_GCS_CREDENTIALS_JSON_B64 or TenantContext.
 """,
             parameters=(
                 ParameterSpec(

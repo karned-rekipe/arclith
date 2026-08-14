@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 from arclith.adapters.inbound.schemas.base_schema import BaseSchema
 from arclith.adapters.outbound.filesystem import FilesystemFileStorage, FilesystemStorageConfig
+from arclith.adapters.outbound.gcs import GCSFileStorage, GCSStorageConfig
 from arclith.adapters.outbound.memory.repository import InMemoryRepository
 from arclith.adapters.outbound.mongodb.config import MongoDBConfig
 from arclith.adapters.outbound.s3 import S3FileStorage, S3StorageConfig
@@ -57,6 +58,8 @@ __all__ = [
     "FilesystemStorageConfig",
     "S3FileStorage",
     "S3StorageConfig",
+    "GCSFileStorage",
+    "GCSStorageConfig",
     "Logger",
     "LogLevel",
     "BaseService",
