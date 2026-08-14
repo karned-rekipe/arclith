@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
+import threading
 from typing import Any
 
 
@@ -47,6 +48,21 @@ class FakeReadAllDownloader:
 
     def readall(self) -> bytes:
         return self._body
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class ThreadTrackingDownloader:
+    def __init__(self, *chunks: bytes) -> None:
+        self._chunks = chunks
+        self.closed = False
+        self.thread_ids: set[int] = set()
+
+    def chunks(self) -> Any:
+        for chunk in self._chunks:
+            self.thread_ids.add(threading.get_ident())
+            yield chunk
 
     def close(self) -> None:
         self.closed = True

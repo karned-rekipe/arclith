@@ -1,6 +1,8 @@
 import asyncio
 import hashlib
+import queue
 import tempfile
+import threading
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
@@ -14,6 +16,12 @@ from arclith.domain.ports.outbound.file_storage import (
 )
 
 _SPOOL_MAX_SIZE = 8 * 1024 * 1024
+_END_OF_STREAM = object()
+
+
+@dataclass(frozen=True)
+class _ChunkError:
+    error: Exception
 
 
 @dataclass(frozen=True)
@@ -84,11 +92,30 @@ async def read_downloader(downloader: Any, key: str) -> AsyncIterator[bytes]:
 
 
 async def _iter_chunks(iterator: Any) -> AsyncIterator[bytes]:
+    chunk_queue: queue.Queue[Any] = queue.Queue()
+    threading.Thread(
+        target=_produce_chunks,
+        args=(iterator, chunk_queue),
+        daemon=True,
+    ).start()
+
     while True:
-        chunk = await run_sync(next, iterator, None)
-        if chunk is None:
+        item = await run_sync(chunk_queue.get)
+        if item is _END_OF_STREAM:
             break
-        yield chunk
+        if isinstance(item, _ChunkError):
+            raise item.error
+        yield item
+
+
+def _produce_chunks(iterator: Any, chunk_queue: queue.Queue[Any]) -> None:
+    try:
+        for chunk in iterator:
+            chunk_queue.put(chunk)
+    except Exception as e:
+        chunk_queue.put(_ChunkError(e))
+    finally:
+        chunk_queue.put(_END_OF_STREAM)
 
 
 async def run_sync(callable_: Any, *args: Any, **kwargs: Any) -> Any:

@@ -20,6 +20,7 @@ from tests.units.adapters.outbound.azure_blob.fakes import (
     FakeAzureBlobServiceClient,
     FakeContentSettings,
     FakeReadAllDownloader,
+    ThreadTrackingDownloader,
     chunks,
     collect,
 )
@@ -238,6 +239,25 @@ async def test_azure_blob_file_storage_reads_downloader_readall_fallback() -> No
     stream = await storage.get("docs/readme.txt")
 
     assert await collect(stream.body) == b"content"
+    assert body.closed is True
+
+
+@pytest.mark.asyncio
+async def test_azure_blob_file_storage_consumes_chunks_on_single_thread() -> None:
+    client = FakeAzureBlobServiceClient()
+    body = ThreadTrackingDownloader(b"hello ", b"azure")
+    storage = AzureBlobFileStorage(
+        DEFAULT_AZURE_CONFIG,
+        client=client,
+        content_settings_factory=_fake_content_settings,
+    )
+    await storage.put("docs/readme.txt", chunks(b"hello azure"))
+    client.downloaders[("arclith-files", "docs/readme.txt")] = body
+
+    stream = await storage.get("docs/readme.txt")
+
+    assert await collect(stream.body) == b"hello azure"
+    assert len(body.thread_ids) == 1
     assert body.closed is True
 
 
