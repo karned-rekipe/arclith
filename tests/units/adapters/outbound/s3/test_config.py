@@ -3,9 +3,9 @@ import pytest
 from arclith.adapters.context import set_tenant_context
 from arclith.adapters.outbound.s3.config import (
     S3StorageConfig,
-    normalize_optional_prefix,
     resolve_s3_config,
 )
+from arclith.adapters.outbound.storage.config import normalize_optional_prefix
 from arclith.domain.models.tenant import AdapterTenantCoords, TenantContext
 from arclith.domain.ports.outbound.file_storage import FileStorageUnavailable
 

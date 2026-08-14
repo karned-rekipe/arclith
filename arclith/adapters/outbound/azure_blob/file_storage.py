@@ -8,7 +8,6 @@ from arclith.adapters.outbound.azure_blob.client import (
 from arclith.adapters.outbound.azure_blob.config import (
     AzureBlobStorageConfig,
     ResolvedAzureBlobConfig,
-    normalize_optional_prefix,
     resolve_azure_blob_config,
 )
 from arclith.adapters.outbound.azure_blob.errors import (
@@ -19,9 +18,11 @@ from arclith.adapters.outbound.azure_blob.metadata import metadata_from_properti
 from arclith.adapters.outbound.azure_blob.transfer import (
     has_readable_downloader,
     read_downloader,
-    run_sync,
-    spool_content,
 )
+from arclith.adapters.outbound.storage.client_cache import StorageClientCache
+from arclith.adapters.outbound.storage.config import normalize_optional_prefix
+from arclith.adapters.outbound.storage.keys import prefixed_object_key
+from arclith.adapters.outbound.storage.transfer import run_sync, spool_content
 from arclith.domain.ports.outbound.file_storage import (
     FileStorageError,
     FileStorageUnavailable,
@@ -45,8 +46,7 @@ class AzureBlobFileStorage(FileStoragePort):
     ) -> None:
         self._config = config
         self._prefix = normalize_optional_prefix(config.prefix)
-        self._injected_client = client
-        self._default_client: Any | None = None
+        self._client_cache = StorageClientCache(client)
         self._content_settings_factory = content_settings_factory
 
     async def put(
@@ -180,21 +180,19 @@ class AzureBlobFileStorage(FileStoragePort):
         try:
             return client.get_blob_client(
                 container=container_name,
-                blob=_object_key(normalized_key, resolved.prefix),
+                blob=prefixed_object_key(normalized_key, resolved.prefix),
             )
         except Exception as e:
             raise azure_blob_storage_error_from_provider(e, key=normalized_key) from e
 
     def _client_for(self, resolved: ResolvedAzureBlobConfig, key: str) -> Any:
-        if self._injected_client is not None:
-            return self._injected_client
-        if not self._config.multitenant:
-            if self._default_client is None:
-                self._default_client = safe_create_azure_blob_service_client(
-                    resolved, key=key
-                )
-            return self._default_client
-        return safe_create_azure_blob_service_client(resolved, key=key)
+        return self._client_cache.get(
+            multitenant=self._config.multitenant,
+            create_client=lambda: safe_create_azure_blob_service_client(
+                resolved,
+                key=key,
+            ),
+        )
 
     def _resolved_config(self, key: str) -> ResolvedAzureBlobConfig:
         return resolve_azure_blob_config(self._config, base_prefix=self._prefix, key=key)
@@ -209,13 +207,6 @@ class AzureBlobFileStorage(FileStoragePort):
             raise
         except Exception as e:
             raise azure_blob_storage_error_from_provider(e, key=key) from e
-
-
-def _object_key(normalized_key: str, prefix: str) -> str:
-    if not prefix:
-        return normalized_key
-    return f"{prefix}/{normalized_key}"
-
 
 def _require_container_name(resolved: ResolvedAzureBlobConfig, key: str) -> str:
     if resolved.container_name is None:

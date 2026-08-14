@@ -3,9 +3,9 @@ import pytest
 from arclith.adapters.context import set_tenant_context
 from arclith.adapters.outbound.azure_blob.config import (
     AzureBlobStorageConfig,
-    normalize_optional_prefix,
     resolve_azure_blob_config,
 )
+from arclith.adapters.outbound.storage.config import normalize_optional_prefix
 from arclith.domain.models.tenant import AdapterTenantCoords, TenantContext
 from arclith.domain.ports.outbound.file_storage import FileStorageUnavailable
 
