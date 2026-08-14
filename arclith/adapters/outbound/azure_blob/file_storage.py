@@ -14,7 +14,6 @@ from arclith.adapters.outbound.azure_blob.config import (
 from arclith.adapters.outbound.azure_blob.errors import (
     azure_blob_storage_error_from_provider,
     is_not_found_error,
-    raise_azure_blob_storage_error,
 )
 from arclith.adapters.outbound.azure_blob.metadata import metadata_from_properties
 from arclith.adapters.outbound.azure_blob.transfer import (
@@ -184,7 +183,7 @@ class AzureBlobFileStorage(FileStoragePort):
                 blob=_object_key(normalized_key, resolved.prefix),
             )
         except Exception as e:
-            raise_azure_blob_storage_error(e, key=normalized_key)
+            raise azure_blob_storage_error_from_provider(e, key=normalized_key) from e
 
     def _client_for(self, resolved: ResolvedAzureBlobConfig, key: str) -> Any:
         if self._injected_client is not None:
@@ -209,7 +208,7 @@ class AzureBlobFileStorage(FileStoragePort):
                 e.key = key
             raise
         except Exception as e:
-            raise_azure_blob_storage_error(e, key=key)
+            raise azure_blob_storage_error_from_provider(e, key=key) from e
 
 
 def _object_key(normalized_key: str, prefix: str) -> str:
