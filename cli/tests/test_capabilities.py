@@ -470,7 +470,18 @@ def test_storage_capability_catalog_declares_object_storage_adapters() -> None:
         "account_url",
         "container_name",
         "prefix",
+        "use_default_credential",
         "multitenant",
+    ]
+    assert [mapping.field_path for mapping in azure_blob.secret_mappings] == [
+        "adapters.storage.connection_string",
+        "adapters.storage.account_key",
+        "adapters.storage.sas_token",
+    ]
+    assert [mapping.secret_key for mapping in azure_blob.secret_mappings] == [
+        "AZURE_STORAGE_CONNECTION_STRING",
+        "AZURE_STORAGE_ACCOUNT_KEY",
+        "AZURE_STORAGE_SAS_TOKEN",
     ]
     assert gcs is not None
     assert gcs.config_path == "config/adapters/outbound/storage.yaml"
@@ -582,6 +593,20 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "endpoint_url",
         "force_path_style",
         "multitenant",
+    ]
+    azure_blob = storage["adapters"][2]
+    assert azure_blob["config_path"] == "config/adapters/outbound/storage.yaml"
+    assert [parameter["name"] for parameter in azure_blob["parameters"]] == [
+        "account_url",
+        "container_name",
+        "prefix",
+        "use_default_credential",
+        "multitenant",
+    ]
+    assert [mapping["field_path"] for mapping in azure_blob["secret_mappings"]] == [
+        "adapters.storage.connection_string",
+        "adapters.storage.account_key",
+        "adapters.storage.sas_token",
     ]
     cache = payload_by_name["cache"]
     assert [adapter["name"] for adapter in cache["adapters"]] == ["memory", "redis"]

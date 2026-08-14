@@ -360,16 +360,194 @@ liste pas.
 
 ## Azure Blob
 
+Installer l'extra uniquement dans les services qui utilisent Azure Blob Storage:
+
+```bash
+uv add "arclith[azure-blob]"
+```
+
+L'installation de base d'Arclith ne charge pas `azure-storage-blob` ni
+`azure-identity`.
+
 ```yaml
 # config/adapters/outbound/storage.yaml
 adapter: azure-blob
 account_url: "https://<account>.blob.core.windows.net"
 container_name: "my-container"
 prefix: ""
+connection_string: null
+account_key: null
+sas_token: null
+use_default_credential: false
 multitenant: false
 ```
 
-Les credentials Azure ne doivent pas être versionnés dans ce fichier.
+`account_url` cible le service Blob. `container_name` cible le container.
+`prefix` borne les objets applicatifs, comme pour S3/GCS.
+
+### Credentials
+
+Les credentials Azure ne doivent pas être versionnés dans `storage.yaml`.
+Arclith expose des champs de configuration, puis laisse le resolver de secrets
+habituel les alimenter depuis `config/secrets.yaml`, Vault, YAML local
+gitignoré ou le resolver `env`.
+
+Modes supportés:
+
+- `use_default_credential: true`: délègue au SDK Azure `DefaultAzureCredential`
+  pour Managed Identity, Workload Identity, Azure CLI ou environnement Azure;
+- `connection_string`: pratique pour Azurite ou certains déploiements legacy;
+- `account_key`: construit une credential Azure à partir du nom de compte
+  dérivé de `account_url`;
+- `sas_token`: token SAS sans l'écrire en clair dans Git.
+
+Un seul mode de credential doit être configuré à la fois.
+
+Exemple avec le resolver `env` explicite:
+
+```yaml
+# config/adapters/outbound/storage.yaml
+adapter: azure-blob
+account_url: "https://myaccount.blob.core.windows.net"
+container_name: "arclith-files"
+prefix: "uploads"
+connection_string: null
+account_key: null
+sas_token: null
+use_default_credential: false
+multitenant: false
+```
+
+```yaml
+# config/secrets.yaml
+resolver: env
+mappings:
+  adapters.storage.connection_string: AZURE_STORAGE_CONNECTION_STRING
+```
+
+Exemple avec Vault KV v2:
+
+```yaml
+# config/secrets.yaml
+resolver: vault
+vault:
+  addr: "http://vault:8200"
+  mount: "kv"
+mappings:
+  adapters.storage.sas_token: apps/my-service/azure-blob-sas-token
+```
+
+Le secret Vault doit exposer sa valeur dans le champ `value`, comme les autres
+secrets Arclith.
+
+En multitenant, le resolver tenant peut fournir `account_url`, `container_name`,
+`prefix`, `connection_string`, `account_key`, `sas_token` ou
+`use_default_credential` dans `AdapterTenantCoords` pour l'adapter
+`azure-blob`. Les alias `blob_service_url`, `container`, `conn_str`,
+`storage_account_key`, `default_credential` et `managed_identity` sont aussi
+acceptés.
+
+### Metadata Azure
+
+L'adapter retourne les métadonnées provider-neutral quand elles sont
+disponibles:
+
+- `content_type`, `size`, `etag`, `last_modified`;
+- checksum `md5:<value>` si Azure retourne `content_md5`;
+- metadata utilisateur;
+- `azure_blob_type` et `azure_version_id` dans `custom` si fournis par le SDK.
+
+Le checksum applicatif SHA-256 est utilisé comme fallback après `put()` si le
+SDK ne fournit pas encore de checksum provider sur le blob.
+
+### Use Case
+
+Le use case reste identique à S3, GCS ou filesystem: il dépend de
+`FileStoragePort`, jamais de `azure.storage.blob`.
+
+```python
+from collections.abc import AsyncIterator
+
+from arclith import FileStoragePort
+
+
+class AttachmentUseCase:
+    def __init__(self, storage: FileStoragePort) -> None:
+        self._storage = storage
+
+    async def save(self, ticket_id: str, content: AsyncIterator[bytes]) -> str:
+        key = f"tickets/{ticket_id}/attachment.bin"
+        await self._storage.put(
+            key,
+            content,
+            content_type="application/octet-stream",
+            metadata={"kind": "attachment"},
+        )
+        return key
+```
+
+### RBAC Minimal
+
+Pour le port actuel, l'identité Azure doit pouvoir créer, lire, mettre à jour
+les métadonnées et supprimer des blobs dans le container cible. Une base simple
+est le rôle `Storage Blob Data Contributor` sur le container ou sur un scope
+plus étroit.
+
+Pour un rôle custom, borner les actions au flux applicatif:
+
+- lire les propriétés et le contenu des blobs;
+- écrire ou remplacer un blob;
+- supprimer un blob.
+
+Ajouter la permission de lister les blobs uniquement si un futur use case liste
+des objets; `FileStoragePort` ne liste pas aujourd'hui.
+
+### Azurite Local
+
+Azurite donne un smoke test local sans compte Azure réel.
+
+```yaml
+services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    command: ["azurite-blob", "--blobHost", "0.0.0.0"]
+    ports:
+      - "10000:10000"
+    volumes:
+      - azurite-data:/data
+
+volumes:
+  azurite-data:
+```
+
+Configuration Arclith depuis la machine hôte:
+
+```yaml
+# config/adapters/outbound/storage.yaml
+adapter: azure-blob
+account_url: "http://127.0.0.1:10000/devstoreaccount1"
+container_name: "arclith-files"
+prefix: "uploads"
+connection_string: null
+account_key: null
+sas_token: null
+use_default_credential: false
+multitenant: false
+```
+
+```yaml
+# config/secrets.yaml
+resolver: env
+mappings:
+  adapters.storage.connection_string: AZURE_STORAGE_CONNECTION_STRING
+```
+
+```bash
+export AZURE_STORAGE_CONNECTION_STRING="UseDevelopmentStorage=true"
+```
+
+Créer le container `arclith-files`, puis exécuter un smoke test applicatif qui
+écrit, lit, stat, vérifie `exists`, supprime puis revérifie `exists`.
 
 ## Google Cloud Storage
 
@@ -545,11 +723,20 @@ Pour GCS, les mêmes modèles s'appliquent:
 - bucket par tenant pour isoler IAM, lifecycle et quotas;
 - préfixe par tenant pour mutualiser un bucket avec des policies conditionnées.
 
+Pour Azure Blob, les mêmes modèles s'appliquent aussi:
+
+- container par tenant pour isoler RBAC, lifecycle et quotas;
+- préfixe par tenant pour mutualiser un container avec des policies ou SAS
+  bornées par préfixe quand le modèle de sécurité le permet.
+
 Si les credentials sont résolus par tenant, stocker les clés dans le resolver
 tenant, pas dans Git. Les coordonnées S3 attendues dans `TenantContext` sont
 celles de l'adapter `s3`: `bucket_name`, `prefix`, `endpoint_url`,
 `region_name`, `force_path_style`, `profile_name`, `aws_access_key_id`,
 `aws_secret_access_key`, `aws_session_token`.
+Pour Azure Blob, les coordonnées attendues sont `account_url`,
+`container_name`, `prefix`, `connection_string`, `account_key`, `sas_token` et
+`use_default_credential`.
 Pour GCS, les coordonnées attendues sont `bucket_name`, `prefix`, `project_id`,
 `credentials_path`, `credentials_json` et `credentials_json_b64`.
 
@@ -568,7 +755,7 @@ uv run pytest
 uv run python -c "from arclith.infrastructure.config import load_config_dir; load_config_dir('config')"
 ```
 
-## Suite
+## Adapters Disponibles
 
-Ajouter ensuite l'adapter concret voulu: filesystem, Azure Blob, Google Cloud
-Storage ou AWS S3.
+Les adapters concrets disponibles sont `filesystem`, `s3`, `azure-blob` et
+`gcs`.

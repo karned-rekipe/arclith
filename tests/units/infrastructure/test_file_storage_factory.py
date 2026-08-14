@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from arclith import Arclith
+from arclith.adapters.outbound.azure_blob import AzureBlobFileStorage
 from arclith.adapters.outbound.filesystem import FilesystemFileStorage
 from arclith.adapters.outbound.gcs import GCSFileStorage
 from arclith.adapters.outbound.s3 import S3FileStorage
@@ -67,6 +68,27 @@ def test_build_file_storage_returns_gcs_adapter(logger) -> None:
     storage = build_file_storage(config, logger)
 
     assert isinstance(storage, GCSFileStorage)
+
+
+def test_build_file_storage_returns_azure_blob_adapter(logger) -> None:
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "storage": {
+                    "adapter": "azure-blob",
+                    "account_url": "https://account.blob.core.windows.net",
+                    "container_name": "arclith-files",
+                    "prefix": "uploads",
+                    "connection_string": "UseDevelopmentStorage=true",
+                    "use_default_credential": False,
+                }
+            }
+        }
+    )
+
+    storage = build_file_storage(config, logger)
+
+    assert isinstance(storage, AzureBlobFileStorage)
 
 
 def test_build_file_storage_requires_storage_config(logger) -> None:

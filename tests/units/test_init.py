@@ -39,6 +39,7 @@ def test_public_file_storage_exports():
     assert arclith.build_file_storage is not None
     assert arclith.FilesystemFileStorage is not None
     assert arclith.S3FileStorage is not None
+    assert arclith.AzureBlobFileStorage is not None
     assert arclith.GCSFileStorage is not None
 
 
@@ -95,6 +96,38 @@ import arclith
 
 arclith.default_file_storage_registry()
 assert arclith.GCSFileStorage is not None
+print(arclith.__name__)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "arclith"
+
+
+def test_import_arclith_does_not_require_azure_blob_extra():
+    script = """
+import importlib.abc
+import sys
+
+
+class BlockAzureExtras(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        if fullname == "azure" or fullname.startswith("azure."):
+            raise ModuleNotFoundError(fullname)
+        return None
+
+
+sys.meta_path.insert(0, BlockAzureExtras())
+
+import arclith
+
+arclith.default_file_storage_registry()
+assert arclith.AzureBlobFileStorage is not None
 print(arclith.__name__)
 """
     result = subprocess.run(

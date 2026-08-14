@@ -45,6 +45,7 @@ def default_file_storage_registry() -> FileStorageRegistry:
         FileStorageRegistry()
         .register("filesystem", _build_filesystem_file_storage)
         .register("s3", _build_s3_file_storage)
+        .register("azure-blob", _build_azure_blob_file_storage)
         .register("gcs", _build_gcs_file_storage)
     )
 
@@ -81,6 +82,30 @@ def _build_s3_file_storage(config: AppConfig, _logger: Logger) -> FileStoragePor
             region_name=settings.region_name,
             endpoint_url=settings.endpoint_url,
             force_path_style=settings.force_path_style,
+            multitenant=settings.multitenant,
+        )
+    )
+
+
+def _build_azure_blob_file_storage(config: AppConfig, _logger: Logger) -> FileStoragePort:
+    from arclith.adapters.outbound.azure_blob import (
+        AzureBlobFileStorage,
+        AzureBlobStorageConfig,
+    )
+
+    settings = config.adapters.storage
+    if settings is None:
+        raise ValueError("Azure Blob storage settings are required")
+
+    return AzureBlobFileStorage(
+        AzureBlobStorageConfig(
+            account_url=settings.account_url,
+            container_name=settings.container_name,
+            prefix=settings.prefix,
+            connection_string=settings.connection_string,
+            account_key=settings.account_key,
+            sas_token=settings.sas_token,
+            use_default_credential=settings.use_default_credential,
             multitenant=settings.multitenant,
         )
     )

@@ -309,6 +309,60 @@ def test_load_config_dir_storage_gcs_scoped():
     assert config.adapters.storage.multitenant is False
 
 
+def test_load_config_dir_storage_azure_blob_scoped():
+    path = _make_config_dir({
+        "adapters/outbound/storage.yaml": {
+            "adapter": "azure-blob",
+            "account_url": "https://account.blob.core.windows.net",
+            "container_name": "arclith-files",
+            "prefix": "uploads",
+            "connection_string": "UseDevelopmentStorage=true",
+            "account_key": None,
+            "sas_token": None,
+            "use_default_credential": False,
+            "multitenant": False,
+        },
+    })
+    config = load_config_dir(path)
+
+    assert config.adapters.storage is not None
+    assert config.adapters.storage.adapter == "azure-blob"
+    assert config.adapters.storage.account_url == "https://account.blob.core.windows.net"
+    assert config.adapters.storage.container_name == "arclith-files"
+    assert config.adapters.storage.prefix == "uploads"
+    assert config.adapters.storage.connection_string == "UseDevelopmentStorage=true"
+    assert config.adapters.storage.account_key is None
+    assert config.adapters.storage.sas_token is None
+    assert config.adapters.storage.use_default_credential is False
+    assert config.adapters.storage.multitenant is False
+
+
+def test_load_config_dir_storage_azure_blob_credentials_from_secret_mapping(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", "UseDevelopmentStorage=true")
+    path = _make_config_dir({
+        "adapters/outbound/storage.yaml": {
+            "adapter": "azure-blob",
+            "account_url": "https://account.blob.core.windows.net",
+            "container_name": "arclith-files",
+            "connection_string": None,
+            "multitenant": False,
+        },
+        "secrets.yaml": {
+            "resolver": "env",
+            "mappings": {
+                "adapters.storage.connection_string": "AZURE_STORAGE_CONNECTION_STRING",
+            },
+        },
+    })
+    config = load_config_dir(path)
+
+    assert config.adapters.storage is not None
+    assert config.adapters.storage.adapter == "azure-blob"
+    assert config.adapters.storage.connection_string == "UseDevelopmentStorage=true"
+
+
 def test_load_config_dir_storage_gcs_credentials_from_secret_mapping(
     monkeypatch: pytest.MonkeyPatch,
 ):

@@ -143,6 +143,10 @@ class StorageSettings(BaseModel):
     force_path_style: bool = False
     account_url: str | None = None
     container_name: str | None = None
+    connection_string: str | None = None
+    account_key: str | None = None
+    sas_token: str | None = None
+    use_default_credential: bool = False
     project_id: str | None = None
     credentials_path: str | None = None
     credentials_json: str | None = None

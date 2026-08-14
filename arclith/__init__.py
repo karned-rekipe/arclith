@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from arclith.adapters.inbound.schemas.base_schema import BaseSchema
+from arclith.adapters.outbound.azure_blob import AzureBlobFileStorage, AzureBlobStorageConfig
 from arclith.adapters.outbound.filesystem import FilesystemFileStorage, FilesystemStorageConfig
 from arclith.adapters.outbound.gcs import GCSFileStorage, GCSStorageConfig
 from arclith.adapters.outbound.memory.repository import InMemoryRepository
@@ -58,6 +59,8 @@ __all__ = [
     "FilesystemStorageConfig",
     "S3FileStorage",
     "S3StorageConfig",
+    "AzureBlobFileStorage",
+    "AzureBlobStorageConfig",
     "GCSFileStorage",
     "GCSStorageConfig",
     "Logger",
