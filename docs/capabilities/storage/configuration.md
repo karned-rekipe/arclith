@@ -36,9 +36,9 @@ normalise et sans segment `..`.
 | `azure-blob` | `account_url`, `container_name` | `prefix`, `connection_string`, `account_key`, `sas_token`, `use_default_credential`, `multitenant` |
 | `gcs` | `bucket_name` | `prefix`, `project_id`, `credentials_path`, `credentials_json`, `credentials_json_b64`, `multitenant` |
 
-En `multitenant: true`, la cible minimale peut venir du contexte tenant. La
-config de base peut donc omettre bucket, container ou root path si le resolver
-tenant les fournit a chaque requete.
+En `multitenant: true`, la cible minimale peut venir du contexte tenant pour les adapters cloud.
+La config de base peut donc omettre bucket ou container si le resolver tenant les fournit.
+L'adapter `filesystem` reste mono-cible: `root_path` doit toujours etre configure.
 
 ## Secrets
 
