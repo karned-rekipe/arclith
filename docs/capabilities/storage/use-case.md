@@ -1,7 +1,7 @@
 # Use Case Complet
 
-Cet exemple montre la frontiere attendue: le use case manipule le port storage
-et le repository metier. Il ne depend d'aucun SDK provider.
+Cet exemple montre la frontière attendue : le use case manipule le port storage
+et le repository métier. Il ne dépend d'aucun SDK provider.
 
 ## Entite De Metadata
 
