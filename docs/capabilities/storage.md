@@ -373,16 +373,151 @@ Les credentials Azure ne doivent pas être versionnés dans ce fichier.
 
 ## Google Cloud Storage
 
+Installer l'extra uniquement dans les services qui utilisent GCS:
+
+```bash
+uv add "arclith[gcs]"
+```
+
+L'installation de base d'Arclith ne charge pas `google-cloud-storage`.
+
 ```yaml
 # config/adapters/outbound/storage.yaml
 adapter: gcs
 bucket_name: "my-bucket"
 prefix: ""
 project_id: null
+credentials_path: null
+credentials_json: null
+credentials_json_b64: null
 multitenant: false
 ```
 
 `project_id: null` laisse le SDK ou l'environnement résoudre le projet courant.
+Définir `project_id` quand l'identité de runtime peut voir plusieurs projets
+ou quand les credentials ne portent pas de projet par défaut fiable.
+
+### Credentials
+
+L'adapter utilise Application Default Credentials par défaut. Ne pas écrire de
+clé de service account dans `storage.yaml`.
+
+Sources courantes:
+
+- Workload Identity sur GKE ou identité managée de la plateforme;
+- `GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-service-account.json`, chaîne
+  standard du SDK Google;
+- `credentials_path`, `credentials_json` ou `credentials_json_b64` résolus par
+  `config/secrets.yaml`, Vault, YAML local gitignoré ou le resolver `env`;
+- `credentials_path`, `credentials_json` ou `credentials_json_b64` fournis par
+  `TenantContext` en multitenant.
+
+Exemple avec le resolver `env`:
+
+```yaml
+# config/adapters/outbound/storage.yaml
+adapter: gcs
+bucket_name: "my-bucket"
+prefix: ""
+project_id: "my-project"
+credentials_json_b64: null
+multitenant: false
+```
+
+```yaml
+# config/secrets.yaml
+resolver: env
+mappings:
+  adapters.storage.credentials_json_b64: GCS_SERVICE_ACCOUNT_JSON_B64
+```
+
+Exemple avec Vault KV v2:
+
+```yaml
+# config/secrets.yaml
+resolver: vault
+vault:
+  addr: "http://vault:8200"
+  mount: "kv"
+mappings:
+  adapters.storage.credentials_json_b64: apps/my-service/gcs-service-account
+```
+
+Le secret Vault doit exposer sa valeur dans le champ `value`, comme les autres
+secrets Arclith.
+
+En multitenant, le resolver tenant peut fournir `bucket_name`, `prefix`,
+`project_id`, `credentials_path`, `credentials_json` ou `credentials_json_b64`
+dans `AdapterTenantCoords` pour l'adapter `gcs`. Les alias
+`service_account_file`, `service_account_json` et `service_account_json_b64`
+sont aussi acceptés.
+
+### Metadata GCS
+
+L'adapter retourne les métadonnées provider-neutral quand elles sont disponibles:
+
+- `content_type`, `size`, `etag`, `last_modified`;
+- checksum `crc32c:<value>` ou `md5:<value>`;
+- metadata utilisateur;
+- `gcs_generation` et `gcs_metageneration` dans `custom`.
+
+Le checksum applicatif SHA-256 est utilisé comme fallback après `put()` si le
+SDK ne fournit pas encore de checksum provider sur le blob.
+
+### Use Case
+
+Le use case reste identique à S3 ou filesystem: il dépend de `FileStoragePort`,
+jamais de `google.cloud.storage`.
+
+```python
+from collections.abc import AsyncIterator
+
+from arclith import FileStoragePort
+
+
+class AttachmentUseCase:
+    def __init__(self, storage: FileStoragePort) -> None:
+        self._storage = storage
+
+    async def save(self, ticket_id: str, content: AsyncIterator[bytes]) -> str:
+        key = f"tickets/{ticket_id}/attachment.bin"
+        await self._storage.put(
+            key,
+            content,
+            content_type="application/octet-stream",
+            metadata={"kind": "attachment"},
+        )
+        return key
+```
+
+### IAM Minimal
+
+Pour le port actuel, l'identité doit pouvoir créer, lire, mettre à jour les
+métadonnées et supprimer des objets dans le bucket cible. Une base simple côté
+bucket est `roles/storage.objectUser`. Pour un périmètre plus strict, créer un
+rôle custom avec les permissions nécessaires au flux applicatif:
+
+- `storage.objects.create`;
+- `storage.objects.get`;
+- `storage.objects.update`;
+- `storage.objects.delete`.
+
+Ajouter `storage.objects.list` uniquement si un futur use case liste les objets;
+`FileStoragePort` ne liste pas aujourd'hui.
+
+### Smoke Test
+
+GCS n'a pas d'émulateur officiel équivalent à MinIO pour S3. Le smoke test
+fiable vise donc un bucket sandbox réel, avec credentials de test et un préfixe
+temporaire:
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="$PWD/.secrets/gcs-sa.json"
+export GCS_SMOKE_BUCKET="arclith-storage-smoke"
+```
+
+Le test doit écrire, lire, stat, vérifier `exists`, supprimer puis revérifier
+`exists`. Ne jamais lancer ce smoke test contre un bucket de production.
 
 ## Multitenant
 
@@ -405,11 +540,18 @@ Pour S3, deux modèles sont recommandés:
 - préfixe par tenant: mutualise le bucket, mais exige des policies bornées sur
   `arn:aws:s3:::bucket/<tenant-prefix>/*`.
 
+Pour GCS, les mêmes modèles s'appliquent:
+
+- bucket par tenant pour isoler IAM, lifecycle et quotas;
+- préfixe par tenant pour mutualiser un bucket avec des policies conditionnées.
+
 Si les credentials sont résolus par tenant, stocker les clés dans le resolver
 tenant, pas dans Git. Les coordonnées S3 attendues dans `TenantContext` sont
 celles de l'adapter `s3`: `bucket_name`, `prefix`, `endpoint_url`,
 `region_name`, `force_path_style`, `profile_name`, `aws_access_key_id`,
 `aws_secret_access_key`, `aws_session_token`.
+Pour GCS, les coordonnées attendues sont `bucket_name`, `prefix`, `project_id`,
+`credentials_path`, `credentials_json` et `credentials_json_b64`.
 
 ## Règles
 

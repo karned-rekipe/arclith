@@ -442,7 +442,12 @@ adapter: gcs
 bucket_name: "{bucket_name}"
 prefix: "{prefix}"
 project_id: {project_id}
+credentials_path: null
+credentials_json: null
+credentials_json_b64: null
 multitenant: {multitenant}
+# Credentials: use ADC/GOOGLE_APPLICATION_CREDENTIALS, config/secrets.yaml,
+# Vault, or TenantContext. Never commit service account JSON.
 """,
             parameters=(
                 ParameterSpec(

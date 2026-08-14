@@ -45,6 +45,7 @@ def default_file_storage_registry() -> FileStorageRegistry:
         FileStorageRegistry()
         .register("filesystem", _build_filesystem_file_storage)
         .register("s3", _build_s3_file_storage)
+        .register("gcs", _build_gcs_file_storage)
     )
 
 
@@ -80,6 +81,26 @@ def _build_s3_file_storage(config: AppConfig, _logger: Logger) -> FileStoragePor
             region_name=settings.region_name,
             endpoint_url=settings.endpoint_url,
             force_path_style=settings.force_path_style,
+            multitenant=settings.multitenant,
+        )
+    )
+
+
+def _build_gcs_file_storage(config: AppConfig, _logger: Logger) -> FileStoragePort:
+    from arclith.adapters.outbound.gcs import GCSFileStorage, GCSStorageConfig
+
+    settings = config.adapters.storage
+    if settings is None:
+        raise ValueError("GCS storage settings are required")
+
+    return GCSFileStorage(
+        GCSStorageConfig(
+            bucket_name=settings.bucket_name,
+            prefix=settings.prefix,
+            project_id=settings.project_id,
+            credentials_path=settings.credentials_path,
+            credentials_json=settings.credentials_json,
+            credentials_json_b64=settings.credentials_json_b64,
             multitenant=settings.multitenant,
         )
     )
