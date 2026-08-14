@@ -42,7 +42,7 @@ arclith-cli capabilities --json
 | MCP minimal | [Quickstart MCP](quickstarts/mcp.md), puis [mcp/fastmcp](capabilities/mcp.md) |
 | Bus RabbitMQ | [Quickstart Bus](quickstarts/bus.md), puis [command-bus/rabbitmq](capabilities/command-bus.md) |
 | Agent local | [Quickstart Agent](quickstarts/agent.md), puis [agent/langgraph](capabilities/agent.md) |
-| Fichiers et blobs | [storage](capabilities/storage.md), puis [secrets](capabilities/secrets.md) pour les credentials |
+| Fichiers et blobs | [storage](capabilities/storage.md), [quickstart filesystem](capabilities/storage/quickstart.md), puis [secrets](capabilities/secrets.md) pour les credentials |
 | Service production | [Baseline production](production/baseline.md), puis les pages de la section Production |
 | Déploiement | [Runtime Docker](runtime-docker.md), puis [Docker Compose](runtime-docker/docker-compose.md) |
 

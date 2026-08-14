@@ -95,7 +95,18 @@ nav:
       - Probe: capabilities/probe.md
       - Runtime: capabilities/runtime.md
       - Repository: capabilities/repository.md
-      - Storage: capabilities/storage.md
+      - Storage:
+          - Vue d'ensemble: capabilities/storage.md
+          - Quickstart filesystem: capabilities/storage/quickstart.md
+          - Architecture: capabilities/storage/architecture.md
+          - Configuration: capabilities/storage/configuration.md
+          - Sécurité: capabilities/storage/security.md
+          - Multitenant: capabilities/storage/multitenant.md
+          - Use case complet: capabilities/storage/use-case.md
+          - Filesystem: capabilities/storage/filesystem.md
+          - AWS S3: capabilities/storage/s3.md
+          - Azure Blob: capabilities/storage/azure-blob.md
+          - Google Cloud Storage: capabilities/storage/gcs.md
       - Cache: capabilities/cache.md
       - Logger: capabilities/logger.md
       - Secrets: capabilities/secrets.md

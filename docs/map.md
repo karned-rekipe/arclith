@@ -33,6 +33,7 @@ Cette page aide à choisir la bonne entrée dans la documentation Arclith.
 | probes et runtime | [Runtime et probes](production/runtime.md) |
 | Docker | [Docker](runtime-docker.md) |
 | Kubernetes | [Kubernetes](runtime-docker/kubernetes.md) |
+| fichiers et blobs | [Storage](capabilities/storage.md) |
 
 ## Je Veux Comprendre Une Capability
 
@@ -45,6 +46,11 @@ fiche dédiée:
 - [Command Bus](capabilities/command-bus.md)
 - [Repository](capabilities/repository.md)
 - [Storage](capabilities/storage.md)
+  ([quickstart](capabilities/storage/quickstart.md),
+  [configuration](capabilities/storage/configuration.md),
+  [S3](capabilities/storage/s3.md),
+  [Azure Blob](capabilities/storage/azure-blob.md),
+  [GCS](capabilities/storage/gcs.md))
 - [Auth](capabilities/auth.md)
 - [Tenant](capabilities/tenant.md)
 - [License](capabilities/license.md)
