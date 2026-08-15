@@ -2,6 +2,11 @@
 
 Une capability est une brique activable par `arclith-cli add-adapter`.
 
+La section Capabilities est le niveau deep dive de la documentation. Elle
+détaille les contrats, les adapters, les contraintes de production et les
+validations. Le format attendu est décrit dans
+[Structure d'une capability](capabilities/structure.md).
+
 ## Lire Le Catalogue
 
 Le catalogue CLI est la source de vérité technique. Cette page sert de carte de
@@ -38,10 +43,10 @@ arclith-cli capabilities --json
 
 | Besoin | Lire |
 |---|---|
-| API minimale | [Quickstart API](quickstarts/api.md), puis [api/fastapi](capabilities/api.md) |
-| MCP minimal | [Quickstart MCP](quickstarts/mcp.md), puis [mcp/fastmcp](capabilities/mcp.md) |
+| API minimale | [Quickstart API](quickstarts/api.md), [formation API](tutorials/todo-list/04-api.md), puis [api/fastapi](capabilities/api.md) |
+| MCP minimal | [Quickstart MCP](quickstarts/mcp.md), [formation MCP](tutorials/todo-list/05-mcp.md), puis [mcp/fastmcp](capabilities/mcp.md) |
 | Bus RabbitMQ | [Quickstart Bus](quickstarts/bus.md), puis [command-bus/rabbitmq](capabilities/command-bus.md) |
-| Agent local | [Quickstart Agent](quickstarts/agent.md), puis [agent/langgraph](capabilities/agent.md) |
+| Agent local | [Quickstart Agent](quickstarts/agent.md), [formation agent](tutorials/todo-list/06-agent.md), puis [agent/langgraph](capabilities/agent.md) |
 | Fichiers et blobs | [storage](capabilities/storage.md), [quickstart filesystem](capabilities/storage/quickstart.md), puis [secrets](capabilities/secrets.md) pour les credentials |
 | Service production | [Baseline production](production/baseline.md), puis les pages de la section Production |
 | Déploiement | [Runtime Docker](runtime-docker.md), puis [Docker Compose](runtime-docker/docker-compose.md) |
@@ -51,9 +56,10 @@ arclith-cli capabilities --json
 Une PR qui ajoute ou modifie une capability doit mettre à jour :
 
 1. le catalogue CLI ;
-2. la page dédiée ;
+2. la page dédiée en respectant la [structure canonique](capabilities/structure.md) ;
 3. cet index ;
 4. le quickstart si le flux est fréquent ;
-5. la baseline production si la capability appartient au socle de production ;
-6. les captures, vidéos ou supports de formation quand la capability introduit
+5. la formation associée quand un pas à pas est nécessaire ;
+6. la baseline production si la capability appartient au socle de production ;
+7. les captures, vidéos ou supports de formation quand la capability introduit
    un nouveau geste utilisateur.

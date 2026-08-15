@@ -10,7 +10,10 @@ site_dir: site
 theme:
   name: material
   language: fr
+  logo: assets/brand/arclith-logo.svg
   features:
+    - navigation.tabs
+    - navigation.sections
     - content.code.copy
     - content.code.select
     - content.code.annotate
@@ -21,73 +24,31 @@ theme:
 
 extra_css:
   - stylesheets/code-blocks.css
+  - stylesheets/academy.css
 
 nav:
   - Accueil: index.md
-  - Carte: map.md
-  - Quickstarts:
+  - Quickstart:
       - Vue d'ensemble: quickstarts/index.md
       - API: quickstarts/api.md
       - MCP: quickstarts/mcp.md
       - Bus: quickstarts/bus.md
       - Agent: quickstarts/agent.md
   - Foundations:
+      - Préparer son poste: learning/setup.md
       - C'est quoi Arclith ?: foundations/what-is-arclith.md
+      - Comprendre le modèle: learning/foundations.md
       - Le chemin hexagonal: foundations/hexagonal-flow.md
       - Modes runtime: foundations/runtime-modes.md
   - Formation:
       - Parcours: learning/training-path.md
-      - Préparer son poste: learning/setup.md
-      - Comprendre le modèle: learning/foundations.md
       - Quickstarts essentiels: learning/quickstarts.md
-      - Validation finale: learning/validation.md
       - Format d'une page: learning/page-format.md
       - Captures et vidéos: learning/media.md
-  - Tutoriel Todo:
-      - Vue d'ensemble: tutorials/todo-list/index.md
-      - Préparer LM Studio: tutorials/todo-list/00-lm-studio.md
-      - 1. Initialiser le projet: tutorials/todo-list/01-init-project.md
-      - 2. Créer l'entité: tutorials/todo-list/02-create-entity.md
-      - 3. Créer les use cases: tutorials/todo-list/03-create-usecase.md
-      - 4. Exposer une API:
-          - Vue d'ensemble: tutorials/todo-list/04-api.md
-          - 4.1 Config et schémas: tutorials/todo-list/04-api-config-schemas.md
-          - 4.2 Handlers HTTP: tutorials/todo-list/04-api-handlers.md
-          - 4.3 Router et main: tutorials/todo-list/04-api-router-main.md
-          - 4.4 Tester l'API: tutorials/todo-list/04-api-tests.md
-      - 5. Exposer un MCP:
-          - Vue d'ensemble: tutorials/todo-list/05-mcp.md
-          - 5.1 Tools MCP: tutorials/todo-list/05-mcp-tools.md
-          - 5.2 Entrypoint et tests: tutorials/todo-list/05-mcp-entrypoint-tests.md
-          - 5.3 LM Studio: tutorials/todo-list/05-mcp-lm-studio.md
-      - 6. Ajouter un agent:
-          - Vue d'ensemble: tutorials/todo-list/06-agent.md
-          - 6.1 Config LLM et LangSmith: tutorials/todo-list/06-agent-config.md
-          - 6.2 Intent-interpreters: tutorials/todo-list/06-agent-intent-interpreters.md
-          - 6.3 État et parsing: tutorials/todo-list/06-agent-state-parsing.md
-          - 6.4 Action et collecte: tutorials/todo-list/06-agent-action-collection.md
-          - 6.5 Routing et dépendances: tutorials/todo-list/06-agent-routing-dependencies.md
-          - 6.6 Noeuds et graphe: tutorials/todo-list/06-agent-nodes-graph.md
-          - 6.7 Tests et Studio: tutorials/todo-list/06-agent-tests-studio.md
-      - Annexes locales: tutorials/todo-list/07-local-services.md
-  - Production:
-      - Baseline: production/baseline.md
-      - Auth: production/auth.md
-      - Cache: production/cache.md
-      - Secrets et Vault: production/secrets.md
-      - Observabilité: production/observability.md
-      - Runtime et probes: production/runtime.md
-      - Docker:
-          - Vue d'ensemble: runtime-docker.md
-          - 1. Build: runtime-docker/build.md
-          - 2. Lancement local API: runtime-docker/local-api.md
-          - 3. Lancement local MCP: runtime-docker/local-mcp.md
-          - 4. Lancement local agent: runtime-docker/local-agent.md
-          - 5. Autres modes locaux: runtime-docker/local-other-modes.md
-          - 6. Docker Compose: runtime-docker/docker-compose.md
-          - 7. Kubernetes: runtime-docker/kubernetes.md
+      - Validation finale: learning/validation.md
   - Capabilities:
       - Catalogue: capabilities.md
+      - Structure d'une capability: capabilities/structure.md
       - API: capabilities/api.md
       - MCP: capabilities/mcp.md
       - Agent: capabilities/agent.md
@@ -116,23 +77,67 @@ nav:
       - HTTP: capabilities/http.md
       - LLM: capabilities/llm.md
       - Observability: capabilities/observability.md
-  - Deep Dives:
-      - API: deep-dives/api.md
-      - MCP: deep-dives/mcp.md
-      - Bus: deep-dives/bus.md
-      - Agent: deep-dives/agent.md
-      - Configuration: deep-dives/configuration.md
-  - Référence:
-      - Ancien quickstart complet: quickstart.md
-      - Ancien quickstart agent: agent-quickstart.md
-      - Auth: auth.md
-      - HTTP: http-conventions.md
-      - Command Bus: command-bus.md
-      - Idempotence: idempotency.md
-      - Multitenant: multitenant.md
-      - Cache: caching.md
-      - Décisions: decisions.md
-      - Release: release.md
+      - Production:
+          - Baseline: production/baseline.md
+          - Auth: production/auth.md
+          - Cache: production/cache.md
+          - Secrets et Vault: production/secrets.md
+          - Observabilité: production/observability.md
+          - Runtime et probes: production/runtime.md
+          - Docker:
+              - Vue d'ensemble: runtime-docker.md
+              - 1. Build: runtime-docker/build.md
+              - 2. Lancement local API: runtime-docker/local-api.md
+              - 3. Lancement local MCP: runtime-docker/local-mcp.md
+              - 4. Lancement local agent: runtime-docker/local-agent.md
+              - 5. Autres modes locaux: runtime-docker/local-other-modes.md
+              - 6. Docker Compose: runtime-docker/docker-compose.md
+              - 7. Kubernetes: runtime-docker/kubernetes.md
+      - Deep dives:
+          - API: deep-dives/api.md
+          - MCP: deep-dives/mcp.md
+          - Bus: deep-dives/bus.md
+          - Agent: deep-dives/agent.md
+          - Configuration: deep-dives/configuration.md
+      - Référence héritée:
+          - Ancien quickstart complet: quickstart.md
+          - Ancien quickstart agent: agent-quickstart.md
+          - Auth: auth.md
+          - HTTP: http-conventions.md
+          - Command Bus: command-bus.md
+          - Idempotence: idempotency.md
+          - Multitenant: multitenant.md
+          - Cache: caching.md
+          - Décisions: decisions.md
+          - Release: release.md
+  - Projets:
+      - Todo List:
+          - Vue d'ensemble: tutorials/todo-list/index.md
+          - Préparer LM Studio: tutorials/todo-list/00-lm-studio.md
+          - 1. Initialiser le projet: tutorials/todo-list/01-init-project.md
+          - 2. Créer l'entité: tutorials/todo-list/02-create-entity.md
+          - 3. Créer les use cases: tutorials/todo-list/03-create-usecase.md
+          - 4. Exposer une API:
+              - Vue d'ensemble: tutorials/todo-list/04-api.md
+              - 4.1 Config et schémas: tutorials/todo-list/04-api-config-schemas.md
+              - 4.2 Handlers HTTP: tutorials/todo-list/04-api-handlers.md
+              - 4.3 Router et main: tutorials/todo-list/04-api-router-main.md
+              - 4.4 Tester l'API: tutorials/todo-list/04-api-tests.md
+          - 5. Exposer un MCP:
+              - Vue d'ensemble: tutorials/todo-list/05-mcp.md
+              - 5.1 Tools MCP: tutorials/todo-list/05-mcp-tools.md
+              - 5.2 Entrypoint et tests: tutorials/todo-list/05-mcp-entrypoint-tests.md
+              - 5.3 LM Studio: tutorials/todo-list/05-mcp-lm-studio.md
+          - 6. Ajouter un agent:
+              - Vue d'ensemble: tutorials/todo-list/06-agent.md
+              - 6.1 Config LLM et LangSmith: tutorials/todo-list/06-agent-config.md
+              - 6.2 Intent-interpreters: tutorials/todo-list/06-agent-intent-interpreters.md
+              - 6.3 État et parsing: tutorials/todo-list/06-agent-state-parsing.md
+              - 6.4 Action et collecte: tutorials/todo-list/06-agent-action-collection.md
+              - 6.5 Routing et dépendances: tutorials/todo-list/06-agent-routing-dependencies.md
+              - 6.6 Noeuds et graphe: tutorials/todo-list/06-agent-nodes-graph.md
+              - 6.7 Tests et Studio: tutorials/todo-list/06-agent-tests-studio.md
+          - Annexes locales: tutorials/todo-list/07-local-services.md
 
 validation:
   nav:
