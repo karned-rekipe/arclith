@@ -1,4 +1,5 @@
 :root > * {
+  --arclith-academy-max-width: 82rem;
   --arclith-academy-border: color-mix(
     in srgb,
     var(--md-default-fg-color) 16%,
@@ -21,8 +22,32 @@
   );
 }
 
+body:has(.arclith-home) .md-main__inner {
+  max-width: none;
+}
+
+body:has(.arclith-home) .md-content {
+  margin: 0;
+}
+
+body:has(.arclith-home) .md-content__inner {
+  margin: 0;
+  padding: 0;
+}
+
+body:has(.arclith-home) .md-content__inner::before {
+  display: none;
+}
+
 .md-typeset .arclith-home {
-  margin-top: -0.5rem;
+  margin-top: -1.5rem;
+  padding: 0 clamp(0.8rem, 3vw, 2.4rem) 2.6rem;
+}
+
+.md-typeset .arclith-home > * {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: var(--arclith-academy-max-width);
 }
 
 .md-header__button.md-logo img,
@@ -132,7 +157,7 @@
 }
 
 .md-typeset .academy-grid--categories {
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
 }
 
 .md-typeset .academy-card {
@@ -208,7 +233,7 @@
   color: var(--md-accent-fg-color);
 }
 
-@media screen and (min-width: 100em) {
+@media screen and (min-width: 60em) {
   .md-typeset .academy-hero {
     grid-template-columns: minmax(22rem, 0.9fr) minmax(26rem, 1.1fr);
   }

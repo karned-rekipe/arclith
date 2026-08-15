@@ -4,17 +4,15 @@ Ce parcours sert d'initiation pour les nouveaux venus.
 
 ## Objectif
 
-Comprendre Arclith en construisant progressivement un service réel.
+Apprendre Arclith par niveaux de lecture, du POC au projet complet.
 
 ## Progression
 
-1. préparer l'environnement local;
-2. comprendre les fondations;
-3. exécuter les quickstarts;
-4. construire le service Todo;
-5. ajouter la baseline production;
-6. lancer avec Docker;
-7. lire les approfondissements selon le besoin.
+1. lancer un quickstart pour valider le POC;
+2. lire les foundations pour préparer l'environnement et comprendre le modèle;
+3. suivre une formation ciblée pour apprendre un geste précis;
+4. lire la capability correspondante pour connaître le contrat complet;
+5. réaliser un projet end to end pour assembler les briques.
 
 Chaque bloc produit un résultat vérifiable. Ne pas avancer si la validation de
 la page courante échoue.
@@ -23,9 +21,9 @@ la page courante échoue.
 
 | Étape | Page | Résultat |
 |---|---|---|
-| 1 | [Préparer son poste](setup.md) | CLI, Python et Docker prêts |
-| 2 | [Comprendre le modèle](foundations.md) | vocabulaire commun |
-| 3 | [Quickstarts essentiels](quickstarts.md) | API, MCP, bus et agent lancés |
+| 1 | [Quickstarts essentiels](quickstarts.md) | POC API, MCP, bus ou agent validé |
+| 2 | [Préparer son poste](setup.md) | CLI, Python et Docker prêts |
+| 3 | [Comprendre le modèle](foundations.md) | vocabulaire commun |
 | 4 | [Projet Todo](../tutorials/todo-list/index.md) | service complet |
 | 5 | [Validation finale](validation.md) | critères de passage validés |
 
@@ -52,8 +50,8 @@ Ne pas passer à l'étape suivante tant que la validation de la page courante ne
 
 !!! note "Média à produire"
     Vidéo courte : dérouler le parcours complet jusqu'à l'API locale.
-    Capture : navigation du site avec les sections Quickstarts, Foundations, Formation et Production.
+    Capture : navigation du site avec les sections Quickstart, Foundations, Formation, Capabilities et Projets.
 
 ## Suite
 
-Commencer par [Préparer son poste](setup.md).
+Commencer par [Quickstarts essentiels](quickstarts.md).
