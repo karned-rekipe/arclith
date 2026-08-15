@@ -8,11 +8,11 @@
         frontières hexagonales, construire un service Todo complet, puis durcir
         l'exploitation.
       </p>
-      <div class="academy-actions" aria-label="Actions principales">
+      <nav class="academy-actions" aria-label="Actions principales">
         <a class="md-button md-button--primary" href="quickstarts/">Démarrer</a>
         <a class="md-button" href="learning/training-path/">Se former</a>
         <a class="md-button" href="production/baseline/">Produire</a>
-      </div>
+      </nav>
     </div>
     <div class="academy-hero__media">
       <video
@@ -46,42 +46,42 @@
 
     <div class="academy-grid academy-grid--categories">
       <a class="academy-card" href="quickstarts/">
-        <img src="assets/academy/quickstarts.png" alt="" />
+        <img src="assets/academy/quickstarts.png" alt="" decoding="async" loading="lazy" />
         <span class="academy-card__kicker">Quickstarts</span>
         <strong>Démarrer vite</strong>
         <p>API, MCP, bus ou agent en parcours courts et validables.</p>
       </a>
 
       <a class="academy-card" href="foundations/what-is-arclith/">
-        <img src="assets/academy/foundations.png" alt="" />
+        <img src="assets/academy/foundations.png" alt="" decoding="async" loading="lazy" />
         <span class="academy-card__kicker">Foundations</span>
         <strong>Comprendre le modèle</strong>
         <p>Domaine, ports, adapters et runtimes sans mélanger les frontières.</p>
       </a>
 
       <a class="academy-card" href="learning/training-path/">
-        <img src="assets/academy/training.png" alt="" />
+        <img src="assets/academy/training.png" alt="" decoding="async" loading="lazy" />
         <span class="academy-card__kicker">Formation</span>
         <strong>Suivre le parcours</strong>
         <p>Progression guidée avec validations et autonomie finale.</p>
       </a>
 
       <a class="academy-card" href="tutorials/todo-list/">
-        <img src="assets/academy/todo-tutorial.png" alt="" />
+        <img src="assets/academy/todo-tutorial.png" alt="" decoding="async" loading="lazy" />
         <span class="academy-card__kicker">Projet</span>
         <strong>Construire Todo</strong>
         <p>Le fil rouge pour exposer API, MCP et agent sur un même domaine.</p>
       </a>
 
       <a class="academy-card" href="production/baseline/">
-        <img src="assets/academy/production.png" alt="" />
+        <img src="assets/academy/production.png" alt="" decoding="async" loading="lazy" />
         <span class="academy-card__kicker">Production</span>
         <strong>Durcir l'exploitation</strong>
         <p>Baseline, auth, secrets, observabilité, Docker et Kubernetes.</p>
       </a>
 
       <a class="academy-card" href="capabilities/">
-        <img src="assets/academy/reference.png" alt="" />
+        <img src="assets/academy/reference.png" alt="" decoding="async" loading="lazy" />
         <span class="academy-card__kicker">Référence</span>
         <strong>Retrouver un contrat</strong>
         <p>Catalogue des capabilities, fiches dédiées et deep dives.</p>
