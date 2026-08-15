@@ -1,6 +1,7 @@
 <div class="arclith-home">
   <section class="academy-hero">
     <div class="academy-hero__copy">
+      <img class="academy-logo" src="assets/brand/arclith-logo.svg" alt="Arclith" />
       <p class="academy-eyebrow">Arclith Academy</p>
       <h1>Du quickstart au microservice prêt à produire.</h1>
       <p class="academy-lead">
