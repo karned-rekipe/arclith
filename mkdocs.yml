@@ -10,7 +10,7 @@ site_dir: site
 theme:
   name: material
   language: fr
-  logo: assets/brand/arclith-logo.svg
+  logo: assets/brand/arclith-logo-white.svg
   features:
     - navigation.tabs
     - navigation.sections

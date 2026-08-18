@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="240" viewBox="0 0 200 240">
+  <!-- outer hexagon boundary -->
+  <path d="M100.000,36.000 L155.426,68.000 L155.426,132.000 L100.000,164.000 L44.574,132.000 L44.574,68.000 Z"
+    fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- adapter tabs -->
+  <polygon points="123.816,49.750 131.610,54.250 138.610,42.126 130.816,37.626" fill="#FFFFFF"/> <!-- edge haut-droit -->
+  <polygon points="131.610,145.750 123.816,150.250 130.816,162.374 138.610,157.874" fill="#FFFFFF"/> <!-- edge bas-droit -->
+  <polygon points="44.574,104.500 44.574,95.500 30.574,95.500 30.574,104.500" fill="#FFFFFF"/> <!-- edge gauche -->
+
+  <!-- inner core -->
+  <path d="M100.000,72.000 L124.249,86.000 L124.249,114.000 L100.000,128.000 L75.751,114.000 L75.751,86.000 Z" fill="#FFFFFF"/>
+
+  <!-- wordmark -->
+  <text x="100" y="196"
+    font-family="Inter, system-ui, sans-serif"
+    font-size="26" font-weight="600"
+    letter-spacing="3"
+    fill="#FFFFFF"
+    text-anchor="middle">Arclith</text>
+
+  <!-- tagline -->
+  <text x="100" y="212"
+    font-family="Inter, system-ui, sans-serif"
+    font-size="10" font-weight="400"
+    letter-spacing="1.5"
+    fill="#FFFFFF"
+    opacity="0.72"
+    text-anchor="middle">HEXAGONAL ARCHITECTURE</text>
+</svg>
