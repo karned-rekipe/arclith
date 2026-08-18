@@ -50,11 +50,6 @@ body:has(.arclith-home) .md-content__inner::before {
   max-width: var(--arclith-academy-max-width);
 }
 
-.md-header__button.md-logo img,
-.md-nav__title .md-logo img {
-  filter: brightness(0) invert(1);
-}
-
 .md-typeset .academy-hero {
   align-items: center;
   border-bottom: 1px solid var(--arclith-academy-border);
@@ -70,7 +65,6 @@ body:has(.arclith-home) .md-content__inner::before {
 
 .md-typeset .academy-logo {
   display: block;
-  filter: brightness(0) invert(1);
   height: auto;
   margin: 0 0 1rem;
   max-width: 6.5rem;

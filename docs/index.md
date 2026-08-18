@@ -7,7 +7,7 @@ hide:
 <div class="arclith-home">
   <section class="academy-hero">
     <div class="academy-hero__copy">
-      <img class="academy-logo" src="assets/brand/arclith-logo.svg" alt="Arclith" />
+      <img class="academy-logo" src="assets/brand/arclith-logo-white.svg" alt="Arclith" />
       <p class="academy-eyebrow">Arclith Academy</p>
       <h1>Du POC au projet complet, avec des frontières claires.</h1>
       <p class="academy-lead">
