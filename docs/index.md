@@ -9,17 +9,14 @@ hide:
     <div class="academy-hero__copy">
       <img class="academy-logo" src="assets/brand/arclith-logo-white.svg" alt="Arclith" />
       <p class="academy-eyebrow">Arclith Academy</p>
-      <h1>Du POC au projet complet, avec des frontières claires.</h1>
+      <h1>Le framework pour l'architecture hexagonale</h1>
       <p class="academy-lead">
-        Apprends Arclith dans le bon ordre: quickstart pour voir tourner,
-        foundations pour installer et comprendre, formation pour pratiquer,
-        capabilities pour approfondir, puis projets end to end.
+        Le code métier ne devrait pas dépendre d'un moteur de base de données
+        ou d'un moteur d'API. L'architecture hexagonale découple le code métier
+        des détails techniques. Arclith est un framework Python qui facilite
+        cette architecture pour créer des applications robustes, testables et
+        maintenables.
       </p>
-      <nav class="academy-actions" aria-label="Actions principales">
-        <a class="md-button md-button--primary" href="quickstarts/">Démarrer</a>
-        <a class="md-button" href="learning/training-path/">Se former</a>
-        <a class="md-button" href="capabilities/">Approfondir</a>
-      </nav>
     </div>
     <div class="academy-hero__media">
       <video
@@ -44,11 +41,7 @@ hide:
   <section class="academy-section" aria-labelledby="academy-categories-title">
     <div class="academy-section__header">
       <p class="academy-eyebrow">Parcours</p>
-      <h2 id="academy-categories-title">Choisir le bon niveau de lecture</h2>
-      <p>
-        Chaque section correspond à une intention: tester vite, comprendre,
-        apprendre un geste, approfondir un contrat ou réaliser un projet complet.
-      </p>
+      <h2 id="academy-categories-title">5 thèmes pour tout apprendre</h2>
     </div>
 
     <div class="academy-grid academy-grid--categories">
@@ -86,24 +79,6 @@ hide:
         <strong>Construire de A à Z</strong>
         <p>Réalisation end to end d'un projet concret avec domaine, API, MCP, agent et persistance.</p>
       </a>
-    </div>
-  </section>
-
-  <section class="academy-section" aria-labelledby="academy-featured-title">
-    <div class="academy-section__header">
-      <p class="academy-eyebrow">Chemin recommandé</p>
-      <h2 id="academy-featured-title">La prochaine étape utile</h2>
-    </div>
-
-    <div class="academy-featured">
-      <a href="quickstarts/">Quickstart</a>
-      <a href="learning/setup/">Préparer son poste</a>
-      <a href="foundations/what-is-arclith/">Comprendre Arclith</a>
-      <a href="learning/training-path/">Parcours de formation</a>
-      <a href="capabilities/structure/">Structure d'une capability</a>
-      <a href="capabilities/storage/">Storage</a>
-      <a href="production/baseline/">Baseline production</a>
-      <a href="tutorials/todo-list/">Projet Todo complet</a>
     </div>
   </section>
 </div>
