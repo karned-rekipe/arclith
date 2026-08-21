@@ -11,7 +11,7 @@ un état de graphe, puis appelle les ports inbound ou use cases Arclith.
 
 | Adapter | Usage |
 |---|---|
-| `langgraph` | entrypoint LangGraph Studio |
+| `langgraph` | Agent Server local ou déployé, consommable par API |
 
 ## Commande
 
@@ -103,6 +103,17 @@ arclith-cli add-adapter --capability observability --adapter langsmith --yes
 LM Studio est pratique pour le local. LangSmith est optionnel mais utile pour
 inspecter les runs, messages et erreurs.
 
+Pour un développement hors ligne:
+
+```bash
+unset LANGSMITH_API_KEY LANGCHAIN_API_KEY
+export LANGSMITH_TRACING=false
+export LANGGRAPH_CLI_NO_ANALYTICS=1
+```
+
+LangGraph Studio charge une UI hébergée. Sans internet, interagir avec l'Agent Server via son API
+locale ou via `langgraph_sdk`.
+
 ## Règles
 
 - Un node appelle un use case ou un port inbound.
@@ -123,6 +134,63 @@ Pour un lancement sans navigateur :
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
 
+API locale:
+
+```text
+http://127.0.0.1:2024
+http://127.0.0.1:2024/docs
+```
+
+Run rapide:
+
+```bash
+curl -N -X POST "http://127.0.0.1:2024/runs/stream" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "assistant_id": "agent",
+    "input": {
+      "messages": [
+        {"role": "human", "content": "Reponds en une phrase."}
+      ]
+    },
+    "stream_mode": "values"
+  }'
+```
+
+Inspection durable:
+
+```bash
+THREAD_ID=$(curl -fsS -X POST "http://127.0.0.1:2024/threads" \
+  -H "Content-Type: application/json" \
+  -d '{}' | python -c 'import json,sys; print(json.load(sys.stdin)["thread_id"])')
+
+curl -N -X POST "http://127.0.0.1:2024/threads/$THREAD_ID/runs/stream" \
+  -H "Content-Type: application/json" \
+  -d '{"assistant_id":"agent","input":{"messages":[{"role":"human","content":"Reponds en une phrase."}]},"stream_mode":"values"}'
+
+curl -fsS "http://127.0.0.1:2024/threads/$THREAD_ID/state" | python -m json.tool
+```
+
+Remplacer `agent` par le nom du graphe dans `langgraph.json`.
+
+## Serveur Central Ou Par Service
+
+En développement, un même `langgraph dev` peut exposer plusieurs graphes:
+
+```json
+{
+  "graphs": {
+    "todo_agent": "./src/app/adapters/inbound/langgraph/todo.py:agent",
+    "support_agent": "./src/app/adapters/inbound/langgraph/support.py:agent"
+  }
+}
+```
+
+En production, découper par bounded context. Un agent proche du service appelle ses propres ports et
+use cases. Un agent central peut orchestrer plusieurs services, mais il appelle leurs APIs, events ou
+tools MCP. Il ne lit pas directement leurs repositories ou bases.
+
 ## Suite
 
-Lire [llm](llm.md), [observability](observability.md), puis le [parcours Todo agent](../tutorials/todo-list/06-agent.md).
+Lire [llm](llm.md), [observability](observability.md), [Validation IA locale](../learning/local-ai-validation.md),
+puis le [parcours Todo agent](../tutorials/todo-list/06-agent.md).

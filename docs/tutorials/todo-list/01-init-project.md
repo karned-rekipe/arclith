@@ -146,6 +146,15 @@ Le graphe est déclaré dans `langgraph.json`:
 todo_agent -> src/todo_list_service/adapters/inbound/langgraph/agent.py:agent
 ```
 
+Si Studio n'est pas accessible, ouvrir l'API locale:
+
+```text
+http://127.0.0.1:2024/docs
+```
+
+Les commandes `curl` de validation offline sont regroupées dans
+[Validation IA locale et hors ligne](../../learning/local-ai-validation.md).
+
 ## Découpage principal
 
 ```text

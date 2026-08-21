@@ -41,4 +41,19 @@ serveur `http://127.0.0.1:8121/mcp`, et que les logs du service Arclith montrent
 
 ![Flux LM Studio vers MCP Arclith](assets/05-lmstudio-mcp.svg)
 
+## Et LangGraph ?
+
+LM Studio Chat consomme ici un serveur MCP. Il ne se branche pas directement sur l'Agent Server
+LangGraph `http://127.0.0.1:2024`, car cette API expose des `threads` et des `runs`, pas une API MCP
+ou Chat Completions.
+
+Le chemin recommandé pour l'agent reste:
+
+```text
+client local -> LangGraph :2024 -> adapter LLM -> LM Studio :1234/v1
+```
+
+Un pont MCP peut appeler LangGraph, mais il doit être développé comme serveur MCP dédié. Dans ce cas,
+LM Studio orchestre le chat et LangGraph devient un tool appelé par le modèle.
+
 Étape suivante: [ajouter un agent](06-agent.md).

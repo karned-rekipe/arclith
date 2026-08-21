@@ -66,6 +66,14 @@ api_key: "lm-studio"
 base_url: "http://127.0.0.1:1234/v1"
 ```
 
+Le `model_name` doit être l'identifiant exact retourné par LM Studio:
+
+```bash
+curl -fsS http://127.0.0.1:1234/v1/models | python -m json.tool
+```
+
+Ne pas inventer un alias comme `local-model` si LM Studio ne le déclare pas.
+
 OpenAI garde la clé dans `.env` via un mapping de secret:
 
 ```yaml
@@ -108,6 +116,42 @@ result = await use_case.execute(command)
 
 Éviter le chemin inverse où le prompt appelle directement le repository.
 
+## Test Local Minimal
+
+Avant de brancher l'agent, prouver que le modèle local répond:
+
+```bash
+curl -fsS http://127.0.0.1:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "<model-id-lm-studio>",
+    "messages": [
+      {"role": "user", "content": "Reponds uniquement: ok"}
+    ],
+    "stream": false
+  }' | python -m json.tool
+```
+
+Puis prouver que le client Python utilisé par Arclith sait parler à cet endpoint:
+
+```bash
+uv run --with langchain-openai python - <<'PY'
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(
+    model="<model-id-lm-studio>",
+    base_url="http://127.0.0.1:1234/v1",
+    api_key="lm-studio",
+    temperature=0,
+)
+
+print(llm.invoke("Reponds uniquement: ok").content)
+PY
+```
+
+Depuis Docker, remplacer souvent `127.0.0.1` par `host.docker.internal`, car `localhost` désigne le
+conteneur.
+
 ## Règles
 
 Le LLM interprète ou assiste. Il n'écrit pas directement dans la persistance.
@@ -132,6 +176,14 @@ LM Studio:
 curl -fsS http://127.0.0.1:1234/v1/models
 ```
 
+Chat Completions local:
+
+```bash
+curl -fsS http://127.0.0.1:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"<model-id-lm-studio>","messages":[{"role":"user","content":"ok ?"}],"stream":false}'
+```
+
 Tests:
 
 ```bash
@@ -145,6 +197,7 @@ Vérifier au minimum:
 | provider OpenAI-compatible sans `base_url` | erreur de configuration |
 | secret absent pour OpenAI ou Anthropic | erreur explicite |
 | fake LLM en test unitaire | aucun appel réseau |
+| agent offline | `LANGSMITH_TRACING=false` et réponse via l'API LangGraph locale |
 | agent avec observabilité active | traces visibles dans LangSmith |
 
 ## Suite
@@ -153,4 +206,5 @@ Lire aussi:
 
 - [Capability Agent](agent.md)
 - [Capability Observability](observability.md)
+- [Validation IA locale](../learning/local-ai-validation.md)
 - [Tutoriel agent](../tutorials/todo-list/06-agent-config.md)

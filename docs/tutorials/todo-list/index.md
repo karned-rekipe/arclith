@@ -109,6 +109,9 @@ Les étapes API, MCP et agent sont découpées en sous-étapes:
 - LM Studio pour l'agent et le test MCP depuis LM Studio;
 - une clé LangSmith si vous voulez tracer l'agent dans LangSmith.
 
+LangSmith n'est pas requis pour travailler hors ligne. Le chemin complet LM Studio + LangGraph local
+est détaillé dans [Validation IA locale et hors ligne](../../learning/local-ai-validation.md).
+
 Installer la CLI publiée:
 
 ```bash

@@ -119,6 +119,11 @@ asyncio.run(main())
 PY
 ```
 
+LM Studio Chat peut aussi servir de client MCP local si le serveur est déclaré dans `mcp.json`.
+Cela permet de tester les tools avec un modèle local. Cette intégration concerne le serveur MCP,
+pas directement l'Agent Server LangGraph `:2024`.
+
 ## Suite
 
-Lire [auth](auth.md), [probe](probe.md), puis [Deep Dive MCP](../deep-dives/mcp.md).
+Lire [auth](auth.md), [probe](probe.md), [Deep Dive MCP](../deep-dives/mcp.md), puis
+[tester le MCP dans LM Studio](../tutorials/todo-list/05-mcp-lm-studio.md).

@@ -4,8 +4,8 @@ Ce guide part de zéro et aboutit à un service local qui expose:
 
 - une entité métier `Ingredient`;
 - une API FastAPI générée par `arclith-cli`;
-- un agent LangGraph testé dans LangGraph Studio;
-- des traces LangSmith;
+- un agent LangGraph testé via l'API locale, avec Studio si internet est disponible;
+- des traces LangSmith optionnelles;
 - un LLM local LM Studio via endpoint OpenAI-compatible.
 
 La règle d'architecture reste la même du début à la fin:
@@ -20,6 +20,8 @@ Demande naturelle
 ```
 
 Le LLM traduit l'intention. Il ne doit pas écrire directement dans la persistance.
+Pour les commandes à jour de validation offline LM Studio + LangGraph, voir
+[Validation IA locale](learning/local-ai-validation.md).
 
 ## 1. Prérequis
 
@@ -28,7 +30,7 @@ Le LLM traduit l'intention. Il ne doit pas écrire directement dans la persistan
 - `git`
 - LM Studio avec le Local Server démarré sur `http://127.0.0.1:1234/v1`
 - un modèle chargé dans LM Studio
-- une clé LangSmith si le tracing doit remonter dans LangSmith
+- une clé LangSmith seulement si le tracing doit remonter dans LangSmith
 
 Installer la CLI depuis le repository:
 
@@ -290,15 +292,40 @@ agent = arclith.langgraph(AgentState, register_agent, name="pantry_agent")
 Pour une autre entité, remplacer `pantry_agent`, `Ingredient`, `build_ingredient_service` et les
 prompts par les noms générés par `arclith-cli new`.
 
-## 6. Lancer LangGraph Studio
+## 6. Lancer LangGraph
 
 Dans un terminal dedie:
 
 ```bash
+export LANGSMITH_TRACING=false
+export LANGGRAPH_CLI_NO_ANALYTICS=1
 uv run --frozen langgraph dev --no-browser --allow-blocking --port 2024
 ```
 
-Dans LangGraph Studio, appeler le graphe `pantry_agent` avec un état:
+En offline, tester directement l'API locale:
+
+```bash
+curl -N -X POST "http://127.0.0.1:2024/runs/stream" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "assistant_id": "pantry_agent",
+    "input": {
+      "messages": [
+        {"role": "human", "content": "ajoute Sucre roux"}
+      ]
+    },
+    "stream_mode": "values"
+  }'
+```
+
+L'API locale est documentée ici:
+
+```text
+http://127.0.0.1:2024/docs
+```
+
+Si internet est disponible, LangGraph Studio peut aussi appeler le graphe `pantry_agent` avec un
+état:
 
 ```json
 {
@@ -371,6 +398,7 @@ Le quickstart est valide seulement si:
 - le nœud agent appelle le service applicatif généré;
 - l'interpréteur d'intention applicatif traduit la demande en `IngredientIntent`;
 - LM Studio répond sur `/v1/models`;
+- LangGraph répond via l'API locale `:2024`;
 - LangSmith reçoit les traces quand `LANGSMITH_TRACING=true`.
 
 ## 9. Règles à conserver en projet réel
@@ -379,4 +407,5 @@ Le quickstart est valide seulement si:
 - Faire produire au LLM un objet structuré, puis laisser les use cases appliquer le métier.
 - Garder un interpréteur déterministe ou des tests sans LLM pour les gates CI.
 - Garder `.env` et les credentials hors Git.
-- Utiliser LangGraph Studio et LangSmith pour tester les conversations et inspecter les traces.
+- Utiliser l'API locale LangGraph pour les tests offline.
+- Utiliser LangGraph Studio et LangSmith pour inspecter les conversations quand ils sont disponibles.

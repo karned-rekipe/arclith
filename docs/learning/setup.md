@@ -47,6 +47,9 @@ curl -fsS http://127.0.0.1:1234/v1/models
 Si la commande échoue, ouvrir LM Studio, charger un modèle, puis activer le
 serveur local OpenAI-compatible.
 
+Pour prouver le chemin complet LM Studio, adapter LLM et LangGraph sans LangSmith, suivre
+[Validation IA locale et hors ligne](local-ai-validation.md).
+
 ## Validation
 
 ```bash
@@ -70,4 +73,5 @@ pas lancé ou n'écoute pas sur `127.0.0.1:1234`.
 
 ## Suite
 
-Lire [Comprendre le modèle](foundations.md).
+Lire [Comprendre le modèle](foundations.md), ou [Validation IA locale et hors ligne](local-ai-validation.md)
+si le parcours agent est prévu.

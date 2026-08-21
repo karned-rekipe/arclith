@@ -41,7 +41,7 @@ rapide en tutoriel complet.
         <img src="../assets/academy/training.png" alt="" decoding="async" loading="lazy" />
         <span class="academy-card__kicker">Agent</span>
         <strong>Préparer LangGraph</strong>
-        <p>Ajouter l'adapter agent, générer <code>langgraph.json</code> et ouvrir Studio sur un graphe minimal.</p>
+        <p>Ajouter l'adapter agent, générer <code>langgraph.json</code> et tester l'Agent Server local.</p>
       </a>
     </div>
   </section>
@@ -61,6 +61,7 @@ rapide en tutoriel complet.
       <a href="mcp/">2. MCP HTTP</a>
       <a href="bus/">3. Bus RabbitMQ</a>
       <a href="agent/">4. Agent LangGraph</a>
+      <a href="../learning/local-ai-validation/">Validation IA locale</a>
       <a href="../tutorials/todo-list/">Projet Todo complet</a>
     </div>
   </section>

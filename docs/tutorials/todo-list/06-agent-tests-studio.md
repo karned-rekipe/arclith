@@ -1,7 +1,7 @@
 # 6.7 Tester l'agent
 
 Intention: verrouiller le comportement agent sans dépendre d'un LLM réel pour les cas déterministes,
-puis tester le graphe dans LangGraph Studio.
+puis tester le graphe avec l'API locale LangGraph. Studio reste utile quand internet est disponible.
 
 ## Tests unitaires
 
@@ -289,19 +289,66 @@ Ces tests couvrent les comportements importants:
 - `Qu'est ce que je dois faire aujourd'hui ?` liste les todos au lieu de créer une tâche;
 - les prompts ambigus passent par `TodoActionInterpreter`.
 
-## LangGraph Studio
+## LangGraph API Locale
 
-Lancer LangGraph Studio:
+Lancer l'Agent Server local:
 
 ```bash
+export LANGSMITH_TRACING=false
+export LANGGRAPH_CLI_NO_ANALYTICS=1
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
 
-Le terminal affiche une URL de ce type:
+Le terminal affiche une API locale et, si internet est disponible, une URL Studio:
 
 ```text
+http://127.0.0.1:2024
+http://127.0.0.1:2024/docs
 https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024
 ```
+
+En offline, utiliser l'API locale. Tester un run stateless:
+
+```bash
+curl -N -X POST "http://127.0.0.1:2024/runs/stream" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "assistant_id": "todo_agent",
+    "input": {
+      "messages": [
+        {"role": "human", "content": "Je dois acheter des bananes demain"}
+      ]
+    },
+    "stream_mode": "values"
+  }'
+```
+
+Créer ensuite un thread durable pour relire l'état:
+
+```bash
+THREAD_ID=$(curl -fsS -X POST "http://127.0.0.1:2024/threads" \
+  -H "Content-Type: application/json" \
+  -d '{}' | python -c 'import json,sys; print(json.load(sys.stdin)["thread_id"])')
+
+curl -N -X POST "http://127.0.0.1:2024/threads/$THREAD_ID/runs/stream" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "assistant_id": "todo_agent",
+    "input": {
+      "messages": [
+        {"role": "human", "content": "Quelles sont mes taches en cours ?"}
+      ]
+    },
+    "stream_mode": "values"
+  }'
+
+curl -fsS "http://127.0.0.1:2024/threads/$THREAD_ID/state" | python -m json.tool
+curl -fsS "http://127.0.0.1:2024/threads/$THREAD_ID/runs" | python -m json.tool
+```
+
+## LangGraph Studio
+
+Si Studio est accessible, utiliser les mêmes payloads depuis l'interface.
 
 Créer une todo simple:
 
@@ -375,5 +422,8 @@ Résultat attendu:
 ```text
 Creation de todo annulee.
 ```
+
+Pour plus de commandes offline, lire
+[Validation IA locale et hors ligne](../../learning/local-ai-validation.md).
 
 Étape suivante: [annexes locales](07-local-services.md).

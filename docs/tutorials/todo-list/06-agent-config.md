@@ -48,6 +48,14 @@ base_url: "http://127.0.0.1:1234/v1"
 
 LangSmith est optionnel pour exécuter localement, mais utile pour inspecter les runs.
 
+Si vous travaillez hors ligne, désactiver explicitement le tracing et passer directement à la
+configuration LangGraph:
+
+```dotenv
+LANGSMITH_TRACING=false
+LANGGRAPH_CLI_NO_ANALYTICS=1
+```
+
 ```bash
 arclith-cli add-adapter --capability observability
 ```
@@ -85,6 +93,9 @@ La clé reste dans `.env`, jamais dans Git. LangSmith sert à observer l'agent:
 - LM Studio fournit le modèle local;
 - LangSmith affiche les runs, les messages, les appels LLM et les erreurs.
 
+Sans internet, LangGraph continue de tourner localement. L'inspection se fait alors avec
+`http://127.0.0.1:2024/docs`, `/runs/stream` et `/threads/{thread_id}/state`.
+
 ![Flux LangGraph et LangSmith](assets/06-langsmith-flow.svg)
 
 ## LangGraph config
@@ -109,5 +120,8 @@ Modifier `langgraph.json`:
   "env": ".env"
 }
 ```
+
+Pour prouver cette configuration avant de continuer, utiliser
+[Validation IA locale et hors ligne](../../learning/local-ai-validation.md).
 
 Étape suivante: [écrire les intent-interpreters](06-agent-intent-interpreters.md).

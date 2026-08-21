@@ -264,18 +264,33 @@ Exemple de ports applicatifs cibles:
 - `TracePort`: envoie les traces LangSmith ou autre;
 - `EventBusPort`: publie des événements si besoin.
 
-### LangSmith comme banc de test
+### LangGraph local comme banc de test
 
 Arclith ne génère pas d'UI dédiée pour tester un agent. Le chemin standard est un adapter
-`agent/langgraph` testé dans LangGraph Studio, avec les traces branchées sur LangSmith:
+`agent/langgraph` testé via l'Agent Server local. LangGraph Studio et LangSmith sont utiles pour
+inspecter les conversations quand internet et la clé sont disponibles, mais ils ne sont pas requis
+pour valider un run local:
 
 ```bash
 uv add "arclith[langgraph]"
 arclith-cli add-adapter --capability llm --adapter lmstudio --param "model_name=<model-id-lm-studio>" --yes
 arclith-cli add-adapter --capability agent --adapter langgraph
 arclith-cli add-adapter --capability observability --adapter langsmith
+export LANGSMITH_TRACING=false
+export LANGGRAPH_CLI_NO_ANALYTICS=1
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
+
+Tester sans Studio:
+
+```bash
+curl -N -X POST "http://127.0.0.1:2024/runs/stream" \
+  -H "Content-Type: application/json" \
+  -d '{"assistant_id":"agent","input":{"messages":[{"role":"human","content":"ping"}]},"stream_mode":"values"}'
+```
+
+Pour les commandes complètes LM Studio, threads et inspection de state, lire
+[Validation IA locale](learning/local-ai-validation.md).
 
 L'adapter `agent/langgraph` génère `langgraph.json`, `config/adapters/inbound/langgraph.yaml` et
 `src/<package>/adapters/inbound/langgraph/agent.py`. Le projet n'a plus qu'à modifier ce fichier

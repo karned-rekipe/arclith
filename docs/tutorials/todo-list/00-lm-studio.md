@@ -68,6 +68,28 @@ curl -fsS http://127.0.0.1:1234/v1/chat/completions \
   }' | python -m json.tool
 ```
 
+Tester ensuite le même endpoint avec le client Python utilisé côté agent:
+
+```bash
+uv run --with langchain-openai python - <<'PY'
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(
+    model="mistralai/ministral-3-3b",
+    base_url="http://127.0.0.1:1234/v1",
+    api_key="lm-studio",
+    temperature=0,
+)
+
+response = llm.invoke("Reponds uniquement: ok")
+print(response.content)
+PY
+```
+
+Remplacer `mistralai/ministral-3-3b` par l'`id` exact retourné par `/v1/models`. Ce deuxième test
+prouve que le serveur LM Studio et l'intégration OpenAI-compatible utilisée par LangChain sont
+cohérents.
+
 ## Informations à garder
 
 | Élément | Valeur locale du tutoriel |
@@ -103,5 +125,8 @@ arclith-cli add-adapter \
 | `invalid model identifier` | model id incorrect | recopier l'`id` de `/v1/models` |
 | erreur `response_format` | version Arclith incompatible | utiliser `arclith>=0.15.0` |
 | appel depuis Docker impossible | `localhost` pointe dans le container | utiliser `host.docker.internal:1234` |
+
+Pour un guide plus complet sur le mode offline, lire
+[Validation IA locale et hors ligne](../../learning/local-ai-validation.md).
 
 Étape suivante: [initialiser le projet](01-init-project.md).
