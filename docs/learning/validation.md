@@ -56,7 +56,7 @@ La revue doit vérifier:
 - validation d'entrée explicite;
 - erreurs HTTP cohérentes;
 - tests reproductibles;
-- mode offline explicite quand LangSmith n'est pas disponible;
+- mode hors ligne explicite quand LangSmith n'est pas disponible;
 - documentation de chaque capability activée.
 
 ## Média

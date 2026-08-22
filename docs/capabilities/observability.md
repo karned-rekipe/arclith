@@ -53,7 +53,7 @@ endpoint: "https://api.smith.langchain.com"
 api_key_env: LANGSMITH_API_KEY
 ```
 
-LangSmith est optionnel pour exécuter un agent localement. Pour un poste offline:
+LangSmith est optionnel pour exécuter un agent localement. Pour un poste hors ligne:
 
 ```bash
 export LANGSMITH_TRACING=false

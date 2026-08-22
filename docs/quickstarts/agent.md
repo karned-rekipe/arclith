@@ -53,7 +53,7 @@ curl -N -X POST "http://127.0.0.1:2024/runs/stream" \
     "assistant_id": "agent",
     "input": {
       "messages": [
-        {"role": "human", "content": "Reponds uniquement: ok"}
+        {"role": "human", "content": "Réponds uniquement: ok"}
       ]
     },
     "stream_mode": "values"
@@ -69,7 +69,7 @@ THREAD_ID=$(curl -fsS -X POST "http://127.0.0.1:2024/threads" \
 
 curl -N -X POST "http://127.0.0.1:2024/threads/$THREAD_ID/runs/stream" \
   -H "Content-Type: application/json" \
-  -d '{"assistant_id":"agent","input":{"messages":[{"role":"human","content":"Reponds uniquement: ok"}]},"stream_mode":"values"}'
+  -d '{"assistant_id":"agent","input":{"messages":[{"role":"human","content":"Réponds uniquement: ok"}]},"stream_mode":"values"}'
 
 curl -fsS "http://127.0.0.1:2024/threads/$THREAD_ID/state" | python -m json.tool
 ```
@@ -80,7 +80,7 @@ L'Agent Server local répond sur `http://127.0.0.1:2024`. La documentation API l
 sur `http://127.0.0.1:2024/docs`.
 
 LangGraph Studio détecte aussi le graphe généré depuis `langgraph.json`, mais son UI hébergée
-nécessite un accès internet. En offline, la validation se fait par API ou SDK.
+nécessite un accès internet. Hors ligne, la validation se fait par API ou SDK.
 
 Le graphe généré est volontairement minimal. Le projet remplace ensuite l'état, les nœuds et les
 transitions pour appeler ses use cases.

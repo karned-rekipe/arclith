@@ -99,7 +99,7 @@ Activer LangSmith pour inspecter:
 | erreurs node | diagnostiquer un blocage |
 | sorties use case | vérifier l'action réelle |
 
-LangSmith est optionnel pour exécuter localement. En offline, désactiver le tracing et utiliser
+LangSmith est optionnel pour exécuter localement. Hors ligne, désactiver le tracing et utiliser
 l'API locale de l'Agent Server:
 
 ```bash

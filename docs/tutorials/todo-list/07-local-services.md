@@ -252,9 +252,9 @@ uv run langgraph dev --no-browser --allow-blocking --port 2024
 À partir de là, une todo créée par Swagger, par LM Studio via MCP ou par LangGraph doit être visible
 par les autres canaux.
 
-## Valider LangGraph En Offline
+## Valider LangGraph Hors Ligne
 
-Studio est utile pour apprendre le graphe, mais l'UI hébergée n'est pas nécessaire. En offline,
+Studio est utile pour apprendre le graphe, mais l'UI hébergée n'est pas nécessaire. Hors ligne,
 tester l'Agent Server local par API:
 
 ```bash
@@ -264,7 +264,7 @@ curl -N -X POST "http://127.0.0.1:2024/runs/stream" \
     "assistant_id": "todo_agent",
     "input": {
       "messages": [
-        {"role": "human", "content": "Quelles sont mes taches en cours ?"}
+        {"role": "human", "content": "Quelles sont mes tâches en cours ?"}
       ]
     },
     "stream_mode": "values"
@@ -280,7 +280,7 @@ THREAD_ID=$(curl -fsS -X POST "http://127.0.0.1:2024/threads" \
 
 curl -N -X POST "http://127.0.0.1:2024/threads/$THREAD_ID/runs/stream" \
   -H "Content-Type: application/json" \
-  -d '{"assistant_id":"todo_agent","input":{"messages":[{"role":"human","content":"Quelles sont mes taches en cours ?"}]},"stream_mode":"values"}'
+  -d '{"assistant_id":"todo_agent","input":{"messages":[{"role":"human","content":"Quelles sont mes tâches en cours ?"}]},"stream_mode":"values"}'
 
 curl -fsS "http://127.0.0.1:2024/threads/$THREAD_ID/state" | python -m json.tool
 ```

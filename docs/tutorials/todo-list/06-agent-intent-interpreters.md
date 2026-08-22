@@ -35,8 +35,8 @@ class TodoActionInterpreter:
             output_type=TodoActionDecision,
             instructions=(
                 "Tu classes l'intention d'un utilisateur qui parle a un agent de gestion de todos. "
-                "Retourne create_todo quand il veut creer, ajouter ou enregistrer une tache. "
-                "Retourne list_todos quand il veut afficher, lister ou consulter les taches existantes. "
+                "Retourne create_todo quand il veut creer, ajouter ou enregistrer une tâche. "
+                "Retourne list_todos quand il veut afficher, lister ou consulter les tâches existantes. "
                 "Retourne cancel_todo_creation quand il annule une creation de todo en cours. "
                 "Retourne unknown quand l'intention n'est pas une action todo prise en charge."
             ),

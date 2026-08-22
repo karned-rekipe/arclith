@@ -220,7 +220,7 @@ def test_detect_high_confidence_action_does_not_match_substrings() -> None:
 
 
 def test_detect_high_confidence_action_keeps_vague_todo_prompt_for_llm() -> None:
-    result = detect_high_confidence_action("mes taches importantes", {})
+    result = detect_high_confidence_action("mes tâches importantes", {})
 
     assert result == TodoAction.UNKNOWN
 
@@ -307,7 +307,7 @@ http://127.0.0.1:2024/docs
 https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024
 ```
 
-En offline, utiliser l'API locale. Tester un run stateless:
+Hors ligne, utiliser l'API locale. Tester un run stateless:
 
 ```bash
 curl -N -X POST "http://127.0.0.1:2024/runs/stream" \
@@ -336,7 +336,7 @@ curl -N -X POST "http://127.0.0.1:2024/threads/$THREAD_ID/runs/stream" \
     "assistant_id": "todo_agent",
     "input": {
       "messages": [
-        {"role": "human", "content": "Quelles sont mes taches en cours ?"}
+        {"role": "human", "content": "Quelles sont mes tâches en cours ?"}
       ]
     },
     "stream_mode": "values"
@@ -423,7 +423,7 @@ Résultat attendu:
 Creation de todo annulee.
 ```
 
-Pour plus de commandes offline, lire
+Pour plus de commandes hors ligne, lire
 [Validation IA locale et hors ligne](../../learning/local-ai-validation.md).
 
 Étape suivante: [annexes locales](07-local-services.md).

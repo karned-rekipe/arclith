@@ -20,7 +20,7 @@ Demande naturelle
 ```
 
 Le LLM traduit l'intention. Il ne doit pas écrire directement dans la persistance.
-Pour les commandes à jour de validation offline LM Studio + LangGraph, voir
+Pour les commandes à jour de validation hors ligne LM Studio + LangGraph, voir
 [Validation IA locale](learning/local-ai-validation.md).
 
 ## 1. Prérequis
@@ -302,7 +302,7 @@ export LANGGRAPH_CLI_NO_ANALYTICS=1
 uv run --frozen langgraph dev --no-browser --allow-blocking --port 2024
 ```
 
-En offline, tester directement l'API locale:
+Hors ligne, tester directement l'API locale:
 
 ```bash
 curl -N -X POST "http://127.0.0.1:2024/runs/stream" \
@@ -407,5 +407,5 @@ Le quickstart est valide seulement si:
 - Faire produire au LLM un objet structuré, puis laisser les use cases appliquer le métier.
 - Garder un interpréteur déterministe ou des tests sans LLM pour les gates CI.
 - Garder `.env` et les credentials hors Git.
-- Utiliser l'API locale LangGraph pour les tests offline.
+- Utiliser l'API locale LangGraph pour les tests hors ligne.
 - Utiliser LangGraph Studio et LangSmith pour inspecter les conversations quand ils sont disponibles.

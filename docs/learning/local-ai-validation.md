@@ -27,7 +27,7 @@ Ne pas confondre:
 | tracer dans LangSmith | optionnel, nécessite réseau et clé |
 | utiliser LM Studio Chat comme interface | possible via MCP, pas via `:2024` directement |
 
-## Préparer Le Mode Offline
+## Préparer Le Mode Hors Ligne
 
 Pour un test strictement local:
 
@@ -44,7 +44,7 @@ LANGSMITH_TRACING=false
 LANGGRAPH_CLI_NO_ANALYTICS=1
 ```
 
-LangGraph Studio charge une interface hébergée depuis `smith.langchain.com`. En offline, utiliser
+LangGraph Studio charge une interface hébergée depuis `smith.langchain.com`. Hors ligne, utiliser
 l'API locale, le SDK Python ou une petite UI locale.
 
 ## Tester LM Studio
@@ -66,7 +66,7 @@ curl -fsS http://127.0.0.1:1234/v1/chat/completions \
   -d '{
     "model": "mistralai/ministral-3-3b",
     "messages": [
-      {"role": "user", "content": "Reponds uniquement: ok"}
+      {"role": "user", "content": "Réponds uniquement: ok"}
     ],
     "stream": false
   }' | python -m json.tool
@@ -111,7 +111,7 @@ llm = ChatOpenAI(
     temperature=0,
 )
 
-response = llm.invoke("Reponds uniquement: ok")
+response = llm.invoke("Réponds uniquement: ok")
 print(response.content)
 PY
 ```
@@ -143,7 +143,7 @@ curl -N -X POST "http://127.0.0.1:2024/runs/stream" \
     "assistant_id": "todo_agent",
     "input": {
       "messages": [
-        {"role": "human", "content": "Quelles sont mes taches en cours ?"}
+        {"role": "human", "content": "Quelles sont mes tâches en cours ?"}
       ]
     },
     "stream_mode": "values"
@@ -173,7 +173,7 @@ curl -N -X POST "http://127.0.0.1:2024/threads/$THREAD_ID/runs/stream" \
     "assistant_id": "todo_agent",
     "input": {
       "messages": [
-        {"role": "human", "content": "Quelles sont mes taches en cours ?"}
+        {"role": "human", "content": "Quelles sont mes tâches en cours ?"}
       ]
     },
     "stream_mode": "values"
@@ -203,7 +203,7 @@ state = client.runs.wait(
     "todo_agent",
     input={
         "messages": [
-            {"role": "human", "content": "Quelles sont mes taches en cours ?"}
+            {"role": "human", "content": "Quelles sont mes tâches en cours ?"}
         ]
     },
 )
@@ -248,7 +248,7 @@ propriétaires de leur métier.
 - `/v1/models` retourne le `model id` local.
 - `/v1/chat/completions` répond avec ce `model id`.
 - `config/adapters/outbound/lm.yaml` utilise le même `model_name`.
-- `LANGSMITH_TRACING=false` est actif pour un test offline.
+- `LANGSMITH_TRACING=false` est actif pour un test hors ligne.
 - `langgraph dev --no-browser --allow-blocking --port 2024` démarre.
 - un run `values` répond via `/runs/stream`.
 - un thread explicite peut être relu via `/threads/{thread_id}/state`.

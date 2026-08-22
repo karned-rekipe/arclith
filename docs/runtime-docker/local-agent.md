@@ -71,7 +71,7 @@ http://127.0.0.1:2024
 http://127.0.0.1:2024/docs
 ```
 
-LangSmith Studio est optionnel et nécessite un accès réseau. En offline, déclencher un run par API:
+LangSmith Studio est optionnel et nécessite un accès réseau. Hors ligne, déclencher un run par API:
 
 ```bash
 curl -N -X POST "http://127.0.0.1:2024/runs/stream" \

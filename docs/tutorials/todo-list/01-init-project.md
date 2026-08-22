@@ -152,7 +152,7 @@ Si Studio n'est pas accessible, ouvrir l'API locale:
 http://127.0.0.1:2024/docs
 ```
 
-Les commandes `curl` de validation offline sont regroupées dans
+Les commandes `curl` de validation hors ligne sont regroupées dans
 [Validation IA locale et hors ligne](../../learning/local-ai-validation.md).
 
 ## Découpage principal

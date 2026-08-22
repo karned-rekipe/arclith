@@ -81,7 +81,7 @@ llm = ChatOpenAI(
     temperature=0,
 )
 
-response = llm.invoke("Reponds uniquement: ok")
+response = llm.invoke("Réponds uniquement: ok")
 print(response.content)
 PY
 ```
@@ -126,7 +126,7 @@ arclith-cli add-adapter \
 | erreur `response_format` | version Arclith incompatible | utiliser `arclith>=0.15.0` |
 | appel depuis Docker impossible | `localhost` pointe dans le container | utiliser `host.docker.internal:1234` |
 
-Pour un guide plus complet sur le mode offline, lire
+Pour un guide plus complet sur le mode hors ligne, lire
 [Validation IA locale et hors ligne](../../learning/local-ai-validation.md).
 
 Étape suivante: [initialiser le projet](01-init-project.md).

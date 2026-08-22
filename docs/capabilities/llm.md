@@ -126,7 +126,7 @@ curl -fsS http://127.0.0.1:1234/v1/chat/completions \
   -d '{
     "model": "<model-id-lm-studio>",
     "messages": [
-      {"role": "user", "content": "Reponds uniquement: ok"}
+      {"role": "user", "content": "Réponds uniquement: ok"}
     ],
     "stream": false
   }' | python -m json.tool
@@ -145,7 +145,7 @@ llm = ChatOpenAI(
     temperature=0,
 )
 
-print(llm.invoke("Reponds uniquement: ok").content)
+print(llm.invoke("Réponds uniquement: ok").content)
 PY
 ```
 
@@ -197,7 +197,7 @@ Vérifier au minimum:
 | provider OpenAI-compatible sans `base_url` | erreur de configuration |
 | secret absent pour OpenAI ou Anthropic | erreur explicite |
 | fake LLM en test unitaire | aucun appel réseau |
-| agent offline | `LANGSMITH_TRACING=false` et réponse via l'API LangGraph locale |
+| agent hors ligne | `LANGSMITH_TRACING=false` et réponse via l'API LangGraph locale |
 | agent avec observabilité active | traces visibles dans LangSmith |
 
 ## Suite
