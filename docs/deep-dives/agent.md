@@ -19,6 +19,22 @@ message utilisateur
 
 Le LLM aide à interpréter. Il ne remplace pas les règles métier.
 
+## Runtime Et Frontière Microservice
+
+`langgraph dev` ou l'Agent Server déployé expose une API de runs et threads. Ce runtime peut être
+placé de deux façons:
+
+| Placement | Quand l'utiliser | Règle |
+| --- | --- | --- |
+| agent dans le service | l'agent manipule un seul domaine | il appelle les ports et use cases du service |
+| agent central | l'assistant orchestre plusieurs domaines | il appelle les APIs, events ou tools MCP des services |
+
+Un agent central ne doit pas importer les repositories des autres services et ne doit pas lire leurs
+bases directement. Sinon, il recrée un couplage de monolithe derrière une façade agentique.
+
+En développement, un même `langgraph.json` peut déclarer plusieurs graphes. En production, le
+découpage suit l'ownership, les secrets, les permissions et les besoins de scaling.
+
 ## État Du Graphe
 
 L'état doit être typé et limité aux informations utiles au parcours.
@@ -83,6 +99,15 @@ Activer LangSmith pour inspecter:
 | erreurs node | diagnostiquer un blocage |
 | sorties use case | vérifier l'action réelle |
 
+LangSmith est optionnel pour exécuter localement. Hors ligne, désactiver le tracing et utiliser
+l'API locale de l'Agent Server:
+
+```bash
+export LANGSMITH_TRACING=false
+export LANGGRAPH_CLI_NO_ANALYTICS=1
+uv run langgraph dev --no-browser --allow-blocking --port 2024
+```
+
 ## Validation
 
 ```bash
@@ -92,6 +117,18 @@ uv run langgraph dev --no-browser --allow-blocking --port 2024
 Tester aussi les nodes sans serveur LangGraph quand c'est possible. Les tests
 unitaires doivent pouvoir utiliser un fake LLM.
 
+Pour inspecter un run sans Studio:
+
+```bash
+curl -N -X POST "http://127.0.0.1:2024/runs/stream" \
+  -H "Content-Type: application/json" \
+  -d '{"assistant_id":"agent","input":{"messages":[{"role":"human","content":"ping"}]},"stream_mode":"values"}'
+```
+
+Pour relire l'état final, créer un thread explicite puis consulter
+`/threads/{thread_id}/state`. La procédure complète est dans
+[Validation IA locale](../learning/local-ai-validation.md).
+
 ## Erreurs Fréquentes
 
 | Erreur | Correction |
@@ -100,6 +137,7 @@ unitaires doivent pouvoir utiliser un fake LLM.
 | état non typé | définir un `TypedDict` explicite |
 | node trop large | découper interprétation, validation et action |
 | test dépendant du réseau | injecter un fake LLM |
+| Studio inaccessible hors ligne | utiliser l'API locale `:2024` |
 | trace absente | vérifier la config LangSmith et `.env` |
 
 ## Pages Liées

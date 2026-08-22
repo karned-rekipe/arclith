@@ -45,6 +45,7 @@ nav:
       - Quickstarts essentiels: learning/quickstarts.md
       - Format d'une page: learning/page-format.md
       - Captures et vidéos: learning/media.md
+      - Validation IA locale: learning/local-ai-validation.md
       - Validation finale: learning/validation.md
   - Capabilities:
       - Catalogue: capabilities.md

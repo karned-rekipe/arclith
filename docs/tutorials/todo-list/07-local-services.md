@@ -244,11 +244,49 @@ MODE=mcp_http uv run python main.py
 LangGraph:
 
 ```bash
+export LANGSMITH_TRACING=false
+export LANGGRAPH_CLI_NO_ANALYTICS=1
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
 
 À partir de là, une todo créée par Swagger, par LM Studio via MCP ou par LangGraph doit être visible
 par les autres canaux.
+
+## Valider LangGraph Hors Ligne
+
+Studio est utile pour apprendre le graphe, mais l'UI hébergée n'est pas nécessaire. Hors ligne,
+tester l'Agent Server local par API:
+
+```bash
+curl -N -X POST "http://127.0.0.1:2024/runs/stream" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "assistant_id": "todo_agent",
+    "input": {
+      "messages": [
+        {"role": "human", "content": "Quelles sont mes tâches en cours ?"}
+      ]
+    },
+    "stream_mode": "values"
+  }'
+```
+
+Pour prouver la persistance de conversation, créer un thread:
+
+```bash
+THREAD_ID=$(curl -fsS -X POST "http://127.0.0.1:2024/threads" \
+  -H "Content-Type: application/json" \
+  -d '{}' | python -c 'import json,sys; print(json.load(sys.stdin)["thread_id"])')
+
+curl -N -X POST "http://127.0.0.1:2024/threads/$THREAD_ID/runs/stream" \
+  -H "Content-Type: application/json" \
+  -d '{"assistant_id":"todo_agent","input":{"messages":[{"role":"human","content":"Quelles sont mes tâches en cours ?"}]},"stream_mode":"values"}'
+
+curl -fsS "http://127.0.0.1:2024/threads/$THREAD_ID/state" | python -m json.tool
+```
+
+Les données métier doivent venir de MongoDB via `TodoRepositoryPort`, pas de la mémoire interne du
+processus LangGraph.
 
 ## Visualiser MongoDB avec Compass
 
@@ -331,6 +369,8 @@ Les deux sont complémentaires:
 | corréler plusieurs microservices | OpenTelemetry |
 
 Pour ce tutoriel, LangSmith aide à apprendre l'agent. OpenTelemetry prépare la suite production.
+Pour travailler sans internet, garder LangSmith désactivé et suivre
+[Validation IA locale et hors ligne](../../learning/local-ai-validation.md).
 
 ## Tout valider
 

@@ -53,6 +53,15 @@ endpoint: "https://api.smith.langchain.com"
 api_key_env: LANGSMITH_API_KEY
 ```
 
+LangSmith est optionnel pour exécuter un agent localement. Pour un poste hors ligne:
+
+```bash
+export LANGSMITH_TRACING=false
+export LANGGRAPH_CLI_NO_ANALYTICS=1
+```
+
+Le run se valide alors via l'API locale LangGraph `http://127.0.0.1:2024`, pas via Studio.
+
 ## Règles
 
 - OpenTelemetry sert au runtime, API, métriques et corrélation.
@@ -69,4 +78,5 @@ OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=local uv run pytest
 
 ## Suite
 
-Lire [Observabilité production](../production/observability.md), [logger](logger.md) et [agent](agent.md).
+Lire [Observabilité production](../production/observability.md), [logger](logger.md),
+[agent](agent.md) et [Validation IA locale](../learning/local-ai-validation.md).

@@ -12,7 +12,8 @@ Apprendre Arclith par niveaux de lecture, du POC au projet complet.
 2. lire les foundations pour préparer l'environnement et comprendre le modèle;
 3. suivre une formation ciblée pour apprendre un geste précis;
 4. lire la capability correspondante pour connaître le contrat complet;
-5. réaliser un projet end to end pour assembler les briques.
+5. valider les briques IA locales si le projet contient un agent;
+6. réaliser un projet end to end pour assembler les briques.
 
 Chaque bloc produit un résultat vérifiable. Ne pas avancer si la validation de
 la page courante échoue.
@@ -24,8 +25,9 @@ la page courante échoue.
 | 1 | [Quickstarts essentiels](quickstarts.md) | POC API, MCP, bus ou agent validé |
 | 2 | [Préparer son poste](setup.md) | CLI, Python et Docker prêts |
 | 3 | [Comprendre le modèle](foundations.md) | vocabulaire commun |
-| 4 | [Projet Todo](../tutorials/todo-list/index.md) | service complet |
-| 5 | [Validation finale](validation.md) | critères de passage validés |
+| 4 | [Validation IA locale](local-ai-validation.md) | LM Studio et LangGraph testés sans LangSmith |
+| 5 | [Projet Todo](../tutorials/todo-list/index.md) | service complet |
+| 6 | [Validation finale](validation.md) | critères de passage validés |
 
 Le format des supports vidéo et captures est décrit dans
 [Captures et vidéos](media.md).

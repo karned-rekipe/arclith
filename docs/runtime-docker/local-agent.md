@@ -43,6 +43,8 @@ docker build -t my-service:local .
 ```bash
 docker run --rm \
   --env-file .env.local \
+  -e LANGSMITH_TRACING=false \
+  -e LANGGRAPH_CLI_NO_ANALYTICS=1 \
   -e LANGGRAPH_HOST=0.0.0.0 \
   -e LANGGRAPH_PORT=2024 \
   -p 2024:2024 \
@@ -62,15 +64,45 @@ docker run --rm \
 
 ## Vérifier
 
-Ouvrir LangSmith Studio ou le client agent sur:
+Ouvrir le client agent sur:
 
 ```text
 http://127.0.0.1:2024
+http://127.0.0.1:2024/docs
+```
+
+LangSmith Studio est optionnel et nécessite un accès réseau. Hors ligne, déclencher un run par API:
+
+```bash
+curl -N -X POST "http://127.0.0.1:2024/runs/stream" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "assistant_id": "my_agent",
+    "input": {
+      "messages": [
+        {"role": "human", "content": "ping"}
+      ]
+    },
+    "stream_mode": "values"
+  }'
 ```
 
 Pour une validation complète, déclencher un run avec un `thread_id` durable et vérifier que le graphe
-appelle bien les ports/use cases du projet. Le conteneur qui expose l'agent ne doit pas écrire en
-base directement depuis le LLM.
+appelle bien les ports/use cases du projet:
+
+```bash
+THREAD_ID=$(curl -fsS -X POST "http://127.0.0.1:2024/threads" \
+  -H "Content-Type: application/json" \
+  -d '{}' | python -c 'import json,sys; print(json.load(sys.stdin)["thread_id"])')
+
+curl -N -X POST "http://127.0.0.1:2024/threads/$THREAD_ID/runs/stream" \
+  -H "Content-Type: application/json" \
+  -d '{"assistant_id":"my_agent","input":{"messages":[{"role":"human","content":"ping"}]},"stream_mode":"values"}'
+
+curl -fsS "http://127.0.0.1:2024/threads/$THREAD_ID/state" | python -m json.tool
+```
+
+Le conteneur qui expose l'agent ne doit pas écrire en base directement depuis le LLM.
 
 ## Secrets
 
@@ -102,8 +134,10 @@ docker run --rm --env-file .env.local my-service:local agent
 - LLM comme adapter outbound, jamais comme accès direct à la persistance.
 - Variables LLM injectées au runtime uniquement.
 - `host.docker.internal` utilisé quand le modèle tourne sur le poste hôte.
+- API locale `:2024` testée même sans LangSmith.
 - Traces LangSmith/OpenTelemetry activées par configuration, pas par code métier.
 - En production, remplacer `langgraph dev` par la commande serveur validée du projet via
   `ARCLITH_AGENT_COMMAND` si nécessaire.
 
-Page suivante: [autres modes locaux](local-other-modes.md).
+Page suivante: [autres modes locaux](local-other-modes.md). Voir aussi
+[Validation IA locale](../learning/local-ai-validation.md).

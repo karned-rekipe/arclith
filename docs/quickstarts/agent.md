@@ -39,12 +39,48 @@ uvx --from arclith-cli arclith-cli add-adapter \
 ## Validation
 
 ```bash
-uv run langgraph dev
+export LANGSMITH_TRACING=false
+export LANGGRAPH_CLI_NO_ANALYTICS=1
+uv run langgraph dev --no-browser --allow-blocking --port 2024
+```
+
+Dans un second terminal:
+
+```bash
+curl -N -X POST "http://127.0.0.1:2024/runs/stream" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "assistant_id": "agent",
+    "input": {
+      "messages": [
+        {"role": "human", "content": "Réponds uniquement: ok"}
+      ]
+    },
+    "stream_mode": "values"
+  }'
+```
+
+Pour inspecter l'état après le run, utiliser un thread:
+
+```bash
+THREAD_ID=$(curl -fsS -X POST "http://127.0.0.1:2024/threads" \
+  -H "Content-Type: application/json" \
+  -d '{}' | python -c 'import json,sys; print(json.load(sys.stdin)["thread_id"])')
+
+curl -N -X POST "http://127.0.0.1:2024/threads/$THREAD_ID/runs/stream" \
+  -H "Content-Type: application/json" \
+  -d '{"assistant_id":"agent","input":{"messages":[{"role":"human","content":"Réponds uniquement: ok"}]},"stream_mode":"values"}'
+
+curl -fsS "http://127.0.0.1:2024/threads/$THREAD_ID/state" | python -m json.tool
 ```
 
 ## Résultat
 
-LangGraph Studio détecte le graphe généré depuis `langgraph.json`.
+L'Agent Server local répond sur `http://127.0.0.1:2024`. La documentation API locale est disponible
+sur `http://127.0.0.1:2024/docs`.
+
+LangGraph Studio détecte aussi le graphe généré depuis `langgraph.json`, mais son UI hébergée
+nécessite un accès internet. Hors ligne, la validation se fait par API ou SDK.
 
 Le graphe généré est volontairement minimal. Le projet remplace ensuite l'état, les nœuds et les
 transitions pour appeler ses use cases.
@@ -52,9 +88,10 @@ transitions pour appeler ses use cases.
 ## Média
 
 !!! note "Média à produire"
-    Capture : LangGraph Studio avec le graphe chargé.
-    Vidéo : ajout agent, lancement Studio, premier run.
+    Capture : terminal avec `langgraph dev` et réponse API.
+    Vidéo : ajout agent, lancement local, premier run API, puis Studio si internet disponible.
 
 ## Suite
 
-Lire [agent/langgraph](../capabilities/agent.md), puis le [parcours Todo agent](../tutorials/todo-list/06-agent.md).
+Lire [agent/langgraph](../capabilities/agent.md), [Validation IA locale](../learning/local-ai-validation.md),
+puis le [parcours Todo agent](../tutorials/todo-list/06-agent.md).
