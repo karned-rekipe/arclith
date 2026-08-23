@@ -1,4 +1,9 @@
 from dataclasses import dataclass
+from datetime import date
+from enum import Enum
+import json
+from pathlib import PurePosixPath
+from uuid import UUID
 
 import pytest
 from pydantic import BaseModel
@@ -89,6 +94,41 @@ def test_llm_stream_event_payload_serializes_structured_outputs() -> None:
         "output": {"title": "dataclass"},
         "metadata": {},
     }
+
+
+def test_llm_stream_event_payload_is_json_encodable_for_nested_values() -> None:
+    class Status(Enum):
+        DONE = "done"
+
+    class Opaque:
+        def __str__(self) -> str:
+            return "opaque"
+
+    payload = llm_stream_event_to_payload(
+        LLMStructuredFinal(
+            output={
+                "status": Status.DONE,
+                "due_date": date(2026, 8, 23),
+                "path": PurePosixPath("docs/readme.md"),
+                "ids": {UUID("12345678-1234-5678-1234-567812345678")},
+                "opaque": Opaque(),
+            },
+            metadata={"seen_at": date(2026, 8, 23)},
+        )
+    )
+
+    assert payload == {
+        "kind": "structured_final",
+        "output": {
+            "status": "done",
+            "due_date": "2026-08-23",
+            "path": "docs/readme.md",
+            "ids": ["12345678-1234-5678-1234-567812345678"],
+            "opaque": "opaque",
+        },
+        "metadata": {"seen_at": "2026-08-23"},
+    }
+    json.dumps(payload)
 
 
 def test_llm_stream_options_reject_negative_debounce() -> None:

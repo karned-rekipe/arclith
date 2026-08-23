@@ -1,10 +1,15 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import asdict, dataclass, field, is_dataclass
+from datetime import date, datetime, time
+from enum import Enum
+from pathlib import PurePath
 from types import MappingProxyType
 from typing import Any, Literal, TypeVar
+from uuid import UUID
 
 T = TypeVar("T")
+_UNHANDLED = object()
 
 
 @dataclass(frozen=True)
@@ -70,29 +75,86 @@ def llm_stream_event_to_payload(event: LLMStreamEvent[Any]) -> dict[str, Any]:
             "kind": event.kind,
             "stage": event.stage,
             "message": event.message,
-            "metadata": dict(event.metadata),
+            "metadata": _serialize_output(event.metadata),
         }
     if isinstance(event, LLMStructuredChunk):
         return {
             "kind": event.kind,
             "sequence": event.sequence,
             "output": _serialize_output(event.output),
-            "metadata": dict(event.metadata),
+            "metadata": _serialize_output(event.metadata),
         }
     return {
         "kind": event.kind,
         "output": _serialize_output(event.output),
-        "metadata": dict(event.metadata),
+        "metadata": _serialize_output(event.metadata),
     }
 
 
 def _serialize_output(output: Any) -> Any:
+    if output is None or isinstance(output, str | int | float | bool):
+        return output
+
+    for serializer in _OUTPUT_SERIALIZERS:
+        serialized = serializer(output)
+        if serialized is not _UNHANDLED:
+            return serialized
+
+    return str(output)
+
+
+def _serialize_model_dump(output: Any) -> Any:
     model_dump = getattr(output, "model_dump", None)
     if callable(model_dump):
         return model_dump(mode="json")
+    return _UNHANDLED
+
+
+def _serialize_dataclass(output: Any) -> Any:
     if is_dataclass(output) and not isinstance(output, type):
-        return asdict(output)
-    return output
+        return _serialize_output(asdict(output))
+    return _UNHANDLED
+
+
+def _serialize_enum(output: Any) -> Any:
+    if isinstance(output, Enum):
+        return _serialize_output(output.value)
+    return _UNHANDLED
+
+
+def _serialize_temporal(output: Any) -> Any:
+    if isinstance(output, datetime | date | time):
+        return output.isoformat()
+    return _UNHANDLED
+
+
+def _serialize_stringlike(output: Any) -> Any:
+    if isinstance(output, UUID | PurePath):
+        return str(output)
+    return _UNHANDLED
+
+
+def _serialize_mapping(output: Any) -> Any:
+    if isinstance(output, Mapping):
+        return {str(key): _serialize_output(value) for key, value in output.items()}
+    return _UNHANDLED
+
+
+def _serialize_sequence(output: Any) -> Any:
+    if isinstance(output, list | tuple | set | frozenset):
+        return [_serialize_output(item) for item in output]
+    return _UNHANDLED
+
+
+_OUTPUT_SERIALIZERS = (
+    _serialize_model_dump,
+    _serialize_dataclass,
+    _serialize_enum,
+    _serialize_temporal,
+    _serialize_stringlike,
+    _serialize_mapping,
+    _serialize_sequence,
+)
 
 
 class LLMPort(ABC):
