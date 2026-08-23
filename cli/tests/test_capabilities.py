@@ -393,7 +393,7 @@ def test_agent_capability_catalog_declares_langgraph() -> None:
         "{package_path}/adapters/inbound/langgraph/__init__.py",
         "{package_path}/adapters/inbound/langgraph/agent.py",
     ]
-    assert [parameter.name for parameter in langgraph.parameters] == ["graph_name"]
+    assert [parameter.name for parameter in langgraph.parameters] == ["graph_name", "stream_mode"]
 
 
 def test_repository_adapter_specs_include_config_and_parameters() -> None:

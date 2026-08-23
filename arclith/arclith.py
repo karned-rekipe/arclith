@@ -15,7 +15,7 @@ from arclith.domain.models.entity import Entity
 from arclith.domain.ports.outbound.file_storage import FileStoragePort
 from arclith.domain.ports.outbound.logger import Logger, LogLevel
 from arclith.domain.ports.outbound.repository import Repository
-from arclith.infrastructure.config import AppConfig, load_config_dir, load_config_file
+from arclith.infrastructure.config import AppConfig, LangGraphStreamMode, load_config_dir, load_config_file
 from arclith.infrastructure.file_storage_factory import FileStorageRegistry
 from arclith.infrastructure.repository_factory import RepositoryRegistry
 
@@ -44,6 +44,16 @@ _LEVEL_MAP: dict[str, LogLevel] = {
     "ERROR": LogLevel.ERROR,
     "CRITICAL": LogLevel.CRITICAL,
 }
+
+
+def _normalize_langgraph_stream_mode(
+    stream_mode: LangGraphStreamMode | Sequence[LangGraphStreamMode],
+) -> LangGraphStreamMode | list[LangGraphStreamMode]:
+    if isinstance(stream_mode, str):
+        return stream_mode
+    return list(stream_mode)
+
+
 class _UvicornLogInterceptHandler(logging.Handler):
     def __init__(self, logger: Logger) -> None:
         super().__init__()
@@ -433,6 +443,7 @@ class Arclith:
         interrupt_before: Any = None,
         interrupt_after: Any = None,
         debug: bool = False,
+        stream_mode: LangGraphStreamMode | Sequence[LangGraphStreamMode] | None = None,
         transformers: Sequence[Callable[[tuple[str, ...]], Any]] | None = None,
     ) -> Any:
         from langgraph.graph import StateGraph
@@ -444,7 +455,7 @@ class Arclith:
             output_schema=output_schema,
         )
         register_graph(builder, self)
-        return builder.compile(
+        compiled = builder.compile(
             checkpointer=checkpointer,
             cache=cache,
             store=store,
@@ -454,6 +465,12 @@ class Arclith:
             name=name,
             transformers=transformers,
         )
+        resolved_stream_mode = stream_mode
+        if resolved_stream_mode is None and self.config.langgraph is not None:
+            resolved_stream_mode = self.config.langgraph.stream_mode
+        if resolved_stream_mode is not None:
+            setattr(compiled, "stream_mode", _normalize_langgraph_stream_mode(resolved_stream_mode))
+        return compiled
 
     def run_api(self, app: "FastAPI | str") -> None:
         import uvicorn

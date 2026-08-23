@@ -1483,6 +1483,7 @@ name: "{graph_name}"
 graph: "{graph_name}"
 entrypoint: "{langgraph_entrypoint}"
 env: ".env"
+stream_mode: {stream_mode_yaml}
 """,
             file_templates=(
                 FileTemplateSpec(
@@ -1507,6 +1508,7 @@ env: ".env"
 from typing import Any, TypedDict
 
 from arclith import Arclith
+from langgraph.config import get_stream_writer
 from langgraph.graph import END, START
 
 
@@ -1520,6 +1522,8 @@ arclith = Arclith("config")
 # Template minimal volontaire: remplacer AgentState, run_agent et les edges par
 # l'état, les noeuds et les transitions propres au projet.
 async def run_agent(state: AgentState) -> AgentState:
+    writer = get_stream_writer()
+    writer({{"kind": "progress", "stage": "agent.started", "message": "Agent node started."}})
     return state
 
 
@@ -1539,6 +1543,14 @@ agent = arclith.langgraph(AgentState, register_agent, name="{graph_name}")
                     kind="string",
                     prompt="Nom du graphe LangGraph",
                     default="agent",
+                ),
+                ParameterSpec(
+                    name="stream_mode",
+                    kind="string",
+                    prompt="Mode(s) de streaming LangGraph",
+                    default="updates",
+                    choices=("values", "updates", "custom", "messages", "checkpoints", "tasks", "debug"),
+                    csv_choices=True,
                 ),
             ),
             entity_scoped=False,

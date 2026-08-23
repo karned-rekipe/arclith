@@ -116,6 +116,40 @@ result = await use_case.execute(command)
 
 Éviter le chemin inverse où le prompt appelle directement le repository.
 
+## Streaming Structuré
+
+`LLMPort.stream_structured()` expose un flux exploitable sans exposer PydanticAI
+dans le domaine. Le flux émet des événements `progress`, des snapshots
+`structured_chunk`, puis un `structured_final`.
+
+```python
+from arclith.domain.ports.outbound.llm import (
+    LLMStructuredFinal,
+    LLMStructuredStreamOptions,
+    llm_stream_event_to_payload,
+)
+
+async for event in llm.stream_structured(
+    user_message,
+    output_type=Intent,
+    instructions="Extraire l'intention utilisateur.",
+    stream_options=LLMStructuredStreamOptions(
+        include_progress=True,
+        include_snapshots=True,
+        debounce_by=0.05,
+    ),
+):
+    payload = llm_stream_event_to_payload(event)
+    publish_progress(payload)
+
+    if isinstance(event, LLMStructuredFinal):
+        intent = event.output
+```
+
+PydanticAI émet des snapshots cumulés, pas des deltas. Le dernier événement
+`structured_final` reste la sortie métier à utiliser pour décider et appeler les
+use cases.
+
 ## Test Local Minimal
 
 Avant de brancher l'agent, prouver que le modèle local répond:

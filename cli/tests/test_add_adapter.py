@@ -1282,7 +1282,7 @@ def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(tmp_path: Path
         project_dir=project_dir,
         capability_name="agent",
         adapter="langgraph",
-        adapter_params={"graph_name": "todo_agent"},
+        adapter_params={"graph_name": "todo_agent", "stream_mode": "updates,custom"},
         yes=True,
     )
 
@@ -1308,8 +1308,10 @@ def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(tmp_path: Path
     assert "agent:" not in adapters_yaml
     assert 'name: "todo_agent"' in langgraph_config
     assert 'entrypoint: "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"' in langgraph_config
+    assert "stream_mode: [updates, custom]" in langgraph_config
     generated_agent = agent_file.read_text(encoding="utf-8")
     assert "Template minimal volontaire" in generated_agent
+    assert "get_stream_writer" in generated_agent
     assert "agent = arclith.langgraph(AgentState, register_agent, name=\"todo_agent\")" in generated_agent
     assert not (package_root / "adapters" / "outbound" / "langgraph").exists()
 
@@ -1344,6 +1346,10 @@ async def test_add_langgraph_agent_adapter_generates_compilable_minimal_agent(
     try:
         spec.loader.exec_module(module)
         assert await module.agent.ainvoke({"messages": []}) == {"messages": []}
+        events = [event async for event in module.agent.astream({"messages": []}, stream_mode="custom")]
+        assert events == [
+            {"kind": "progress", "stage": "agent.started", "message": "Agent node started."}
+        ]
     finally:
         sys.modules.pop(spec.name, None)
 

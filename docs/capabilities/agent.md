@@ -36,6 +36,7 @@ name: "agent"
 graph: "agent"
 entrypoint: "src/<package>/adapters/inbound/langgraph/agent.py:agent"
 env: ".env"
+stream_mode: "updates"
 ```
 
 ```json
@@ -54,6 +55,7 @@ env: ".env"
 from typing import Any, TypedDict
 
 from arclith import Arclith
+from langgraph.config import get_stream_writer
 from langgraph.graph import END, START
 
 
@@ -65,6 +67,8 @@ arclith = Arclith("config")
 
 
 async def run_agent(state: AgentState) -> AgentState:
+    writer = get_stream_writer()
+    writer({"kind": "progress", "stage": "agent.started", "message": "Agent node started."})
     return state
 
 
@@ -79,6 +83,60 @@ agent = arclith.langgraph(AgentState, register_agent, name="agent")
 
 Le template généré est volontairement minimal. Le projet remplace ensuite
 `AgentState`, les nodes et les edges par son propre parcours.
+
+## Streaming Et Progression
+
+`config/adapters/inbound/langgraph.yaml` peut fixer le mode de streaming par
+défaut du graphe compilé:
+
+```yaml
+stream_mode:
+  - updates
+  - custom
+```
+
+Le CLI accepte la même configuration via:
+
+```bash
+arclith-cli add-adapter \
+  --capability agent \
+  --adapter langgraph \
+  --param stream_mode=updates,custom \
+  --yes
+```
+
+Les modes utiles sont:
+
+| Mode | Usage |
+|---|---|
+| `updates` | suivre les sorties de nodes |
+| `values` | recevoir l'état complet après chaque étape |
+| `messages` | streamer les tokens LLM quand le node utilise un modèle compatible |
+| `custom` | recevoir les événements envoyés avec `get_stream_writer()` |
+
+Dans un node qui consomme `LLMPort.stream_structured()`, publier les événements
+Arclith en `custom`:
+
+```python
+from arclith.domain.ports.outbound.llm import llm_stream_event_to_payload
+from langgraph.config import get_stream_writer
+
+
+async def classify_intent(state: AgentState) -> AgentState:
+    writer = get_stream_writer()
+    final_intent = None
+
+    async for event in llm.stream_structured(
+        state["messages"][-1]["content"],
+        output_type=Intent,
+        instructions="Extraire l'intention utilisateur.",
+    ):
+        writer(llm_stream_event_to_payload(event))
+        if event.kind == "structured_final":
+            final_intent = event.output
+
+    return {**state, "intent": final_intent}
+```
 
 ## Appeler Le Métier
 

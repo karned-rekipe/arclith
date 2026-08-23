@@ -686,9 +686,17 @@ def _file_template_vars(
         "package_path": package_path,
         "langgraph_entrypoint": langgraph_entrypoint,
         "graph_name": graph_name,
+        "stream_mode_yaml": _langgraph_stream_mode_yaml(str(params.get("stream_mode") or "updates")),
         "secret_template_yaml": _secret_template_yaml(str(params.get("field_path") or "")),
         "secret_chain_yaml": _secret_chain_yaml(str(params.get("resolvers") or "")),
     }
+
+
+def _langgraph_stream_mode_yaml(stream_mode: str) -> str:
+    values = _split_csv_values(stream_mode)
+    if len(values) == 1:
+        return f'"{values[0]}"'
+    return yaml.safe_dump(values, default_flow_style=True, sort_keys=False).strip()
 
 
 def _secret_template_yaml(field_path: str) -> str:
