@@ -4,6 +4,33 @@
 
 ---
 
+## [0.17.0] — 2026-08-23
+
+### Added
+
+- **Streaming structuré LLM** — `LLMPort.stream_structured()` expose des événements provider-neutral
+  `progress`, `structured_chunk` et `structured_final`, avec options de progression, snapshots et
+  debounce.
+- **PydanticAI streaming** — l'adapter PydanticAI utilise `Agent.run_stream()` et `stream_output()`
+  pour émettre des snapshots structurés cumulés avant l'objet final.
+- **LangGraph progress configurable** — `LangGraphSettings.stream_mode` et
+  `Arclith.langgraph(..., stream_mode=...)` configurent les modes `values`, `updates`, `custom`,
+  `messages`, `checkpoints`, `tasks` ou `debug`.
+- **Scaffold CLI LangGraph** — `arclith-cli add-adapter --capability agent --adapter langgraph`
+  accepte `--param stream_mode=...` et génère un événement `custom` minimal via `get_stream_writer()`.
+
+### Changed
+
+- **Versions release** — `arclith` passe à `0.17.0`; `arclith-cli` passe à `0.14.0`
+  et dépend de `arclith>=0.17.0`.
+
+### Fixed
+
+- **Payloads de streaming JSON-friendly** — `llm_stream_event_to_payload()` sérialise récursivement
+  les sorties et métadonnées pour éviter de publier des objets Python non encodables.
+
+---
+
 ## [0.16.0] — 2026-08-12
 
 ### Added
