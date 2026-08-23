@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from arclith.domain.ports.outbound.file_storage import FileStorageInvalidKey, normalize_storage_key
 
 _DUCKDB_SUPPORTED_EXTENSIONS = {".csv", ".parquet", ".json", ".arrow"}
+LangGraphStreamMode = Literal["values", "updates", "custom", "messages", "checkpoints", "tasks", "debug"]
 
 
 class MongoDBSettings(BaseModel):
@@ -124,6 +125,7 @@ class LangGraphSettings(BaseModel):
     graph: str = "agent"
     entrypoint: str
     env: str = ".env"
+    stream_mode: LangGraphStreamMode | list[LangGraphStreamMode] = "updates"
 
 
 StorageAdapter = Literal["filesystem", "s3", "azure-blob", "gcs"]

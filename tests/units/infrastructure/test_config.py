@@ -486,6 +486,7 @@ def test_load_config_dir_langgraph_scoped():
             "graph": "todo_agent",
             "entrypoint": "./src/demo_service/adapters/inbound/langgraph/agent.py:agent",
             "env": ".env",
+            "stream_mode": ["updates", "custom"],
         },
     })
     config = load_config_dir(path)
@@ -494,6 +495,7 @@ def test_load_config_dir_langgraph_scoped():
     assert config.langgraph.graph == "todo_agent"
     assert config.langgraph.entrypoint == "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"
     assert config.langgraph.env == ".env"
+    assert config.langgraph.stream_mode == ["updates", "custom"]
 
 
 def test_langsmith_observability_requires_scoped_config():
@@ -527,6 +529,15 @@ def test_langgraph_settings_defaults():
     assert settings.name == "agent"
     assert settings.graph == "agent"
     assert settings.env == ".env"
+    assert settings.stream_mode == "updates"
+
+
+def test_langgraph_settings_rejects_unknown_stream_mode():
+    with pytest.raises(ValidationError):
+        LangGraphSettings(
+            entrypoint="./src/demo_service/adapters/inbound/langgraph/agent.py:agent",
+            stream_mode="unknown",
+        )
 
 
 def test_langsmith_settings_defaults():

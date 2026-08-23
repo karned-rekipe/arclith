@@ -141,7 +141,7 @@ arclith-cli add-adapter --adapter mariadb --entity Recipe --param database=my_re
 arclith-cli add-adapter --capability api --adapter fastapi --param port=8080 --yes
 arclith-cli add-adapter --capability mcp --adapter fastmcp --param port=8081 --yes
 arclith-cli add-adapter --capability llm --adapter lmstudio --param model_name=qwen/qwen3.5-9b --yes
-arclith-cli add-adapter --capability agent --adapter langgraph --param graph_name=recipe_agent --yes
+arclith-cli add-adapter --capability agent --adapter langgraph --param graph_name=recipe_agent --param stream_mode=updates,custom --yes
 arclith-cli add-adapter --capability observability --adapter langsmith
 arclith-cli add-adapter --capability observability --adapter opentelemetry --param service_name=my_recipe_service --yes
 arclith-cli add-adapter --capability runtime --adapter docker-image --yes
@@ -166,7 +166,7 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
    - `lmstudio` → `model_name`, `base_url`, `api_key`
    - `openai` → `model_name`, `base_url`, `OPENAI_API_KEY`
    - `anthropic` → `model_name`, `ANTHROPIC_API_KEY`
-   - `langgraph` → `graph_name`
+   - `langgraph` → `graph_name`, `stream_mode`
    - `langsmith` → `tracing`, `project`, `endpoint`, `LANGSMITH_API_KEY`
    - `opentelemetry` → `service_name`, `endpoint`, `traces_endpoint`, `metrics_endpoint`, `protocol`, `traces`, `metrics`, `instrument_fastapi`
    - `command-bus/rabbitmq` → `url`, `exchange`, `exchange_type`, `queue`, `routing_key`, `prefetch`, `consumer_name`, `concurrency`, `publisher_confirms`, `durable`, `retry_enabled`, `retry_requeue`, `dead_letter_exchange`, `dead_letter_routing_key`
@@ -240,7 +240,9 @@ l'environnement, un fichier local de secrets ou Vault selon le resolver choisi.
 L'adapter `agent/langgraph` génère `langgraph.json`, `config/adapters/inbound/langgraph.yaml` et
 `src/<package>/adapters/inbound/langgraph/agent.py`. Le projet ne modifie ensuite que ce fichier pour
 son agent. Comme `fastapi` et `fastmcp`, LangGraph est configuré par son nom produit dans
-`AppConfig.langgraph`, sans `adapters.agent`. L'adapter `observability/langsmith` génère
+`AppConfig.langgraph`, sans `adapters.agent`. `stream_mode` vaut `updates` par défaut et accepte une
+liste CSV comme `updates,custom` pour exposer les sorties de nodes et les événements
+`get_stream_writer()`. L'adapter `observability/langsmith` génère
 `config/adapters/outbound/langsmith.yaml`, l'ajoute à `observability.enabled`, met
 à jour `.env` et ajoute `.env` au `.gitignore` si besoin. LangSmith Studio devient l'endroit standard
 pour tester les agents. Une `LANGSMITH_API_KEY` déjà présente est conservée si aucune nouvelle valeur

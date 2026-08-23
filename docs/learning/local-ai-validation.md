@@ -187,7 +187,7 @@ curl -fsS "http://127.0.0.1:2024/threads/$THREAD_ID/state" | python -m json.tool
 curl -fsS "http://127.0.0.1:2024/threads/$THREAD_ID/runs" | python -m json.tool
 ```
 
-Utiliser `stream_mode: "values"` ou `"updates"` pour apprendre le graphe. `messages-tuple` est utile
+Utiliser `stream_mode: "values"` ou `"updates"` pour apprendre le graphe. `messages` est utile
 pour le streaming fin des messages, mais il est moins lisible au début.
 
 ## Tester Avec Le SDK Python
