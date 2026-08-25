@@ -38,6 +38,7 @@ Repository = "https://github.com/karned-rekipe/arclith"
 mongodb = ["motor==3.7.1"]
 duckdb  = ["duckdb==1.5.0", "pytz==2024.1"]
 mariadb = ["sqlalchemy[asyncio]>=2.0.36", "asyncmy>=0.2.10"]
+postgresql = ["sqlalchemy[asyncio]>=2.0.36", "asyncpg>=0.30.0"]
 fastapi = ["fastapi==0.135.1", "uvicorn==0.41.0"]
 mcp     = ["fastmcp==3.1.0"]
 vault   = ["hvac==2.3.0"]
@@ -52,6 +53,7 @@ all     = [
     "pytz==2024.1",
     "sqlalchemy[asyncio]>=2.0.36",
     "asyncmy>=0.2.10",
+    "asyncpg>=0.30.0",
     "fastapi==0.135.1",
     "uvicorn==0.41.0",
     "fastmcp==3.1.0",
@@ -98,6 +100,7 @@ omit = [
     "arclith/adapters/outbound/mongodb/*",
     "arclith/adapters/outbound/duckdb/*",
     "arclith/adapters/outbound/mariadb/*",
+    "arclith/adapters/outbound/postgresql/*",
     # Bootstrap — wired via integration tests, not unit tests
     "arclith/arclith.py",
     "**/__init__.py",

@@ -23,7 +23,9 @@ class RepositoryRegistry(Generic[T, R]):
     def __init__(self) -> None:
         self._factories: dict[str, RepositoryFactory[T, R]] = {}
 
-    def register(self, name: str, factory: RepositoryFactory[T, R]) -> "RepositoryRegistry[T, R]":
+    def register(
+        self, name: str, factory: RepositoryFactory[T, R]
+    ) -> "RepositoryRegistry[T, R]":
         self._factories[name] = factory
         return self
 
@@ -67,17 +69,22 @@ def build_repository(
     registry: RepositoryRegistry[T, R] | None = None,
 ) -> Repository[T] | R:
     if registry is None:
-        return default_repository_registry(entity_class).build(config, entity_class, logger)
+        return default_repository_registry(entity_class).build(
+            config, entity_class, logger
+        )
     return registry.build(config, entity_class, logger)
 
 
-def default_repository_registry(_entity_class: type[T]) -> RepositoryRegistry[T, Repository[T]]:
+def default_repository_registry(
+    _entity_class: type[T],
+) -> RepositoryRegistry[T, Repository[T]]:
     return (
         RepositoryRegistry[T, Repository[T]]()
         .register("memory", _build_memory_repository)
         .register("mongodb", _build_mongodb_repository)
         .register("duckdb", _build_duckdb_repository)
         .register("mariadb", _build_mariadb_repository)
+        .register("postgresql", _build_postgresql_repository)
     )
 
 
@@ -150,6 +157,35 @@ def _build_mariadb_repository(
             password=mariadb.password,
             driver=mariadb.driver,
             table_prefix=mariadb.table_prefix,
+        ),
+        entity_class,
+        logger,
+    )
+
+
+def _build_postgresql_repository(
+    config: AppConfig,
+    entity_class: type[T],
+    logger: Logger,
+) -> Repository[T]:
+    from arclith.adapters.outbound.postgresql.config import PostgreSQLConfig
+    from arclith.adapters.outbound.postgresql.repository import PostgreSQLRepository
+
+    postgresql = config.adapters.postgresql
+    if postgresql is None:
+        raise ValueError("PostgreSQL settings are required when repository=postgresql")
+
+    return PostgreSQLRepository(
+        PostgreSQLConfig(
+            url=postgresql.url,
+            host=postgresql.host,
+            port=postgresql.port,
+            database=postgresql.database,
+            user=postgresql.user,
+            password=postgresql.password,
+            schema=postgresql.schema_name,
+            driver=postgresql.driver,
+            table_prefix=postgresql.table_prefix,
         ),
         entity_class,
         logger,

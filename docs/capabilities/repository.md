@@ -5,8 +5,8 @@ Persistance des entités métier derrière un port repository.
 ## Objectif
 
 Un repository est un adapter outbound. Les use cases dépendent du port
-`Repository[T]`; le choix MongoDB, MariaDB, DuckDB ou mémoire reste dans la
-configuration et l'assemblage applicatif.
+`Repository[T]`; le choix MongoDB, PostgreSQL, MariaDB, DuckDB ou mémoire reste
+dans la configuration et l'assemblage applicatif.
 
 ## Choisir L'adapter
 
@@ -16,15 +16,21 @@ configuration et l'assemblage applicatif.
 | `mongodb` | standard document, API/MCP/agent avec état partagé |
 | `duckdb` | fichier local, démo, analytique embarquée |
 | `mariadb` | SQL serveur, intégration SI existant |
+| `postgresql` | SQL serveur robuste, JSONB générique, état partagé multi-process |
 
 ## Installer
 
 ```bash
 arclith-cli add-adapter --capability repository --adapter memory --yes
 arclith-cli add-adapter --capability repository --adapter mongodb --yes
+arclith-cli add-adapter \
+  --capability repository \
+  --adapter postgresql \
+  --param database=my_service \
+  --yes
 ```
 
-Pour MongoDB ou MariaDB, ajouter aussi le resolver de secrets adapté.
+Pour MongoDB, MariaDB ou PostgreSQL, ajouter aussi le resolver de secrets adapté.
 
 ```bash
 arclith-cli add-adapter \
@@ -72,6 +78,40 @@ multitenant: false
 
 Mapper `adapters.mariadb.url` ou `adapters.mariadb.password` via secrets.
 
+## PostgreSQL
+
+```yaml
+# config/adapters/outbound/postgresql.yaml
+url: null
+host: 127.0.0.1
+port: 5432
+database: my_service
+user: app
+password: null
+schema: public
+driver: asyncpg
+table_prefix: ""
+multitenant: false
+```
+
+PostgreSQL stocke chaque entité dans une table générique par type, avec
+`uuid`, les champs d'audit et le payload complet dans une colonne `JSONB`.
+Ce choix garde les use cases inchangés: ils continuent à dépendre uniquement du
+port `Repository[T]`.
+
+Utiliser PostgreSQL quand un service API, MCP ou agent a besoin d'une base
+serveur partagée, durable, multi-process, avec des garanties transactionnelles
+fortes à l'intérieur d'une même base. Contrairement à MongoDB, le backend reste
+relationnel; contrairement à MariaDB, le payload exploite `JSONB`; contrairement
+à DuckDB, il cible un runtime serveur.
+
+Mapper `adapters.postgresql.url` ou `adapters.postgresql.password` via secrets,
+par exemple `POSTGRESQL_URL` et `POSTGRESQL_PASSWORD`. La CLI génère les
+mappings, mais ne génère pas d'URL ou de mot de passe en clair.
+
+Le mapping relationnel riche, les colonnes métier typées, Alembic, les joins et
+les contraintes SQL métier sont des évolutions séparées.
+
 ## DuckDB
 
 ```yaml
@@ -102,7 +142,8 @@ d'application pour partager le même repository entre API, MCP et agent.
 - Un adapter inbound ne doit jamais instancier un repository concret.
 - Les use cases parlent au port `Repository[T]`.
 - `memory` ne partage pas l'état entre processus API, MCP et agent.
-- Les URI et mots de passe passent par la capability [secrets](secrets.md).
+- Les URI et mots de passe passent par la capability [secrets](secrets.md),
+  par exemple `POSTGRESQL_URL` ou `POSTGRESQL_PASSWORD`.
 - La configuration choisit l'adapter actif; le code métier reste stable.
 
 ## Validation

@@ -16,7 +16,9 @@ from arclith_cli.add_adapter import _resolve_parameter, add_adapter_cmd
 from arclith_cli.capabilities import ParameterSpec
 
 
-def _write_model(project_dir: Path, package_name: str, class_name: str, file_name: str) -> None:
+def _write_model(
+    project_dir: Path, package_name: str, class_name: str, file_name: str
+) -> None:
     model_dir = project_dir / "src" / package_name / "domain" / "models"
     model_dir.mkdir(parents=True, exist_ok=True)
     (model_dir / f"{file_name}.py").write_text(
@@ -32,7 +34,9 @@ def _minimal_project(tmp_path: Path) -> Path:
     package_name = "demo_service"
     _write_model(project_dir, package_name, "Widget", "widget")
     (project_dir / "src" / package_name / "adapters" / "outbound").mkdir(parents=True)
-    (project_dir / "src" / package_name / "infrastructure" / "containers").mkdir(parents=True)
+    (project_dir / "src" / package_name / "infrastructure" / "containers").mkdir(
+        parents=True
+    )
     config_dir = project_dir / "config" / "adapters"
     config_dir.mkdir(parents=True)
     (config_dir / "adapters.yaml").write_text(
@@ -53,20 +57,31 @@ def test_add_duckdb_adapter_non_interactive(tmp_path: Path) -> None:
     )
 
     package_root = project_dir / "src" / "demo_service"
-    assert (package_root / "adapters" / "outbound" / "duckdb" / "repositories" / "widget_repository.py").exists()
-    assert (package_root / "adapters" / "outbound" / "duckdb" / "repository.py").exists()
+    assert (
+        package_root
+        / "adapters"
+        / "outbound"
+        / "duckdb"
+        / "repositories"
+        / "widget_repository.py"
+    ).exists()
+    assert (
+        package_root / "adapters" / "outbound" / "duckdb" / "repository.py"
+    ).exists()
     assert 'register("duckdb", _build_duckdb)' in (
         package_root / "infrastructure" / "containers" / "widget_container.py"
     ).read_text(encoding="utf-8")
-    assert "repository: duckdb" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "repository: duckdb" in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     assert "path: data/widgets.parquet" in (
         project_dir / "config" / "adapters" / "outbound" / "duckdb.yaml"
     ).read_text(encoding="utf-8")
 
 
-def test_add_duckdb_adapter_generates_loadable_directory_config_idempotently(tmp_path: Path) -> None:
+def test_add_duckdb_adapter_generates_loadable_directory_config_idempotently(
+    tmp_path: Path,
+) -> None:
     project_dir = _minimal_project(tmp_path)
 
     for _ in range(2):
@@ -80,11 +95,16 @@ def test_add_duckdb_adapter_generates_loadable_directory_config_idempotently(tmp
     from arclith import Arclith
 
     app = Arclith(project_dir / "config")
-    duckdb_config = (project_dir / "config" / "adapters" / "outbound" / "duckdb.yaml").read_text(
-        encoding="utf-8"
-    )
+    duckdb_config = (
+        project_dir / "config" / "adapters" / "outbound" / "duckdb.yaml"
+    ).read_text(encoding="utf-8")
     container = (
-        project_dir / "src" / "demo_service" / "infrastructure" / "containers" / "widget_container.py"
+        project_dir
+        / "src"
+        / "demo_service"
+        / "infrastructure"
+        / "containers"
+        / "widget_container.py"
     ).read_text(encoding="utf-8")
 
     assert app.config.adapters.repository == "duckdb"
@@ -108,9 +128,9 @@ def test_add_mongodb_adapter_uses_non_interactive_params(tmp_path: Path) -> None
         yes=True,
     )
 
-    mongodb_config = (project_dir / "config" / "adapters" / "outbound" / "mongodb.yaml").read_text(
-        encoding="utf-8"
-    )
+    mongodb_config = (
+        project_dir / "config" / "adapters" / "outbound" / "mongodb.yaml"
+    ).read_text(encoding="utf-8")
     assert "uri: null" in mongodb_config
     assert "multitenant: true" in mongodb_config
     assert "db_name: demo_shared" in mongodb_config
@@ -119,12 +139,14 @@ def test_add_mongodb_adapter_uses_non_interactive_params(tmp_path: Path) -> None
     assert "resolver: env" in secrets
     assert "adapters.mongodb.uri: MONGODB_URI" in secrets
     assert "mongodb://" not in secrets
-    assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "repository: memory" in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
 
 
-def test_add_mongodb_adapter_generates_loadable_single_tenant_config(tmp_path: Path) -> None:
+def test_add_mongodb_adapter_generates_loadable_single_tenant_config(
+    tmp_path: Path,
+) -> None:
     project_dir = _minimal_project(tmp_path)
 
     add_adapter_cmd(
@@ -165,15 +187,24 @@ def test_add_mariadb_adapter_uses_catalog_params(tmp_path: Path) -> None:
     )
 
     package_root = project_dir / "src" / "demo_service"
-    repository_file = package_root / "adapters" / "outbound" / "mariadb" / "repositories" / "widget_repository.py"
+    repository_file = (
+        package_root
+        / "adapters"
+        / "outbound"
+        / "mariadb"
+        / "repositories"
+        / "widget_repository.py"
+    )
     assert repository_file.exists()
-    assert "class MariaDBWidgetRepository" in repository_file.read_text(encoding="utf-8")
+    assert "class MariaDBWidgetRepository" in repository_file.read_text(
+        encoding="utf-8"
+    )
     assert 'register("mariadb", _build_mariadb)' in (
         package_root / "infrastructure" / "containers" / "widget_container.py"
     ).read_text(encoding="utf-8")
-    mariadb_config = (project_dir / "config" / "adapters" / "outbound" / "mariadb.yaml").read_text(
-        encoding="utf-8"
-    )
+    mariadb_config = (
+        project_dir / "config" / "adapters" / "outbound" / "mariadb.yaml"
+    ).read_text(encoding="utf-8")
     assert "host: mariadb.local" in mariadb_config
     assert "port: 3307" in mariadb_config
     assert "database: demo_shared" in mariadb_config
@@ -189,8 +220,116 @@ def test_add_mariadb_adapter_uses_catalog_params(tmp_path: Path) -> None:
     assert "secret-password" not in secrets
 
 
+def test_add_postgresql_adapter_uses_catalog_params(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        adapter="postgresql",
+        adapter_params={
+            "host": "postgresql.local",
+            "port": "5433",
+            "database": "demo_shared",
+            "user": "demo_app",
+            "schema": "app",
+            "driver": "asyncpg",
+            "table_prefix": "todo_",
+            "multitenant": "false",
+        },
+        yes=True,
+    )
+
+    package_root = project_dir / "src" / "demo_service"
+    repository_file = (
+        package_root
+        / "adapters"
+        / "outbound"
+        / "postgresql"
+        / "repositories"
+        / "widget_repository.py"
+    )
+    assert repository_file.exists()
+    assert "class PostgreSQLWidgetRepository" in repository_file.read_text(
+        encoding="utf-8"
+    )
+    assert 'register("postgresql", _build_postgresql)' in (
+        package_root / "infrastructure" / "containers" / "widget_container.py"
+    ).read_text(encoding="utf-8")
+    postgresql_config = (
+        project_dir / "config" / "adapters" / "outbound" / "postgresql.yaml"
+    ).read_text(encoding="utf-8")
+    assert "host: postgresql.local" in postgresql_config
+    assert "port: 5433" in postgresql_config
+    assert "database: demo_shared" in postgresql_config
+    assert "user: demo_app" in postgresql_config
+    assert "schema: app" in postgresql_config
+    assert "driver: asyncpg" in postgresql_config
+    assert "url: null" in postgresql_config
+    assert "password: null" in postgresql_config
+    assert 'table_prefix: "todo_"' in postgresql_config
+    assert "multitenant: false" in postgresql_config
+
+    secrets = (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
+    assert "resolver: env" in secrets
+    assert "adapters.postgresql.url: POSTGRESQL_URL" in secrets
+    assert "adapters.postgresql.password: POSTGRESQL_PASSWORD" in secrets
+    assert "secret-password" not in postgresql_config
+    assert "secret-password" not in secrets
+
+
+def test_add_postgresql_adapter_generates_loadable_single_tenant_config(
+    tmp_path: Path,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        adapter="postgresql",
+        adapter_params={
+            "database": "demo_shared",
+        },
+        yes=True,
+    )
+
+    from arclith import Arclith
+
+    arclith = Arclith(project_dir / "config")
+
+    assert arclith.config.adapters.repository == "postgresql"
+    assert arclith.config.adapters.postgresql is not None
+    assert arclith.config.adapters.postgresql.url is None
+    assert arclith.config.adapters.postgresql.database == "demo_shared"
+    assert arclith.config.adapters.postgresql.schema_name == "public"
+    assert arclith.config.adapters.postgresql.multitenant is False
+
+
 @pytest.mark.parametrize("secret_param", ["password", "url"])
-def test_add_mariadb_adapter_rejects_direct_secret_params(tmp_path: Path, secret_param: str) -> None:
+def test_add_postgresql_adapter_rejects_direct_secret_params(
+    tmp_path: Path, secret_param: str
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            adapter="postgresql",
+            adapter_params={
+                "database": "demo_shared",
+                secret_param: "secret-password",
+            },
+            yes=True,
+        )
+
+    assert not (
+        project_dir / "config" / "adapters" / "outbound" / "postgresql.yaml"
+    ).exists()
+    assert not (project_dir / "config" / "secrets.yaml").exists()
+
+
+@pytest.mark.parametrize("secret_param", ["password", "url"])
+def test_add_mariadb_adapter_rejects_direct_secret_params(
+    tmp_path: Path, secret_param: str
+) -> None:
     project_dir = _minimal_project(tmp_path)
 
     with pytest.raises(typer.Exit):
@@ -204,7 +343,9 @@ def test_add_mariadb_adapter_rejects_direct_secret_params(tmp_path: Path, secret
             yes=True,
         )
 
-    assert not (project_dir / "config" / "adapters" / "outbound" / "mariadb.yaml").exists()
+    assert not (
+        project_dir / "config" / "adapters" / "outbound" / "mariadb.yaml"
+    ).exists()
     assert not (project_dir / "config" / "secrets.yaml").exists()
 
 
@@ -213,7 +354,9 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     project_dir = _minimal_project(tmp_path)
-    (project_dir / ".env").write_text("EXISTING=value\nLANGSMITH_PROJECT=old\n", encoding="utf-8")
+    (project_dir / ".env").write_text(
+        "EXISTING=value\nLANGSMITH_PROJECT=old\n", encoding="utf-8"
+    )
 
     add_adapter_cmd(
         project_dir=project_dir,
@@ -229,9 +372,9 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(
     )
     cli_output = capsys.readouterr()
 
-    config = (project_dir / "config" / "adapters" / "outbound" / "langsmith.yaml").read_text(
-        encoding="utf-8"
-    )
+    config = (
+        project_dir / "config" / "adapters" / "outbound" / "langsmith.yaml"
+    ).read_text(encoding="utf-8")
     assert "tracing: true" in config
     assert 'project: "agent-tests"' in config
     assert 'endpoint: "https://eu.api.smith.langchain.com"' in config
@@ -239,7 +382,9 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(
     assert "Définir LANGSMITH_API_KEY hors Git" in config
     assert 'langgraph_api_min_version: "0.11.0"' in config
     adapters_config = yaml.safe_load(
-        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8")
+        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+            encoding="utf-8"
+        )
     )
     assert adapters_config["observability"]["enabled"] == ["langsmith"]
 
@@ -261,7 +406,10 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(
     assert arclith.config.adapters.langsmith is not None
     assert arclith.config.adapters.langsmith.tracing is True
     assert arclith.config.adapters.langsmith.project == "agent-tests"
-    assert arclith.config.adapters.langsmith.endpoint == "https://eu.api.smith.langchain.com"
+    assert (
+        arclith.config.adapters.langsmith.endpoint
+        == "https://eu.api.smith.langchain.com"
+    )
     assert "test-key" not in load_output.out
     assert "test-key" not in load_output.err
     package_root = project_dir / "src" / "demo_service"
@@ -308,9 +456,9 @@ def test_add_langsmith_skips_missing_empty_api_key(tmp_path: Path) -> None:
     )
 
     env = (project_dir / ".env").read_text(encoding="utf-8")
-    config = (project_dir / "config" / "adapters" / "outbound" / "langsmith.yaml").read_text(
-        encoding="utf-8"
-    )
+    config = (
+        project_dir / "config" / "adapters" / "outbound" / "langsmith.yaml"
+    ).read_text(encoding="utf-8")
     assert "LANGSMITH_API_KEY=" not in env
     assert "LANGSMITH_PROJECT=agent-tests" in env
     assert "api_key_env: LANGSMITH_API_KEY" in config
@@ -350,9 +498,9 @@ def test_add_fastapi_api_adapter_generates_inbound_config_only(tmp_path: Path) -
 
     assert second_config == first_config
     assert config == {"host": "127.0.0.1", "port": 8080, "reload": False}
-    assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "repository: memory" in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "outbound" / "fastapi").exists()
     assert not (package_root / "adapters" / "inbound" / "fastapi").exists()
@@ -399,9 +547,9 @@ def test_add_fastmcp_mcp_adapter_generates_inbound_config_only(tmp_path: Path) -
 
     assert second_config == first_config
     assert config == {"host": "127.0.0.1", "port": 9001}
-    assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "repository: memory" in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "outbound" / "fastmcp").exists()
     assert not (package_root / "adapters" / "inbound" / "fastmcp").exists()
@@ -430,7 +578,9 @@ def test_add_fastmcp_mcp_adapter_generates_inbound_config_only(tmp_path: Path) -
     ]
 
 
-def test_add_probe_server_adapter_generates_loadable_inbound_config(tmp_path: Path) -> None:
+def test_add_probe_server_adapter_generates_loadable_inbound_config(
+    tmp_path: Path,
+) -> None:
     project_dir = _minimal_project(tmp_path)
 
     add_adapter_cmd(
@@ -457,9 +607,9 @@ def test_add_probe_server_adapter_generates_loadable_inbound_config(tmp_path: Pa
     assert arclith.config.probe.host == "127.0.0.1"
     assert arclith.config.probe.port == 9100
     assert arclith.config.probe.enabled is False
-    assert "probe:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "probe:" not in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     assert not (package_root / "adapters" / "inbound" / "server").exists()
     assert not (package_root / "adapters" / "outbound" / "server").exists()
 
@@ -503,9 +653,9 @@ def test_add_http_idempotency_adapter_merges_http_config(tmp_path: Path) -> None
     assert arclith.config.http.idempotency.enabled is False
     assert arclith.config.http.idempotency.ttl_seconds == 7200
     assert arclith.config.http.idempotency.required is True
-    assert "http:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "http:" not in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     assert not (package_root / "adapters" / "inbound" / "idempotency").exists()
 
 
@@ -543,9 +693,9 @@ def test_add_http_etag_adapter_merges_http_config(tmp_path: Path) -> None:
         "etag": {"enabled": False},
     }
     assert arclith.config.http.etag.enabled is False
-    assert "http:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "http:" not in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     assert not (package_root / "adapters" / "inbound" / "etag").exists()
 
 
@@ -589,13 +739,15 @@ def test_add_http_cache_control_adapter_merges_http_config(tmp_path: Path) -> No
     }
     assert arclith.config.http.cache_control.get_single_max_age == 900
     assert arclith.config.http.cache_control.get_list_max_age == 0
-    assert "http:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "http:" not in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     assert not (package_root / "adapters" / "inbound" / "cache-control").exists()
 
 
-def test_add_http_cache_control_adapter_rejects_negative_max_age(tmp_path: Path) -> None:
+def test_add_http_cache_control_adapter_rejects_negative_max_age(
+    tmp_path: Path,
+) -> None:
     project_dir = _minimal_project(tmp_path)
     http_path = project_dir / "config" / "http.yaml"
 
@@ -614,14 +766,13 @@ def test_add_http_cache_control_adapter_rejects_negative_max_age(tmp_path: Path)
     assert not http_path.exists()
 
 
-def test_add_command_bus_rabbitmq_adapter_merges_command_bus_config(tmp_path: Path) -> None:
+def test_add_command_bus_rabbitmq_adapter_merges_command_bus_config(
+    tmp_path: Path,
+) -> None:
     project_dir = _minimal_project(tmp_path)
     command_bus_path = project_dir / "config" / "command_bus.yaml"
     command_bus_path.write_text(
-        "enabled: []\n"
-        "rabbitmq:\n"
-        "  url: amqp://old/\n"
-        "  exchange: old.exchange\n",
+        "enabled: []\nrabbitmq:\n  url: amqp://old/\n  exchange: old.exchange\n",
         encoding="utf-8",
     )
 
@@ -676,13 +827,15 @@ def test_add_command_bus_rabbitmq_adapter_merges_command_bus_config(tmp_path: Pa
     assert arclith.config.command_bus.is_enabled("rabbitmq") is True
     assert arclith.config.command_bus.rabbitmq.prefetch == 7
     assert arclith.config.command_bus.rabbitmq.concurrency == 2
-    assert "command-bus:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "command-bus:" not in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     assert not (package_root / "adapters" / "bidirectional" / "rabbitmq").exists()
 
 
-def test_add_command_bus_rabbitmq_adapter_rejects_unbounded_prefetch(tmp_path: Path) -> None:
+def test_add_command_bus_rabbitmq_adapter_rejects_unbounded_prefetch(
+    tmp_path: Path,
+) -> None:
     project_dir = _minimal_project(tmp_path)
     command_bus_path = project_dir / "config" / "command_bus.yaml"
 
@@ -698,7 +851,9 @@ def test_add_command_bus_rabbitmq_adapter_rejects_unbounded_prefetch(tmp_path: P
     assert not command_bus_path.exists()
 
 
-def test_add_keycloak_auth_adapter_generates_loadable_inbound_config(tmp_path: Path) -> None:
+def test_add_keycloak_auth_adapter_generates_loadable_inbound_config(
+    tmp_path: Path,
+) -> None:
     project_dir = _minimal_project(tmp_path)
     config_path = project_dir / "config" / "adapters" / "inbound" / "keycloak.yaml"
 
@@ -723,9 +878,9 @@ def test_add_keycloak_auth_adapter_generates_loadable_inbound_config(tmp_path: P
         "audience": "rekipe-api",
         "client_id": "swagger-public",
     }
-    assert "auth:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "auth:" not in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "inbound" / "keycloak").exists()
 
@@ -740,14 +895,14 @@ def test_add_keycloak_auth_adapter_generates_loadable_inbound_config(tmp_path: P
     assert arclith.config.keycloak.client_id == "swagger-public"
 
 
-def test_add_vault_tenant_adapter_with_mongodb_multitenant_loads_config(tmp_path: Path) -> None:
+def test_add_vault_tenant_adapter_with_mongodb_multitenant_loads_config(
+    tmp_path: Path,
+) -> None:
     project_dir = _minimal_project(tmp_path)
     cache_path = project_dir / "config" / "adapters" / "inbound" / "cache.yaml"
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(
-        "backend: memory\n"
-        "jwks_ttl: 1200\n"
-        "tenant_uri_ttl: 180\n",
+        "backend: memory\njwks_ttl: 1200\ntenant_uri_ttl: 180\n",
         encoding="utf-8",
     )
 
@@ -777,9 +932,9 @@ def test_add_vault_tenant_adapter_with_mongodb_multitenant_loads_config(tmp_path
     from arclith import Arclith
 
     arclith = Arclith(project_dir / "config")
-    tenant_config = (project_dir / "config" / "adapters" / "inbound" / "tenant.yaml").read_text(
-        encoding="utf-8"
-    )
+    tenant_config = (
+        project_dir / "config" / "adapters" / "inbound" / "tenant.yaml"
+    ).read_text(encoding="utf-8")
     cache_config = yaml.safe_load(cache_path.read_text(encoding="utf-8"))
 
     assert arclith.config.adapters.repository == "mongodb"
@@ -812,9 +967,9 @@ def test_add_role_license_adapter_generates_loadable_config(tmp_path: Path) -> N
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
 
     assert config == {"role": "rekipe:premium"}
-    assert "license:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "license:" not in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "inbound" / "role").exists()
     assert not (package_root / "adapters" / "outbound" / "role").exists()
@@ -849,9 +1004,9 @@ def test_add_lmstudio_llm_adapter_generates_lm_config_only(tmp_path: Path) -> No
     assert 'model_name: "qwen/qwen3.5-9b"' in config
     assert 'api_key: "lm-studio"' in config
     assert 'base_url: "http://127.0.0.1:1234/v1"' in config
-    assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "repository: memory" in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     assert not (project_dir / "config" / "secrets.yaml").exists()
 
     package_root = project_dir / "src" / "demo_service"
@@ -974,9 +1129,9 @@ def test_add_storage_adapter_generates_loadable_config_only(
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
 
     assert config == expected_config
-    assert "storage:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "storage:" not in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     if adapter == "azure-blob":
         secrets = yaml.safe_load(
             (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
@@ -1040,9 +1195,9 @@ def test_add_openai_llm_adapter_generates_secret_mapping(
     assert "EXISTING=value" in env
     assert "OPENAI_API_KEY=sk-test" in env
     assert ".env" in (project_dir / ".gitignore").read_text(encoding="utf-8")
-    assert "llm:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "llm:" not in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     assert "sk-test" not in captured.out
     assert "sk-test" not in captured.err
 
@@ -1124,7 +1279,9 @@ def test_add_anthropic_llm_adapter_generates_idempotent_secret_mapping(
         encoding="utf-8"
     )
     env = (project_dir / ".env").read_text(encoding="utf-8")
-    secrets = yaml.safe_load((project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8"))
+    secrets = yaml.safe_load(
+        (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
+    )
 
     assert "provider: anthropic" in config
     assert 'model_name: "claude-dev-model"' in config
@@ -1134,9 +1291,9 @@ def test_add_anthropic_llm_adapter_generates_idempotent_secret_mapping(
     assert secrets["resolver"] == "env"
     assert secrets["mappings"]["adapters.lm.api_key"] == "ANTHROPIC_API_KEY"
     assert list(secrets["mappings"]).count("adapters.lm.api_key") == 1
-    assert "llm:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "llm:" not in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     assert "existing-local-key" not in captured.out
     assert "existing-local-key" not in captured.err
 
@@ -1151,7 +1308,9 @@ def test_add_anthropic_llm_adapter_generates_idempotent_secret_mapping(
     assert arclith.config.adapters.lm.api_key == "sk-ant-test"
 
 
-def test_add_opentelemetry_observability_adapter_uses_catalog_params(tmp_path: Path) -> None:
+def test_add_opentelemetry_observability_adapter_uses_catalog_params(
+    tmp_path: Path,
+) -> None:
     project_dir = _minimal_project(tmp_path)
     (project_dir / ".env").write_text("EXISTING=value\n", encoding="utf-8")
 
@@ -1174,9 +1333,9 @@ def test_add_opentelemetry_observability_adapter_uses_catalog_params(tmp_path: P
         yes=True,
     )
 
-    config = (project_dir / "config" / "adapters" / "outbound" / "opentelemetry.yaml").read_text(
-        encoding="utf-8"
-    )
+    config = (
+        project_dir / "config" / "adapters" / "outbound" / "opentelemetry.yaml"
+    ).read_text(encoding="utf-8")
     assert 'service_name: "demo-api"' in config
     assert 'endpoint: "http://otel-collector:4318"' in config
     assert "traces_endpoint: http://otel-collector:4318/custom/traces" in config
@@ -1188,7 +1347,9 @@ def test_add_opentelemetry_observability_adapter_uses_catalog_params(tmp_path: P
     assert "instrument_fastapi: true" in config
     assert "metrics_export_interval_millis: 15000" in config
     adapters_config = yaml.safe_load(
-        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8")
+        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+            encoding="utf-8"
+        )
     )
     assert adapters_config["observability"]["enabled"] == ["opentelemetry"]
 
@@ -1201,7 +1362,9 @@ def test_add_opentelemetry_observability_adapter_uses_catalog_params(tmp_path: P
     assert ".env" in (project_dir / ".gitignore").read_text(encoding="utf-8")
 
 
-def test_add_observability_adapters_accumulates_enabled_backends(tmp_path: Path) -> None:
+def test_add_observability_adapters_accumulates_enabled_backends(
+    tmp_path: Path,
+) -> None:
     project_dir = _minimal_project(tmp_path)
 
     add_adapter_cmd(
@@ -1220,18 +1383,22 @@ def test_add_observability_adapters_accumulates_enabled_backends(tmp_path: Path)
     )
 
     adapters_config = yaml.safe_load(
-        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8")
+        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+            encoding="utf-8"
+        )
     )
     assert adapters_config["observability"]["enabled"] == ["langsmith", "opentelemetry"]
 
-    config = (project_dir / "config" / "adapters" / "outbound" / "opentelemetry.yaml").read_text(
-        encoding="utf-8"
-    )
+    config = (
+        project_dir / "config" / "adapters" / "outbound" / "opentelemetry.yaml"
+    ).read_text(encoding="utf-8")
     assert "traces_endpoint: null" in config
     assert "metrics_endpoint: null" in config
 
 
-def test_add_langsmith_preserves_existing_opentelemetry_activation(tmp_path: Path) -> None:
+def test_add_langsmith_preserves_existing_opentelemetry_activation(
+    tmp_path: Path,
+) -> None:
     project_dir = _minimal_project(tmp_path)
     (project_dir / ".env").write_text("EXISTING=value\n", encoding="utf-8")
 
@@ -1258,7 +1425,9 @@ def test_add_langsmith_preserves_existing_opentelemetry_activation(tmp_path: Pat
     )
 
     adapters_config = yaml.safe_load(
-        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8")
+        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+            encoding="utf-8"
+        )
     )
     env = (project_dir / ".env").read_text(encoding="utf-8")
     opentelemetry_config = (
@@ -1275,7 +1444,9 @@ def test_add_langsmith_preserves_existing_opentelemetry_activation(tmp_path: Pat
     assert 'service_name: "demo-api"' in opentelemetry_config
 
 
-def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(tmp_path: Path) -> None:
+def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(
+    tmp_path: Path,
+) -> None:
     project_dir = _minimal_project(tmp_path)
 
     add_adapter_cmd(
@@ -1287,14 +1458,18 @@ def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(tmp_path: Path
     )
 
     package_root = project_dir / "src" / "demo_service"
-    langgraph_json = json.loads((project_dir / "langgraph.json").read_text(encoding="utf-8"))
-    langgraph_config = (project_dir / "config" / "adapters" / "inbound" / "langgraph.yaml").read_text(
-        encoding="utf-8"
+    langgraph_json = json.loads(
+        (project_dir / "langgraph.json").read_text(encoding="utf-8")
     )
+    langgraph_config = (
+        project_dir / "config" / "adapters" / "inbound" / "langgraph.yaml"
+    ).read_text(encoding="utf-8")
     agent_file = package_root / "adapters" / "inbound" / "langgraph" / "agent.py"
 
     assert (project_dir / "config" / "adapters" / "inbound" / "langgraph.yaml").exists()
-    assert (package_root / "adapters" / "inbound" / "langgraph" / "__init__.py").exists()
+    assert (
+        package_root / "adapters" / "inbound" / "langgraph" / "__init__.py"
+    ).exists()
     assert agent_file.exists()
     assert langgraph_json["graphs"] == {
         "todo_agent": "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"
@@ -1307,12 +1482,18 @@ def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(tmp_path: Path
     assert "repository: memory" in adapters_yaml
     assert "agent:" not in adapters_yaml
     assert 'name: "todo_agent"' in langgraph_config
-    assert 'entrypoint: "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"' in langgraph_config
+    assert (
+        'entrypoint: "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"'
+        in langgraph_config
+    )
     assert "stream_mode: [updates, custom]" in langgraph_config
     generated_agent = agent_file.read_text(encoding="utf-8")
     assert "Template minimal volontaire" in generated_agent
     assert "get_stream_writer" in generated_agent
-    assert "agent = arclith.langgraph(AgentState, register_agent, name=\"todo_agent\")" in generated_agent
+    assert (
+        'agent = arclith.langgraph(AgentState, register_agent, name="todo_agent")'
+        in generated_agent
+    )
     assert not (package_root / "adapters" / "outbound" / "langgraph").exists()
 
 
@@ -1332,7 +1513,15 @@ async def test_add_langgraph_agent_adapter_generates_compilable_minimal_agent(
         yes=True,
     )
 
-    agent_file = project_dir / "src" / "demo_service" / "adapters" / "inbound" / "langgraph" / "agent.py"
+    agent_file = (
+        project_dir
+        / "src"
+        / "demo_service"
+        / "adapters"
+        / "inbound"
+        / "langgraph"
+        / "agent.py"
+    )
     monkeypatch.chdir(project_dir)
     monkeypatch.syspath_prepend(str(project_dir / "src"))
     spec = importlib.util.spec_from_file_location(
@@ -1346,9 +1535,18 @@ async def test_add_langgraph_agent_adapter_generates_compilable_minimal_agent(
     try:
         spec.loader.exec_module(module)
         assert await module.agent.ainvoke({"messages": []}) == {"messages": []}
-        events = [event async for event in module.agent.astream({"messages": []}, stream_mode="custom")]
+        events = [
+            event
+            async for event in module.agent.astream(
+                {"messages": []}, stream_mode="custom"
+            )
+        ]
         assert events == [
-            {"kind": "progress", "stage": "agent.started", "message": "Agent node started."}
+            {
+                "kind": "progress",
+                "stage": "agent.started",
+                "message": "Agent node started.",
+            }
         ]
     finally:
         sys.modules.pop(spec.name, None)
@@ -1417,7 +1615,9 @@ def test_add_memory_adapter_rejects_unknown_catalog_param(tmp_path: Path) -> Non
         )
 
 
-def test_add_memory_adapter_direct_cli_keeps_memory_and_loads_config(tmp_path: Path) -> None:
+def test_add_memory_adapter_direct_cli_keeps_memory_and_loads_config(
+    tmp_path: Path,
+) -> None:
     project_dir = tmp_path / "memory-service"
 
     result = subprocess.run(
@@ -1432,7 +1632,9 @@ def test_add_memory_adapter_direct_cli_keeps_memory_and_loads_config(tmp_path: P
         text=True,
         timeout=30,
     )
-    assert result.returncode == 0, f"init failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"init failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
 
     result = subprocess.run(
         ["arclith-cli", "add-entity", "Widget"],
@@ -1441,7 +1643,9 @@ def test_add_memory_adapter_direct_cli_keeps_memory_and_loads_config(tmp_path: P
         text=True,
         timeout=30,
     )
-    assert result.returncode == 0, f"add-entity failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"add-entity failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
 
     result = subprocess.run(
         [
@@ -1460,15 +1664,30 @@ def test_add_memory_adapter_direct_cli_keeps_memory_and_loads_config(tmp_path: P
         text=True,
         timeout=30,
     )
-    assert result.returncode == 0, f"add-adapter failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"add-adapter failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
 
     package_root = project_dir / "src" / "memory_service"
-    assert (package_root / "adapters" / "outbound" / "memory" / "repositories" / "widget_repository.py").exists()
-    assert (package_root / "adapters" / "outbound" / "memory" / "repository.py").exists()
-    assert not (project_dir / "config" / "adapters" / "outbound" / "memory.yaml").exists()
+    assert (
+        package_root
+        / "adapters"
+        / "outbound"
+        / "memory"
+        / "repositories"
+        / "widget_repository.py"
+    ).exists()
+    assert (
+        package_root / "adapters" / "outbound" / "memory" / "repository.py"
+    ).exists()
+    assert not (
+        project_dir / "config" / "adapters" / "outbound" / "memory.yaml"
+    ).exists()
 
     adapters_config = yaml.safe_load(
-        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(encoding="utf-8")
+        (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
+            encoding="utf-8"
+        )
     )
     assert adapters_config["repository"] == "memory"
 
@@ -1506,12 +1725,21 @@ def test_add_memory_adapter_interactive_wizard_activates_memory(tmp_path: Path) 
         timeout=30,
     )
 
-    assert result.returncode == 0, f"wizard failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-    package_root = project_dir / "src" / "demo_service"
-    assert (package_root / "adapters" / "outbound" / "memory" / "repositories" / "widget_repository.py").exists()
-    assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
+    assert result.returncode == 0, (
+        f"wizard failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
     )
+    package_root = project_dir / "src" / "demo_service"
+    assert (
+        package_root
+        / "adapters"
+        / "outbound"
+        / "memory"
+        / "repositories"
+        / "widget_repository.py"
+    ).exists()
+    assert "repository: memory" in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
 
 
 def test_add_cache_memory_adapter_generates_loadable_config(tmp_path: Path) -> None:
@@ -1531,9 +1759,9 @@ def test_add_cache_memory_adapter_generates_loadable_config(tmp_path: Path) -> N
     from arclith import Arclith
     from arclith.adapters.outbound.memory.cache_adapter import MemoryCacheAdapter
 
-    cache_config = (project_dir / "config" / "adapters" / "inbound" / "cache.yaml").read_text(
-        encoding="utf-8"
-    )
+    cache_config = (
+        project_dir / "config" / "adapters" / "inbound" / "cache.yaml"
+    ).read_text(encoding="utf-8")
     app = Arclith(project_dir / "config")
 
     assert cache_config == "backend: memory\njwks_ttl: 1200\ntenant_uri_ttl: 180\n"
@@ -1564,24 +1792,29 @@ def test_add_cache_redis_adapter_generates_secret_mapping(
     )
     captured = capsys.readouterr()
 
-    cache_config = (project_dir / "config" / "adapters" / "inbound" / "cache.yaml").read_text(
-        encoding="utf-8"
+    cache_config = (
+        project_dir / "config" / "adapters" / "inbound" / "cache.yaml"
+    ).read_text(encoding="utf-8")
+    secrets = yaml.safe_load(
+        (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
     )
-    secrets = yaml.safe_load((project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8"))
     env = (project_dir / ".env").read_text(encoding="utf-8")
 
-    assert cache_config == 'backend: redis\nredis_url: ""\njwks_ttl: 900\ntenant_uri_ttl: 120\n'
+    assert (
+        cache_config
+        == 'backend: redis\nredis_url: ""\njwks_ttl: 900\ntenant_uri_ttl: 120\n'
+    )
     assert secrets["resolver"] == "env"
     assert secrets["mappings"]["cache.redis_url"] == "REDIS_URL"
     assert "EXISTING=value" in env
     assert "REDIS_URL=redis://cache:6379/0" in env
-    assert "cache:" not in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "cache:" not in (
+        project_dir / "config" / "adapters" / "adapters.yaml"
+    ).read_text(encoding="utf-8")
     assert "redis://cache:6379/0" not in cache_config
-    assert "redis://cache:6379/0" not in (project_dir / "config" / "secrets.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert "redis://cache:6379/0" not in (
+        project_dir / "config" / "secrets.yaml"
+    ).read_text(encoding="utf-8")
     assert "redis://cache:6379/0" not in captured.out
     assert "redis://cache:6379/0" not in captured.err
 
@@ -1596,10 +1829,14 @@ def test_add_cache_redis_adapter_generates_secret_mapping(
     assert app.config.cache.tenant_uri_ttl == 120
 
 
-def test_add_console_logger_adapter_generates_explicit_default_selector(tmp_path: Path) -> None:
+def test_add_console_logger_adapter_generates_explicit_default_selector(
+    tmp_path: Path,
+) -> None:
     project_dir = _minimal_project(tmp_path)
     adapters_path = project_dir / "config" / "adapters" / "adapters.yaml"
-    adapters_path.write_text("repository: memory\nobservability:\n  enabled: []\n", encoding="utf-8")
+    adapters_path.write_text(
+        "repository: memory\nobservability:\n  enabled: []\n", encoding="utf-8"
+    )
 
     add_adapter_cmd(
         project_dir=project_dir,
@@ -1626,18 +1863,13 @@ def test_add_env_secrets_adapter_preserves_existing_mappings_and_uses_explicit_k
 ) -> None:
     project_dir = _minimal_project(tmp_path)
     (project_dir / "config" / "secrets.yaml").write_text(
-        "resolver: yaml\n"
-        "mappings:\n"
-        "  adapters.lm.api_key: OPENAI_API_KEY\n",
+        "resolver: yaml\nmappings:\n  adapters.lm.api_key: OPENAI_API_KEY\n",
         encoding="utf-8",
     )
     outbound_dir = project_dir / "config" / "adapters" / "outbound"
     outbound_dir.mkdir(parents=True, exist_ok=True)
     (outbound_dir / "mongodb.yaml").write_text(
-        "uri: null\n"
-        "db_name: demo\n"
-        "collection_name: null\n"
-        "multitenant: false\n",
+        "uri: null\ndb_name: demo\ncollection_name: null\nmultitenant: false\n",
         encoding="utf-8",
     )
 
@@ -1652,7 +1884,9 @@ def test_add_env_secrets_adapter_preserves_existing_mappings_and_uses_explicit_k
             },
             yes=True,
         )
-    secrets = yaml.safe_load((project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8"))
+    secrets = yaml.safe_load(
+        (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
+    )
 
     assert secrets["resolver"] == "env"
     assert secrets["mappings"] == {
@@ -1678,10 +1912,7 @@ def test_add_env_secrets_adapter_allows_derived_env_key(
     outbound_dir = project_dir / "config" / "adapters" / "outbound"
     outbound_dir.mkdir(parents=True, exist_ok=True)
     (outbound_dir / "mongodb.yaml").write_text(
-        "uri: null\n"
-        "db_name: demo\n"
-        "collection_name: null\n"
-        "multitenant: false\n",
+        "uri: null\ndb_name: demo\ncollection_name: null\nmultitenant: false\n",
         encoding="utf-8",
     )
 
@@ -1692,7 +1923,9 @@ def test_add_env_secrets_adapter_allows_derived_env_key(
         adapter_params={"field_path": "adapters.mongodb.uri"},
         yes=True,
     )
-    secrets = yaml.safe_load((project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8"))
+    secrets = yaml.safe_load(
+        (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
+    )
 
     assert secrets["resolver"] == "env"
     assert secrets["mappings"]["adapters.mongodb.uri"] == ""
@@ -1727,10 +1960,7 @@ def test_add_yaml_secrets_adapter_generates_template_and_preserves_real_secret_f
     outbound_dir = project_dir / "config" / "adapters" / "outbound"
     outbound_dir.mkdir(parents=True, exist_ok=True)
     (outbound_dir / "mongodb.yaml").write_text(
-        "uri: null\n"
-        "db_name: demo\n"
-        "collection_name: null\n"
-        "multitenant: false\n",
+        "uri: null\ndb_name: demo\ncollection_name: null\nmultitenant: false\n",
         encoding="utf-8",
     )
     real_secret = "adapters:\n  mongodb:\n    uri: mongodb://local:27017\n"
@@ -1747,7 +1977,9 @@ def test_add_yaml_secrets_adapter_generates_template_and_preserves_real_secret_f
             },
             yes=True,
         )
-    config_secrets = yaml.safe_load((project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8"))
+    config_secrets = yaml.safe_load(
+        (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
+    )
     template = (project_dir / "secrets.yaml.template").read_text(encoding="utf-8")
     gitignore = (project_dir / ".gitignore").read_text(encoding="utf-8")
 
@@ -1761,7 +1993,9 @@ def test_add_yaml_secrets_adapter_generates_template_and_preserves_real_secret_f
         "adapters": {"mongodb": {"uri": "replace-me"}}
     }
 
-    subprocess.run(["git", "init"], cwd=project_dir, check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "init"], cwd=project_dir, check=True, capture_output=True, text=True
+    )
     ignored = subprocess.run(
         ["git", "check-ignore", "secrets.yaml"],
         cwd=project_dir,
@@ -1787,10 +2021,7 @@ def test_add_vault_secrets_adapter_generates_safe_config_and_resolves_with_fake_
     outbound_dir = project_dir / "config" / "adapters" / "outbound"
     outbound_dir.mkdir(parents=True, exist_ok=True)
     (outbound_dir / "mongodb.yaml").write_text(
-        "uri: null\n"
-        "db_name: demo\n"
-        "collection_name: null\n"
-        "multitenant: false\n",
+        "uri: null\ndb_name: demo\ncollection_name: null\nmultitenant: false\n",
         encoding="utf-8",
     )
 
@@ -1860,9 +2091,7 @@ def test_add_chain_secrets_adapter_preserves_mappings_and_renders_ordered_fallba
 ) -> None:
     project_dir = _minimal_project(tmp_path)
     (project_dir / "config" / "secrets.yaml").write_text(
-        "resolver: env\n"
-        "mappings:\n"
-        "  adapters.lm.api_key: OPENAI_API_KEY\n",
+        "resolver: env\nmappings:\n  adapters.lm.api_key: OPENAI_API_KEY\n",
         encoding="utf-8",
     )
 
@@ -1881,7 +2110,9 @@ def test_add_chain_secrets_adapter_preserves_mappings_and_renders_ordered_fallba
             },
             yes=True,
         )
-    secrets = yaml.safe_load((project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8"))
+    secrets = yaml.safe_load(
+        (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
+    )
 
     assert secrets["resolver"] == "chain"
     assert secrets["chain"] == ["env", "vault", "yaml"]
@@ -1942,13 +2173,20 @@ def test_add_runtime_docker_image_generates_hardened_templates(tmp_path: Path) -
     assert 'ENTRYPOINT ["./arclith-run"]' in dockerfile
     assert 'CMD ["api"]' in dockerfile
     assert "MODE=api" not in dockerfile
-    assert re.search(r"(?m)^ARG .*SECRET|^ARG .*TOKEN|^ARG .*PASSWORD", dockerfile) is None
-    assert re.search(r"(?m)^ENV .*SECRET|^ENV .*TOKEN|^ENV .*PASSWORD", dockerfile) is None
+    assert (
+        re.search(r"(?m)^ARG .*SECRET|^ARG .*TOKEN|^ARG .*PASSWORD", dockerfile) is None
+    )
+    assert (
+        re.search(r"(?m)^ENV .*SECRET|^ENV .*TOKEN|^ENV .*PASSWORD", dockerfile) is None
+    )
     assert ".env" in dockerignore
     assert "secrets.yaml" in dockerignore
     assert "*.pem" in dockerignore
     assert 'if [ -n "${ARCLITH_RUNTIME_MODE:-}" ]; then' in entrypoint
-    assert "api|mcp|mcp_http|mcp_sse|bus|command_bus|command-bus|agent|all) shift ;;" in entrypoint
+    assert (
+        "api|mcp|mcp_http|mcp_sse|bus|command_bus|command-bus|agent|all) shift ;;"
+        in entrypoint
+    )
     assert "api)" in entrypoint
     assert "mcp|mcp_http)" in entrypoint
     assert "bus|command_bus|command-bus)" in entrypoint
@@ -1980,7 +2218,9 @@ def test_add_runtime_docker_image_rejects_invalid_port(tmp_path: Path) -> None:
         "0.8.14{api_port}",
     ],
 )
-def test_add_runtime_docker_image_rejects_unsafe_uv_version(tmp_path: Path, uv_version: str) -> None:
+def test_add_runtime_docker_image_rejects_unsafe_uv_version(
+    tmp_path: Path, uv_version: str
+) -> None:
     project_dir = _minimal_project(tmp_path)
 
     with pytest.raises(typer.Exit):
@@ -1995,7 +2235,9 @@ def test_add_runtime_docker_image_rejects_unsafe_uv_version(tmp_path: Path, uv_v
     assert not (project_dir / "Dockerfile").exists()
 
 
-def test_runtime_entrypoint_drops_explicit_mode_when_env_mode_is_set(tmp_path: Path) -> None:
+def test_runtime_entrypoint_drops_explicit_mode_when_env_mode_is_set(
+    tmp_path: Path,
+) -> None:
     project_dir = _minimal_project(tmp_path)
 
     add_adapter_cmd(
@@ -2025,7 +2267,9 @@ def test_runtime_entrypoint_drops_explicit_mode_when_env_mode_is_set(tmp_path: P
         timeout=30,
     )
 
-    assert result.returncode == 0, f"entrypoint failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"entrypoint failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
     assert json.loads((project_dir / "runtime.json").read_text(encoding="utf-8")) == {
         "mode": "mcp_http",
         "argv": [],
@@ -2033,7 +2277,9 @@ def test_runtime_entrypoint_drops_explicit_mode_when_env_mode_is_set(tmp_path: P
 
 
 def test_boolean_string_default_false_is_false(tmp_path: Path) -> None:
-    parameter = ParameterSpec(name="multitenant", kind="boolean", prompt="multitenant", default="false")
+    parameter = ParameterSpec(
+        name="multitenant", kind="boolean", prompt="multitenant", default="false"
+    )
 
     assert _resolve_parameter(parameter, None, tmp_path, prompt_missing=False) is False
 

@@ -11,6 +11,7 @@ class AdapterTenantCoords:
     Exemples :
     - MongoDB  : {"uri": "mongodb://...", "db_name": "tenant_foo"}
     - MariaDB  : {"uri": "mysql://...", "db_name": "tenant_schema"}
+    - PostgreSQL : {"uri": "postgresql://...", "db_name": "tenant_db", "schema": "tenant_schema"}
     - S3       : {"endpoint_url": "https://...", "bucket_name": "tenant-foo", "region": "eu-west-1"}
     - Redis    : {"uri": "redis://...", "key_prefix": "tenant_foo"}
 
@@ -35,7 +36,7 @@ class AdapterTenantCoords:
 class TenantContext:
     """Contexte tenant multi-adaptateur.
 
-    Clé = nom de l'adaptateur (``"mongodb"``, ``"s3"``, ``"mariadb"``...).
+    Clé = nom de l'adaptateur (``"mongodb"``, ``"s3"``, ``"mariadb"``, ``"postgresql"``...).
     Chaque adaptateur lit uniquement sa propre tranche via ``get(adapter_name)``.
 
     Exemple : MongoDB multitenant + S3 single-tenant → seul ``"mongodb"`` est présent.

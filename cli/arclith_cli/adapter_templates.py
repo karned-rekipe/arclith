@@ -66,6 +66,20 @@ class MariaDB{pascal}Repository(MariaDBRepository[{pascal}], {pascal}Repository)
 
     # TODO: add custom query methods here
 """,
+    "postgresql": """\
+from arclith.adapters.outbound.postgresql.config import PostgreSQLConfig
+from arclith.adapters.outbound.postgresql.repository import PostgreSQLRepository
+from arclith.domain.ports.outbound.logger import Logger
+from {domain_import}.models.{snake} import {pascal}
+from {domain_import}.ports.outbound.{snake}_repository import {pascal}Repository
+
+
+class PostgreSQL{pascal}Repository(PostgreSQLRepository[{pascal}], {pascal}Repository):
+    def __init__(self, config: PostgreSQLConfig, logger: Logger) -> None:
+        super().__init__(config, {pascal}, logger)
+
+    # TODO: add custom query methods here
+""",
 }
 
 # ── repository.py re-export template ─────────────────────────────────────────
@@ -90,6 +104,11 @@ __all__ = ["DuckDB{pascal}Repository"]
 from {adapters_import}.outbound.mariadb.repositories.{snake}_repository import MariaDB{pascal}Repository
 
 __all__ = ["MariaDB{pascal}Repository"]
+""",
+    "postgresql": """\
+from {adapters_import}.outbound.postgresql.repositories.{snake}_repository import PostgreSQL{pascal}Repository
+
+__all__ = ["PostgreSQL{pascal}Repository"]
 """,
 }
 
@@ -153,6 +172,29 @@ def _build_mariadb(cfg: AppConfig, _entity_class: type[{pascal}], log: Logger) -
     )
 
 """,
+    "postgresql": """\
+def _build_postgresql(cfg: AppConfig, _entity_class: type[{pascal}], log: Logger) -> {pascal}Repository:
+    from {adapters_import}.outbound.postgresql.repository import PostgreSQL{pascal}Repository
+    from arclith.adapters.outbound.postgresql.config import PostgreSQLConfig
+    postgresql = cfg.adapters.postgresql
+    if postgresql is None:
+        raise ValueError("PostgreSQL settings are required when repository=postgresql")
+    return PostgreSQL{pascal}Repository(
+        PostgreSQLConfig(
+            url=postgresql.url,
+            host=postgresql.host,
+            port=postgresql.port,
+            database=postgresql.database,
+            user=postgresql.user,
+            password=postgresql.password,
+            schema=postgresql.schema_name,
+            driver=postgresql.driver,
+            table_prefix=postgresql.table_prefix,
+        ),
+        log,
+    )
+
+""",
 }
 
 _CONTAINER_FOOTER = """\
@@ -169,7 +211,9 @@ def build_{snake}_service(arclith: Arclith) -> tuple[{pascal}Service, Logger]:
 """
 
 
-def render_container(pascal: str, snake: str, installed_adapters: list[str], import_vars: dict[str, str]) -> str:
+def render_container(
+    pascal: str, snake: str, installed_adapters: list[str], import_vars: dict[str, str]
+) -> str:
     """Generate the full container file content for a given entity and its adapters."""
     # memory is always included (arclith built-in, needs no extra files)
     adapters = list(dict.fromkeys(["memory"] + installed_adapters))
@@ -182,9 +226,7 @@ def render_container(pascal: str, snake: str, installed_adapters: list[str], imp
         if a in _CONTAINER_FACTORY
     )
     registrations = "\n".join(
-        f"    .register(\"{a}\", _build_{a})"
-        for a in adapters
-        if a in _CONTAINER_FACTORY
+        f'    .register("{a}", _build_{a})' for a in adapters if a in _CONTAINER_FACTORY
     )
     footer = _CONTAINER_FOOTER.format(**vars, registrations=registrations)
     return header + factories + footer
