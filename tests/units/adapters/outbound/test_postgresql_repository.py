@@ -27,6 +27,10 @@ class FakeConnection:
     def __init__(self, engine: "FakeEngine") -> None:
         self._engine = engine
 
+    async def execute(self, statement) -> None:
+        self._engine.executed_statements.append(statement)
+        await asyncio.sleep(0)
+
     async def run_sync(self, fn) -> None:
         self._engine.run_sync_calls += 1
         await asyncio.sleep(0)
@@ -49,6 +53,7 @@ class FakeEngine:
     def __init__(self) -> None:
         self.begin_calls = 0
         self.run_sync_calls = 0
+        self.executed_statements: list[Any] = []
 
     def begin(self) -> FakeBegin:
         return FakeBegin(self)
@@ -85,7 +90,29 @@ async def test_ensure_schema_is_locked_per_url(logger) -> None:
 
     assert engine.begin_calls == 1
     assert engine.run_sync_calls == 1
+    assert engine.executed_statements == []
     assert len(repository._schema_locks) == 1
+
+
+async def test_ensure_schema_creates_custom_schema_before_tables(logger) -> None:
+    repository = PostgreSQLRepository(
+        PostgreSQLConfig(database="demo", schema="tenant_a"),
+        Item,
+        logger,
+    )
+    engine = FakeEngine()
+    metadata, _table = repository._table_for(repository._config)
+
+    await repository._ensure_schema(
+        engine, "postgresql://demo", metadata, "tenant_a.item"
+    )
+
+    assert engine.begin_calls == 1
+    assert engine.run_sync_calls == 1
+    assert len(engine.executed_statements) == 1
+    statement = engine.executed_statements[0]
+    assert statement.element == "tenant_a"
+    assert statement.if_not_exists is True
 
 
 def test_entity_serialization_round_trip_preserves_pydantic_values(logger) -> None:

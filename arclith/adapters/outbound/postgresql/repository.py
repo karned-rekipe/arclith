@@ -33,6 +33,7 @@ class _SQLAlchemyAPI:
     table: Any
     delete: Any
     count: Any
+    create_schema: Any
     insert: Any
     select: Any
     update: Any
@@ -57,6 +58,7 @@ def _sqlalchemy_api() -> _SQLAlchemyAPI:
         )
         from sqlalchemy.dialects.postgresql import JSONB
         from sqlalchemy.ext.asyncio import create_async_engine
+        from sqlalchemy.schema import CreateSchema
     except ModuleNotFoundError as exc:
         raise RuntimeError(_EXTRA_MESSAGE) from exc
 
@@ -70,6 +72,7 @@ def _sqlalchemy_api() -> _SQLAlchemyAPI:
         table=Table,
         delete=delete,
         count=func.count,
+        create_schema=CreateSchema,
         insert=insert,
         select=select,
         update=update,
@@ -156,6 +159,12 @@ class PostgreSQLRepository(Repository[T], Generic[T]):
             if ready_key in self._ready_tables:
                 return
             async with engine.begin() as connection:
+                if metadata.schema != "public":
+                    await connection.execute(
+                        _sqlalchemy_api().create_schema(
+                            metadata.schema, if_not_exists=True
+                        )
+                    )
                 await connection.run_sync(metadata.create_all)
             self._ready_tables.add(ready_key)
 
