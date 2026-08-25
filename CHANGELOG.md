@@ -4,6 +4,27 @@
 
 ---
 
+## [0.18.0] — 2026-08-25
+
+### Added
+
+- **Adapter repository PostgreSQL** — extra optionnel `arclith[postgresql]`, settings
+  `adapters.postgresql`, factory par defaut et repository generique JSONB par entite.
+- **Scaffold CLI PostgreSQL** — `arclith-cli add-adapter --capability repository --adapter
+  postgresql` genere la configuration et le wiring d'un repository PostgreSQL.
+
+### Changed
+
+- **Versions release** — `arclith` passe à `0.18.0`; `arclith-cli` passe à `0.15.0`
+  et dépend de `arclith>=0.18.0`.
+
+### Fixed
+
+- **Schemas PostgreSQL custom** — l'adapter cree idempotemment les schemas non-public avant
+  `metadata.create_all()`, y compris pour les coordonnees multitenant.
+
+---
+
 ## [0.17.0] — 2026-08-23
 
 ### Added
