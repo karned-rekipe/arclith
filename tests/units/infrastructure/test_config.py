@@ -14,6 +14,7 @@ from arclith.infrastructure.config import (
     LangSmithSettings,
     MariaDBSettings,
     OpenTelemetrySettings,
+    PostgreSQLSettings,
     RabbitMQCommandBusSettings,
     SoftDeleteSettings,
     StorageSettings,
@@ -26,6 +27,7 @@ from arclith.infrastructure.config import (
 
 
 # ── AppConfig defaults ────────────────────────────────────────────────────────
+
 
 def test_default_config_uses_memory():
     assert AppConfig().adapters.repository == "memory"
@@ -52,6 +54,7 @@ def test_default_retention_is_none():
 
 # ── _resolve_key_path ─────────────────────────────────────────────────────────
 
+
 def test_resolve_root_file():
     assert _resolve_key_path(Path("app.yaml")) == ["app"]
 
@@ -69,10 +72,26 @@ def test_resolve_adapters_selector():
 
 
 def test_resolve_output_adapter():
-    assert _resolve_key_path(Path("adapters/outbound/mongodb.yaml")) == ["adapters", "mongodb"]
-    assert _resolve_key_path(Path("adapters/outbound/duckdb.yaml")) == ["adapters", "duckdb"]
-    assert _resolve_key_path(Path("adapters/outbound/mariadb.yaml")) == ["adapters", "mariadb"]
-    assert _resolve_key_path(Path("adapters/outbound/storage.yaml")) == ["adapters", "storage"]
+    assert _resolve_key_path(Path("adapters/outbound/mongodb.yaml")) == [
+        "adapters",
+        "mongodb",
+    ]
+    assert _resolve_key_path(Path("adapters/outbound/duckdb.yaml")) == [
+        "adapters",
+        "duckdb",
+    ]
+    assert _resolve_key_path(Path("adapters/outbound/mariadb.yaml")) == [
+        "adapters",
+        "mariadb",
+    ]
+    assert _resolve_key_path(Path("adapters/outbound/postgresql.yaml")) == [
+        "adapters",
+        "postgresql",
+    ]
+    assert _resolve_key_path(Path("adapters/outbound/storage.yaml")) == [
+        "adapters",
+        "storage",
+    ]
 
 
 def test_resolve_input_alias_fastapi():
@@ -98,6 +117,7 @@ def test_resolve_unknown_path_returns_empty():
 
 
 # ── _deep_merge ───────────────────────────────────────────────────────────────
+
 
 def test_deep_merge_simple():
     result = _deep_merge({"a": 1}, {"b": 2})
@@ -125,6 +145,7 @@ def test_deep_merge_does_not_mutate_base():
 
 
 # ── load_config_dir ───────────────────────────────────────────────────────────
+
 
 def _make_config_dir(files: dict[str, dict]) -> Path:
     """Helper: create a temp config/ directory with the given files."""
@@ -168,13 +189,15 @@ def test_load_config_dir_mcp_via_fastmcp_alias():
 
 
 def test_load_config_dir_probe_scoped():
-    path = _make_config_dir({
-        "adapters/inbound/probe.yaml": {
-            "host": "127.0.0.1",
-            "port": 9100,
-            "enabled": False,
+    path = _make_config_dir(
+        {
+            "adapters/inbound/probe.yaml": {
+                "host": "127.0.0.1",
+                "port": 9100,
+                "enabled": False,
+            }
         }
-    })
+    )
     config = load_config_dir(path)
     assert config.probe.host == "127.0.0.1"
     assert config.probe.port == 9100
@@ -182,13 +205,15 @@ def test_load_config_dir_probe_scoped():
 
 
 def test_load_config_dir_cache_scoped():
-    path = _make_config_dir({
-        "adapters/inbound/cache.yaml": {
-            "backend": "memory",
-            "jwks_ttl": 1200,
-            "tenant_uri_ttl": 180,
+    path = _make_config_dir(
+        {
+            "adapters/inbound/cache.yaml": {
+                "backend": "memory",
+                "jwks_ttl": 1200,
+                "tenant_uri_ttl": 180,
+            }
         }
-    })
+    )
     config = load_config_dir(path)
     assert config.cache.backend == "memory"
     assert config.cache.jwks_ttl == 1200
@@ -196,14 +221,16 @@ def test_load_config_dir_cache_scoped():
 
 
 def test_load_config_dir_redis_cache_scoped():
-    path = _make_config_dir({
-        "adapters/inbound/cache.yaml": {
-            "backend": "redis",
-            "redis_url": "redis://cache:6379/0",
-            "jwks_ttl": 900,
-            "tenant_uri_ttl": 120,
+    path = _make_config_dir(
+        {
+            "adapters/inbound/cache.yaml": {
+                "backend": "redis",
+                "redis_url": "redis://cache:6379/0",
+                "jwks_ttl": 900,
+                "tenant_uri_ttl": 120,
+            }
         }
-    })
+    )
     config = load_config_dir(path)
     assert config.cache.backend == "redis"
     assert config.cache.redis_url == "redis://cache:6379/0"
@@ -212,10 +239,12 @@ def test_load_config_dir_redis_cache_scoped():
 
 
 def test_load_config_dir_mongodb_scoped():
-    path = _make_config_dir({
-        "adapters/adapters.yaml": {"repository": "mongodb"},
-        "adapters/outbound/mongodb.yaml": {"db_name": "mydb", "multitenant": False},
-    })
+    path = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {"repository": "mongodb"},
+            "adapters/outbound/mongodb.yaml": {"db_name": "mydb", "multitenant": False},
+        }
+    )
     config = load_config_dir(path)
     assert config.adapters.repository == "mongodb"
     assert config.adapters.mongodb is not None
@@ -223,36 +252,60 @@ def test_load_config_dir_mongodb_scoped():
 
 
 def test_load_config_dir_duckdb_scoped():
-    path = _make_config_dir({
-        "adapters/adapters.yaml": {"repository": "duckdb"},
-        "adapters/outbound/duckdb.yaml": {"path": "data/"},
-    })
+    path = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {"repository": "duckdb"},
+            "adapters/outbound/duckdb.yaml": {"path": "data/"},
+        }
+    )
     config = load_config_dir(path)
     assert config.adapters.duckdb is not None
     assert config.adapters.duckdb.path == "data/"
 
 
 def test_load_config_dir_mariadb_scoped():
-    path = _make_config_dir({
-        "adapters/adapters.yaml": {"repository": "mariadb"},
-        "adapters/outbound/mariadb.yaml": {"database": "demo", "user": "app"},
-    })
+    path = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {"repository": "mariadb"},
+            "adapters/outbound/mariadb.yaml": {"database": "demo", "user": "app"},
+        }
+    )
     config = load_config_dir(path)
     assert config.adapters.mariadb is not None
     assert config.adapters.mariadb.database == "demo"
     assert config.adapters.mariadb.user == "app"
 
 
+def test_load_config_dir_postgresql_scoped():
+    path = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {"repository": "postgresql"},
+            "adapters/outbound/postgresql.yaml": {
+                "database": "demo",
+                "user": "app",
+                "schema": "public",
+            },
+        }
+    )
+    config = load_config_dir(path)
+    assert config.adapters.postgresql is not None
+    assert config.adapters.postgresql.database == "demo"
+    assert config.adapters.postgresql.user == "app"
+    assert config.adapters.postgresql.schema_name == "public"
+
+
 def test_load_config_dir_storage_filesystem_scoped():
-    path = _make_config_dir({
-        "adapters/outbound/storage.yaml": {
-            "adapter": "filesystem",
-            "root_path": "/data/files",
-            "prefix": "uploads",
-            "create_root": False,
-            "multitenant": False,
-        },
-    })
+    path = _make_config_dir(
+        {
+            "adapters/outbound/storage.yaml": {
+                "adapter": "filesystem",
+                "root_path": "/data/files",
+                "prefix": "uploads",
+                "create_root": False,
+                "multitenant": False,
+            },
+        }
+    )
     config = load_config_dir(path)
 
     assert config.adapters.storage is not None
@@ -264,17 +317,19 @@ def test_load_config_dir_storage_filesystem_scoped():
 
 
 def test_load_config_dir_storage_s3_scoped():
-    path = _make_config_dir({
-        "adapters/outbound/storage.yaml": {
-            "adapter": "s3",
-            "bucket_name": "arclith-files",
-            "prefix": "uploads",
-            "region_name": "eu-west-3",
-            "endpoint_url": "http://127.0.0.1:9000",
-            "force_path_style": True,
-            "multitenant": False,
-        },
-    })
+    path = _make_config_dir(
+        {
+            "adapters/outbound/storage.yaml": {
+                "adapter": "s3",
+                "bucket_name": "arclith-files",
+                "prefix": "uploads",
+                "region_name": "eu-west-3",
+                "endpoint_url": "http://127.0.0.1:9000",
+                "force_path_style": True,
+                "multitenant": False,
+            },
+        }
+    )
     config = load_config_dir(path)
 
     assert config.adapters.storage is not None
@@ -288,16 +343,18 @@ def test_load_config_dir_storage_s3_scoped():
 
 
 def test_load_config_dir_storage_gcs_scoped():
-    path = _make_config_dir({
-        "adapters/outbound/storage.yaml": {
-            "adapter": "gcs",
-            "bucket_name": "arclith-files",
-            "prefix": "uploads",
-            "project_id": "project-a",
-            "credentials_json_b64": "encoded",
-            "multitenant": False,
-        },
-    })
+    path = _make_config_dir(
+        {
+            "adapters/outbound/storage.yaml": {
+                "adapter": "gcs",
+                "bucket_name": "arclith-files",
+                "prefix": "uploads",
+                "project_id": "project-a",
+                "credentials_json_b64": "encoded",
+                "multitenant": False,
+            },
+        }
+    )
     config = load_config_dir(path)
 
     assert config.adapters.storage is not None
@@ -310,24 +367,28 @@ def test_load_config_dir_storage_gcs_scoped():
 
 
 def test_load_config_dir_storage_azure_blob_scoped():
-    path = _make_config_dir({
-        "adapters/outbound/storage.yaml": {
-            "adapter": "azure-blob",
-            "account_url": "https://account.blob.core.windows.net",
-            "container_name": "arclith-files",
-            "prefix": "uploads",
-            "connection_string": "UseDevelopmentStorage=true",
-            "account_key": None,
-            "sas_token": None,
-            "use_default_credential": False,
-            "multitenant": False,
-        },
-    })
+    path = _make_config_dir(
+        {
+            "adapters/outbound/storage.yaml": {
+                "adapter": "azure-blob",
+                "account_url": "https://account.blob.core.windows.net",
+                "container_name": "arclith-files",
+                "prefix": "uploads",
+                "connection_string": "UseDevelopmentStorage=true",
+                "account_key": None,
+                "sas_token": None,
+                "use_default_credential": False,
+                "multitenant": False,
+            },
+        }
+    )
     config = load_config_dir(path)
 
     assert config.adapters.storage is not None
     assert config.adapters.storage.adapter == "azure-blob"
-    assert config.adapters.storage.account_url == "https://account.blob.core.windows.net"
+    assert (
+        config.adapters.storage.account_url == "https://account.blob.core.windows.net"
+    )
     assert config.adapters.storage.container_name == "arclith-files"
     assert config.adapters.storage.prefix == "uploads"
     assert config.adapters.storage.connection_string == "UseDevelopmentStorage=true"
@@ -341,21 +402,23 @@ def test_load_config_dir_storage_azure_blob_credentials_from_secret_mapping(
     monkeypatch: pytest.MonkeyPatch,
 ):
     monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", "UseDevelopmentStorage=true")
-    path = _make_config_dir({
-        "adapters/outbound/storage.yaml": {
-            "adapter": "azure-blob",
-            "account_url": "https://account.blob.core.windows.net",
-            "container_name": "arclith-files",
-            "connection_string": None,
-            "multitenant": False,
-        },
-        "secrets.yaml": {
-            "resolver": "env",
-            "mappings": {
-                "adapters.storage.connection_string": "AZURE_STORAGE_CONNECTION_STRING",
+    path = _make_config_dir(
+        {
+            "adapters/outbound/storage.yaml": {
+                "adapter": "azure-blob",
+                "account_url": "https://account.blob.core.windows.net",
+                "container_name": "arclith-files",
+                "connection_string": None,
+                "multitenant": False,
             },
-        },
-    })
+            "secrets.yaml": {
+                "resolver": "env",
+                "mappings": {
+                    "adapters.storage.connection_string": "AZURE_STORAGE_CONNECTION_STRING",
+                },
+            },
+        }
+    )
     config = load_config_dir(path)
 
     assert config.adapters.storage is not None
@@ -367,19 +430,21 @@ def test_load_config_dir_storage_gcs_credentials_from_secret_mapping(
     monkeypatch: pytest.MonkeyPatch,
 ):
     monkeypatch.setenv("GCS_SERVICE_ACCOUNT_JSON_B64", "encoded-from-env")
-    path = _make_config_dir({
-        "adapters/outbound/storage.yaml": {
-            "adapter": "gcs",
-            "bucket_name": "arclith-files",
-            "credentials_json_b64": None,
-        },
-        "secrets.yaml": {
-            "resolver": "env",
-            "mappings": {
-                "adapters.storage.credentials_json_b64": "GCS_SERVICE_ACCOUNT_JSON_B64",
+    path = _make_config_dir(
+        {
+            "adapters/outbound/storage.yaml": {
+                "adapter": "gcs",
+                "bucket_name": "arclith-files",
+                "credentials_json_b64": None,
             },
-        },
-    })
+            "secrets.yaml": {
+                "resolver": "env",
+                "mappings": {
+                    "adapters.storage.credentials_json_b64": "GCS_SERVICE_ACCOUNT_JSON_B64",
+                },
+            },
+        }
+    )
     config = load_config_dir(path)
 
     assert config.adapters.storage is not None
@@ -393,10 +458,18 @@ def test_load_config_dir_storage_gcs_credentials_from_secret_mapping(
         ({"adapter": "filesystem"}, "root_path"),
         ({"adapter": "s3"}, "bucket_name"),
         ({"adapter": "gcs"}, "bucket_name"),
-        ({"adapter": "azure-blob", "account_url": "https://account.blob.core.windows.net"}, "container_name"),
+        (
+            {
+                "adapter": "azure-blob",
+                "account_url": "https://account.blob.core.windows.net",
+            },
+            "container_name",
+        ),
     ],
 )
-def test_storage_single_tenant_requires_backend_target(payload: dict[str, str], missing: str) -> None:
+def test_storage_single_tenant_requires_backend_target(
+    payload: dict[str, str], missing: str
+) -> None:
     with pytest.raises(ValidationError, match=missing):
         StorageSettings.model_validate(payload)
 
@@ -409,28 +482,34 @@ def test_storage_multitenant_allows_tenant_resolved_target(adapter: str) -> None
     assert settings.multitenant is True
 
 
-@pytest.mark.parametrize("prefix", ["../uploads", "uploads/../private", "/uploads", "uploads//drafts"])
+@pytest.mark.parametrize(
+    "prefix", ["../uploads", "uploads/../private", "/uploads", "uploads//drafts"]
+)
 def test_storage_prefix_rejects_traversal(prefix: str) -> None:
     with pytest.raises(ValidationError, match="storage key"):
-        StorageSettings.model_validate({
-            "adapter": "filesystem",
-            "root_path": "/data/files",
-            "prefix": prefix,
-        })
+        StorageSettings.model_validate(
+            {
+                "adapter": "filesystem",
+                "root_path": "/data/files",
+                "prefix": prefix,
+            }
+        )
 
 
 def test_load_config_dir_langsmith_scoped():
-    path = _make_config_dir({
-        "adapters/adapters.yaml": {"observability": {"enabled": ["langsmith"]}},
-        "adapters/outbound/langsmith.yaml": {
-            "tracing": True,
-            "project": "agent-tests",
-            "endpoint": "https://eu.api.smith.langchain.com",
-            "api_key_env": "LANGSMITH_API_KEY",
-            "studio": "langgraph",
-            "langgraph_api_min_version": "0.11.0",
-        },
-    })
+    path = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {"observability": {"enabled": ["langsmith"]}},
+            "adapters/outbound/langsmith.yaml": {
+                "tracing": True,
+                "project": "agent-tests",
+                "endpoint": "https://eu.api.smith.langchain.com",
+                "api_key_env": "LANGSMITH_API_KEY",
+                "studio": "langgraph",
+                "langgraph_api_min_version": "0.11.0",
+            },
+        }
+    )
     config = load_config_dir(path)
     assert config.adapters.observability.enabled == ["langsmith"]
     assert config.adapters.observability.is_enabled("langsmith") is True
@@ -440,38 +519,50 @@ def test_load_config_dir_langsmith_scoped():
 
 
 def test_load_config_dir_opentelemetry_scoped():
-    path = _make_config_dir({
-        "adapters/adapters.yaml": {"observability": {"enabled": ["opentelemetry"]}},
-        "adapters/outbound/opentelemetry.yaml": {
-            "service_name": "demo-api",
-            "endpoint": "http://otel-collector:4318",
-            "traces_endpoint": "http://otel-collector:4318/v1/custom-traces",
-            "metrics_endpoint": "http://otel-collector:4318/v1/custom-metrics",
-            "protocol": "http/protobuf",
-            "traces": True,
-            "metrics": True,
-            "instrument_fastapi": True,
-            "metrics_export_interval_millis": 15000,
-        },
-    })
+    path = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {"observability": {"enabled": ["opentelemetry"]}},
+            "adapters/outbound/opentelemetry.yaml": {
+                "service_name": "demo-api",
+                "endpoint": "http://otel-collector:4318",
+                "traces_endpoint": "http://otel-collector:4318/v1/custom-traces",
+                "metrics_endpoint": "http://otel-collector:4318/v1/custom-metrics",
+                "protocol": "http/protobuf",
+                "traces": True,
+                "metrics": True,
+                "instrument_fastapi": True,
+                "metrics_export_interval_millis": 15000,
+            },
+        }
+    )
     config = load_config_dir(path)
     assert config.adapters.observability.enabled == ["opentelemetry"]
     assert config.adapters.observability.is_enabled("opentelemetry") is True
     assert config.adapters.opentelemetry is not None
     assert config.adapters.opentelemetry.service_name == "demo-api"
     assert config.adapters.opentelemetry.endpoint == "http://otel-collector:4318"
-    assert config.adapters.opentelemetry.traces_endpoint == "http://otel-collector:4318/v1/custom-traces"
-    assert config.adapters.opentelemetry.metrics_endpoint == "http://otel-collector:4318/v1/custom-metrics"
+    assert (
+        config.adapters.opentelemetry.traces_endpoint
+        == "http://otel-collector:4318/v1/custom-traces"
+    )
+    assert (
+        config.adapters.opentelemetry.metrics_endpoint
+        == "http://otel-collector:4318/v1/custom-metrics"
+    )
     assert config.adapters.opentelemetry.metrics is True
     assert config.adapters.opentelemetry.metrics_export_interval_millis == 15000
 
 
 def test_load_config_dir_parallel_observability_scoped():
-    path = _make_config_dir({
-        "adapters/adapters.yaml": {"observability": {"enabled": ["langsmith", "opentelemetry"]}},
-        "adapters/outbound/langsmith.yaml": {"project": "agent-tests"},
-        "adapters/outbound/opentelemetry.yaml": {"instrument_fastapi": True},
-    })
+    path = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {
+                "observability": {"enabled": ["langsmith", "opentelemetry"]}
+            },
+            "adapters/outbound/langsmith.yaml": {"project": "agent-tests"},
+            "adapters/outbound/opentelemetry.yaml": {"instrument_fastapi": True},
+        }
+    )
     config = load_config_dir(path)
 
     assert config.adapters.observability.enabled == ["langsmith", "opentelemetry"]
@@ -480,32 +571,45 @@ def test_load_config_dir_parallel_observability_scoped():
 
 
 def test_load_config_dir_langgraph_scoped():
-    path = _make_config_dir({
-        "adapters/inbound/langgraph.yaml": {
-            "name": "todo_agent",
-            "graph": "todo_agent",
-            "entrypoint": "./src/demo_service/adapters/inbound/langgraph/agent.py:agent",
-            "env": ".env",
-            "stream_mode": ["updates", "custom"],
-        },
-    })
+    path = _make_config_dir(
+        {
+            "adapters/inbound/langgraph.yaml": {
+                "name": "todo_agent",
+                "graph": "todo_agent",
+                "entrypoint": "./src/demo_service/adapters/inbound/langgraph/agent.py:agent",
+                "env": ".env",
+                "stream_mode": ["updates", "custom"],
+            },
+        }
+    )
     config = load_config_dir(path)
     assert config.langgraph is not None
     assert config.langgraph.name == "todo_agent"
     assert config.langgraph.graph == "todo_agent"
-    assert config.langgraph.entrypoint == "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"
+    assert (
+        config.langgraph.entrypoint
+        == "./src/demo_service/adapters/inbound/langgraph/agent.py:agent"
+    )
     assert config.langgraph.env == ".env"
     assert config.langgraph.stream_mode == ["updates", "custom"]
 
 
 def test_langsmith_observability_requires_scoped_config():
-    with pytest.raises(ValidationError, match="observability.enabled contient langsmith"):
-        AppConfig.model_validate({"adapters": {"observability": {"enabled": ["langsmith"]}}})
+    with pytest.raises(
+        ValidationError, match="observability.enabled contient langsmith"
+    ):
+        AppConfig.model_validate(
+            {"adapters": {"observability": {"enabled": ["langsmith"]}}}
+        )
 
 
 def test_opentelemetry_observability_requires_scoped_config():
-    with pytest.raises(ValidationError, match="observability.enabled contient opentelemetry"):
-        AppConfig.model_validate({"adapters": {"observability": {"enabled": ["opentelemetry"]}}})
+    with pytest.raises(
+        ValidationError, match="observability.enabled contient opentelemetry"
+    ):
+        AppConfig.model_validate(
+            {"adapters": {"observability": {"enabled": ["opentelemetry"]}}}
+        )
 
 
 def test_observability_scalar_format_is_rejected():
@@ -515,16 +619,20 @@ def test_observability_scalar_format_is_rejected():
 
 def test_observability_enabled_rejects_duplicates():
     with pytest.raises(ValidationError, match="doublons"):
-        AppConfig.model_validate({
-            "adapters": {
-                "observability": {"enabled": ["langsmith", "langsmith"]},
-                "langsmith": {"project": "agent-tests"},
+        AppConfig.model_validate(
+            {
+                "adapters": {
+                    "observability": {"enabled": ["langsmith", "langsmith"]},
+                    "langsmith": {"project": "agent-tests"},
+                }
             }
-        })
+        )
 
 
 def test_langgraph_settings_defaults():
-    settings = LangGraphSettings(entrypoint="./src/demo_service/adapters/inbound/langgraph/agent.py:agent")
+    settings = LangGraphSettings(
+        entrypoint="./src/demo_service/adapters/inbound/langgraph/agent.py:agent"
+    )
 
     assert settings.name == "agent"
     assert settings.graph == "agent"
@@ -582,10 +690,12 @@ def test_load_config_dir_soft_delete():
 
 
 def test_load_config_dir_unknown_path_ignored():
-    path = _make_config_dir({
-        "some/deep/unknown.yaml": {"foo": "bar"},
-        "app.yaml": {"name": "OK"},
-    })
+    path = _make_config_dir(
+        {
+            "some/deep/unknown.yaml": {"foo": "bar"},
+            "app.yaml": {"name": "OK"},
+        }
+    )
     config = load_config_dir(path)
     assert config.app.name == "OK"
 
@@ -597,6 +707,7 @@ def test_load_config_dir_raises_if_not_directory():
 
 
 # ── DuckDBSettings / SoftDeleteSettings ──────────────────────────────────────
+
 
 @pytest.mark.parametrize(
     "path",
@@ -618,7 +729,9 @@ def test_duckdb_settings_directory_path():
 
 
 def test_duckdb_settings_invalid_extension():
-    with pytest.raises(ValidationError, match=r"Format '\.txt' non supporté par DuckDB"):
+    with pytest.raises(
+        ValidationError, match=r"Format '\.txt' non supporté par DuckDB"
+    ):
         DuckDBSettings(path="data/file.txt")
 
 
@@ -651,7 +764,9 @@ def test_command_bus_settings_detect_enabled_adapter():
 
 
 def test_command_bus_settings_rejects_duplicate_enabled_adapter():
-    with pytest.raises(ValidationError, match="command_bus.enabled ne doit pas contenir de doublons"):
+    with pytest.raises(
+        ValidationError, match="command_bus.enabled ne doit pas contenir de doublons"
+    ):
         CommandBusSettings(enabled=["rabbitmq", "rabbitmq"])
 
 
@@ -666,23 +781,27 @@ def test_rabbitmq_command_bus_settings_rejects_empty_names():
 
 
 def test_mongodb_uri_optional_at_parse_time():
-    config = AppConfig.model_validate({
-        "adapters": {
-            "repository": "mongodb",
-            "mongodb": {"db_name": "test"},
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "repository": "mongodb",
+                "mongodb": {"db_name": "test"},
+            }
         }
-    })
+    )
     assert config.adapters.mongodb is not None
     assert config.adapters.mongodb.uri is None
 
 
 def test_mongodb_multitenant_no_uri_required():
-    config = AppConfig.model_validate({
-        "adapters": {
-            "repository": "mongodb",
-            "mongodb": {"db_name": "test", "multitenant": True},
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "repository": "mongodb",
+                "mongodb": {"db_name": "test", "multitenant": True},
+            }
         }
-    })
+    )
     assert config.adapters.multitenant is True
 
 
@@ -702,20 +821,76 @@ def test_mariadb_settings_with_url_only():
 
 
 def test_mariadb_settings_requires_url_or_database():
-    with pytest.raises(ValidationError, match="database est requis quand url n'est pas configure"):
+    with pytest.raises(
+        ValidationError, match="database est requis quand url n'est pas configure"
+    ):
         MariaDBSettings()
 
 
 def test_mariadb_multitenant_no_database_required():
-    config = AppConfig.model_validate({
-        "adapters": {
-            "repository": "mariadb",
-            "mariadb": {"multitenant": True},
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "repository": "mariadb",
+                "mariadb": {"multitenant": True},
+            }
         }
-    })
+    )
 
     assert config.adapters.mariadb is not None
     assert config.adapters.multitenant is True
+
+
+def test_postgresql_settings_with_database():
+    settings = PostgreSQLSettings(
+        database="demo", port=5433, schema="app", table_prefix="svc_"
+    )
+
+    assert settings.database == "demo"
+    assert settings.port == 5433
+    assert settings.schema_name == "app"
+    assert settings.table_prefix == "svc_"
+
+
+def test_postgresql_settings_serializes_schema_alias():
+    settings = PostgreSQLSettings(database="demo", schema="app")
+
+    assert "schema" in settings.model_dump()
+    assert "schema_name" not in settings.model_dump()
+
+
+def test_postgresql_settings_with_url_only():
+    settings = PostgreSQLSettings(url="postgresql+asyncpg://app@localhost:5432/demo")
+
+    assert settings.url == "postgresql+asyncpg://app@localhost:5432/demo"
+    assert settings.database is None
+
+
+def test_postgresql_settings_requires_url_or_database():
+    with pytest.raises(
+        ValidationError, match="database est requis quand url n'est pas configure"
+    ):
+        PostgreSQLSettings()
+
+
+def test_postgresql_multitenant_no_database_required():
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "repository": "postgresql",
+                "postgresql": {"multitenant": True},
+            }
+        }
+    )
+
+    assert config.adapters.postgresql is not None
+    assert config.adapters.multitenant is True
+
+
+@pytest.mark.parametrize("field_name", ["schema", "table_prefix"])
+def test_postgresql_settings_rejects_unsafe_identifiers(field_name: str):
+    with pytest.raises(ValidationError, match=field_name):
+        PostgreSQLSettings(database="demo", **{field_name: "unsafe-name"})
 
 
 def test_duckdb_requires_section():
@@ -724,16 +899,31 @@ def test_duckdb_requires_section():
 
 
 def test_mongodb_requires_section():
-    with pytest.raises(ValidationError, match=r"repository=mongodb mais aucune section \[adapters.mongodb\]"):
+    with pytest.raises(
+        ValidationError,
+        match=r"repository=mongodb mais aucune section \[adapters.mongodb\]",
+    ):
         AppConfig.model_validate({"adapters": {"repository": "mongodb"}})
 
 
 def test_mariadb_requires_section():
-    with pytest.raises(ValidationError, match=r"repository=mariadb mais aucune section \[adapters.mariadb\]"):
+    with pytest.raises(
+        ValidationError,
+        match=r"repository=mariadb mais aucune section \[adapters.mariadb\]",
+    ):
         AppConfig.model_validate({"adapters": {"repository": "mariadb"}})
 
 
+def test_postgresql_requires_section():
+    with pytest.raises(
+        ValidationError,
+        match=r"repository=postgresql mais aucune section \[adapters.postgresql\]",
+    ):
+        AppConfig.model_validate({"adapters": {"repository": "postgresql"}})
+
+
 # ── load_config_file ──────────────────────────────────────────────────────────
+
 
 def test_load_config_file_simple():
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
@@ -766,22 +956,27 @@ def test_load_config_file_raises_if_not_file():
 
 # ── export_config_yaml ────────────────────────────────────────────────────────
 
+
 def test_export_config_yaml_creates_file():
-    config_dir = _make_config_dir({
-        "app.yaml": {"name": "ExportTest"},
-        "adapters/adapters.yaml": {"repository": "memory"},
-    })
+    config_dir = _make_config_dir(
+        {
+            "app.yaml": {"name": "ExportTest"},
+            "adapters/adapters.yaml": {"repository": "memory"},
+        }
+    )
     out = config_dir / "config.yaml"
     export_config_yaml(config_dir, out)
     assert out.exists()
 
 
 def test_export_config_yaml_content_is_valid_yaml():
-    config_dir = _make_config_dir({
-        "app.yaml": {"name": "RoundTrip"},
-        "adapters/adapters.yaml": {"repository": "memory"},
-        "adapters/inbound/fastapi.yaml": {"port": 7777},
-    })
+    config_dir = _make_config_dir(
+        {
+            "app.yaml": {"name": "RoundTrip"},
+            "adapters/adapters.yaml": {"repository": "memory"},
+            "adapters/inbound/fastapi.yaml": {"port": 7777},
+        }
+    )
     out = config_dir / "config.yaml"
     export_config_yaml(config_dir, out)
     with open(out) as f:
@@ -792,19 +987,21 @@ def test_export_config_yaml_content_is_valid_yaml():
 
 def test_export_config_yaml_round_trip():
     """load_config_dir and load_config_file must produce identical AppConfig."""
-    config_dir = _make_config_dir({
-        "app.yaml": {"name": "RoundTrip", "version": "1.0.0"},
-        "soft_delete.yaml": {"retention_days": 14},
-        "adapters/adapters.yaml": {"repository": "duckdb"},
-        "adapters/outbound/duckdb.yaml": {"path": "data/"},
-        "adapters/outbound/storage.yaml": {
-            "adapter": "filesystem",
-            "root_path": "/data/files",
-            "prefix": "uploads",
-            "create_root": True,
-        },
-        "adapters/inbound/fastapi.yaml": {"port": 8765},
-    })
+    config_dir = _make_config_dir(
+        {
+            "app.yaml": {"name": "RoundTrip", "version": "1.0.0"},
+            "soft_delete.yaml": {"retention_days": 14},
+            "adapters/adapters.yaml": {"repository": "duckdb"},
+            "adapters/outbound/duckdb.yaml": {"path": "data/"},
+            "adapters/outbound/storage.yaml": {
+                "adapter": "filesystem",
+                "root_path": "/data/files",
+                "prefix": "uploads",
+                "create_root": True,
+            },
+            "adapters/inbound/fastapi.yaml": {"port": 8765},
+        }
+    )
     out = config_dir / "config.yaml"
     export_config_yaml(config_dir, out)
 
@@ -835,20 +1032,23 @@ def test_export_config_yaml_has_generated_header():
 
 # ── LMSettings ────────────────────────────────────────────────────────────────
 
+
 def test_adapters_lm_defaults_to_none():
     assert AppConfig().adapters.lm is None
 
 
 def test_adapters_lm_parsed_from_yaml():
-    config = AppConfig.model_validate({
-        "adapters": {
-            "lm": {
-                "provider": "anthropic",
-                "model_name": "claude-opus-4-5",
-                "api_key": "sk-ant-test",
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "lm": {
+                    "provider": "anthropic",
+                    "model_name": "claude-opus-4-5",
+                    "api_key": "sk-ant-test",
+                }
             }
         }
-    })
+    )
     assert config.adapters.lm is not None
     assert config.adapters.lm.provider == "anthropic"
     assert config.adapters.lm.model_name == "claude-opus-4-5"
@@ -857,26 +1057,34 @@ def test_adapters_lm_parsed_from_yaml():
 
 
 def test_adapters_lm_openai_with_base_url():
-    config = AppConfig.model_validate({
-        "adapters": {
-            "lm": {
-                "provider": "openai",
-                "model_name": "llama3",
-                "api_key": "ollama",
-                "base_url": "http://localhost:11434/v1",
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "lm": {
+                    "provider": "openai",
+                    "model_name": "llama3",
+                    "api_key": "ollama",
+                    "base_url": "http://localhost:11434/v1",
+                }
             }
         }
-    })
+    )
     assert config.adapters.lm is not None
     assert config.adapters.lm.provider == "openai"
     assert config.adapters.lm.base_url == "http://localhost:11434/v1"
 
 
 def test_adapters_lm_loaded_from_config_dir():
-    config_dir = _make_config_dir({
-        "adapters/adapters.yaml": {"repository": "memory"},
-        "adapters/outbound/lm.yaml": {"provider": "anthropic", "model_name": "claude-sonnet-4-5", "api_key": ""},
-    })
+    config_dir = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {"repository": "memory"},
+            "adapters/outbound/lm.yaml": {
+                "provider": "anthropic",
+                "model_name": "claude-sonnet-4-5",
+                "api_key": "",
+            },
+        }
+    )
     config = load_config_dir(config_dir)
     assert config.adapters.lm is not None
     assert config.adapters.lm.provider == "anthropic"
@@ -884,21 +1092,23 @@ def test_adapters_lm_loaded_from_config_dir():
 
 def test_adapters_lm_api_key_loaded_from_env_mapping(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
-    config_dir = _make_config_dir({
-        "adapters/adapters.yaml": {"repository": "memory"},
-        "adapters/outbound/lm.yaml": {
-            "provider": "openai",
-            "model_name": "gpt-4o-mini",
-            "api_key": "",
-            "base_url": "https://api.openai.com/v1",
-        },
-        "secrets.yaml": {
-            "resolver": "env",
-            "mappings": {
-                "adapters.lm.api_key": "OPENAI_API_KEY",
+    config_dir = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {"repository": "memory"},
+            "adapters/outbound/lm.yaml": {
+                "provider": "openai",
+                "model_name": "gpt-4o-mini",
+                "api_key": "",
+                "base_url": "https://api.openai.com/v1",
             },
-        },
-    })
+            "secrets.yaml": {
+                "resolver": "env",
+                "mappings": {
+                    "adapters.lm.api_key": "OPENAI_API_KEY",
+                },
+            },
+        }
+    )
 
     config = load_config_dir(config_dir)
 
@@ -910,21 +1120,23 @@ def test_adapters_lm_missing_env_secret_raises_actionable_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    config_dir = _make_config_dir({
-        "adapters/adapters.yaml": {"repository": "memory"},
-        "adapters/outbound/lm.yaml": {
-            "provider": "openai",
-            "model_name": "gpt-4o-mini",
-            "api_key": "",
-            "base_url": "https://api.openai.com/v1",
-        },
-        "secrets.yaml": {
-            "resolver": "env",
-            "mappings": {
-                "adapters.lm.api_key": "OPENAI_API_KEY",
+    config_dir = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {"repository": "memory"},
+            "adapters/outbound/lm.yaml": {
+                "provider": "openai",
+                "model_name": "gpt-4o-mini",
+                "api_key": "",
+                "base_url": "https://api.openai.com/v1",
             },
-        },
-    })
+            "secrets.yaml": {
+                "resolver": "env",
+                "mappings": {
+                    "adapters.lm.api_key": "OPENAI_API_KEY",
+                },
+            },
+        }
+    )
 
     with pytest.raises(RuntimeError, match="Secrets non résolus.*adapters.lm.api_key"):
         load_config_dir(config_dir)
@@ -934,20 +1146,22 @@ def test_adapters_lm_anthropic_api_key_loaded_from_env_mapping(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-env")
-    config_dir = _make_config_dir({
-        "adapters/adapters.yaml": {"repository": "memory"},
-        "adapters/outbound/lm.yaml": {
-            "provider": "anthropic",
-            "model_name": "claude-dev-model",
-            "api_key": "",
-        },
-        "secrets.yaml": {
-            "resolver": "env",
-            "mappings": {
-                "adapters.lm.api_key": "ANTHROPIC_API_KEY",
+    config_dir = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {"repository": "memory"},
+            "adapters/outbound/lm.yaml": {
+                "provider": "anthropic",
+                "model_name": "claude-dev-model",
+                "api_key": "",
             },
-        },
-    })
+            "secrets.yaml": {
+                "resolver": "env",
+                "mappings": {
+                    "adapters.lm.api_key": "ANTHROPIC_API_KEY",
+                },
+            },
+        }
+    )
 
     config = load_config_dir(config_dir)
 
@@ -961,20 +1175,22 @@ def test_adapters_lm_missing_anthropic_env_secret_raises_actionable_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    config_dir = _make_config_dir({
-        "adapters/adapters.yaml": {"repository": "memory"},
-        "adapters/outbound/lm.yaml": {
-            "provider": "anthropic",
-            "model_name": "claude-dev-model",
-            "api_key": "",
-        },
-        "secrets.yaml": {
-            "resolver": "env",
-            "mappings": {
-                "adapters.lm.api_key": "ANTHROPIC_API_KEY",
+    config_dir = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {"repository": "memory"},
+            "adapters/outbound/lm.yaml": {
+                "provider": "anthropic",
+                "model_name": "claude-dev-model",
+                "api_key": "",
             },
-        },
-    })
+            "secrets.yaml": {
+                "resolver": "env",
+                "mappings": {
+                    "adapters.lm.api_key": "ANTHROPIC_API_KEY",
+                },
+            },
+        }
+    )
 
     with pytest.raises(RuntimeError, match="Secrets non résolus.*adapters.lm.api_key"):
         load_config_dir(config_dir)
@@ -982,21 +1198,23 @@ def test_adapters_lm_missing_anthropic_env_secret_raises_actionable_error(
 
 def test_adapters_mongodb_uri_loaded_from_env_mapping(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MONGODB_URI", "mongodb://env-mongo:27017")
-    config_dir = _make_config_dir({
-        "adapters/adapters.yaml": {"repository": "mongodb"},
-        "adapters/outbound/mongodb.yaml": {
-            "uri": None,
-            "db_name": "demo_shared",
-            "collection_name": None,
-            "multitenant": False,
-        },
-        "secrets.yaml": {
-            "resolver": "env",
-            "mappings": {
-                "adapters.mongodb.uri": "MONGODB_URI",
+    config_dir = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {"repository": "mongodb"},
+            "adapters/outbound/mongodb.yaml": {
+                "uri": None,
+                "db_name": "demo_shared",
+                "collection_name": None,
+                "multitenant": False,
             },
-        },
-    })
+            "secrets.yaml": {
+                "resolver": "env",
+                "mappings": {
+                    "adapters.mongodb.uri": "MONGODB_URI",
+                },
+            },
+        }
+    )
 
     config = load_config_dir(config_dir)
 
@@ -1005,30 +1223,34 @@ def test_adapters_mongodb_uri_loaded_from_env_mapping(monkeypatch: pytest.Monkey
     assert config.adapters.mongodb.db_name == "demo_shared"
 
 
-def test_adapters_mariadb_url_and_password_loaded_from_env_mapping(monkeypatch: pytest.MonkeyPatch):
+def test_adapters_mariadb_url_and_password_loaded_from_env_mapping(
+    monkeypatch: pytest.MonkeyPatch,
+):
     monkeypatch.setenv("MARIADB_URL", "mysql+asyncmy://env-app@db:3306/env_demo")
     monkeypatch.setenv("MARIADB_PASSWORD", "env-password")
-    config_dir = _make_config_dir({
-        "adapters/adapters.yaml": {"repository": "mariadb"},
-        "adapters/outbound/mariadb.yaml": {
-            "url": None,
-            "host": "127.0.0.1",
-            "port": 3306,
-            "database": "demo_shared",
-            "user": "app",
-            "password": None,
-            "driver": "asyncmy",
-            "table_prefix": "",
-            "multitenant": False,
-        },
-        "secrets.yaml": {
-            "resolver": "env",
-            "mappings": {
-                "adapters.mariadb.url": "MARIADB_URL",
-                "adapters.mariadb.password": "MARIADB_PASSWORD",
+    config_dir = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {"repository": "mariadb"},
+            "adapters/outbound/mariadb.yaml": {
+                "url": None,
+                "host": "127.0.0.1",
+                "port": 3306,
+                "database": "demo_shared",
+                "user": "app",
+                "password": None,
+                "driver": "asyncmy",
+                "table_prefix": "",
+                "multitenant": False,
             },
-        },
-    })
+            "secrets.yaml": {
+                "resolver": "env",
+                "mappings": {
+                    "adapters.mariadb.url": "MARIADB_URL",
+                    "adapters.mariadb.password": "MARIADB_PASSWORD",
+                },
+            },
+        }
+    )
 
     config = load_config_dir(config_dir)
 
@@ -1037,22 +1259,66 @@ def test_adapters_mariadb_url_and_password_loaded_from_env_mapping(monkeypatch: 
     assert config.adapters.mariadb.password == "env-password"
 
 
+def test_adapters_postgresql_url_and_password_loaded_from_env_mapping(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv(
+        "POSTGRESQL_URL", "postgresql+asyncpg://env-app@db:5432/env_demo"
+    )
+    monkeypatch.setenv("POSTGRESQL_PASSWORD", "env-password")
+    config_dir = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {"repository": "postgresql"},
+            "adapters/outbound/postgresql.yaml": {
+                "url": None,
+                "host": "127.0.0.1",
+                "port": 5432,
+                "database": "demo_shared",
+                "user": "app",
+                "password": None,
+                "schema": "public",
+                "driver": "asyncpg",
+                "table_prefix": "",
+                "multitenant": False,
+            },
+            "secrets.yaml": {
+                "resolver": "env",
+                "mappings": {
+                    "adapters.postgresql.url": "POSTGRESQL_URL",
+                    "adapters.postgresql.password": "POSTGRESQL_PASSWORD",
+                },
+            },
+        }
+    )
+
+    config = load_config_dir(config_dir)
+
+    assert config.adapters.postgresql is not None
+    assert (
+        config.adapters.postgresql.url
+        == "postgresql+asyncpg://env-app@db:5432/env_demo"
+    )
+    assert config.adapters.postgresql.password == "env-password"
+
+
 def test_cache_redis_url_loaded_from_env_mapping(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("REDIS_URL", "redis://cache:6379/0")
-    config_dir = _make_config_dir({
-        "adapters/inbound/cache.yaml": {
-            "backend": "redis",
-            "redis_url": "",
-            "jwks_ttl": 900,
-            "tenant_uri_ttl": 120,
-        },
-        "secrets.yaml": {
-            "resolver": "env",
-            "mappings": {
-                "cache.redis_url": "REDIS_URL",
+    config_dir = _make_config_dir(
+        {
+            "adapters/inbound/cache.yaml": {
+                "backend": "redis",
+                "redis_url": "",
+                "jwks_ttl": 900,
+                "tenant_uri_ttl": 120,
             },
-        },
-    })
+            "secrets.yaml": {
+                "resolver": "env",
+                "mappings": {
+                    "cache.redis_url": "REDIS_URL",
+                },
+            },
+        }
+    )
 
     config = load_config_dir(config_dir)
 
@@ -1064,18 +1330,20 @@ def test_cache_missing_redis_env_secret_raises_actionable_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("REDIS_URL", raising=False)
-    config_dir = _make_config_dir({
-        "adapters/inbound/cache.yaml": {
-            "backend": "redis",
-            "redis_url": "",
-        },
-        "secrets.yaml": {
-            "resolver": "env",
-            "mappings": {
-                "cache.redis_url": "REDIS_URL",
+    config_dir = _make_config_dir(
+        {
+            "adapters/inbound/cache.yaml": {
+                "backend": "redis",
+                "redis_url": "",
             },
-        },
-    })
+            "secrets.yaml": {
+                "resolver": "env",
+                "mappings": {
+                    "cache.redis_url": "REDIS_URL",
+                },
+            },
+        }
+    )
 
     with pytest.raises(RuntimeError, match="Secrets non résolus.*cache.redis_url"):
         load_config_dir(config_dir)

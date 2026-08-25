@@ -14,12 +14,39 @@ def test_repository_capability_catalog_declares_standard_adapters() -> None:
     assert capability is not None
     assert capability.layer == "outbound"
     assert capability.activation_config_key == "repository"
-    assert repository_adapter_names() == ("memory", "mongodb", "duckdb", "mariadb")
+    assert repository_adapter_names() == (
+        "memory",
+        "mongodb",
+        "duckdb",
+        "mariadb",
+        "postgresql",
+    )
     memory = capability.get_adapter("memory")
     assert memory is not None
     assert memory.entity_scoped is True
     assert memory.config_path is None
     assert memory.parameters == ()
+    postgresql = capability.get_adapter("postgresql")
+    assert postgresql is not None
+    assert postgresql.config_path == "config/adapters/outbound/postgresql.yaml"
+    assert [mapping.field_path for mapping in postgresql.secret_mappings] == [
+        "adapters.postgresql.url",
+        "adapters.postgresql.password",
+    ]
+    assert [mapping.secret_key for mapping in postgresql.secret_mappings] == [
+        "POSTGRESQL_URL",
+        "POSTGRESQL_PASSWORD",
+    ]
+    assert [parameter.name for parameter in postgresql.parameters] == [
+        "host",
+        "port",
+        "database",
+        "user",
+        "schema",
+        "driver",
+        "table_prefix",
+        "multitenant",
+    ]
 
 
 def test_cache_capability_catalog_declares_memory_adapter() -> None:
@@ -35,14 +62,23 @@ def test_cache_capability_catalog_declares_memory_adapter() -> None:
     assert memory.capability == "cache"
     assert memory.config_path == "config/adapters/inbound/cache.yaml"
     assert memory.entity_scoped is False
-    assert [parameter.name for parameter in memory.parameters] == ["jwks_ttl", "tenant_uri_ttl"]
+    assert [parameter.name for parameter in memory.parameters] == [
+        "jwks_ttl",
+        "tenant_uri_ttl",
+    ]
     assert redis is not None
     assert redis.capability == "cache"
     assert redis.config_path == "config/adapters/inbound/cache.yaml"
     assert redis.env_path == ".env"
     assert redis.entity_scoped is False
-    assert [parameter.name for parameter in redis.parameters] == ["redis_url", "jwks_ttl", "tenant_uri_ttl"]
-    assert [mapping.field_path for mapping in redis.secret_mappings] == ["cache.redis_url"]
+    assert [parameter.name for parameter in redis.parameters] == [
+        "redis_url",
+        "jwks_ttl",
+        "tenant_uri_ttl",
+    ]
+    assert [mapping.field_path for mapping in redis.secret_mappings] == [
+        "cache.redis_url"
+    ]
     assert [mapping.secret_key for mapping in redis.secret_mappings] == ["REDIS_URL"]
 
 
@@ -75,7 +111,10 @@ def test_secrets_capability_catalog_declares_env_adapter() -> None:
     assert env.config_path is None
     assert env.secret_resolver == "env"
     assert env.entity_scoped is False
-    assert [parameter.name for parameter in env.parameters] == ["field_path", "secret_key"]
+    assert [parameter.name for parameter in env.parameters] == [
+        "field_path",
+        "secret_key",
+    ]
     assert env.parameters[0].required is True
     assert [mapping.field_path for mapping in env.secret_mappings] == ["{field_path}"]
     assert [mapping.secret_key for mapping in env.secret_mappings] == ["{secret_key}"]
@@ -83,13 +122,24 @@ def test_secrets_capability_catalog_declares_env_adapter() -> None:
     assert yaml.config_path is None
     assert yaml.secret_resolver == "yaml"
     assert yaml.gitignore_entries == ("secrets.yaml",)
-    assert [file_template.path for file_template in yaml.file_templates] == ["secrets.yaml.template"]
-    assert [parameter.name for parameter in yaml.parameters] == ["field_path", "secret_key", "path"]
+    assert [file_template.path for file_template in yaml.file_templates] == [
+        "secrets.yaml.template"
+    ]
+    assert [parameter.name for parameter in yaml.parameters] == [
+        "field_path",
+        "secret_key",
+        "path",
+    ]
     assert vault is not None
     assert vault.config_path is None
     assert vault.secret_resolver == "vault"
     assert vault.entity_scoped is False
-    assert [parameter.name for parameter in vault.parameters] == ["field_path", "secret_key", "addr", "mount"]
+    assert [parameter.name for parameter in vault.parameters] == [
+        "field_path",
+        "secret_key",
+        "addr",
+        "mount",
+    ]
     assert vault.parameters[0].required is True
     assert vault.parameters[1].required is True
     assert chain is not None
@@ -126,7 +176,9 @@ def test_observability_capability_catalog_declares_langsmith() -> None:
         "endpoint",
         "api_key",
     ]
-    langsmith_parameters = {parameter.name: parameter for parameter in langsmith.parameters}
+    langsmith_parameters = {
+        parameter.name: parameter for parameter in langsmith.parameters
+    }
     assert langsmith_parameters["api_key"].secret is True
     assert langsmith_parameters["api_key"].default == ""
 
@@ -142,7 +194,11 @@ def test_api_capability_catalog_declares_fastapi() -> None:
     assert fastapi is not None
     assert fastapi.config_path == "config/adapters/inbound/fastapi.yaml"
     assert fastapi.entity_scoped is False
-    assert [parameter.name for parameter in fastapi.parameters] == ["host", "port", "reload"]
+    assert [parameter.name for parameter in fastapi.parameters] == [
+        "host",
+        "port",
+        "reload",
+    ]
 
 
 def test_mcp_capability_catalog_declares_fastmcp() -> None:
@@ -170,7 +226,11 @@ def test_probe_capability_catalog_declares_server() -> None:
     assert server is not None
     assert server.config_path == "config/adapters/inbound/probe.yaml"
     assert server.entity_scoped is False
-    assert [parameter.name for parameter in server.parameters] == ["host", "port", "enabled"]
+    assert [parameter.name for parameter in server.parameters] == [
+        "host",
+        "port",
+        "enabled",
+    ]
 
 
 def test_http_capability_catalog_declares_idempotency() -> None:
@@ -185,7 +245,9 @@ def test_http_capability_catalog_declares_idempotency() -> None:
     cache_control = capability.get_adapter("cache-control")
     assert idempotency is not None
     assert idempotency.config_path is None
-    assert [template.path for template in idempotency.merge_config_templates] == ["config/http.yaml"]
+    assert [template.path for template in idempotency.merge_config_templates] == [
+        "config/http.yaml"
+    ]
     assert idempotency.entity_scoped is False
     assert [parameter.name for parameter in idempotency.parameters] == [
         "enabled",
@@ -194,12 +256,16 @@ def test_http_capability_catalog_declares_idempotency() -> None:
     ]
     assert etag is not None
     assert etag.config_path is None
-    assert [template.path for template in etag.merge_config_templates] == ["config/http.yaml"]
+    assert [template.path for template in etag.merge_config_templates] == [
+        "config/http.yaml"
+    ]
     assert etag.entity_scoped is False
     assert [parameter.name for parameter in etag.parameters] == ["enabled"]
     assert cache_control is not None
     assert cache_control.config_path is None
-    assert [template.path for template in cache_control.merge_config_templates] == ["config/http.yaml"]
+    assert [template.path for template in cache_control.merge_config_templates] == [
+        "config/http.yaml"
+    ]
     assert cache_control.entity_scoped is False
     assert [parameter.name for parameter in cache_control.parameters] == [
         "get_single_max_age",
@@ -218,7 +284,9 @@ def test_command_bus_capability_catalog_declares_rabbitmq() -> None:
     assert rabbitmq is not None
     assert rabbitmq.layer == "bidirectional"
     assert rabbitmq.config_path is None
-    assert [template.path for template in rabbitmq.merge_config_templates] == ["config/command_bus.yaml"]
+    assert [template.path for template in rabbitmq.merge_config_templates] == [
+        "config/command_bus.yaml"
+    ]
     assert rabbitmq.entity_scoped is False
     assert [parameter.name for parameter in rabbitmq.parameters] == [
         "url",
@@ -243,7 +311,10 @@ def test_runtime_capability_catalog_declares_docker_image() -> None:
 
     assert capability is not None
     assert capability.layer == "runtime"
-    assert capability.description == "Runtime de déploiement standardisé pour images et processus Arclith."
+    assert (
+        capability.description
+        == "Runtime de déploiement standardisé pour images et processus Arclith."
+    )
     assert capability.activation_config_key is None
     assert capability.adapter_names() == ("docker-image",)
     docker_image = capability.get_adapter("docker-image")
@@ -276,7 +347,12 @@ def test_auth_capability_catalog_declares_keycloak() -> None:
     assert keycloak is not None
     assert keycloak.config_path == "config/adapters/inbound/keycloak.yaml"
     assert keycloak.entity_scoped is False
-    assert [parameter.name for parameter in keycloak.parameters] == ["url", "realm", "audience", "client_id"]
+    assert [parameter.name for parameter in keycloak.parameters] == [
+        "url",
+        "realm",
+        "audience",
+        "client_id",
+    ]
 
 
 def test_tenant_capability_catalog_declares_vault() -> None:
@@ -331,7 +407,11 @@ def test_llm_capability_catalog_declares_model_adapters() -> None:
     assert lmstudio is not None
     assert lmstudio.config_path == "config/adapters/outbound/lm.yaml"
     assert lmstudio.entity_scoped is False
-    assert [parameter.name for parameter in lmstudio.parameters] == ["model_name", "base_url", "api_key"]
+    assert [parameter.name for parameter in lmstudio.parameters] == [
+        "model_name",
+        "base_url",
+        "api_key",
+    ]
 
     assert openai is not None
     assert openai.config_path == "config/adapters/outbound/lm.yaml"
@@ -341,17 +421,25 @@ def test_llm_capability_catalog_declares_model_adapters() -> None:
     assert openai_parameters["model_name"].default == "remplacer-par-model-id-openai"
     assert openai_parameters["api_key"].secret is True
     assert openai_parameters["api_key"].default == ""
-    assert [mapping.field_path for mapping in openai.secret_mappings] == ["adapters.lm.api_key"]
+    assert [mapping.field_path for mapping in openai.secret_mappings] == [
+        "adapters.lm.api_key"
+    ]
 
     assert anthropic is not None
     assert anthropic.config_path == "config/adapters/outbound/lm.yaml"
     assert anthropic.env_path == ".env"
     assert anthropic.entity_scoped is False
-    anthropic_parameters = {parameter.name: parameter for parameter in anthropic.parameters}
-    assert anthropic_parameters["model_name"].default == "remplacer-par-model-id-anthropic"
+    anthropic_parameters = {
+        parameter.name: parameter for parameter in anthropic.parameters
+    }
+    assert (
+        anthropic_parameters["model_name"].default == "remplacer-par-model-id-anthropic"
+    )
     assert anthropic_parameters["api_key"].secret is True
     assert anthropic_parameters["api_key"].default == ""
-    assert [mapping.secret_key for mapping in anthropic.secret_mappings] == ["ANTHROPIC_API_KEY"]
+    assert [mapping.secret_key for mapping in anthropic.secret_mappings] == [
+        "ANTHROPIC_API_KEY"
+    ]
 
 
 def test_observability_capability_catalog_declares_opentelemetry() -> None:
@@ -393,7 +481,10 @@ def test_agent_capability_catalog_declares_langgraph() -> None:
         "{package_path}/adapters/inbound/langgraph/__init__.py",
         "{package_path}/adapters/inbound/langgraph/agent.py",
     ]
-    assert [parameter.name for parameter in langgraph.parameters] == ["graph_name", "stream_mode"]
+    assert [parameter.name for parameter in langgraph.parameters] == [
+        "graph_name",
+        "stream_mode",
+    ]
 
 
 def test_repository_adapter_specs_include_config_and_parameters() -> None:
@@ -406,9 +497,17 @@ def test_repository_adapter_specs_include_config_and_parameters() -> None:
 
     assert mongodb is not None
     assert mongodb.config_path == "config/adapters/outbound/mongodb.yaml"
-    assert [parameter.name for parameter in mongodb.parameters] == ["db_name", "collection_name", "multitenant"]
-    assert [mapping.field_path for mapping in mongodb.secret_mappings] == ["adapters.mongodb.uri"]
-    assert [mapping.secret_key for mapping in mongodb.secret_mappings] == ["MONGODB_URI"]
+    assert [parameter.name for parameter in mongodb.parameters] == [
+        "db_name",
+        "collection_name",
+        "multitenant",
+    ]
+    assert [mapping.field_path for mapping in mongodb.secret_mappings] == [
+        "adapters.mongodb.uri"
+    ]
+    assert [mapping.secret_key for mapping in mongodb.secret_mappings] == [
+        "MONGODB_URI"
+    ]
     assert duckdb is not None
     assert duckdb.config_path == "config/adapters/outbound/duckdb.yaml"
     assert [parameter.name for parameter in duckdb.parameters] == ["path"]
@@ -550,7 +649,13 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     payload = json.loads(result.stdout)
     payload_by_name = {capability["name"]: capability for capability in payload}
     repository = payload_by_name["repository"]
-    assert [adapter["name"] for adapter in repository["adapters"]] == ["memory", "mongodb", "duckdb", "mariadb"]
+    assert [adapter["name"] for adapter in repository["adapters"]] == [
+        "memory",
+        "mongodb",
+        "duckdb",
+        "mariadb",
+        "postgresql",
+    ]
     assert repository["adapters"][0]["entity_scoped"] is True
     duckdb = repository["adapters"][2]
     assert duckdb["name"] == "duckdb"
@@ -623,26 +728,36 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "jwks_ttl",
         "tenant_uri_ttl",
     ]
-    assert [mapping["field_path"] for mapping in cache["adapters"][1]["secret_mappings"]] == [
-        "cache.redis_url"
-    ]
+    assert [
+        mapping["field_path"] for mapping in cache["adapters"][1]["secret_mappings"]
+    ] == ["cache.redis_url"]
     logger = payload_by_name["logger"]
     assert logger["activation_config_key"] == "logger"
     assert [adapter["name"] for adapter in logger["adapters"]] == ["console"]
     assert logger["adapters"][0]["entity_scoped"] is False
     assert logger["adapters"][0]["config_path"] is None
     secrets = payload_by_name["secrets"]
-    assert [adapter["name"] for adapter in secrets["adapters"]] == ["env", "yaml", "vault", "chain"]
+    assert [adapter["name"] for adapter in secrets["adapters"]] == [
+        "env",
+        "yaml",
+        "vault",
+        "chain",
+    ]
     env = secrets["adapters"][0]
     yaml_adapter = secrets["adapters"][1]
     vault_adapter = secrets["adapters"][2]
     chain_adapter = secrets["adapters"][3]
     assert env["secret_resolver"] == "env"
-    assert [parameter["name"] for parameter in env["parameters"]] == ["field_path", "secret_key"]
+    assert [parameter["name"] for parameter in env["parameters"]] == [
+        "field_path",
+        "secret_key",
+    ]
     assert env["parameters"][0]["required"] is True
     assert yaml_adapter["secret_resolver"] == "yaml"
     assert yaml_adapter["gitignore_entries"] == ["secrets.yaml"]
-    assert [template["path"] for template in yaml_adapter["file_templates"]] == ["secrets.yaml.template"]
+    assert [template["path"] for template in yaml_adapter["file_templates"]] == [
+        "secrets.yaml.template"
+    ]
     assert vault_adapter["secret_resolver"] == "vault"
     assert [parameter["name"] for parameter in vault_adapter["parameters"]] == [
         "field_path",
@@ -651,11 +766,17 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "mount",
     ]
     assert chain_adapter["secret_resolver"] == "chain"
-    chain_parameters = {parameter["name"]: parameter for parameter in chain_adapter["parameters"]}
+    chain_parameters = {
+        parameter["name"]: parameter for parameter in chain_adapter["parameters"]
+    }
     assert chain_parameters["resolvers"]["choices"] == ["env", "vault", "yaml"]
     assert chain_parameters["resolvers"]["csv_choices"] is True
-    assert [adapter["name"] for adapter in payload_by_name["api"]["adapters"]] == ["fastapi"]
-    assert [adapter["name"] for adapter in payload_by_name["mcp"]["adapters"]] == ["fastmcp"]
+    assert [adapter["name"] for adapter in payload_by_name["api"]["adapters"]] == [
+        "fastapi"
+    ]
+    assert [adapter["name"] for adapter in payload_by_name["mcp"]["adapters"]] == [
+        "fastmcp"
+    ]
     probe = payload_by_name["probe"]
     assert [adapter["name"] for adapter in probe["adapters"]] == ["server"]
     probe_server = probe["adapters"][0]
@@ -666,22 +787,32 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "enabled",
     ]
     http = payload_by_name["http"]
-    assert [adapter["name"] for adapter in http["adapters"]] == ["idempotency", "etag", "cache-control"]
+    assert [adapter["name"] for adapter in http["adapters"]] == [
+        "idempotency",
+        "etag",
+        "cache-control",
+    ]
     idempotency = http["adapters"][0]
     etag = http["adapters"][1]
     cache_control = http["adapters"][2]
     assert idempotency["config_path"] is None
-    assert [template["path"] for template in idempotency["merge_config_templates"]] == ["config/http.yaml"]
+    assert [template["path"] for template in idempotency["merge_config_templates"]] == [
+        "config/http.yaml"
+    ]
     assert [parameter["name"] for parameter in idempotency["parameters"]] == [
         "enabled",
         "ttl_seconds",
         "required",
     ]
     assert etag["config_path"] is None
-    assert [template["path"] for template in etag["merge_config_templates"]] == ["config/http.yaml"]
+    assert [template["path"] for template in etag["merge_config_templates"]] == [
+        "config/http.yaml"
+    ]
     assert [parameter["name"] for parameter in etag["parameters"]] == ["enabled"]
     assert cache_control["config_path"] is None
-    assert [template["path"] for template in cache_control["merge_config_templates"]] == ["config/http.yaml"]
+    assert [
+        template["path"] for template in cache_control["merge_config_templates"]
+    ] == ["config/http.yaml"]
     assert [parameter["name"] for parameter in cache_control["parameters"]] == [
         "get_single_max_age",
         "get_list_max_age",
@@ -691,7 +822,9 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert [adapter["name"] for adapter in command_bus["adapters"]] == ["rabbitmq"]
     rabbitmq = command_bus["adapters"][0]
     assert rabbitmq["config_path"] is None
-    assert [template["path"] for template in rabbitmq["merge_config_templates"]] == ["config/command_bus.yaml"]
+    assert [template["path"] for template in rabbitmq["merge_config_templates"]] == [
+        "config/command_bus.yaml"
+    ]
     assert [parameter["name"] for parameter in rabbitmq["parameters"]] == [
         "url",
         "exchange",
@@ -726,7 +859,9 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     ]
     auth = payload_by_name["auth"]
     assert [adapter["name"] for adapter in auth["adapters"]] == ["keycloak"]
-    keycloak_parameters = {parameter["name"]: parameter for parameter in auth["adapters"][0]["parameters"]}
+    keycloak_parameters = {
+        parameter["name"]: parameter for parameter in auth["adapters"][0]["parameters"]
+    }
     assert keycloak_parameters["url"]["default"] == "http://localhost:8080"
     assert keycloak_parameters["realm"]["default"] == "rekipe"
     assert keycloak_parameters["audience"]["default"] == "null"
@@ -735,33 +870,54 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert [adapter["name"] for adapter in tenant["adapters"]] == ["vault"]
     tenant_vault = tenant["adapters"][0]
     assert tenant_vault["config_path"] == "config/adapters/inbound/tenant.yaml"
-    assert [template["path"] for template in tenant_vault["merge_config_templates"]] == [
-        "config/adapters/inbound/cache.yaml"
-    ]
+    assert [
+        template["path"] for template in tenant_vault["merge_config_templates"]
+    ] == ["config/adapters/inbound/cache.yaml"]
     license_capability = payload_by_name["license"]
     assert [adapter["name"] for adapter in license_capability["adapters"]] == ["role"]
     role_parameters = {
         parameter["name"]: parameter
         for parameter in license_capability["adapters"][0]["parameters"]
     }
-    assert license_capability["adapters"][0]["config_path"] == "config/adapters/inbound/license.yaml"
+    assert (
+        license_capability["adapters"][0]["config_path"]
+        == "config/adapters/inbound/license.yaml"
+    )
     assert role_parameters["role"]["default"] == "rekipe:licensed"
     llm = payload_by_name["llm"]
-    assert [adapter["name"] for adapter in llm["adapters"]] == ["lmstudio", "openai", "anthropic"]
+    assert [adapter["name"] for adapter in llm["adapters"]] == [
+        "lmstudio",
+        "openai",
+        "anthropic",
+    ]
     openai = llm["adapters"][1]
-    openai_parameters = {parameter["name"]: parameter for parameter in openai["parameters"]}
+    openai_parameters = {
+        parameter["name"]: parameter for parameter in openai["parameters"]
+    }
     assert openai_parameters["model_name"]["default"] == "remplacer-par-model-id-openai"
     assert openai_parameters["api_key"]["secret"] is True
     assert openai_parameters["api_key"]["default"] == ""
     anthropic = llm["adapters"][2]
-    anthropic_parameters = {parameter["name"]: parameter for parameter in anthropic["parameters"]}
-    assert anthropic_parameters["model_name"]["default"] == "remplacer-par-model-id-anthropic"
+    anthropic_parameters = {
+        parameter["name"]: parameter for parameter in anthropic["parameters"]
+    }
+    assert (
+        anthropic_parameters["model_name"]["default"]
+        == "remplacer-par-model-id-anthropic"
+    )
     assert anthropic_parameters["api_key"]["secret"] is True
     assert anthropic_parameters["api_key"]["default"] == ""
-    assert [adapter["name"] for adapter in payload_by_name["agent"]["adapters"]] == ["langgraph"]
+    assert [adapter["name"] for adapter in payload_by_name["agent"]["adapters"]] == [
+        "langgraph"
+    ]
     observability = payload_by_name["observability"]
-    assert [adapter["name"] for adapter in observability["adapters"]] == ["langsmith", "opentelemetry"]
+    assert [adapter["name"] for adapter in observability["adapters"]] == [
+        "langsmith",
+        "opentelemetry",
+    ]
     langsmith = observability["adapters"][0]
-    langsmith_parameters = {parameter["name"]: parameter for parameter in langsmith["parameters"]}
+    langsmith_parameters = {
+        parameter["name"]: parameter for parameter in langsmith["parameters"]
+    }
     assert langsmith_parameters["api_key"]["secret"] is True
     assert langsmith_parameters["api_key"]["default"] == ""

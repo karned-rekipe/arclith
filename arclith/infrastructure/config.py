@@ -1,15 +1,22 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from arclith.domain.ports.outbound.file_storage import FileStorageInvalidKey, normalize_storage_key
+from arclith.domain.ports.outbound.file_storage import (
+    FileStorageInvalidKey,
+    normalize_storage_key,
+)
 
 _DUCKDB_SUPPORTED_EXTENSIONS = {".csv", ".parquet", ".json", ".arrow"}
-LangGraphStreamMode = Literal["values", "updates", "custom", "messages", "checkpoints", "tasks", "debug"]
+_SQL_IDENTIFIER_RE = r"^[A-Za-z_][A-Za-z0-9_]*$"
+LangGraphStreamMode = Literal[
+    "values", "updates", "custom", "messages", "checkpoints", "tasks", "debug"
+]
 
 
 class MongoDBSettings(BaseModel):
@@ -65,6 +72,64 @@ class MariaDBSettings(BaseModel):
         return self
 
 
+class PostgreSQLSettings(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    url: str | None = None
+    host: str = "127.0.0.1"
+    port: int = 5432
+    database: str | None = None
+    user: str = "app"
+    password: str | None = None
+    schema_name: str = Field(default="public", alias="schema")
+    driver: str = "asyncpg"
+    table_prefix: str = ""
+    multitenant: bool = False
+
+    @field_validator("port")
+    @classmethod
+    def must_be_valid_port(cls, v: int) -> int:
+        if v <= 0 or v > 65535:
+            raise ValueError("port doit etre compris entre 1 et 65535")
+        return v
+
+    @field_validator("schema_name")
+    @classmethod
+    def must_be_safe_schema(cls, v: str) -> str:
+        value = v.strip()
+        if not value:
+            raise ValueError("schema PostgreSQL ne doit pas etre vide")
+        if not re.fullmatch(_SQL_IDENTIFIER_RE, value):
+            raise ValueError("schema PostgreSQL doit etre un identifiant SQL sur")
+        return value
+
+    @field_validator("table_prefix")
+    @classmethod
+    def must_be_safe_table_prefix(cls, v: str) -> str:
+        value = v.strip()
+        if value and not re.fullmatch(_SQL_IDENTIFIER_RE, value):
+            raise ValueError(
+                "table_prefix PostgreSQL doit etre vide ou un identifiant SQL sur"
+            )
+        return value
+
+    @field_validator("driver")
+    @classmethod
+    def must_be_safe_driver(cls, v: str) -> str:
+        value = v.strip()
+        if not re.fullmatch(r"^[A-Za-z0-9_]+$", value):
+            raise ValueError("driver PostgreSQL doit etre un token SQLAlchemy sur")
+        return value
+
+    @model_validator(mode="after")
+    def validate_connection_target(self) -> "PostgreSQLSettings":
+        if self.multitenant:
+            return self
+        if not self.url and not self.database:
+            raise ValueError("database est requis quand url n'est pas configure")
+        return self
+
+
 class LMSettings(BaseModel):
     provider: Literal["anthropic", "openai"] = "anthropic"
     model_name: str = "claude-sonnet-4-5"
@@ -111,7 +176,9 @@ class ObservabilitySettings(BaseModel):
 
     @field_validator("enabled")
     @classmethod
-    def must_not_contain_duplicates(cls, v: list[ObservabilityAdapter]) -> list[ObservabilityAdapter]:
+    def must_not_contain_duplicates(
+        cls, v: list[ObservabilityAdapter]
+    ) -> list[ObservabilityAdapter]:
         if len(v) != len(set(v)):
             raise ValueError("observability.enabled ne doit pas contenir de doublons")
         return v
@@ -190,6 +257,7 @@ _REPOSITORY_CONFIG_SECTIONS: dict[str, str] = {
     "mongodb": "mongodb",
     "duckdb": "duckdb",
     "mariadb": "mariadb",
+    "postgresql": "postgresql",
 }
 _LOGGER_ADAPTERS = {"console"}
 _OBSERVABILITY_CONFIG_SECTIONS: dict[ObservabilityAdapter, str] = {
@@ -216,6 +284,7 @@ class AdaptersSettings(BaseModel):
     mongodb: MongoDBSettings | None = None
     duckdb: DuckDBSettings | None = None
     mariadb: MariaDBSettings | None = None
+    postgresql: PostgreSQLSettings | None = None
     storage: StorageSettings | None = None
     lm: LMSettings | None = None
     langsmith: LangSmithSettings | None = None
@@ -230,6 +299,8 @@ class AdaptersSettings(BaseModel):
                 return self.duckdb.multitenant if self.duckdb else False
             case "mariadb":
                 return self.mariadb.multitenant if self.mariadb else False
+            case "postgresql":
+                return self.postgresql.multitenant if self.postgresql else False
             case _:
                 return False
 
@@ -238,7 +309,9 @@ class AdaptersSettings(BaseModel):
     def must_be_supported_logger_adapter(cls, v: str) -> str:
         if v not in _LOGGER_ADAPTERS:
             supported = ", ".join(sorted(_LOGGER_ADAPTERS))
-            raise ValueError(f"logger={v} non supporte. Adapters logger supportes: {supported}")
+            raise ValueError(
+                f"logger={v} non supporte. Adapters logger supportes: {supported}"
+            )
         return v
 
     @model_validator(mode="after")
@@ -250,7 +323,9 @@ class AdaptersSettings(BaseModel):
             )
 
         for observability_adapter in self.observability.enabled:
-            observability_section = _OBSERVABILITY_CONFIG_SECTIONS[observability_adapter]
+            observability_section = _OBSERVABILITY_CONFIG_SECTIONS[
+                observability_adapter
+            ]
             if getattr(self, observability_section) is None:
                 raise ValueError(
                     f"observability.enabled contient {observability_adapter} mais aucune section "
@@ -280,7 +355,9 @@ class KeycloakSettings(BaseModel):
     url: str
     realm: str
     audience: str | None = None
-    client_id: str | None = None  # Client OAuth2 pour Swagger UI (doit être public/PKCE)
+    client_id: str | None = (
+        None  # Client OAuth2 pour Swagger UI (doit être public/PKCE)
+    )
 
 
 class TenantSettings(BaseModel):
@@ -339,7 +416,9 @@ class RabbitMQCommandBusSettings(BaseModel):
     @classmethod
     def must_be_positive(cls, v: int) -> int:
         if v <= 0:
-            raise ValueError("rabbitmq command-bus prefetch/concurrency doivent etre > 0")
+            raise ValueError(
+                "rabbitmq command-bus prefetch/concurrency doivent etre > 0"
+            )
         return v
 
 
@@ -349,7 +428,9 @@ class CommandBusSettings(BaseModel):
 
     @field_validator("enabled")
     @classmethod
-    def must_not_contain_duplicates(cls, v: list[CommandBusAdapter]) -> list[CommandBusAdapter]:
+    def must_not_contain_duplicates(
+        cls, v: list[CommandBusAdapter]
+    ) -> list[CommandBusAdapter]:
         if len(v) != len(set(v)):
             raise ValueError("command_bus.enabled ne doit pas contenir de doublons")
         return v
@@ -423,24 +504,24 @@ def _resolve_key_path(rel: Path) -> list[str]:
       config/<name>.yaml                   → ["<name>"]
     """
     parts = rel.with_suffix("").parts
-    
+
     # Single level: config/<name>.yaml → ["<name>"]
     if len(parts) == 1:
         return [parts[0]]
-    
+
     # Two levels: config/adapters/adapters.yaml → ["adapters"]
     if len(parts) == 2:
         if parts[0] == "adapters" and parts[1] == "adapters":
             return ["adapters"]
         return []
-    
+
     # Three levels: config/adapters/{outbound|inbound}/<name>.yaml
     if len(parts) == 3 and parts[0] == "adapters":
         if parts[1] == "outbound":
             return ["adapters", parts[2]]
         if parts[1] == "inbound":
             return [_INBOUND_ALIAS.get(parts[2], parts[2])]
-    
+
     return []
 
 
@@ -487,6 +568,7 @@ def _resolve_secrets(data: dict, base_path: Path) -> dict:
 
 # ── Public loaders ────────────────────────────────────────────────────────────
 
+
 def load_config_dir(path: Path) -> AppConfig:
     """Load AppConfig from a config/ directory.
 
@@ -532,4 +614,6 @@ def export_config_yaml(config_dir: Path, output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
         f.write("# generated by arclith-cli export-config — do not edit manually\n")
-        yaml.safe_dump(merged, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        yaml.safe_dump(
+            merged, f, default_flow_style=False, allow_unicode=True, sort_keys=False
+        )

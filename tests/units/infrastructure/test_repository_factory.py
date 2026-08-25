@@ -6,8 +6,18 @@ import pytest
 from arclith.adapters.outbound.memory.repository import InMemoryRepository
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.outbound.repository import Repository
-from arclith.infrastructure.config import AppConfig, AdaptersSettings, DuckDBSettings, MariaDBSettings, MongoDBSettings
-from arclith.infrastructure.repository_factory import RepositoryRegistry, build_repository
+from arclith.infrastructure.config import (
+    AppConfig,
+    AdaptersSettings,
+    DuckDBSettings,
+    MariaDBSettings,
+    MongoDBSettings,
+    PostgreSQLSettings,
+)
+from arclith.infrastructure.repository_factory import (
+    RepositoryRegistry,
+    build_repository,
+)
 
 
 class Item(Entity):
@@ -15,7 +25,7 @@ class Item(Entity):
 
 
 def test_memory_returns_in_memory_repository(logger):
-    config = AppConfig(adapters = AdaptersSettings(repository = "memory"))
+    config = AppConfig(adapters=AdaptersSettings(repository="memory"))
     repo = build_repository(config, Item, logger)
     assert isinstance(repo, InMemoryRepository)
 
@@ -43,10 +53,13 @@ def test_custom_repository_registry_builds_unknown_adapter(logger):
 def test_mongodb_returns_mongodb_repository(logger):
     pytest.importorskip("motor")
     from arclith.adapters.outbound.mongodb.repository import MongoDBRepository
-    config = AppConfig(adapters = AdaptersSettings(
-        repository = "mongodb",
-        mongodb = MongoDBSettings(db_name = "test", collection_name = "items"),
-    ))
+
+    config = AppConfig(
+        adapters=AdaptersSettings(
+            repository="mongodb",
+            mongodb=MongoDBSettings(db_name="test", collection_name="items"),
+        )
+    )
     repo = build_repository(config, Item, logger)
     assert isinstance(repo, MongoDBRepository)
     assert repo._config.uri is None
@@ -56,10 +69,13 @@ def test_mongodb_returns_mongodb_repository(logger):
 def test_duckdb_returns_duckdb_repository(logger, tmp_path):
     pytest.importorskip("duckdb")
     from arclith.adapters.outbound.duckdb.repository import DuckDBRepository
-    config = AppConfig(adapters = AdaptersSettings(
-        repository = "duckdb",
-        duckdb = DuckDBSettings(path = str(tmp_path) + "/"),
-    ))
+
+    config = AppConfig(
+        adapters=AdaptersSettings(
+            repository="duckdb",
+            duckdb=DuckDBSettings(path=str(tmp_path) + "/"),
+        )
+    )
     repo = build_repository(config, Item, logger)
     assert isinstance(repo, DuckDBRepository)
 
@@ -69,30 +85,49 @@ def test_mariadb_returns_mariadb_repository(logger):
     pytest.importorskip("asyncmy")
     from arclith.adapters.outbound.mariadb.repository import MariaDBRepository
 
-    config = AppConfig(adapters=AdaptersSettings(
-        repository="mariadb",
-        mariadb=MariaDBSettings(database="test"),
-    ))
+    config = AppConfig(
+        adapters=AdaptersSettings(
+            repository="mariadb",
+            mariadb=MariaDBSettings(database="test"),
+        )
+    )
     repo = build_repository(config, Item, logger)
     assert isinstance(repo, MariaDBRepository)
 
 
-def test_import_arclith_does_not_require_mariadb_extra():
+def test_postgresql_returns_postgresql_repository(logger):
+    pytest.importorskip("sqlalchemy")
+    pytest.importorskip("asyncpg")
+    from arclith.adapters.outbound.postgresql.repository import PostgreSQLRepository
+
+    config = AppConfig(
+        adapters=AdaptersSettings(
+            repository="postgresql",
+            postgresql=PostgreSQLSettings(database="test"),
+        )
+    )
+    repo = build_repository(config, Item, logger)
+    assert isinstance(repo, PostgreSQLRepository)
+
+
+def test_import_arclith_does_not_require_sql_repository_extras():
     script = """
 import importlib.abc
 import sys
 
 
-class BlockMariaDBExtras(importlib.abc.MetaPathFinder):
+class BlockSQLRepositoryExtras(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path, target=None):
         if fullname == "sqlalchemy" or fullname.startswith("sqlalchemy."):
             raise ModuleNotFoundError(fullname)
         if fullname == "asyncmy" or fullname.startswith("asyncmy."):
             raise ModuleNotFoundError(fullname)
+        if fullname == "asyncpg" or fullname.startswith("asyncpg."):
+            raise ModuleNotFoundError(fullname)
         return None
 
 
-sys.meta_path.insert(0, BlockMariaDBExtras())
+sys.meta_path.insert(0, BlockSQLRepositoryExtras())
 
 import arclith
 from arclith.domain.models.entity import Entity

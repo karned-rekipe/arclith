@@ -108,10 +108,16 @@ class AdapterSpec:
             "layer": self.layer,
             "description": self.description,
             "config_path": self.config_path,
-            "merge_config_templates": [file_template.to_dict() for file_template in self.merge_config_templates],
+            "merge_config_templates": [
+                file_template.to_dict() for file_template in self.merge_config_templates
+            ],
             "env_path": self.env_path,
-            "file_templates": [file_template.to_dict() for file_template in self.file_templates],
-            "secret_mappings": [secret_mapping.to_dict() for secret_mapping in self.secret_mappings],
+            "file_templates": [
+                file_template.to_dict() for file_template in self.file_templates
+            ],
+            "secret_mappings": [
+                secret_mapping.to_dict() for secret_mapping in self.secret_mappings
+            ],
             "secret_resolver": self.secret_resolver,
             "secret_config_template": bool(self.secret_config_template),
             "gitignore_entries": list(self.gitignore_entries),
@@ -281,6 +287,85 @@ multitenant: false
                     kind="string",
                     prompt="table_prefix",
                     default="",
+                ),
+            ),
+        ),
+        AdapterSpec(
+            name="postgresql",
+            capability="repository",
+            layer="outbound",
+            description="Repository PostgreSQL async optionnel, pilote par SQLAlchemy et asyncpg, avec payload JSONB generique.",
+            config_path="config/adapters/outbound/postgresql.yaml",
+            config_template="""\
+url: null   # à mapper via config/secrets.yaml ou resolver env/vault si vous fournissez une URL complète
+host: {host}
+port: {port}
+database: {database}
+user: {user}
+password: null   # à mapper via config/secrets.yaml ou resolver env/vault
+schema: {schema}
+driver: {driver}
+table_prefix: "{table_prefix}"
+multitenant: {multitenant}
+""",
+            secret_mappings=(
+                SecretMappingSpec(
+                    field_path="adapters.postgresql.url",
+                    secret_key="POSTGRESQL_URL",
+                ),
+                SecretMappingSpec(
+                    field_path="adapters.postgresql.password",
+                    secret_key="POSTGRESQL_PASSWORD",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="host",
+                    kind="string",
+                    prompt="host",
+                    default="127.0.0.1",
+                ),
+                ParameterSpec(
+                    name="port",
+                    kind="string",
+                    prompt="port",
+                    default="5432",
+                ),
+                ParameterSpec(
+                    name="database",
+                    kind="string",
+                    prompt="database",
+                    default_from_project_name=True,
+                ),
+                ParameterSpec(
+                    name="user",
+                    kind="string",
+                    prompt="user",
+                    default="app",
+                ),
+                ParameterSpec(
+                    name="schema",
+                    kind="string",
+                    prompt="schema",
+                    default="public",
+                ),
+                ParameterSpec(
+                    name="driver",
+                    kind="string",
+                    prompt="driver",
+                    default="asyncpg",
+                ),
+                ParameterSpec(
+                    name="table_prefix",
+                    kind="string",
+                    prompt="table_prefix",
+                    default="",
+                ),
+                ParameterSpec(
+                    name="multitenant",
+                    kind="boolean",
+                    prompt="multitenant",
+                    default=False,
                 ),
             ),
         ),
@@ -1549,7 +1634,15 @@ agent = arclith.langgraph(AgentState, register_agent, name="{graph_name}")
                     kind="string",
                     prompt="Mode(s) de streaming LangGraph",
                     default="updates",
-                    choices=("values", "updates", "custom", "messages", "checkpoints", "tasks", "debug"),
+                    choices=(
+                        "values",
+                        "updates",
+                        "custom",
+                        "messages",
+                        "checkpoints",
+                        "tasks",
+                        "debug",
+                    ),
                     csv_choices=True,
                 ),
             ),
