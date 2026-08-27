@@ -33,6 +33,11 @@ from arclith.domain.ports.outbound.file_storage import (
     normalize_storage_key,
 )
 from arclith.domain.ports.outbound.logger import Logger, LogLevel
+from arclith.domain.ports.outbound.observability import (
+    TraceAnonymizer,
+    TracePort,
+    TraceSpan,
+)
 from arclith.domain.ports.outbound.repository import Repository
 from arclith.infrastructure.adapter_registry import AdapterRegistry
 from arclith.infrastructure.config import (
@@ -66,7 +71,7 @@ from arclith.infrastructure.repository_factory import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checkers only
-    from arclith.adapters.outbound.console.logger import ConsoleLogger as _ConsoleLogger, ConsoleLogger  # noqa: F401
+    from arclith.adapters.outbound.console.logger import ConsoleLogger  # noqa: F401
 
 __all__ = [
     "Entity",
@@ -92,6 +97,9 @@ __all__ = [
     "GCSStorageConfig",
     "Logger",
     "LogLevel",
+    "TracePort",
+    "TraceSpan",
+    "TraceAnonymizer",
     "BaseService",
     "CommandDispatcher",
     "CommandEnvelope",

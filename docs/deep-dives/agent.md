@@ -99,14 +99,17 @@ Activer LangSmith pour inspecter:
 | erreurs node | diagnostiquer un blocage |
 | sorties use case | vérifier l'action réelle |
 
-LangSmith est optionnel pour exécuter localement. Hors ligne, désactiver le tracing et utiliser
+LangSmith est optionnel pour exécuter localement. Hors ligne, retirer l'adapter de
+`observability.enabled` et utiliser
 l'API locale de l'Agent Server:
 
 ```bash
-export LANGSMITH_TRACING=false
 export LANGGRAPH_CLI_NO_ANALYTICS=1
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
+
+Lorsque LangSmith est actif, préférer `arclith.pydantic_ai_llm()` à une construction directe de
+`PydanticAILLMAdapter`: le runtime applique alors sampling, masquage et provider partagé.
 
 ## Validation
 

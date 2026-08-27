@@ -70,6 +70,18 @@ class SecretMappingSpec:
 
 
 @dataclass(frozen=True)
+class AdapterProfileSpec:
+    name: str
+    parameters: tuple[tuple[str, str | bool], ...]
+
+    def values(self) -> dict[str, str | bool]:
+        return dict(self.parameters)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"name": self.name, "parameters": dict(self.parameters)}
+
+
+@dataclass(frozen=True)
 class AdapterSpec:
     name: str
     capability: str
@@ -86,6 +98,8 @@ class AdapterSpec:
     secret_config_template: str = ""
     gitignore_entries: tuple[str, ...] = ()
     parameters: tuple[ParameterSpec, ...] = ()
+    profiles: tuple[AdapterProfileSpec, ...] = ()
+    dependency_extra: str | None = None
     entity_scoped: bool = True
 
     def has_config(self) -> bool:
@@ -102,6 +116,13 @@ class AdapterSpec:
 
     def has_secret_config(self) -> bool:
         return bool(self.secret_config_template)
+
+    def get_profile(self, name: str) -> AdapterProfileSpec | None:
+        normalized = name.strip().lower()
+        return next(
+            (profile for profile in self.profiles if profile.name == normalized),
+            None,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -124,6 +145,8 @@ class AdapterSpec:
             "secret_config_template": bool(self.secret_config_template),
             "gitignore_entries": list(self.gitignore_entries),
             "parameters": [parameter.to_dict() for parameter in self.parameters],
+            "profiles": [profile.to_dict() for profile in self.profiles],
+            "dependency_extra": self.dependency_extra,
             "entity_scoped": self.entity_scoped,
         }
 
@@ -1776,26 +1799,61 @@ OBSERVABILITY_CAPABILITY = CapabilitySpec(
             description="Tracing LangSmith et tests agent dans LangGraph Studio.",
             config_path="config/adapters/outbound/langsmith.yaml",
             config_template="""\
-tracing: {tracing}
 project: "{project}"
 endpoint: "{endpoint}"
 api_key_env: LANGSMITH_API_KEY
+workspace_id_env: LANGSMITH_WORKSPACE_ID
 # Définir LANGSMITH_API_KEY hors Git: .env local, env runtime ou secret manager.
+tracing:
+  enabled: {tracing_enabled}
+  mode: "{tracing_mode}"
+  sampling_rate: {sampling_rate}
+instrumentation:
+  langgraph: {instrument_langgraph}
+  pydantic_ai: {instrument_pydantic_ai}
+  fastapi: {instrument_fastapi}
+  fastmcp: {instrument_fastmcp}
+  command_bus: {instrument_command_bus}
+capture:
+  inputs: {capture_inputs}
+  outputs: {capture_outputs}
+  metadata: {capture_metadata}
+  model_content: {capture_model_content}
+  binary_content: false
+  model_request_parameters: false
+propagation:
+  enabled: true
+  langsmith_headers: true
+  traceparent: true
+  baggage_allowlist: []
+tags:
+  - arclith
+metadata: {{}}
+lifecycle:
+  flush_timeout_seconds: 5.0
+diagnostics:
+  enabled: {diagnostics_enabled}
+  log_level: info
+failure_mode: log-and-continue
 studio: langgraph
 langgraph_api_min_version: "0.11.0"
 """,
-            env_path=".env",
+            env_path=".env.example",
             env_template="""\
-LANGSMITH_TRACING={tracing}
+LANGSMITH_TRACING={tracing_enabled}
 LANGSMITH_PROJECT={project}
 LANGSMITH_ENDPOINT={endpoint}
-LANGSMITH_API_KEY={api_key}
+LANGSMITH_TRACING_MODE={tracing_mode}
+LANGSMITH_TRACING_SAMPLING_RATE={sampling_rate}
+LANGSMITH_HIDE_INPUTS={hide_inputs}
+LANGSMITH_HIDE_OUTPUTS={hide_outputs}
+LANGSMITH_HIDE_METADATA={hide_metadata}
 """,
             parameters=(
                 ParameterSpec(
-                    name="tracing",
+                    name="tracing_enabled",
                     kind="boolean",
-                    prompt="Activer LANGSMITH_TRACING",
+                    prompt="Activer le tracing LangSmith",
                     default=True,
                 ),
                 ParameterSpec(
@@ -1811,13 +1869,107 @@ LANGSMITH_API_KEY={api_key}
                     default="https://api.smith.langchain.com",
                 ),
                 ParameterSpec(
-                    name="api_key",
+                    name="tracing_mode",
                     kind="string",
-                    prompt="LANGSMITH_API_KEY",
-                    default="",
-                    secret=True,
+                    prompt="Mode de tracing LangSmith",
+                    default="otel",
+                    choices=("langsmith", "otel", "hybrid"),
+                ),
+                ParameterSpec(
+                    name="sampling_rate",
+                    kind="string",
+                    prompt="Taux d'échantillonnage (0.0-1.0)",
+                    default="1.0",
+                ),
+                ParameterSpec(
+                    name="capture_inputs",
+                    kind="boolean",
+                    prompt="Capturer les inputs",
+                    default=False,
+                ),
+                ParameterSpec(
+                    name="capture_outputs",
+                    kind="boolean",
+                    prompt="Capturer les outputs",
+                    default=False,
+                ),
+                ParameterSpec(
+                    name="capture_metadata",
+                    kind="boolean",
+                    prompt="Capturer les métadonnées",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="capture_model_content",
+                    kind="boolean",
+                    prompt="Capturer prompts et réponses modèle (sensible)",
+                    default=False,
+                ),
+                ParameterSpec(
+                    name="instrument_langgraph",
+                    kind="boolean",
+                    prompt="Instrumenter LangGraph",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="instrument_pydantic_ai",
+                    kind="boolean",
+                    prompt="Instrumenter Pydantic AI",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="instrument_fastapi",
+                    kind="boolean",
+                    prompt="Instrumenter FastAPI",
+                    default=False,
+                ),
+                ParameterSpec(
+                    name="instrument_fastmcp",
+                    kind="boolean",
+                    prompt="Instrumenter FastMCP",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="instrument_command_bus",
+                    kind="boolean",
+                    prompt="Instrumenter le command bus",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="diagnostics_enabled",
+                    kind="boolean",
+                    prompt="Activer les diagnostics locaux",
+                    default=False,
                 ),
             ),
+            profiles=(
+                AdapterProfileSpec(
+                    name="development",
+                    parameters=(
+                        ("tracing_enabled", True),
+                        ("tracing_mode", "otel"),
+                        ("sampling_rate", "1.0"),
+                        ("capture_inputs", False),
+                        ("capture_outputs", False),
+                        ("capture_model_content", False),
+                        ("diagnostics_enabled", True),
+                    ),
+                ),
+                AdapterProfileSpec(
+                    name="production",
+                    parameters=(
+                        ("tracing_enabled", True),
+                        ("tracing_mode", "otel"),
+                        ("sampling_rate", "0.1"),
+                        ("capture_inputs", False),
+                        ("capture_outputs", False),
+                        ("capture_model_content", False),
+                        ("diagnostics_enabled", False),
+                    ),
+                ),
+            ),
+            dependency_extra="langsmith",
+            gitignore_entries=(".env",),
             entity_scoped=False,
         ),
         AdapterSpec(

@@ -50,6 +50,7 @@ def add_adapter_cmd(
     multitenant: bool | None = None,
     duckdb_path: str | None = None,
     adapter_params: dict[str, str] | None = None,
+    profile: str | None = None,
     yes: bool = False,
 ) -> None:
     """Wizard interactif pour scaffolder un adapter du catalogue."""
@@ -64,13 +65,14 @@ def add_adapter_cmd(
     entities = _resolve_entities(
         project_dir, entity_names, all_entities, yes=yes, adapter=adapter_spec
     )
+    profile_values = _resolve_profile(adapter_spec, profile)
     params = _resolve_adapter_params(
         adapter_spec,
         project_dir,
         db_name=db_name,
         multitenant=multitenant,
         duckdb_path=duckdb_path,
-        extra_params=adapter_params or {},
+        extra_params={**profile_values, **(adapter_params or {})},
         prompt_missing=not yes,
     )
     if capability.activation_config_key is None:
@@ -89,7 +91,16 @@ def add_adapter_cmd(
         console.print("[yellow]Annulé.[/yellow]")
         raise typer.Exit(0)
 
-    _generate(project_dir, capability, adapter_spec, entities, params, activate)
+    explicit_params = {*profile_values, *(adapter_params or {})}
+    _generate(
+        project_dir,
+        capability,
+        adapter_spec,
+        entities,
+        params,
+        activate,
+        explicit_params=explicit_params,
+    )
 
 
 # ── Validation ────────────────────────────────────────────────────────────────
@@ -189,6 +200,22 @@ def _resolve_adapter_type(
     supported = ", ".join(capability.adapter_names())
     console.print(
         f"[red]✗[/red] Adapter inconnu: [bold]{adapter}[/bold]. Valeurs: {supported}."
+    )
+    raise typer.Exit(1)
+
+
+def _resolve_profile(
+    adapter: AdapterSpec, profile: str | None
+) -> dict[str, str | bool]:
+    if profile is None:
+        return {}
+    selected = adapter.get_profile(profile)
+    if selected is not None:
+        return selected.values()
+    allowed = ", ".join(item.name for item in adapter.profiles) or "(aucun)"
+    console.print(
+        f"[red]✗[/red] Profil inconnu pour [bold]{adapter.name}[/bold]: {profile}. "
+        f"Valeurs: {allowed}."
     )
     raise typer.Exit(1)
 
@@ -307,7 +334,7 @@ def _resolve_adapter_params(
     db_name: str | None,
     multitenant: bool | None,
     duckdb_path: str | None,
-    extra_params: dict[str, str],
+    extra_params: dict[str, str | bool],
     prompt_missing: bool,
 ) -> dict[str, Any]:
     if prompt_missing:
@@ -351,7 +378,32 @@ def _normalize_adapter_params(
         return _normalize_docker_image_params(params)
     if adapter.capability == "agent-persistence" and adapter.name == "langgraph":
         return _normalize_agent_persistence_params(params)
+    if adapter.capability == "observability" and adapter.name == "langsmith":
+        return _normalize_langsmith_params(params)
     return params
+
+
+def _normalize_langsmith_params(params: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(params)
+    try:
+        sampling_rate = float(str(normalized["sampling_rate"]))
+    except ValueError:
+        console.print(
+            "[red]✗[/red] sampling_rate doit être un nombre entre 0.0 et 1.0."
+        )
+        raise typer.Exit(1) from None
+    if not 0.0 <= sampling_rate <= 1.0:
+        console.print("[red]✗[/red] sampling_rate doit être compris entre 0.0 et 1.0.")
+        raise typer.Exit(1)
+    normalized["sampling_rate"] = str(sampling_rate)
+    for capture, hide in (
+        ("capture_inputs", "hide_inputs"),
+        ("capture_outputs", "hide_outputs"),
+        ("capture_metadata", "hide_metadata"),
+    ):
+        enabled = _parse_boolean_param(str(normalized[capture])) is True
+        normalized[hide] = _yaml_bool(not enabled)
+    return normalized
 
 
 def _normalize_cache_control_params(params: dict[str, Any]) -> dict[str, Any]:
@@ -446,7 +498,8 @@ def _normalize_agent_persistence_params(params: dict[str, Any]) -> dict[str, Any
 
 
 def _assert_supported_params(
-    adapter: AdapterSpec, extra_params: dict[str, str]
+    adapter: AdapterSpec,
+    extra_params: dict[str, str | bool],
 ) -> None:
     supported = {parameter.name for parameter in adapter.parameters}
     unknown = sorted(name for name in extra_params if name not in supported)
@@ -670,6 +723,8 @@ def _generate(
     entities: list[EntityInfo],
     params: dict[str, Any],
     activate: bool,
+    *,
+    explicit_params: set[str] | None = None,
 ) -> None:
     installed = scan_installed_adapters(project_dir)
     paths = detect_project_paths(project_dir)
@@ -683,9 +738,23 @@ def _generate(
 
     if adapter.has_config() and adapter.config_path:
         cfg_path = project_dir / adapter.config_path
-        cfg_path.parent.mkdir(parents=True, exist_ok=True)
-        cfg_path.write_text(render(adapter.config_template, params), encoding="utf-8")
+        rendered_config = render(adapter.config_template, params)
+        if adapter.capability == "observability" and adapter.name == "langsmith":
+            _merge_langsmith_config(
+                cfg_path,
+                rendered_config,
+                explicit_params=explicit_params or set(),
+            )
+        else:
+            cfg_path.parent.mkdir(parents=True, exist_ok=True)
+            cfg_path.write_text(rendered_config, encoding="utf-8")
         console.print(f"[green]✓[/green] {cfg_path.relative_to(project_dir)}")
+
+    if adapter.dependency_extra:
+        _ensure_arclith_extra(project_dir / "pyproject.toml", adapter.dependency_extra)
+        console.print(
+            f"[cyan]↺[/cyan] pyproject.toml → arclith[{adapter.dependency_extra}]"
+        )
 
     for merge_template in adapter.merge_config_templates:
         cfg_path = project_dir / render(merge_template.path, params)
@@ -698,8 +767,17 @@ def _generate(
 
     if adapter.has_env() and adapter.env_path:
         env_path = project_dir / adapter.env_path
+        env_overrides: set[str] | None = None
+        if adapter.capability == "observability" and adapter.name == "langsmith":
+            env_overrides = {
+                env_name
+                for env_name, parameter in _LANGSMITH_ENV_PARAMETERS.items()
+                if parameter in (explicit_params or set())
+            }
         _merge_env_file(
-            env_path, _parse_env_template(render(adapter.env_template, params))
+            env_path,
+            _parse_env_template(render(adapter.env_template, params)),
+            overwrite_keys=env_overrides,
         )
         _ensure_gitignore_entries(project_dir, (".env",))
         console.print(f"[green]✓[/green] {env_path.relative_to(project_dir)}")
@@ -774,7 +852,6 @@ def _generate(
     if adapter.capability == "agent-persistence":
         extras = _configured_agent_persistence_extras(project_dir, params)
         _ensure_arclith_extras(project_dir, extras)
-
     console.print(
         f"\n[bold green]✓ Adapter [cyan]{adapter.name}[/cyan] scaffoldé avec succès.[/bold green]"
     )
@@ -1039,7 +1116,12 @@ def _parse_env_template(rendered: str) -> dict[str, str]:
     return values
 
 
-def _merge_env_file(env_path: Path, updates: dict[str, str]) -> None:
+def _merge_env_file(
+    env_path: Path,
+    updates: dict[str, str],
+    *,
+    overwrite_keys: set[str] | None = None,
+) -> None:
     env_path.parent.mkdir(parents=True, exist_ok=True)
     existing_lines = (
         env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
@@ -1055,7 +1137,12 @@ def _merge_env_file(env_path: Path, updates: dict[str, str]) -> None:
         key_raw, existing_value = stripped.split("=", 1)
         key = key_raw.strip()
         if key in updates:
-            if not updates[key] and existing_value.strip():
+            preserve_existing = (
+                overwrite_keys is not None
+                and key not in overwrite_keys
+                and bool(existing_value.strip())
+            )
+            if preserve_existing or (not updates[key] and existing_value.strip()):
                 merged_lines.append(line)
             else:
                 merged_lines.append(f"{key}={updates[key]}")
@@ -1092,6 +1179,80 @@ def _merge_yaml_file(
     path.write_text(
         yaml.safe_dump(merged, sort_keys=False, allow_unicode=True), encoding="utf-8"
     )
+
+
+_LANGSMITH_PARAMETER_PATHS: dict[str, tuple[str, ...]] = {
+    "tracing_enabled": ("tracing", "enabled"),
+    "tracing_mode": ("tracing", "mode"),
+    "sampling_rate": ("tracing", "sampling_rate"),
+    "project": ("project",),
+    "endpoint": ("endpoint",),
+    "capture_inputs": ("capture", "inputs"),
+    "capture_outputs": ("capture", "outputs"),
+    "capture_metadata": ("capture", "metadata"),
+    "capture_model_content": ("capture", "model_content"),
+    "instrument_langgraph": ("instrumentation", "langgraph"),
+    "instrument_pydantic_ai": ("instrumentation", "pydantic_ai"),
+    "instrument_fastapi": ("instrumentation", "fastapi"),
+    "instrument_fastmcp": ("instrumentation", "fastmcp"),
+    "instrument_command_bus": ("instrumentation", "command_bus"),
+    "diagnostics_enabled": ("diagnostics", "enabled"),
+}
+
+_LANGSMITH_ENV_PARAMETERS: dict[str, str] = {
+    "LANGSMITH_TRACING": "tracing_enabled",
+    "LANGSMITH_PROJECT": "project",
+    "LANGSMITH_ENDPOINT": "endpoint",
+    "LANGSMITH_TRACING_MODE": "tracing_mode",
+    "LANGSMITH_TRACING_SAMPLING_RATE": "sampling_rate",
+    "LANGSMITH_HIDE_INPUTS": "capture_inputs",
+    "LANGSMITH_HIDE_OUTPUTS": "capture_outputs",
+    "LANGSMITH_HIDE_METADATA": "capture_metadata",
+}
+
+
+def _merge_langsmith_config(
+    path: Path,
+    rendered_yaml: str,
+    *,
+    explicit_params: set[str],
+) -> None:
+    """Fill missing defaults while preserving user values on later CLI runs."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_text(rendered_yaml, encoding="utf-8")
+        return
+    generated = yaml.safe_load(rendered_yaml) or {}
+    if not isinstance(generated, dict):
+        console.print("[red]✗[/red] La configuration LangSmith doit être un mapping.")
+        raise typer.Exit(1)
+    existing = _read_yaml_mapping(path)
+    merged = _deep_merge_mapping(generated, existing)
+    for parameter in explicit_params:
+        config_path = _LANGSMITH_PARAMETER_PATHS.get(parameter)
+        if config_path is not None:
+            _copy_nested_value(generated, merged, config_path)
+    path.write_text(
+        yaml.safe_dump(merged, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+
+def _copy_nested_value(
+    source: dict[str, Any],
+    destination: dict[str, Any],
+    path: tuple[str, ...],
+) -> None:
+    source_cursor: Any = source
+    destination_cursor: dict[str, Any] = destination
+    for key in path[:-1]:
+        source_cursor = source_cursor[key]
+        child = destination_cursor.get(key)
+        if not isinstance(child, dict):
+            child = {}
+            destination_cursor[key] = child
+        destination_cursor = child
+    destination_cursor[path[-1]] = source_cursor[path[-1]]
 
 
 def _merge_secrets_file(
@@ -1178,3 +1339,32 @@ def _ensure_gitignore_entries(project_dir: Path, entries: tuple[str, ...]) -> No
         lines.append("")
     lines.extend(missing)
     gitignore.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+
+
+def _ensure_arclith_extra(pyproject: Path, extra: str) -> None:
+    if not pyproject.exists():
+        return
+    text = pyproject.read_text(encoding="utf-8")
+    pattern = re.compile(
+        r'(?P<quote>["\'])arclith(?:\[(?P<extras>[^]]*)\])?'
+        r'(?P<version>\s*(?:[<>=!~@][^"\']*)?)(?P=quote)'
+    )
+    match = pattern.search(text)
+    if match is None:
+        return
+    extras = [
+        item.strip()
+        for item in (match.group("extras") or "").split(",")
+        if item.strip()
+    ]
+    if extra in extras:
+        return
+    extras.append(extra)
+    rendered = (
+        f"{match.group('quote')}arclith[{','.join(extras)}]"
+        f"{match.group('version')}{match.group('quote')}"
+    )
+    pyproject.write_text(
+        text[: match.start()] + rendered + text[match.end() :],
+        encoding="utf-8",
+    )

@@ -363,10 +363,12 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(
         capability_name="observability",
         adapter="langsmith",
         adapter_params={
-            "tracing": "true",
+            "tracing_enabled": "true",
             "project": "agent-tests",
             "endpoint": "https://eu.api.smith.langchain.com",
-            "api_key": "test-key",
+            "tracing_mode": "hybrid",
+            "sampling_rate": "0.5",
+            "capture_inputs": "true",
         },
         yes=True,
     )
@@ -375,7 +377,11 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(
     config = (
         project_dir / "config" / "adapters" / "outbound" / "langsmith.yaml"
     ).read_text(encoding="utf-8")
-    assert "tracing: true" in config
+    assert "tracing:\n  enabled: true" in config
+    assert 'mode: "hybrid"' in config
+    assert "sampling_rate: 0.5" in config
+    assert "inputs: true" in config
+    assert "model_content: false" in config
     assert 'project: "agent-tests"' in config
     assert 'endpoint: "https://eu.api.smith.langchain.com"' in config
     assert "api_key_env: LANGSMITH_API_KEY" in config
@@ -389,14 +395,17 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(
     assert adapters_config["observability"]["enabled"] == ["langsmith"]
 
     env = (project_dir / ".env").read_text(encoding="utf-8")
-    assert "EXISTING=value" in env
-    assert "LANGSMITH_TRACING=true" in env
-    assert "LANGSMITH_PROJECT=agent-tests" in env
-    assert "LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com" in env
-    assert "LANGSMITH_API_KEY=test-key" in env
+    env_example = (project_dir / ".env.example").read_text(encoding="utf-8")
+    assert env == "EXISTING=value\nLANGSMITH_PROJECT=old\n"
+    assert "LANGSMITH_TRACING=true" in env_example
+    assert "LANGSMITH_PROJECT=agent-tests" in env_example
+    assert "LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com" in env_example
+    assert "LANGSMITH_TRACING_MODE=hybrid" in env_example
+    assert "LANGSMITH_TRACING_SAMPLING_RATE=0.5" in env_example
+    assert "LANGSMITH_API_KEY=" not in env_example
     assert ".env" in (project_dir / ".gitignore").read_text(encoding="utf-8")
-    assert "test-key" not in cli_output.out
-    assert "test-key" not in cli_output.err
+    assert "LANGSMITH_API_KEY" not in cli_output.out
+    assert "LANGSMITH_API_KEY" not in cli_output.err
     from arclith import Arclith
 
     arclith = Arclith(project_dir / "config")
@@ -404,19 +413,20 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(
 
     assert arclith.config.adapters.observability.enabled == ["langsmith"]
     assert arclith.config.adapters.langsmith is not None
-    assert arclith.config.adapters.langsmith.tracing is True
+    assert arclith.config.adapters.langsmith.tracing.enabled is True
+    assert arclith.config.adapters.langsmith.tracing.mode == "hybrid"
     assert arclith.config.adapters.langsmith.project == "agent-tests"
     assert (
         arclith.config.adapters.langsmith.endpoint
         == "https://eu.api.smith.langchain.com"
     )
-    assert "test-key" not in load_output.out
-    assert "test-key" not in load_output.err
+    assert "LANGSMITH_API_KEY" not in load_output.out
+    assert "LANGSMITH_API_KEY" not in load_output.err
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "outbound" / "langsmith").exists()
 
 
-def test_add_langsmith_preserves_existing_api_key_when_missing(tmp_path: Path) -> None:
+def test_add_langsmith_never_rewrites_existing_dotenv(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
     (project_dir / ".env").write_text(
         "LANGSMITH_API_KEY=existing-key\nLANGSMITH_PROJECT = old-project\n",
@@ -435,10 +445,10 @@ def test_add_langsmith_preserves_existing_api_key_when_missing(tmp_path: Path) -
     )
 
     env = (project_dir / ".env").read_text(encoding="utf-8")
-    assert "LANGSMITH_API_KEY=existing-key" in env
-    assert "LANGSMITH_PROJECT=agent-tests" in env
-    assert "LANGSMITH_PROJECT = old-project" not in env
-    assert env.count("LANGSMITH_PROJECT") == 1
+    env_example = (project_dir / ".env.example").read_text(encoding="utf-8")
+    assert env == "LANGSMITH_API_KEY=existing-key\nLANGSMITH_PROJECT = old-project\n"
+    assert "LANGSMITH_PROJECT=agent-tests" in env_example
+    assert "existing-key" not in env_example
 
 
 def test_add_langsmith_skips_missing_empty_api_key(tmp_path: Path) -> None:
@@ -455,7 +465,7 @@ def test_add_langsmith_skips_missing_empty_api_key(tmp_path: Path) -> None:
         yes=True,
     )
 
-    env = (project_dir / ".env").read_text(encoding="utf-8")
+    env = (project_dir / ".env.example").read_text(encoding="utf-8")
     config = (
         project_dir / "config" / "adapters" / "outbound" / "langsmith.yaml"
     ).read_text(encoding="utf-8")
@@ -463,6 +473,110 @@ def test_add_langsmith_skips_missing_empty_api_key(tmp_path: Path) -> None:
     assert "LANGSMITH_PROJECT=agent-tests" in env
     assert "api_key_env: LANGSMITH_API_KEY" in config
     assert "Définir LANGSMITH_API_KEY hors Git" in config
+
+
+def test_add_langsmith_rejects_api_key_cli_parameter(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="observability",
+            adapter="langsmith",
+            adapter_params={"project": "agent-tests", "api_key": "secret"},
+            yes=True,
+        )
+
+    assert not (project_dir / ".env.example").exists()
+
+
+@pytest.mark.parametrize(
+    ("profile", "sampling_rate", "diagnostics"),
+    [("development", "1.0", "true"), ("production", "0.1", "false")],
+)
+def test_add_langsmith_profiles_are_explicit_and_safe(
+    tmp_path: Path,
+    profile: str,
+    sampling_rate: str,
+    diagnostics: str,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="observability",
+        adapter="langsmith",
+        profile=profile,
+        yes=True,
+    )
+
+    config = (project_dir / "config/adapters/outbound/langsmith.yaml").read_text()
+    assert f"sampling_rate: {sampling_rate}" in config
+    assert f"enabled: {diagnostics}\n  log_level: info" in config
+    assert "model_content: false" in config
+
+
+def test_add_langsmith_adds_dependency_extra_idempotently(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+    pyproject = project_dir / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\ndependencies = ["arclith[fastapi,mcp]>=0.18.0"]\n',
+        encoding="utf-8",
+    )
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="observability",
+            adapter="langsmith",
+            adapter_params={"project": "agent-tests"},
+            yes=True,
+        )
+
+    assert "arclith[fastapi,mcp,langsmith]>=0.18.0" in pyproject.read_text()
+
+
+def test_add_langsmith_preserves_existing_config_values(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+    config_path = project_dir / "config/adapters/outbound/langsmith.yaml"
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="observability",
+        adapter="langsmith",
+        adapter_params={"project": "custom-project"},
+        yes=True,
+    )
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    config["tracing"]["sampling_rate"] = 0.33
+    config["metadata"] = {"deployment.environment": "staging"}
+    config_path.write_text(
+        yaml.safe_dump(config, sort_keys=False),
+        encoding="utf-8",
+    )
+    env_example = project_dir / ".env.example"
+    env_example.write_text(
+        env_example.read_text(encoding="utf-8").replace(
+            "LANGSMITH_PROJECT=custom-project",
+            "LANGSMITH_PROJECT=existing-runtime-project",
+        ),
+        encoding="utf-8",
+    )
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="observability",
+        adapter="langsmith",
+        yes=True,
+    )
+    preserved = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+
+    assert preserved["project"] == "custom-project"
+    assert preserved["tracing"]["sampling_rate"] == 0.33
+    assert preserved["metadata"] == {"deployment.environment": "staging"}
+    assert "LANGSMITH_PROJECT=existing-runtime-project" in env_example.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_add_fastapi_api_adapter_generates_inbound_config_only(tmp_path: Path) -> None:
@@ -1430,6 +1544,7 @@ def test_add_langsmith_preserves_existing_opentelemetry_activation(
         )
     )
     env = (project_dir / ".env").read_text(encoding="utf-8")
+    env_example = (project_dir / ".env.example").read_text(encoding="utf-8")
     opentelemetry_config = (
         project_dir / "config" / "adapters" / "outbound" / "opentelemetry.yaml"
     ).read_text(encoding="utf-8")
@@ -1439,8 +1554,8 @@ def test_add_langsmith_preserves_existing_opentelemetry_activation(
     assert adapters_config["observability"]["enabled"].count("opentelemetry") == 1
     assert "EXISTING=value" in env
     assert "OTEL_SERVICE_NAME=demo-api" in env
-    assert "LANGSMITH_PROJECT=agent-tests" in env
-    assert "LANGSMITH_API_KEY=" not in env
+    assert "LANGSMITH_PROJECT=agent-tests" in env_example
+    assert "LANGSMITH_API_KEY=" not in env_example
     assert 'service_name: "demo-api"' in opentelemetry_config
 
 

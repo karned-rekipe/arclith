@@ -26,6 +26,35 @@ def test_pydantic_ai_llm_adapter_implements_llm_port() -> None:
     assert isinstance(adapter, LLMPort)
 
 
+def test_pydantic_ai_llm_adapter_scopes_instrumentation_to_built_agent(
+    monkeypatch,
+) -> None:
+    instrumentation = object()
+    seen: dict[str, object] = {}
+
+    class FakeAgent:
+        def __init__(self, model, **kwargs) -> None:
+            seen.update(kwargs)
+
+    monkeypatch.setattr(
+        llm_module, "build_pydantic_ai_model", lambda settings: object()
+    )
+    monkeypatch.setattr(pydantic_ai, "Agent", FakeAgent)
+    adapter = PydanticAILLMAdapter(
+        LMSettings(
+            provider="openai",
+            model_name="local-model",
+            api_key="lm-studio",
+            base_url="http://127.0.0.1:1234/v1",
+        ),
+        instrumentation=instrumentation,
+    )
+
+    adapter._build_agent(output_type=dict, instructions="instructions")
+
+    assert seen["capabilities"] == [instrumentation]
+
+
 async def test_pydantic_ai_llm_adapter_returns_structured_output(monkeypatch) -> None:
     class Result:
         pass
@@ -37,7 +66,9 @@ async def test_pydantic_ai_llm_adapter_returns_structured_output(monkeypatch) ->
         async def run(self, prompt: str):
             return SimpleNamespace(output=self._output_type())
 
-    monkeypatch.setattr(llm_module, "build_pydantic_ai_model", lambda settings: object())
+    monkeypatch.setattr(
+        llm_module, "build_pydantic_ai_model", lambda settings: object()
+    )
     monkeypatch.setattr(pydantic_ai, "Agent", FakeAgent)
     adapter = PydanticAILLMAdapter(
         LMSettings(
@@ -48,7 +79,9 @@ async def test_pydantic_ai_llm_adapter_returns_structured_output(monkeypatch) ->
         )
     )
 
-    result = await adapter.complete_structured("prompt", output_type=Result, instructions="instructions")
+    result = await adapter.complete_structured(
+        "prompt", output_type=Result, instructions="instructions"
+    )
 
     assert isinstance(result, Result)
 
@@ -87,7 +120,9 @@ async def test_pydantic_ai_llm_adapter_streams_structured_output(monkeypatch) ->
             seen["prompt"] = prompt
             return FakeStreamResult(self._output_type)
 
-    monkeypatch.setattr(llm_module, "build_pydantic_ai_model", lambda settings: object())
+    monkeypatch.setattr(
+        llm_module, "build_pydantic_ai_model", lambda settings: object()
+    )
     monkeypatch.setattr(pydantic_ai, "Agent", FakeAgent)
     adapter = PydanticAILLMAdapter(
         LMSettings(
@@ -128,7 +163,9 @@ async def test_pydantic_ai_llm_adapter_streams_structured_output(monkeypatch) ->
     assert events[-1].metadata["snapshots"] == 1
 
 
-async def test_pydantic_ai_llm_adapter_can_disable_stream_snapshots(monkeypatch) -> None:
+async def test_pydantic_ai_llm_adapter_can_disable_stream_snapshots(
+    monkeypatch,
+) -> None:
     class Result:
         pass
 
@@ -143,9 +180,13 @@ async def test_pydantic_ai_llm_adapter_can_disable_stream_snapshots(monkeypatch)
 
         def run_stream(self, prompt: str):
             seen["run_stream"] = True
-            raise AssertionError("run_stream should not be called when snapshots are disabled")
+            raise AssertionError(
+                "run_stream should not be called when snapshots are disabled"
+            )
 
-    monkeypatch.setattr(llm_module, "build_pydantic_ai_model", lambda settings: object())
+    monkeypatch.setattr(
+        llm_module, "build_pydantic_ai_model", lambda settings: object()
+    )
     monkeypatch.setattr(pydantic_ai, "Agent", FakeAgent)
     adapter = PydanticAILLMAdapter(
         LMSettings(
@@ -162,7 +203,9 @@ async def test_pydantic_ai_llm_adapter_can_disable_stream_snapshots(monkeypatch)
             "prompt",
             output_type=Result,
             instructions="instructions",
-            stream_options=LLMStructuredStreamOptions(include_progress=False, include_snapshots=False),
+            stream_options=LLMStructuredStreamOptions(
+                include_progress=False, include_snapshots=False
+            ),
         )
     ]
 

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import threading
 import traceback
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
-from functools import cached_property
+from functools import cached_property, wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncIterator, Literal, TypeVar, overload
 
@@ -16,6 +17,7 @@ from arclith.adapters.outbound.opentelemetry.correlation import (
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.outbound.file_storage import FileStoragePort
 from arclith.domain.ports.outbound.logger import Logger, LogLevel
+from arclith.domain.ports.outbound.observability import TraceAnonymizer, TracePort
 from arclith.domain.ports.outbound.repository import Repository
 from arclith.infrastructure.config import (
     AppConfig,
@@ -121,7 +123,12 @@ class _UvicornLogInterceptHandler(logging.Handler):
 
 
 class Arclith:
-    def __init__(self, config_path: str | Path) -> None:
+    def __init__(
+        self,
+        config_path: str | Path,
+        *,
+        trace_anonymizer: TraceAnonymizer | None = None,
+    ) -> None:
         p = Path(config_path)
         if p.is_dir():
             self.config: AppConfig = load_config_dir(p)
@@ -129,6 +136,7 @@ class Arclith:
             self.config = load_config_file(p)
         else:
             raise ValueError(f"Config path not found: {p}")
+        self._trace_anonymizer = trace_anonymizer
 
     @cached_property
     def logger(self) -> Logger:
@@ -188,7 +196,19 @@ class Arclith:
             )
         from arclith.adapters.bidirectional.rabbitmq import RabbitMQCommandBus
 
-        return RabbitMQCommandBus(self.config.command_bus.rabbitmq, self.logger)
+        tracer: TracePort | None = None
+        langsmith = self.config.adapters.langsmith
+        if (
+            self.config.adapters.observability.is_enabled("langsmith")
+            and langsmith is not None
+            and langsmith.instrumentation.command_bus
+        ):
+            tracer = self.tracer()
+        return RabbitMQCommandBus(
+            self.config.command_bus.rabbitmq,
+            self.logger,
+            tracer=tracer,
+        )
 
     def run_command_bus(self, dispatcher: "CommandDispatcher") -> None:
         async def _run() -> None:
@@ -197,6 +217,7 @@ class Arclith:
                 await bus.run(dispatcher)
             finally:
                 await bus.close()
+                self.close_observability()
 
         asyncio.run(_run())
 
@@ -209,16 +230,22 @@ class Arclith:
         @asynccontextmanager
         async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             self._setup_uvicorn_logging()
-            if user_lifespan is not None:
-                async with AsyncExitStack() as stack:
-                    await stack.enter_async_context(user_lifespan(app))
+            self._start_observability()
+            try:
+                if user_lifespan is not None:
+                    async with AsyncExitStack() as stack:
+                        await stack.enter_async_context(user_lifespan(app))
+                        yield
+                else:
                     yield
-            else:
-                yield
+            finally:
+                self.close_observability()
 
         app = FastAPI(lifespan=_lifespan, **kwargs)
         self._add_fastapi_observability(app)
         self._add_fastapi_http_middlewares(app)
+        if self.config.adapters.observability.is_enabled("langsmith"):
+            self._instrument_fastapi_langsmith(app)
         if self.config.adapters.observability.is_enabled("opentelemetry"):
             self._instrument_fastapi_opentelemetry(app)
 
@@ -275,6 +302,22 @@ class Arclith:
             service_name=self.config.app.name,
             service_version=self.config.app.version,
         )
+
+    def _instrument_fastapi_langsmith(self, app: "FastAPI") -> None:
+        settings = self.config.adapters.langsmith
+        if settings is None or not settings.instrumentation.fastapi:
+            return
+        otel = self.config.adapters.opentelemetry
+        if (
+            self.config.adapters.observability.is_enabled("opentelemetry")
+            and otel is not None
+            and otel.traces
+            and otel.instrument_fastapi
+        ):
+            return
+        from arclith.adapters.outbound.langsmith.fastapi import instrument_fastapi_app
+
+        instrument_fastapi_app(app, self.tracer())
 
     def _add_fastapi_http_middlewares(self, app: "FastAPI") -> None:
         # Order matters: Starlette applies the last registered middleware first.
@@ -435,32 +478,90 @@ class Arclith:
         self._probe_server.add_readiness_check(fn)
 
     def instrument_mcp(self, mcp: "_fastmcp.FastMCP") -> None:
-        """Wrap all registered FastMCP tools with McpMetricsCollector (Option B).
+        """Wrap registered FastMCP tools with metrics and optional tracing.
 
         Call AFTER all tools are registered::
 
             IngredientMCP(service, logger, mcp)
             arclith.instrument_mcp(mcp)
         """
-        if not self.config.probe.enabled:
+        collector = self._mcp_collector if self.config.probe.enabled else None
+        tracer = self._selected_mcp_tracer()
+        if collector is None and tracer is None:
             return
-        collector = self._mcp_collector
+        components = self._mcp_components(mcp)
+        if components is None:
+            return
+        count = sum(
+            self._instrument_mcp_component(component, collector, tracer)
+            for component in components.values()
+        )
+        self.logger.info("🔬 MCP tools instrumented", count=count)
+
+    def _selected_mcp_tracer(self) -> TracePort | None:
+        settings = self.config.adapters.langsmith
+        if not self.config.adapters.observability.is_enabled("langsmith"):
+            return None
+        if settings is None or not settings.instrumentation.fastmcp:
+            return None
+        return self.tracer()
+
+    def _mcp_components(self, mcp: "_fastmcp.FastMCP") -> dict[str, Any] | None:
         try:
-            # fastmcp 3.x: tools live in _local_provider._components as FunctionTool objects
-            components: dict[str, Any] = mcp._local_provider._components  # type: ignore[attr-defined]
+            # fastmcp 3.x: FunctionTool objects are kept on the local provider.
+            return mcp._local_provider._components  # type: ignore[attr-defined,no-any-return]
         except AttributeError:
             self.logger.warning(
                 "⚠️ instrument_mcp: cannot access FastMCP components (API changed?)"
             )
-            return
-        count = 0
-        for component in components.values():
-            fn = getattr(component, "fn", None)
-            if fn is None or not callable(fn):
-                continue
-            component.fn = collector.wrap(component.name, fn)
-            count += 1
-        self.logger.info("🔬 MCP tools instrumented", count=count)
+            return None
+
+    def _instrument_mcp_component(
+        self,
+        component: Any,
+        collector: Any | None,
+        tracer: TracePort | None,
+    ) -> int:
+        fn = getattr(component, "fn", None)
+        if fn is None or not callable(fn):
+            return 0
+        if getattr(fn, "__arclith_instrumented__", False):
+            return 0
+        wrapped = collector.wrap(component.name, fn) if collector is not None else fn
+        if tracer is not None and not getattr(wrapped, "__arclith_traced__", False):
+            wrapped = self._wrap_mcp_trace(component.name, wrapped, tracer)
+        setattr(wrapped, "__arclith_instrumented__", True)
+        component.fn = wrapped
+        return 1
+
+    @staticmethod
+    def _wrap_mcp_trace(name: str, fn: Callable, tracer: TracePort) -> Callable:
+        metadata = {"mcp.method.name": name, "mcp.operation.name": "tools/call"}
+        if inspect.iscoroutinefunction(fn):
+
+            @wraps(fn)
+            async def _async_wrapped(*args: Any, **kwargs: Any) -> Any:
+                with tracer.span(name, kind="tool", metadata=metadata) as span:
+                    result = await fn(*args, **kwargs)
+                    span.set_outputs(
+                        {"status": "success", "result_type": type(result).__name__}
+                    )
+                    return result
+
+            setattr(_async_wrapped, "__arclith_traced__", True)
+            return _async_wrapped
+
+        @wraps(fn)
+        def _wrapped(*args: Any, **kwargs: Any) -> Any:
+            with tracer.span(name, kind="tool", metadata=metadata) as span:
+                result = fn(*args, **kwargs)
+                span.set_outputs(
+                    {"status": "success", "result_type": type(result).__name__}
+                )
+                return result
+
+        setattr(_wrapped, "__arclith_traced__", True)
+        return _wrapped
 
     def run_with_probes(
         self,
@@ -503,6 +604,45 @@ class Arclith:
 
         return fastmcp.FastMCP(name, **kwargs)
 
+    def tracer(self) -> TracePort:
+        """Return the configured provider-neutral tracer (a no-op by default)."""
+        return self._trace_adapter
+
+    def langsmith_client(self) -> Any:
+        """Return the configured native LangSmith client for advanced operations."""
+        if not self.config.adapters.observability.is_enabled("langsmith"):
+            raise RuntimeError(
+                "LangSmith n'est pas active dans adapters.observability.enabled"
+            )
+        client = getattr(self._trace_adapter, "client", None)
+        if not callable(client):
+            raise RuntimeError("Le runtime LangSmith ne fournit pas de client")
+        return client()
+
+    def pydantic_ai_llm(self) -> Any:
+        """Build the configured Pydantic AI adapter with optional tracing."""
+        settings = self.config.adapters.lm
+        if settings is None:
+            raise RuntimeError(
+                "config.adapters.lm est requis pour utiliser pydantic_ai_llm()"
+            )
+        from arclith.adapters.outbound.pydantic_ai.llm import PydanticAILLMAdapter
+
+        instrumentation = None
+        capability = getattr(self._trace_adapter, "pydantic_ai_capability", None)
+        if callable(capability):
+            instrumentation = capability()
+        return PydanticAILLMAdapter(settings, instrumentation=instrumentation)
+
+    def flush_observability(self, timeout: float | None = None) -> None:
+        self._trace_adapter.flush(timeout)
+
+    def close_observability(self, timeout: float | None = None) -> None:
+        self._trace_adapter.close(timeout)
+
+    def observability_diagnostics(self) -> Mapping[str, Any]:
+        return self._trace_adapter.diagnostics()
+
     def langgraph(
         self,
         state_schema: type[Any],
@@ -523,6 +663,13 @@ class Arclith:
         persistence: bool | None = None,
         persistence_registry: LangGraphPersistenceRegistry | None = None,
     ) -> Any:
+        langsmith = self.config.adapters.langsmith
+        if (
+            self.config.adapters.observability.is_enabled("langsmith")
+            and langsmith is not None
+            and langsmith.instrumentation.langgraph
+        ):
+            self._start_observability()
         from langgraph.graph import StateGraph
 
         builder = StateGraph(
@@ -650,16 +797,61 @@ class Arclith:
         )
 
     def run_mcp_sse(self, mcp: "_fastmcp.FastMCP") -> None:
-        mcp.run(transport="sse", host=self.config.mcp.host, port=self.config.mcp.port)
+        self._start_observability()
+        try:
+            mcp.run(
+                transport="sse", host=self.config.mcp.host, port=self.config.mcp.port
+            )
+        finally:
+            self.close_observability()
 
     def run_mcp_http(self, mcp: "_fastmcp.FastMCP") -> None:
-        mcp.run(
-            transport="streamable-http",
-            host=self.config.mcp.host,
-            port=self.config.mcp.port,
-        )
+        self._start_observability()
+        try:
+            mcp.run(
+                transport="streamable-http",
+                host=self.config.mcp.host,
+                port=self.config.mcp.port,
+            )
+        finally:
+            self.close_observability()
 
     # ── private cached helpers ────────────────────────────────────────────────
+
+    @cached_property
+    def _trace_adapter(self) -> TracePort:
+        from arclith.infrastructure.observability_factory import build_trace_adapter
+
+        return build_trace_adapter(
+            self.config,
+            self.logger,
+            anonymizer=self._trace_anonymizer,
+        )
+
+    def _start_observability(self) -> None:
+        if self.config.adapters.observability.is_enabled("opentelemetry"):
+            settings = self.config.adapters.opentelemetry
+            if settings is not None:
+                from arclith.adapters.outbound.opentelemetry.fastapi import (
+                    configure_opentelemetry,
+                )
+
+                configure_opentelemetry(
+                    settings,
+                    service_name=self.config.app.name,
+                    service_version=self.config.app.version,
+                )
+        start = getattr(self._trace_adapter, "start", None)
+        if callable(start):
+            start()
+        if self.config.adapters.observability.is_enabled("opentelemetry"):
+            attach = getattr(
+                self._trace_adapter,
+                "attach_to_current_opentelemetry",
+                None,
+            )
+            if callable(attach):
+                attach()
 
     @cached_property
     def _cache(self) -> Any:

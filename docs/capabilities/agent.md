@@ -173,17 +173,18 @@ Le LLM sert à interpréter ou choisir une action. Il ne persiste pas directemen
 
 ```bash
 arclith-cli add-adapter --capability llm --adapter lmstudio --yes
-arclith-cli add-adapter --capability observability --adapter langsmith --yes
+arclith-cli add-adapter --capability observability --adapter langsmith --profile development --yes
 ```
 
 LM Studio est pratique pour le local. LangSmith est optionnel mais utile pour
 inspecter les runs, messages et erreurs.
 
-Pour un développement hors ligne:
+Construire l'adapter Pydantic AI avec `arclith.pydantic_ai_llm()` pour recevoir automatiquement la
+capability de tracing locale à cet agent, sans instrumentation globale du processus.
+
+Pour un développement hors ligne, conserver `observability.enabled: []`, puis:
 
 ```bash
-unset LANGSMITH_API_KEY LANGCHAIN_API_KEY
-export LANGSMITH_TRACING=false
 export LANGGRAPH_CLI_NO_ANALYTICS=1
 ```
 

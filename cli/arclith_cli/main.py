@@ -204,6 +204,13 @@ def add_adapter(
             help="Paramètre adapter key=value, répétable pour les adapters du catalogue",
         ),
     ] = None,
+    profile: Annotated[
+        str | None,
+        typer.Option(
+            "--profile",
+            help="Profil explicite de l'adapter, par exemple development ou production",
+        ),
+    ] = None,
     yes: Annotated[
         bool,
         typer.Option(
@@ -224,6 +231,7 @@ def add_adapter(
         multitenant=multitenant,
         duckdb_path=path,
         adapter_params=_parse_param_options(param),
+        profile=profile,
         yes=yes,
     )
 

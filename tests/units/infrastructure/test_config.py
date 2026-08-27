@@ -570,6 +570,22 @@ def test_load_config_dir_parallel_observability_scoped():
     assert config.adapters.opentelemetry is not None
 
 
+def test_parallel_observability_rejects_duplicate_native_trace_trees():
+    with pytest.raises(ValidationError, match="tracing.mode=otel"):
+        AppConfig.model_validate(
+            {
+                "adapters": {
+                    "observability": {"enabled": ["langsmith", "opentelemetry"]},
+                    "langsmith": {
+                        "project": "agent-tests",
+                        "tracing": {"mode": "langsmith"},
+                    },
+                    "opentelemetry": {},
+                }
+            }
+        )
+
+
 def test_load_config_dir_langgraph_scoped():
     path = _make_config_dir(
         {
@@ -651,11 +667,34 @@ def test_langgraph_settings_rejects_unknown_stream_mode():
 def test_langsmith_settings_defaults():
     settings = LangSmithSettings(project="agent-tests")
 
-    assert settings.tracing is True
+    assert settings.tracing.enabled is True
+    assert settings.tracing.mode == "otel"
+    assert settings.tracing.sampling_rate == 1.0
     assert settings.endpoint == "https://api.smith.langchain.com"
     assert settings.api_key_env == "LANGSMITH_API_KEY"
+    assert settings.workspace_id_env == "LANGSMITH_WORKSPACE_ID"
+    assert settings.capture.inputs is False
+    assert settings.capture.outputs is False
+    assert settings.capture.model_content is False
     assert settings.studio == "langgraph"
     assert settings.langgraph_api_min_version == "0.11.0"
+
+
+def test_langsmith_settings_migrates_legacy_tracing_boolean():
+    settings = LangSmithSettings(project="agent-tests", tracing=False)
+
+    assert settings.tracing.enabled is False
+
+
+@pytest.mark.parametrize("sampling_rate", [-0.01, 1.01])
+def test_langsmith_settings_rejects_invalid_sampling_rate(sampling_rate: float):
+    with pytest.raises(ValidationError, match="sampling_rate"):
+        LangSmithSettings.model_validate(
+            {
+                "project": "agent-tests",
+                "tracing": {"sampling_rate": sampling_rate},
+            }
+        )
 
 
 def test_opentelemetry_settings_defaults():

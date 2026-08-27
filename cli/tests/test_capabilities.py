@@ -168,19 +168,30 @@ def test_observability_capability_catalog_declares_langsmith() -> None:
     langsmith = capability.get_adapter("langsmith")
     assert langsmith is not None
     assert langsmith.config_path == "config/adapters/outbound/langsmith.yaml"
-    assert langsmith.env_path == ".env"
+    assert langsmith.env_path == ".env.example"
+    assert langsmith.dependency_extra == "langsmith"
     assert langsmith.entity_scoped is False
     assert [parameter.name for parameter in langsmith.parameters] == [
-        "tracing",
+        "tracing_enabled",
         "project",
         "endpoint",
-        "api_key",
+        "tracing_mode",
+        "sampling_rate",
+        "capture_inputs",
+        "capture_outputs",
+        "capture_metadata",
+        "capture_model_content",
+        "instrument_langgraph",
+        "instrument_pydantic_ai",
+        "instrument_fastapi",
+        "instrument_fastmcp",
+        "instrument_command_bus",
+        "diagnostics_enabled",
     ]
-    langsmith_parameters = {
-        parameter.name: parameter for parameter in langsmith.parameters
-    }
-    assert langsmith_parameters["api_key"].secret is True
-    assert langsmith_parameters["api_key"].default == ""
+    assert [profile.name for profile in langsmith.profiles] == [
+        "development",
+        "production",
+    ]
 
 
 def test_api_capability_catalog_declares_fastapi() -> None:
@@ -946,8 +957,8 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "opentelemetry",
     ]
     langsmith = observability["adapters"][0]
-    langsmith_parameters = {
-        parameter["name"]: parameter for parameter in langsmith["parameters"]
-    }
-    assert langsmith_parameters["api_key"]["secret"] is True
-    assert langsmith_parameters["api_key"]["default"] == ""
+    assert langsmith["dependency_extra"] == "langsmith"
+    assert [profile["name"] for profile in langsmith["profiles"]] == [
+        "development",
+        "production",
+    ]

@@ -62,7 +62,6 @@ docker build -t my-service:local .
 ```bash
 docker run --rm \
   --env-file .env.local \
-  -e LANGSMITH_TRACING=false \
   -e LANGGRAPH_CLI_NO_ANALYTICS=1 \
   -e LANGGRAPH_HOST=0.0.0.0 \
   -e LANGGRAPH_PORT=2024 \
@@ -136,6 +135,10 @@ POSTGRESQL_URL
 REDIS_URL
 VAULT_TOKEN
 ```
+
+Les réglages LangSmith non secrets sont générés dans `.env.example`. La clé reste injectée au
+runtime. Pour un conteneur hors ligne, conserver `observability.enabled: []` plutôt que d'activer un
+adapter LangSmith incomplet.
 
 Utiliser un fichier local non commité:
 

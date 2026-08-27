@@ -309,6 +309,38 @@ dépendances.
 
 ---
 
+## ADR-014 — Observabilité LangSmith derrière un port neutre
+
+**Date :** 2026-08-26
+
+**Contexte :** Le scaffold LangSmith d'ADR-011 générait la configuration et `.env`, mais Arclith ne
+consommait pas le YAML au runtime. Chaque projet devait réimplémenter le client, le sampling, la
+confidentialité, la propagation et le flush. Importer LangSmith dans les use cases aurait en outre
+couplé le coeur à un backend SaaS optionnel.
+
+**Décision :** le coeur expose seulement `TracePort` et `TraceSpan`. Le composition root sélectionne
+un `NoOpTraceAdapter` ou le runtime outbound LangSmith. Le runtime configure le SDK par API, sans
+muter l'environnement, et fournit contexte conditionnel, propagation filtrée, cycle de vie et accès
+explicite au client natif. Pydantic AI reçoit une capability d'instrumentation par agent; aucune
+instrumentation globale n'est appliquée.
+
+Lorsque LangSmith et OpenTelemetry sont actifs ensemble, `tracing.mode=otel` est obligatoire. Le
+provider OpenTelemetry existant reçoit un processor LangSmith; les instrumentations FastAPI et
+Pydantic AI ne sont pas créées deux fois.
+
+**Conséquences :**
+
+- `pip install arclith` n'installe pas LangSmith et le tracer reste no-op;
+- `arclith[langsmith]` porte le SDK LangSmith et son support OpenTelemetry;
+- absence de clé ou d'extra avec adapter activé provoque une erreur de démarrage actionnable;
+- les pannes d'export restent fail-open;
+- le contenu GenAI et les payloads de transport sont absents par défaut;
+- `.env.example` contient uniquement des réglages non secrets et `.env` reste ignoré;
+- les fonctions avancées restent disponibles via `Arclith.langsmith_client()` sans être recopiées
+  dans Arclith.
+
+---
+
 **Contexte :** Exposer les services via le Model Context Protocol.
 
 **Décision :** `fastmcp>=3.1.0` avec trois transports : stdio, SSE, streamable-HTTP.

@@ -17,8 +17,11 @@ T = TypeVar("T")
 
 
 class PydanticAILLMAdapter(LLMPort):
-    def __init__(self, settings: LMSettings) -> None:
+    def __init__(
+        self, settings: LMSettings, *, instrumentation: Any | None = None
+    ) -> None:
         self._settings = settings
+        self._instrumentation = instrumentation
 
     async def complete_structured(
         self,
@@ -83,8 +86,10 @@ class PydanticAILLMAdapter(LLMPort):
     ) -> Any:
         from pydantic_ai import Agent
 
-        return Agent(
-            build_pydantic_ai_model(self._settings),
-            output_type=output_type,
-            instructions=instructions,
-        )
+        kwargs: dict[str, Any] = {
+            "output_type": output_type,
+            "instructions": instructions,
+        }
+        if self._instrumentation is not None:
+            kwargs["capabilities"] = [self._instrumentation]
+        return Agent(build_pydantic_ai_model(self._settings), **kwargs)

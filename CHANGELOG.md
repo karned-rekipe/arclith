@@ -7,6 +7,28 @@
 - **Persistance agent LangGraph** — capability optionnelle `agent-persistence`, configuration
   checkpointer/store, registry custom, wiring embedded/Agent Server et extras SQLite, PostgreSQL,
   MongoDB et Redis granulaires.
+- **Runtime LangSmith optionnel** — port `TracePort` provider-neutral, tracer no-op, configuration
+  programmatique du client, contexte conditionnel, sampling, confidentialité, propagation
+  FastAPI/FastMCP/RabbitMQ, cycle de vie flush/close et escape hatch `langsmith_client()`.
+- **Instrumentation agents** — `Arclith.langgraph()` initialise le contexte LangSmith et
+  `Arclith.pydantic_ai_llm()` injecte l'instrumentation OpenTelemetry dans les seuls agents Pydantic
+  AI construits par Arclith.
+- **Profils CLI LangSmith** — profils `development` et `production`, génération de `.env.example`
+  sans secret et ajout idempotent de l'extra `arclith[langsmith]`.
+
+### Changed
+
+- **Extra LangSmith dédié** — `langsmith[otel]>=0.10,<1` quitte la déclaration directe de l'extra
+  `langgraph`. Les projets utilisant explicitement LangSmith doivent ajouter
+  `arclith[langsmith]`; `arclith[all]` continue de l'inclure.
+- **Coexistence OpenTelemetry** — lorsque les deux adapters sont actifs, LangSmith utilise
+  obligatoirement le mode `otel` et ajoute un processor au provider partagé afin d'éviter les spans
+  dupliqués.
+
+### Security
+
+- **Capture sûre par défaut** — inputs, outputs, prompts, réponses, binaires et paramètres modèle
+  sont masqués; le baggage est vide sans allowlist et la CLI refuse toute clé LangSmith en argument.
 
 ---
 

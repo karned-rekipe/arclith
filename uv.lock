@@ -137,7 +137,7 @@ all = [
     { name = "langgraph-checkpoint-sqlite" },
     { name = "langgraph-cli", extra = ["inmem"] },
     { name = "langgraph-store-mongodb" },
-    { name = "langsmith" },
+    { name = "langsmith", extra = ["otel"] },
     { name = "motor" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp" },
@@ -178,7 +178,6 @@ langgraph = [
     { name = "langgraph" },
     { name = "langgraph-api" },
     { name = "langgraph-cli", extra = ["inmem"] },
-    { name = "langsmith" },
     { name = "pydantic-ai-slim", extra = ["anthropic", "openai"] },
 ]
 langgraph-persistence-mongodb = [
@@ -194,6 +193,9 @@ langgraph-persistence-redis = [
 ]
 langgraph-persistence-sqlite = [
     { name = "langgraph-checkpoint-sqlite" },
+]
+langsmith = [
+    { name = "langsmith", extra = ["otel"] },
 ]
 mariadb = [
     { name = "asyncmy" },
@@ -288,8 +290,8 @@ requires-dist = [
     { name = "langgraph-cli", extras = ["inmem"], marker = "extra == 'langgraph'", specifier = ">=0.4.31" },
     { name = "langgraph-store-mongodb", marker = "extra == 'all'", specifier = ">=0.2.0,<1.0.0" },
     { name = "langgraph-store-mongodb", marker = "extra == 'langgraph-persistence-mongodb'", specifier = ">=0.2.0,<1.0.0" },
-    { name = "langsmith", marker = "extra == 'all'", specifier = ">=0.4.0" },
-    { name = "langsmith", marker = "extra == 'langgraph'", specifier = ">=0.4.0" },
+    { name = "langsmith", extras = ["otel"], marker = "extra == 'all'", specifier = ">=0.10,<1" },
+    { name = "langsmith", extras = ["otel"], marker = "extra == 'langsmith'", specifier = ">=0.10,<1" },
     { name = "loguru", specifier = "==0.7.3" },
     { name = "motor", marker = "extra == 'all'", specifier = "==3.7.1" },
     { name = "motor", marker = "extra == 'mongodb'", specifier = "==3.7.1" },
@@ -322,7 +324,7 @@ requires-dist = [
     { name = "uvicorn", marker = "extra == 'all'", specifier = "==0.41.0" },
     { name = "uvicorn", marker = "extra == 'fastapi'", specifier = "==0.41.0" },
 ]
-provides-extras = ["mongodb", "duckdb", "mariadb", "postgresql", "fastapi", "mcp", "vault", "cache", "auth", "rabbitmq", "langgraph", "langgraph-persistence-sqlite", "langgraph-persistence-postgresql", "langgraph-persistence-mongodb", "langgraph-persistence-redis", "opentelemetry", "all", "azure-blob", "s3", "gcs"]
+provides-extras = ["mongodb", "duckdb", "mariadb", "postgresql", "fastapi", "mcp", "vault", "cache", "auth", "rabbitmq", "langgraph", "langgraph-persistence-sqlite", "langgraph-persistence-postgresql", "langgraph-persistence-mongodb", "langgraph-persistence-redis", "langsmith", "opentelemetry", "all", "azure-blob", "s3", "gcs"]
 
 [package.metadata.requires-dev]
 dev = [

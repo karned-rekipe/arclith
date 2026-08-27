@@ -275,10 +275,19 @@ pour valider un run local:
 uv add "arclith[langgraph]"
 arclith-cli add-adapter --capability llm --adapter lmstudio --param "model_name=<model-id-lm-studio>" --yes
 arclith-cli add-adapter --capability agent --adapter langgraph
-arclith-cli add-adapter --capability observability --adapter langsmith
-export LANGSMITH_TRACING=false
 export LANGGRAPH_CLI_NO_ANALYTICS=1
 uv run langgraph dev --no-browser --allow-blocking --port 2024
+```
+
+Ajouter LangSmith séparément uniquement lorsque les traces distantes sont souhaitées:
+
+```bash
+arclith-cli add-adapter \
+  --capability observability \
+  --adapter langsmith \
+  --profile development \
+  --yes
+export LANGSMITH_API_KEY="<secret>"
 ```
 
 Tester sans Studio:
@@ -301,11 +310,12 @@ Le flux attendu est: utilisateur ou canal conversationnel -> LangGraph Agent Ser
 ports et use cases applicatifs. Les nodes peuvent utiliser un `LLMPort` configuré par `llm/*` et les
 traces via `observability/*`, sans appeler les repositories directement.
 
-L'adapter `observability/langsmith` demande le projet LangSmith, l'endpoint, l'activation du tracing et
-`LANGSMITH_API_KEY`. Elle génère `config/adapters/outbound/langsmith.yaml`, ajoute `langsmith` à
-`observability.enabled`, met à jour `.env`, et ajoute `.env` au `.gitignore` si besoin.
-Si la clé n'est pas passée à la CLI, définir `LANGSMITH_API_KEY` manuellement dans `.env`,
-l'environnement runtime ou un secret manager avant de lancer `langgraph dev`.
+L'adapter `observability/langsmith` génère `config/adapters/outbound/langsmith.yaml`, ajoute
+`langsmith` à `observability.enabled`, ajoute l'extra optionnel correspondant et écrit uniquement
+les valeurs non secrètes dans `.env.example`. La CLI ne demande et n'écrit jamais la clé API.
+Définir `LANGSMITH_API_KEY` dans l'environnement runtime ou un secret manager avant de lancer un
+service avec cet adapter activé. Sans LangSmith, ne pas l'ajouter à `observability.enabled`: aucun
+client, buffer ou appel réseau n'est alors créé.
 
 L'adapter `llm/lmstudio` génère `config/adapters/outbound/lm.yaml`, chargé dans
 `AppConfig.adapters.lm`. L'interpréteur d'intention applicatif consomme ensuite un `LLMPort`;

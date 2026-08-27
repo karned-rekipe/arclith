@@ -104,18 +104,22 @@ arclith-cli add-adapter \
   --yes
 ```
 
-Générer la configuration LangSmith:
+Générer la configuration LangSmith avec un profil explicite:
 
 ```bash
-export LANGSMITH_API_KEY="<clé-langsmith>"
-
 arclith-cli add-adapter \
   --capability observability \
   --adapter langsmith \
+  --profile development \
   --param project=pantry-agent-dev \
   --param endpoint=https://api.smith.langchain.com \
-  --param api_key="$LANGSMITH_API_KEY" \
   --yes
+```
+
+La clé n'est jamais acceptée en argument CLI. La définir uniquement dans le runtime:
+
+```bash
+export LANGSMITH_API_KEY="<clé-langsmith>"
 ```
 
 La commande ajoute `langsmith` dans `config/adapters/adapters.yaml` sous
@@ -130,11 +134,12 @@ config/adapters/outbound/lm.yaml
 config/adapters/outbound/langsmith.yaml
 src/pantry_agent/application/intent_interpreters/ingredient_intent.py
 src/pantry_agent/adapters/inbound/langgraph/agent.py
+.env.example
 .env
 ```
 
-`langgraph.json` pointe vers `.env`; le serveur LangGraph local charge donc les variables
-`LANGSMITH_TRACING`, `LANGSMITH_PROJECT`, `LANGSMITH_ENDPOINT` et `LANGSMITH_API_KEY`.
+La CLI écrit les valeurs non secrètes dans `.env.example`. Copier celles nécessaires dans le
+runtime ou `.env`; `langgraph.json` charge `.env`, qui reste ignoré par Git.
 
 ## 4. Configurer LM Studio et l'interpréteur d'intention
 
@@ -216,7 +221,6 @@ from functools import lru_cache
 from typing import Any, TypedDict
 
 from arclith import Arclith
-from arclith.adapters.outbound.pydantic_ai.llm import PydanticAILLMAdapter
 from langgraph.graph import END, START
 
 from pantry_agent.application.intent_interpreters.ingredient_intent import IngredientIntentInterpreter
@@ -241,10 +245,7 @@ def _ingredient_service() -> IngredientService:
 
 @lru_cache(maxsize=1)
 def _intent_interpreter() -> IngredientIntentInterpreter:
-    lm_settings = arclith.config.adapters.lm
-    if lm_settings is None:
-        raise RuntimeError("config/adapters/outbound/lm.yaml est requis pour l'interpréteur d'intention.")
-    return IngredientIntentInterpreter(PydanticAILLMAdapter(lm_settings))
+    return IngredientIntentInterpreter(arclith.pydantic_ai_llm())
 
 
 def _last_user_message(state: AgentState) -> str:
@@ -297,10 +298,12 @@ prompts par les noms générés par `arclith-cli new`.
 Dans un terminal dedie:
 
 ```bash
-export LANGSMITH_TRACING=false
 export LANGGRAPH_CLI_NO_ANALYTICS=1
 uv run --frozen langgraph dev --no-browser --allow-blocking --port 2024
 ```
+
+Pour ce lancement hors ligne, retirer `langsmith` de `observability.enabled`; le tracer Arclith
+devient automatiquement no-op et aucune clé n'est requise.
 
 Hors ligne, tester directement l'API locale:
 
