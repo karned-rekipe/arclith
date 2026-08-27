@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import builtins
 import json
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping, MutableMapping, Sequence
+from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import Any
 
@@ -11,6 +12,7 @@ import pytest
 from arclith.adapters.bidirectional.rabbitmq import RabbitMQCommandBus
 from arclith.application.command_bus import CommandDispatcher
 from arclith.domain.ports.inbound.command_bus import CommandHandler
+from arclith.domain.ports.outbound.observability import TracePort, TraceSpan
 from arclith.infrastructure.config import RabbitMQCommandBusSettings
 
 
@@ -34,7 +36,9 @@ class FakeExchange:
 
 
 class FakeQueue:
-    def __init__(self, name: str, durable: bool, arguments: dict[str, str] | None) -> None:
+    def __init__(
+        self, name: str, durable: bool, arguments: dict[str, str] | None
+    ) -> None:
         self.name = name
         self.durable = durable
         self.arguments = arguments
@@ -82,7 +86,9 @@ class FakeChannel:
     async def set_qos(self, *, prefetch_count: int) -> None:
         self.prefetch_count = prefetch_count
 
-    async def declare_exchange(self, name: str, exchange_type: str, *, durable: bool) -> FakeExchange:
+    async def declare_exchange(
+        self, name: str, exchange_type: str, *, durable: bool
+    ) -> FakeExchange:
         exchange = FakeExchange(name, exchange_type, durable)
         self.exchanges[name] = exchange
         return exchange
@@ -140,14 +146,18 @@ class RecordingHandler(CommandHandler):
     def __init__(self) -> None:
         self.calls: list[tuple[Mapping[str, Any], Mapping[str, str]]] = []
 
-    async def handle(self, payload: Mapping[str, Any], headers: Mapping[str, str]) -> None:
+    async def handle(
+        self, payload: Mapping[str, Any], headers: Mapping[str, str]
+    ) -> None:
         self.calls.append((payload, headers))
 
 
 class FailingHandler(CommandHandler):
     command_type = "todo.create"
 
-    async def handle(self, payload: Mapping[str, Any], headers: Mapping[str, str]) -> None:
+    async def handle(
+        self, payload: Mapping[str, Any], headers: Mapping[str, str]
+    ) -> None:
         raise RuntimeError("boom")
 
 
@@ -156,6 +166,58 @@ FakeAioPika = SimpleNamespace(
     ExchangeType=SimpleNamespace(DIRECT="direct", TOPIC="topic"),
     Message=FakePublishedMessage,
 )
+
+
+class RecordingTraceSpan(TraceSpan):
+    def set_outputs(self, outputs: object | None) -> None:
+        return None
+
+    def set_metadata(self, metadata: Mapping[str, object]) -> None:
+        return None
+
+
+class RecordingTracer(TracePort):
+    def __init__(self) -> None:
+        self.span_names: list[str] = []
+        self.parents: list[Mapping[str, str] | None] = []
+        self.events: list[str] = []
+
+    @contextmanager
+    def span(
+        self,
+        name: str,
+        *,
+        kind: str = "chain",
+        inputs: object | None = None,
+        tags: Sequence[str] = (),
+        metadata: Mapping[str, object] | None = None,
+    ) -> Iterator[TraceSpan]:
+        self.span_names.append(name)
+        self.events.append(f"span:{name}")
+        yield RecordingTraceSpan()
+
+    @contextmanager
+    def context(
+        self,
+        *,
+        enabled: bool | None = None,
+        project: str | None = None,
+        tags: Sequence[str] = (),
+        metadata: Mapping[str, object] | None = None,
+        parent: Mapping[str, str] | None = None,
+    ) -> Iterator[None]:
+        self.parents.append(parent)
+        yield
+
+    def inject(self, headers: MutableMapping[str, str]) -> None:
+        self.events.append("inject")
+        headers["langsmith-trace"] = "trace-value"
+
+    def flush(self, timeout: float | None = None) -> None:
+        return None
+
+    def close(self, timeout: float | None = None) -> None:
+        return None
 
 
 async def test_rabbitmq_command_bus_publish_configures_reliable_channel(logger) -> None:
@@ -268,6 +330,63 @@ async def test_rabbitmq_command_bus_publish_adds_current_traceparent(
     assert message.headers["traceparent"] == f"00-{'a' * 32}-{'b' * 16}-01"
 
 
+async def test_rabbitmq_command_bus_propagates_langsmith_context(logger) -> None:
+    connection = FakeConnection()
+
+    async def connector(url: str) -> FakeConnection:
+        return connection
+
+    tracer = RecordingTracer()
+    bus = RabbitMQCommandBus(
+        RabbitMQCommandBusSettings(url="amqp://broker/"),
+        logger,
+        tracer=tracer,
+        connector=connector,
+        aio_pika_module=FakeAioPika,
+    )
+
+    await bus.publish("todo.create", {"title": "write docs"})
+
+    channel = connection.channel_instance
+    assert channel is not None
+    message, _routing_key = channel.exchanges["arclith.commands"].published[0]
+    assert message.headers["langsmith-trace"] == "trace-value"
+    assert tracer.span_names == ["rabbitmq.publish"]
+    assert tracer.events == ["span:rabbitmq.publish", "inject"]
+
+
+async def test_rabbitmq_command_bus_extracts_context_for_handler(logger) -> None:
+    tracer = RecordingTracer()
+    handler = RecordingHandler()
+    dispatcher = CommandDispatcher([handler])
+    message = FakeIncomingMessage(
+        b'{"payload": {"title": "write docs"}}',
+        headers={
+            "command_type": "todo.create",
+            "langsmith-trace": "trace-value",
+            "baggage": "safe=yes",
+        },
+    )
+    bus = RabbitMQCommandBus(
+        RabbitMQCommandBusSettings(),
+        logger,
+        tracer=tracer,
+        aio_pika_module=FakeAioPika,
+    )
+
+    await bus.handle_message(message, dispatcher)
+
+    assert tracer.parents == [
+        {
+            "command_type": "todo.create",
+            "langsmith-trace": "trace-value",
+            "baggage": "safe=yes",
+        }
+    ]
+    assert tracer.span_names == ["rabbitmq.process"]
+    assert message.acked is True
+
+
 async def test_rabbitmq_command_bus_acks_after_dispatch_success(logger) -> None:
     handler = RecordingHandler()
     dispatcher = CommandDispatcher([handler])
@@ -276,13 +395,20 @@ async def test_rabbitmq_command_bus_acks_after_dispatch_success(logger) -> None:
         headers={"command_type": "todo.create"},
         correlation_id="corr-1",
     )
-    bus = RabbitMQCommandBus(RabbitMQCommandBusSettings(), logger, aio_pika_module=FakeAioPika)
+    bus = RabbitMQCommandBus(
+        RabbitMQCommandBusSettings(), logger, aio_pika_module=FakeAioPika
+    )
 
     await bus.handle_message(message, dispatcher)
 
     assert message.acked is True
     assert message.nacked is None
-    assert handler.calls == [({"title": "write docs"}, {"command_type": "todo.create", "correlation_id": "corr-1"})]
+    assert handler.calls == [
+        (
+            {"title": "write docs"},
+            {"command_type": "todo.create", "correlation_id": "corr-1"},
+        )
+    ]
 
 
 async def test_rabbitmq_command_bus_nacks_to_dlx_after_dispatch_error(logger) -> None:
@@ -292,7 +418,9 @@ async def test_rabbitmq_command_bus_nacks_to_dlx_after_dispatch_error(logger) ->
         headers={"command_type": "todo.create"},
         correlation_id="corr-1",
     )
-    bus = RabbitMQCommandBus(RabbitMQCommandBusSettings(), logger, aio_pika_module=FakeAioPika)
+    bus = RabbitMQCommandBus(
+        RabbitMQCommandBusSettings(), logger, aio_pika_module=FakeAioPika
+    )
 
     await bus.handle_message(message, dispatcher)
 
@@ -316,7 +444,9 @@ async def test_rabbitmq_command_bus_invalid_json_never_requeues(logger) -> None:
     assert message.nacked is False
 
 
-async def test_rabbitmq_command_bus_run_uses_named_consumer_and_dispatches(logger) -> None:
+async def test_rabbitmq_command_bus_run_uses_named_consumer_and_dispatches(
+    logger,
+) -> None:
     connection = FakeConnection()
 
     async def connector(url: str) -> FakeConnection:

@@ -48,7 +48,7 @@ metadata:
 type: Opaque
 stringData:
   MONGODB_URI: mongodb://mongo:27017/my-service
-  LANGSMITH_API_KEY: change-me
+  LANGSMITH_API_KEY: <injecté-par-le-secret-manager>
 ```
 
 En vrai déploiement, générer les `Secret` depuis le gestionnaire de secrets de la plateforme, pas

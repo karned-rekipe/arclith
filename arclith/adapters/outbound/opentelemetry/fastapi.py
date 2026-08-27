@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 
     from arclith.infrastructure.config import OpenTelemetrySettings
 
+
 @dataclass
 class _ConfigurationState:
     configured: bool = False
@@ -25,7 +26,11 @@ def instrument_fastapi_app(
     if not (settings.traces or settings.metrics):
         return
 
-    _configure_opentelemetry(settings, service_name=service_name, service_version=service_version)
+    configure_opentelemetry(
+        settings,
+        service_name=service_name,
+        service_version=service_version,
+    )
     if not (settings.instrument_fastapi and settings.traces):
         return
 
@@ -39,7 +44,7 @@ def instrument_fastapi_app(
     FastAPIInstrumentor.instrument_app(app)
 
 
-def _configure_opentelemetry(
+def configure_opentelemetry(
     settings: "OpenTelemetrySettings",
     *,
     service_name: str,
@@ -48,7 +53,9 @@ def _configure_opentelemetry(
     if _CONFIGURATION_STATE.configured or not (settings.traces or settings.metrics):
         return
 
-    resource = _build_resource(settings, service_name=service_name, service_version=service_version)
+    resource = _build_resource(
+        settings, service_name=service_name, service_version=service_version
+    )
 
     if settings.traces:
         _configure_traces(settings, resource)
@@ -72,10 +79,12 @@ def _build_resource(
             'observability.enabled contient opentelemetry; installez l\'extra "arclith[opentelemetry]".'
         ) from exc
 
-    return Resource.create({
-        SERVICE_NAME: settings.service_name or service_name,
-        SERVICE_VERSION: service_version,
-    })
+    return Resource.create(
+        {
+            SERVICE_NAME: settings.service_name or service_name,
+            SERVICE_VERSION: service_version,
+        }
+    )
 
 
 def _instrument_logging_correlation() -> None:
@@ -86,7 +95,9 @@ def _instrument_logging_correlation() -> None:
             'observability.enabled contient opentelemetry; installez l\'extra "arclith[opentelemetry]".'
         ) from exc
 
-    LoggingInstrumentor().instrument(set_logging_format=False, inject_trace_context=True)
+    LoggingInstrumentor().instrument(
+        set_logging_format=False, inject_trace_context=True
+    )
 
 
 def _configure_traces(settings: "OpenTelemetrySettings", resource: Any) -> None:
@@ -118,20 +129,31 @@ def _configure_metrics(settings: "OpenTelemetrySettings", resource: Any) -> None
         _build_metric_exporter(settings),
         export_interval_millis=settings.metrics_export_interval_millis,
     )
-    metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[reader]))
+    metrics.set_meter_provider(
+        MeterProvider(resource=resource, metric_readers=[reader])
+    )
 
 
 def _build_span_exporter(settings: "OpenTelemetrySettings") -> Any:
     headers = _headers_from_env(settings.headers_env)
     if settings.protocol == "grpc":
-        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter as GrpcSpanExporter
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+            OTLPSpanExporter as GrpcSpanExporter,
+        )
 
-        return GrpcSpanExporter(endpoint=_resolve_endpoint(settings.traces_endpoint, settings.endpoint), headers=headers)
+        return GrpcSpanExporter(
+            endpoint=_resolve_endpoint(settings.traces_endpoint, settings.endpoint),
+            headers=headers,
+        )
 
-    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter as HttpSpanExporter
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+        OTLPSpanExporter as HttpSpanExporter,
+    )
 
     return HttpSpanExporter(
-        endpoint=_resolve_endpoint(settings.traces_endpoint, settings.endpoint, suffix="v1/traces"),
+        endpoint=_resolve_endpoint(
+            settings.traces_endpoint, settings.endpoint, suffix="v1/traces"
+        ),
         headers=headers,
     )
 
@@ -139,19 +161,30 @@ def _build_span_exporter(settings: "OpenTelemetrySettings") -> Any:
 def _build_metric_exporter(settings: "OpenTelemetrySettings") -> Any:
     headers = _headers_from_env(settings.headers_env)
     if settings.protocol == "grpc":
-        from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter as GrpcMetricExporter
+        from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+            OTLPMetricExporter as GrpcMetricExporter,
+        )
 
-        return GrpcMetricExporter(endpoint=_resolve_endpoint(settings.metrics_endpoint, settings.endpoint), headers=headers)
+        return GrpcMetricExporter(
+            endpoint=_resolve_endpoint(settings.metrics_endpoint, settings.endpoint),
+            headers=headers,
+        )
 
-    from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter as HttpMetricExporter
+    from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+        OTLPMetricExporter as HttpMetricExporter,
+    )
 
     return HttpMetricExporter(
-        endpoint=_resolve_endpoint(settings.metrics_endpoint, settings.endpoint, suffix="v1/metrics"),
+        endpoint=_resolve_endpoint(
+            settings.metrics_endpoint, settings.endpoint, suffix="v1/metrics"
+        ),
         headers=headers,
     )
 
 
-def _resolve_endpoint(explicit: str | None, base: str, suffix: str | None = None) -> str:
+def _resolve_endpoint(
+    explicit: str | None, base: str, suffix: str | None = None
+) -> str:
     if explicit:
         return explicit
     if suffix is None:

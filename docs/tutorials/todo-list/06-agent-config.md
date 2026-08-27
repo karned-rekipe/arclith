@@ -48,16 +48,20 @@ base_url: "http://127.0.0.1:1234/v1"
 
 LangSmith est optionnel pour exécuter localement, mais utile pour inspecter les runs.
 
-Si vous travaillez hors ligne, désactiver explicitement le tracing et passer directement à la
+Si vous travaillez hors ligne, conserver `observability.enabled: []` et passer directement à la
 configuration LangGraph:
 
 ```dotenv
-LANGSMITH_TRACING=false
 LANGGRAPH_CLI_NO_ANALYTICS=1
 ```
 
+Sinon, ajouter LangSmith avec le profil de développement:
+
 ```bash
-arclith-cli add-adapter --capability observability
+arclith-cli add-adapter \
+  --capability observability \
+  --adapter langsmith \
+  --profile development
 ```
 
 Répondre:
@@ -68,10 +72,9 @@ Répondre:
    2  opentelemetry
 
   Votre choix (numéro ou nom): 1
-  Activer LANGSMITH_TRACING [y/n] (y): y
+  Activer le tracing LangSmith [y/n] (y): y
   Projet LangSmith (todo-list-service): todo-list-service-dev
   Endpoint LangSmith (https://api.smith.langchain.com):
-  LANGSMITH_API_KEY:
   Activer langsmith [y/n] (y): y
   Confirmer la génération ? [y/n] (y): y
 ```
@@ -79,15 +82,21 @@ Répondre:
 Vérifier `config/adapters/outbound/langsmith.yaml`:
 
 ```yaml
-tracing: true
 project: "todo-list-service"
 endpoint: "https://api.smith.langchain.com"
 api_key_env: LANGSMITH_API_KEY
+workspace_id_env: LANGSMITH_WORKSPACE_ID
+tracing:
+  enabled: true
+  mode: otel
+  sampling_rate: 1.0
 studio: langgraph
 langgraph_api_min_version: "0.11.0"
 ```
 
-La clé reste dans `.env`, jamais dans Git. LangSmith sert à observer l'agent:
+La CLI écrit uniquement les valeurs non secrètes dans `.env.example`. La clé est injectée dans le
+runtime via `LANGSMITH_API_KEY`, jamais via un argument CLI ou dans Git. LangSmith sert à observer
+l'agent:
 
 - LangGraph exécute le graphe localement;
 - LM Studio fournit le modèle local;

@@ -2,10 +2,10 @@ from fastapi import FastAPI
 
 from arclith.adapters.outbound.opentelemetry.fastapi import (
     _build_resource,
-    _configure_opentelemetry,
     _headers_from_env,
     _instrument_logging_correlation,
     _resolve_endpoint,
+    configure_opentelemetry,
     instrument_fastapi_app,
 )
 from arclith.infrastructure.config import OpenTelemetrySettings
@@ -20,7 +20,7 @@ def test_instrument_fastapi_app_returns_when_exports_disabled() -> None:
 def test_configure_opentelemetry_skips_when_exports_disabled() -> None:
     settings = OpenTelemetrySettings(traces=False, metrics=False)
 
-    _configure_opentelemetry(settings, service_name="demo", service_version="1.0.0")
+    configure_opentelemetry(settings, service_name="demo", service_version="1.0.0")
 
 
 def test_build_resource_adds_service_identity_and_environment(monkeypatch) -> None:

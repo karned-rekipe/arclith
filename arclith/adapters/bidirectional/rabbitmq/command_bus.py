@@ -15,6 +15,7 @@ from arclith.application.command_bus import (
 )
 from arclith.domain.ports.outbound.command_bus import CommandPublisher
 from arclith.domain.ports.outbound.logger import Logger
+from arclith.domain.ports.outbound.observability import TracePort
 from arclith.infrastructure.config import RabbitMQCommandBusSettings
 
 type AioPikaModule = Any
@@ -29,11 +30,17 @@ class RabbitMQCommandBus(CommandPublisher):
         settings: RabbitMQCommandBusSettings,
         logger: Logger,
         *,
+        tracer: TracePort | None = None,
         connector: Connector | None = None,
         aio_pika_module: AioPikaModule | None = None,
     ) -> None:
         self._settings = settings
         self._logger = logger
+        if tracer is None:
+            from arclith.adapters.outbound.noop.observability import NoOpTraceAdapter
+
+            tracer = NoOpTraceAdapter()
+        self._tracer = tracer
         self._connector = connector
         self._aio_pika = aio_pika_module
         self._connection: Any | None = None
@@ -92,25 +99,39 @@ class RabbitMQCommandBus(CommandPublisher):
             raise RuntimeError("RabbitMQ exchange non initialise")
 
         aio_pika = self._load_aio_pika()
-        message_headers = self._message_headers(
-            command_type,
-            headers=headers,
-            correlation_id=correlation_id,
-        )
-        message = aio_pika.Message(
-            body=encode_command_message(
-                CommandEnvelope(
-                    command_type=command_type,
-                    payload=dict(payload),
-                    headers=message_headers,
-                )
-            ),
-            content_type="application/json",
-            delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
-            headers=message_headers,
-            correlation_id=message_headers["correlation_id"],
-        )
-        await self._exchange.publish(message, routing_key=routing_key or self._settings.routing_key)
+        with self._tracer.span(
+            "rabbitmq.publish",
+            kind="tool",
+            metadata={
+                "messaging.system": "rabbitmq",
+                "messaging.destination.name": self._settings.exchange,
+                "messaging.operation.name": "publish",
+                "messaging.command.type": command_type,
+            },
+        ) as span:
+            message_headers = self._message_headers(
+                command_type,
+                headers=headers,
+                correlation_id=correlation_id,
+            )
+            message = aio_pika.Message(
+                body=encode_command_message(
+                    CommandEnvelope(
+                        command_type=command_type,
+                        payload=dict(payload),
+                        headers=message_headers,
+                    )
+                ),
+                content_type="application/json",
+                delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                headers=message_headers,
+                correlation_id=message_headers["correlation_id"],
+            )
+            await self._exchange.publish(
+                message,
+                routing_key=routing_key or self._settings.routing_key,
+            )
+            span.set_outputs({"status": "published"})
 
     async def handle_message(self, message: Any, dispatcher: CommandDispatcher) -> None:
         headers = self._headers_from_message(message)
@@ -135,25 +156,47 @@ class RabbitMQCommandBus(CommandPublisher):
             )
             return
 
-        try:
-            await dispatcher.dispatch(envelope)
-        except Exception as exc:
-            await message.nack(requeue=self._settings.retry_enabled and self._settings.retry_requeue)
-            self._logger.error(
-                "RabbitMQ command rejected",
-                command_type=fallback_command_type,
-                correlation_id=headers.get("correlation_id"),
-                retry_requeue=self._settings.retry_requeue,
-                error=str(exc),
-            )
-            return
+        with self._tracer.context(
+            parent=headers,
+            metadata={"correlation.id": headers.get("correlation_id", "")},
+        ):
+            with self._tracer.span(
+                "rabbitmq.process",
+                kind="chain",
+                metadata={
+                    "messaging.system": "rabbitmq",
+                    "messaging.destination.name": self._settings.queue,
+                    "messaging.operation.name": "process",
+                    "messaging.command.type": fallback_command_type,
+                },
+            ) as span:
+                try:
+                    await dispatcher.dispatch(envelope)
+                except Exception as exc:
+                    await message.nack(
+                        requeue=(
+                            self._settings.retry_enabled
+                            and self._settings.retry_requeue
+                        )
+                    )
+                    self._logger.error(
+                        "RabbitMQ command rejected",
+                        command_type=fallback_command_type,
+                        correlation_id=headers.get("correlation_id"),
+                        retry_requeue=self._settings.retry_requeue,
+                        error=str(exc),
+                    )
+                    span.set_metadata({"error.type": type(exc).__name__})
+                    span.set_outputs({"status": "rejected"})
+                    return
 
-        await message.ack()
-        self._logger.info(
-            "RabbitMQ command acknowledged",
-            command_type=fallback_command_type,
-            correlation_id=headers.get("correlation_id"),
-        )
+                await message.ack()
+                span.set_outputs({"status": "acknowledged"})
+                self._logger.info(
+                    "RabbitMQ command acknowledged",
+                    command_type=fallback_command_type,
+                    correlation_id=headers.get("correlation_id"),
+                )
 
     async def run(self, dispatcher: CommandDispatcher) -> None:
         await self.connect()
@@ -163,10 +206,14 @@ class RabbitMQCommandBus(CommandPublisher):
         semaphore = asyncio.Semaphore(self._settings.concurrency)
         tasks: set[asyncio.Task[None]] = set()
 
-        async with self._queue.iterator(consumer_tag=self._settings.consumer_name) as queue_iter:
+        async with self._queue.iterator(
+            consumer_tag=self._settings.consumer_name
+        ) as queue_iter:
             async for message in queue_iter:
                 await semaphore.acquire()
-                task = asyncio.create_task(self._handle_with_semaphore(message, dispatcher, semaphore))
+                task = asyncio.create_task(
+                    self._handle_with_semaphore(message, dispatcher, semaphore)
+                )
                 tasks.add(task)
                 task.add_done_callback(tasks.discard)
 
@@ -197,6 +244,7 @@ class RabbitMQCommandBus(CommandPublisher):
         traceparent = self._current_traceparent()
         if traceparent:
             normalized.setdefault("traceparent", traceparent)
+        self._tracer.inject(normalized)
         return normalized
 
     @staticmethod
