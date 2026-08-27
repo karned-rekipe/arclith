@@ -62,8 +62,8 @@ Une fois la PR de release mergée :
 ```bash
 git switch main
 git pull --ff-only
-git tag -s v0.18.0 -m "Release v0.18.0"
-git push origin v0.18.0
+git tag -s v0.19.0 -m "Release v0.19.0"
+git push origin v0.19.0
 ```
 
 Le tag déclenche `.github/workflows/publish.yml`. Le workflow exécute :
@@ -85,12 +85,12 @@ Puis valider depuis un environnement consommateur isolé :
 ```bash
 tmp_dir="$(mktemp -d)"
 cd "$tmp_dir"
-uvx --from arclith-cli==0.15.0 arclith-cli init pantry-agent --dir .
+uvx --from arclith-cli==0.16.0 arclith-cli init pantry-agent --dir .
 cd pantry-agent
 uv sync
 uv run python -c "import arclith; print(arclith.__version__ if hasattr(arclith, '__version__') else 'arclith import ok')"
-uvx --from arclith-cli==0.15.0 arclith-cli capabilities
-uvx --from arclith-cli==0.15.0 arclith-cli add-entity ShoppingItem
-uvx --from arclith-cli==0.15.0 arclith-cli add-usecase PlanShoppingList
-uvx --from arclith-cli==0.15.0 arclith-cli add-intent-interpreter ShoppingIntent
+uvx --from arclith-cli==0.16.0 arclith-cli capabilities
+uvx --from arclith-cli==0.16.0 arclith-cli add-entity ShoppingItem
+uvx --from arclith-cli==0.16.0 arclith-cli add-usecase PlanShoppingList
+uvx --from arclith-cli==0.16.0 arclith-cli add-intent-interpreter ShoppingIntent
 ```
