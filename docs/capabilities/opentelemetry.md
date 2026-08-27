@@ -168,6 +168,9 @@ limites d'attributs/spans.
 
 Les variables ne sont jamais recopiées dans `os.environ`. Une valeur vide est traitée comme
 absente. Les booléens standard acceptent uniquement `true` ou `false`, insensibles à la casse.
+Les variables `OTEL_EXPORTER_OTLP_TIMEOUT` et propres à chaque signal suivent le type `Timeout`
+stable OpenTelemetry : un entier en millisecondes (`10000` représente 10 secondes), comme
+`export.timeout_millis` dans le YAML.
 
 Les headers restent dans le secret store :
 

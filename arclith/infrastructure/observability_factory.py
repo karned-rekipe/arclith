@@ -46,7 +46,6 @@ def build_observability_runtime(
         logger,
         enabled=langsmith_enabled,
         opentelemetry_enabled=otel_enabled,
-        otel_runtime=otel_runtime,
         anonymizer=anonymizer,
     )
 
@@ -89,7 +88,6 @@ def _build_langsmith_runtime(
     *,
     enabled: bool,
     opentelemetry_enabled: bool,
-    otel_runtime: ObservabilityRuntimePort | None,
     anonymizer: TraceAnonymizer | None,
 ) -> Any | None:
     if not enabled:
@@ -110,7 +108,6 @@ def _build_langsmith_runtime(
         },
         opentelemetry_enabled=opentelemetry_enabled,
         anonymizer=anonymizer,
-        before_start=otel_runtime.start if otel_runtime is not None else None,
     )
 
 

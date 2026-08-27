@@ -124,9 +124,11 @@ class _UvicornLogInterceptHandler(logging.Handler):
             exc = record.exc_info[1]
             tb = "".join(traceback.format_exception(exc))
             message = f"{message}\n{tb}"
-        injected = (
-            self._correlation.from_log_record(record) if self._correlation else {}
-        )
+        injected: Mapping[str, str | bool] = {}
+        if self._correlation is not None:
+            injected = self._correlation.from_log_record(record)
+            if not injected:
+                injected = self._correlation.current()
         self._logger.log(
             _LEVEL_MAP.get(record.levelname, LogLevel.INFO),
             message,

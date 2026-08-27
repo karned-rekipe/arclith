@@ -47,6 +47,18 @@ class InjectedCorrelation:
         }
 
 
+class CurrentCorrelation:
+    def current(self) -> dict[str, str | bool]:
+        return {
+            "trace_id": "0" * 31 + "3",
+            "span_id": "0" * 15 + "4",
+            "trace_sampled": False,
+        }
+
+    def from_log_record(self, record: Any) -> dict[str, str | bool]:
+        return {}
+
+
 def _make_config_dir(tmp_path: Path, *, langsmith: bool = False) -> Path:
     config_dir = tmp_path / "config"
     (config_dir / "adapters" / "outbound").mkdir(parents=True)
@@ -144,6 +156,21 @@ def test_uvicorn_log_interceptor_uses_neutral_correlation_port() -> None:
             },
         }
     ]
+
+
+def test_uvicorn_log_interceptor_falls_back_to_current_context() -> None:
+    logger = CapturingLogger()
+    record = logging.LogRecord(
+        "uvicorn.access", logging.INFO, __file__, 1, "request finished", (), None
+    )
+
+    _UvicornLogInterceptHandler(logger, CurrentCorrelation()).emit(record)  # type: ignore[arg-type]
+
+    assert logger.records[0]["metadata"] == {
+        "trace_id": "0" * 31 + "3",
+        "span_id": "0" * 15 + "4",
+        "trace_sampled": False,
+    }
 
 
 def test_base_import_does_not_load_opentelemetry_when_disabled() -> None:

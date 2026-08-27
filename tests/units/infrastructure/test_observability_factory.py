@@ -8,7 +8,11 @@ from typing import Any
 import pytest
 
 from arclith.adapters.outbound.noop.observability import NoOpObservabilityRuntime
-from arclith.infrastructure.config import AppConfig, LangSmithSettings
+from arclith.infrastructure.config import (
+    AppConfig,
+    LangSmithSettings,
+    OpenTelemetrySettings,
+)
 from arclith.infrastructure.observability_factory import (
     CompositeObservabilityRuntime,
     LangSmithObservabilityRuntime,
@@ -208,3 +212,36 @@ def test_factory_builds_langsmith_only_runtime(
 
     assert isinstance(runtime, LangSmithObservabilityRuntime)
     assert runtime.tracer is raw
+
+
+def test_factory_composite_starts_opentelemetry_once(
+    logger, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    otel = RecordingOtelRuntime()
+    langsmith = RecordingLangSmithRuntime()
+    constructor_options: dict[str, Any] = {}
+    config = AppConfig()
+    config.adapters.observability.enabled = ["opentelemetry", "langsmith"]
+    config.adapters.opentelemetry = OpenTelemetrySettings()
+    config.adapters.langsmith = LangSmithSettings(project="tests")
+    monkeypatch.setattr(
+        "arclith.adapters.outbound.opentelemetry.runtime.OpenTelemetryRuntime",
+        lambda *args, **kwargs: otel,
+    )
+
+    def build_langsmith(*args: Any, **kwargs: Any) -> RecordingLangSmithRuntime:
+        constructor_options.update(kwargs)
+        return langsmith
+
+    monkeypatch.setattr(
+        "arclith.adapters.outbound.langsmith.runtime.LangSmithRuntime",
+        build_langsmith,
+    )
+
+    runtime = build_observability_runtime(config, logger)
+    runtime.start()
+
+    assert isinstance(runtime, CompositeObservabilityRuntime)
+    assert "before_start" not in constructor_options
+    assert otel.events == [("start", None)]
+    assert langsmith.events == [("start", None), ("attach", None)]
