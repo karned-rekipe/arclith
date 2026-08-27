@@ -281,12 +281,11 @@ def test_runtime_context_can_override_tracing_and_preserves_body_errors(
                 "authorization": "Bearer secret",
             },
         ):
+            context_call = trace_calls[0]["context"]
+            assert context_call["enabled"] is False
+            assert context_call["project_name"] == "sensitive-project"
+            assert context_call["parent"] == {"langsmith-trace": "trace-value"}
             raise ValueError("business failure")
-
-    context_call = trace_calls[0]["context"]
-    assert context_call["enabled"] is False
-    assert context_call["project_name"] == "sensitive-project"
-    assert context_call["parent"] == {"langsmith-trace": "trace-value"}
 
 
 def test_runtime_propagates_only_allowlisted_baggage(

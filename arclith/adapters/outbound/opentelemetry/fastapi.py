@@ -204,7 +204,3 @@ def _headers_from_env(env_name: str) -> dict[str, str] | None:
         if separator == "=" and key:
             headers[key] = value.strip()
     return headers or None
-
-
-# Backward-compatible private alias kept for integrations written against <= 0.18.
-_configure_opentelemetry = configure_opentelemetry
