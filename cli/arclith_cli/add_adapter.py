@@ -30,9 +30,13 @@ from .project_paths import ProjectPaths, detect_project_paths
 
 console = Console()
 _UV_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]*$")
+_ARCLITH_DEPENDENCY_RE = re.compile(
+    r"(?P<quote>[\"'])arclith(?:\[(?P<extras>[^\]]*)\])?(?P<constraint>[^\"']*)(?P=quote)"
+)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
+
 
 def add_adapter_cmd(
     *,
@@ -55,8 +59,11 @@ def add_adapter_cmd(
 
     capability = _resolve_capability(capability_name)
     adapter_spec = _resolve_adapter_type(capability, adapter)
+    _assert_capability_prerequisites(project_dir, adapter_spec)
     adapter = adapter_spec.name
-    entities = _resolve_entities(project_dir, entity_names, all_entities, yes=yes, adapter=adapter_spec)
+    entities = _resolve_entities(
+        project_dir, entity_names, all_entities, yes=yes, adapter=adapter_spec
+    )
     params = _resolve_adapter_params(
         adapter_spec,
         project_dir,
@@ -76,7 +83,9 @@ def add_adapter_cmd(
 
     _show_recap(project_dir, capability, adapter_spec, entities, params, activate)
 
-    if not yes and not Confirm.ask("\n  [bold]Confirmer la génération ?[/bold]", default=True):
+    if not yes and not Confirm.ask(
+        "\n  [bold]Confirmer la génération ?[/bold]", default=True
+    ):
         console.print("[yellow]Annulé.[/yellow]")
         raise typer.Exit(0)
 
@@ -84,6 +93,7 @@ def add_adapter_cmd(
 
 
 # ── Validation ────────────────────────────────────────────────────────────────
+
 
 def _assert_arclith_project(project_dir: Path) -> None:
     paths = detect_project_paths(project_dir)
@@ -101,7 +111,35 @@ def _assert_arclith_project(project_dir: Path) -> None:
         raise typer.Exit(1)
 
 
+def _assert_capability_prerequisites(
+    project_dir: Path,
+    adapter: AdapterSpec,
+) -> None:
+    if adapter.capability != "agent-persistence":
+        return
+    langgraph_config = (
+        project_dir / "config" / "adapters" / "inbound" / "langgraph.yaml"
+    )
+    existing = _read_yaml_mapping(langgraph_config)
+    if not isinstance(existing.get("entrypoint"), str):
+        console.print(
+            "[red]✗[/red] La capability [bold]agent-persistence[/bold] complete "
+            "[bold]agent/langgraph[/bold]. Generez d'abord cet adapter."
+        )
+        raise typer.Exit(1)
+    pyproject = project_dir / "pyproject.toml"
+    text = pyproject.read_text(encoding="utf-8") if pyproject.exists() else ""
+    if _ARCLITH_DEPENDENCY_RE.search(text):
+        return
+    console.print(
+        "[red]✗[/red] Impossible d'ajouter les extras de persistance: "
+        "dependance [bold]arclith[/bold] absente de pyproject.toml."
+    )
+    raise typer.Exit(1)
+
+
 # ── Step 1 : adapter type ─────────────────────────────────────────────────────
+
 
 def _resolve_capability(capability_name: str) -> CapabilitySpec:
     capability = get_capability(capability_name)
@@ -109,7 +147,9 @@ def _resolve_capability(capability_name: str) -> CapabilitySpec:
         return capability
 
     supported = ", ".join(capability_names())
-    console.print(f"[red]✗[/red] Capacité inconnue: [bold]{capability_name}[/bold]. Valeurs: {supported}.")
+    console.print(
+        f"[red]✗[/red] Capacité inconnue: [bold]{capability_name}[/bold]. Valeurs: {supported}."
+    )
     raise typer.Exit(1)
 
 
@@ -131,10 +171,14 @@ def _prompt_adapter_type(capability: CapabilitySpec) -> AdapterSpec:
             selected = capability.get_adapter(raw)
             if selected is not None:
                 return selected
-        console.print(f"  [red]Choix invalide.[/red] Entrez 1-{len(adapter_names)} ou le nom.")
+        console.print(
+            f"  [red]Choix invalide.[/red] Entrez 1-{len(adapter_names)} ou le nom."
+        )
 
 
-def _resolve_adapter_type(capability: CapabilitySpec, adapter: str | None) -> AdapterSpec:
+def _resolve_adapter_type(
+    capability: CapabilitySpec, adapter: str | None
+) -> AdapterSpec:
     if adapter is None:
         return _prompt_adapter_type(capability)
 
@@ -143,25 +187,36 @@ def _resolve_adapter_type(capability: CapabilitySpec, adapter: str | None) -> Ad
         return selected
 
     supported = ", ".join(capability.adapter_names())
-    console.print(f"[red]✗[/red] Adapter inconnu: [bold]{adapter}[/bold]. Valeurs: {supported}.")
+    console.print(
+        f"[red]✗[/red] Adapter inconnu: [bold]{adapter}[/bold]. Valeurs: {supported}."
+    )
     raise typer.Exit(1)
 
 
 # ── Step 2 : entity selection ─────────────────────────────────────────────────
 
+
 def _prompt_entities(project_dir: Path) -> list[EntityInfo]:
     entities = scan_entities(project_dir)
     if not entities:
-        console.print("[red]✗[/red] Aucune entité trouvée dans [bold]src/<package>/domain/models/[/bold].")
+        console.print(
+            "[red]✗[/red] Aucune entité trouvée dans [bold]src/<package>/domain/models/[/bold]."
+        )
         raise typer.Exit(1)
 
     console.print("\n[bold]② Entité(s) cible(s)[/bold]")
     for i, e in enumerate(entities, 1):
-        console.print(f"   [bold cyan]{i}[/bold cyan]  {e.pascal} [dim]({e.snake})[/dim]")
-    console.print(f"   [bold cyan]{len(entities) + 1}[/bold cyan]  [italic]toutes[/italic]")
+        console.print(
+            f"   [bold cyan]{i}[/bold cyan]  {e.pascal} [dim]({e.snake})[/dim]"
+        )
+    console.print(
+        f"   [bold cyan]{len(entities) + 1}[/bold cyan]  [italic]toutes[/italic]"
+    )
 
     while True:
-        raw = Prompt.ask("\n  Votre choix [dim](numéro(s) séparés par virgule, ou nom)[/dim]").strip()
+        raw = Prompt.ask(
+            "\n  Votre choix [dim](numéro(s) séparés par virgule, ou nom)[/dim]"
+        ).strip()
         selected = _parse_entity_choice(raw, entities)
         if selected is not None:
             return selected
@@ -187,7 +242,9 @@ def _resolve_entities(
 
     entities = scan_entities(project_dir)
     if not entities:
-        console.print("[red]✗[/red] Aucune entité trouvée dans [bold]src/<package>/domain/models/[/bold].")
+        console.print(
+            "[red]✗[/red] Aucune entité trouvée dans [bold]src/<package>/domain/models/[/bold]."
+        )
         raise typer.Exit(1)
 
     if all_entities:
@@ -213,7 +270,9 @@ def _resolve_entities(
     return _prompt_entities(project_dir)
 
 
-def _parse_entity_choice(raw: str, entities: list[EntityInfo]) -> list[EntityInfo] | None:
+def _parse_entity_choice(
+    raw: str, entities: list[EntityInfo]
+) -> list[EntityInfo] | None:
     all_idx = len(entities) + 1
     parts = [p.strip() for p in raw.split(",") if p.strip()]
     result: list[EntityInfo] = []
@@ -239,6 +298,7 @@ def _parse_entity_choice(raw: str, entities: list[EntityInfo]) -> list[EntityInf
 
 
 # ── Step 3 : adapter-specific params ─────────────────────────────────────────
+
 
 def _resolve_adapter_params(
     adapter: AdapterSpec,
@@ -272,19 +332,25 @@ def _resolve_adapter_params(
 
     resolved: dict[str, Any] = {}
     for parameter in adapter.parameters:
-        value = _resolve_parameter(parameter, provided_values.get(parameter.name), project_dir, prompt_missing)
+        value = _resolve_parameter(
+            parameter, provided_values.get(parameter.name), project_dir, prompt_missing
+        )
         resolved[parameter.name] = _render_parameter_value(parameter, value)
 
     return _normalize_adapter_params(adapter, resolved)
 
 
-def _normalize_adapter_params(adapter: AdapterSpec, params: dict[str, Any]) -> dict[str, Any]:
+def _normalize_adapter_params(
+    adapter: AdapterSpec, params: dict[str, Any]
+) -> dict[str, Any]:
     if adapter.capability == "http" and adapter.name == "cache-control":
         return _normalize_cache_control_params(params)
     if adapter.capability == "command-bus" and adapter.name == "rabbitmq":
         return _normalize_rabbitmq_command_bus_params(params)
     if adapter.capability == "runtime" and adapter.name == "docker-image":
         return _normalize_docker_image_params(params)
+    if adapter.capability == "agent-persistence" and adapter.name == "langgraph":
+        return _normalize_agent_persistence_params(params)
     return params
 
 
@@ -359,7 +425,29 @@ def _normalize_docker_image_params(params: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def _assert_supported_params(adapter: AdapterSpec, extra_params: dict[str, str]) -> None:
+def _normalize_agent_persistence_params(params: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(params)
+    raw_ttl = str(normalized["ttl_seconds"]).strip()
+    if not raw_ttl:
+        normalized["ttl_seconds"] = None
+        return normalized
+    try:
+        ttl_seconds = int(raw_ttl)
+    except ValueError:
+        console.print(
+            f"[red]✗[/red] TTL entier invalide pour [bold]ttl_seconds[/bold]: {raw_ttl}."
+        )
+        raise typer.Exit(1) from None
+    if ttl_seconds <= 0:
+        console.print("[red]✗[/red] ttl_seconds doit etre strictement positif ou vide.")
+        raise typer.Exit(1)
+    normalized["ttl_seconds"] = ttl_seconds
+    return normalized
+
+
+def _assert_supported_params(
+    adapter: AdapterSpec, extra_params: dict[str, str]
+) -> None:
     supported = {parameter.name for parameter in adapter.parameters}
     unknown = sorted(name for name in extra_params if name not in supported)
     if not unknown:
@@ -406,7 +494,9 @@ def _resolve_parameter(
         resolved = Prompt.ask(f"  {parameter.prompt}", **prompt_kwargs).strip()
     resolved = resolved or string_default
     if parameter.required and not resolved:
-        console.print(f"[red]✗[/red] Paramètre requis manquant: [bold]{parameter.name}[/bold].")
+        console.print(
+            f"[red]✗[/red] Paramètre requis manquant: [bold]{parameter.name}[/bold]."
+        )
         raise typer.Exit(1)
     _assert_allowed_parameter_value(parameter, resolved)
     return resolved
@@ -475,6 +565,7 @@ def _yaml_bool(value: bool) -> str:
 
 # ── Step 4 : recap ────────────────────────────────────────────────────────────
 
+
 def _show_recap(
     project_dir: Path,
     capability: CapabilitySpec,
@@ -492,7 +583,9 @@ def _show_recap(
 
     for path, action in files:
         style = "yellow" if action == "remplacé ⚠" else "green"
-        table.add_row(str(path.relative_to(project_dir)), f"[{style}]{action}[/{style}]")
+        table.add_row(
+            str(path.relative_to(project_dir)), f"[{style}]{action}[/{style}]"
+        )
 
     if activate and capability.activation_config_key is not None:
         cfg_path = project_dir / "config" / "adapters" / "adapters.yaml"
@@ -502,7 +595,12 @@ def _show_recap(
         )
 
     console.print()
-    console.print(Panel(table, title=f"[bold]Récapitulatif — adapter [green]{adapter.name}[/green][/bold]"))
+    console.print(
+        Panel(
+            table,
+            title=f"[bold]Récapitulatif — adapter [green]{adapter.name}[/green][/bold]",
+        )
+    )
 
 
 def _list_generated_files(
@@ -564,6 +662,7 @@ def _activation_config_label(capability: CapabilitySpec) -> str:
 
 # ── Step 5 : generate ─────────────────────────────────────────────────────────
 
+
 def _generate(
     project_dir: Path,
     capability: CapabilitySpec,
@@ -577,7 +676,10 @@ def _generate(
     if adapter.name not in installed:
         installed = sorted(installed + [adapter.name])
 
-    params = {**params, **_file_template_vars(project_dir, paths, adapter, params=params)}
+    params = {
+        **params,
+        **_file_template_vars(project_dir, paths, adapter, params=params),
+    }
 
     if adapter.has_config() and adapter.config_path:
         cfg_path = project_dir / adapter.config_path
@@ -587,12 +689,18 @@ def _generate(
 
     for merge_template in adapter.merge_config_templates:
         cfg_path = project_dir / render(merge_template.path, params)
-        _merge_yaml_file(cfg_path, render(merge_template.template, params))
+        _merge_yaml_file(
+            cfg_path,
+            render(merge_template.template, params),
+            preserve_existing=merge_template.preserve_existing,
+        )
         console.print(f"[green]✓[/green] {cfg_path.relative_to(project_dir)}")
 
     if adapter.has_env() and adapter.env_path:
         env_path = project_dir / adapter.env_path
-        _merge_env_file(env_path, _parse_env_template(render(adapter.env_template, params)))
+        _merge_env_file(
+            env_path, _parse_env_template(render(adapter.env_template, params))
+        )
         _ensure_gitignore_entries(project_dir, (".env",))
         console.print(f"[green]✓[/green] {env_path.relative_to(project_dir)}")
 
@@ -614,7 +722,9 @@ def _generate(
     for file_template in adapter.file_templates:
         generated_path = project_dir / render(file_template.path, params)
         generated_path.parent.mkdir(parents=True, exist_ok=True)
-        generated_path.write_text(render(file_template.template, params), encoding="utf-8")
+        generated_path.write_text(
+            render(file_template.template, params), encoding="utf-8"
+        )
         if generated_path.name == "arclith-run":
             generated_path.chmod(0o755)
         console.print(f"[green]✓[/green] {generated_path.relative_to(project_dir)}")
@@ -650,7 +760,10 @@ def _generate(
         container = paths.containers / f"{entity.snake}_container.py"
         existed = container.exists()
         container.parent.mkdir(parents=True, exist_ok=True)
-        container.write_text(render_container(entity.pascal, entity.snake, installed, import_vars), encoding="utf-8")
+        container.write_text(
+            render_container(entity.pascal, entity.snake, installed, import_vars),
+            encoding="utf-8",
+        )
         action = "[yellow]remplacé ⚠[/yellow]" if existed else "[green]créé[/green]"
         console.print(f"{action} {container.relative_to(project_dir)}")
 
@@ -658,7 +771,13 @@ def _generate(
     if activate:
         _update_active_capability(project_dir, capability, adapter)
 
-    console.print(f"\n[bold green]✓ Adapter [cyan]{adapter.name}[/cyan] scaffoldé avec succès.[/bold green]")
+    if adapter.capability == "agent-persistence":
+        extras = _configured_agent_persistence_extras(project_dir, params)
+        _ensure_arclith_extras(project_dir, extras)
+
+    console.print(
+        f"\n[bold green]✓ Adapter [cyan]{adapter.name}[/cyan] scaffoldé avec succès.[/bold green]"
+    )
 
 
 def _import_vars(paths: ProjectPaths) -> dict[str, str]:
@@ -680,14 +799,21 @@ def _file_template_vars(
     if package_path == ".":
         langgraph_entrypoint = f"./adapters/inbound/{adapter.name}/agent.py:agent"
     else:
-        langgraph_entrypoint = f"./{package_path}/adapters/inbound/{adapter.name}/agent.py:agent"
+        langgraph_entrypoint = (
+            f"./{package_path}/adapters/inbound/{adapter.name}/agent.py:agent"
+        )
     graph_name = str(params.get("graph_name") or "agent")
     return {
         "package_path": package_path,
         "langgraph_entrypoint": langgraph_entrypoint,
         "graph_name": graph_name,
-        "stream_mode_yaml": _langgraph_stream_mode_yaml(str(params.get("stream_mode") or "updates")),
-        "secret_template_yaml": _secret_template_yaml(str(params.get("field_path") or "")),
+        "stream_mode_yaml": _langgraph_stream_mode_yaml(
+            str(params.get("stream_mode") or "updates")
+        ),
+        "persistence_config_yaml": _langgraph_persistence_yaml(params),
+        "secret_template_yaml": _secret_template_yaml(
+            str(params.get("field_path") or "")
+        ),
         "secret_chain_yaml": _secret_chain_yaml(str(params.get("resolvers") or "")),
     }
 
@@ -697,6 +823,135 @@ def _langgraph_stream_mode_yaml(stream_mode: str) -> str:
     if len(values) == 1:
         return f'"{values[0]}"'
     return yaml.safe_dump(values, default_flow_style=True, sort_keys=False).strip()
+
+
+def _langgraph_persistence_yaml(params: dict[str, Any]) -> str:
+    checkpointer_adapter = str(params.get("checkpointer") or "memory")
+    store_adapter = str(params.get("store") or "memory")
+    database = str(params.get("database") or "langgraph")
+    checkpointer: dict[str, Any] = {
+        "adapter": checkpointer_adapter,
+        "setup": _parse_boolean_param(
+            str(params.get("checkpointer_setup", "false"))
+        )
+        is True,
+        "ttl_seconds": params.get("ttl_seconds"),
+    }
+    if checkpointer_adapter == "sqlite":
+        checkpointer["path"] = str(
+            params.get("sqlite_path") or ".arclith/langgraph-checkpoints.sqlite"
+        )
+    elif checkpointer_adapter == "postgresql":
+        checkpointer.update(
+            connection_uri_env="POSTGRESQL_URL",
+            database=database,
+        )
+    elif checkpointer_adapter == "mongodb":
+        checkpointer.update(connection_uri_env="MONGODB_URI", database=database)
+    elif checkpointer_adapter == "custom" and params.get("checkpointer_factory"):
+        checkpointer["factory"] = str(params["checkpointer_factory"])
+
+    store: dict[str, Any] = {
+        "adapter": store_adapter,
+        "setup": _parse_boolean_param(str(params.get("store_setup", "false")))
+        is True,
+        "namespace_template": str(
+            params.get("namespace_template") or "{tenant_id}:{user_id}:memories"
+        ),
+        "semantic_search": {
+            "enabled": False,
+            "embed": None,
+            "dims": None,
+            "fields": ["$"],
+        },
+    }
+    if store_adapter == "postgresql":
+        store.update(connection_uri_env="POSTGRESQL_URL", database=database)
+    elif store_adapter == "mongodb":
+        store.update(
+            connection_uri_env="MONGODB_URI",
+            database=database,
+            collection="memories",
+        )
+    elif store_adapter == "redis":
+        store["connection_uri_env"] = "REDIS_URL"
+    elif store_adapter == "custom" and params.get("store_factory"):
+        store["factory"] = str(params["store_factory"])
+
+    return yaml.safe_dump(
+        {
+            "persistence": {
+                "enabled": True,
+                "mode": str(params.get("mode") or "auto"),
+                "checkpointer": checkpointer,
+                "store": store,
+            }
+        },
+        sort_keys=False,
+        allow_unicode=True,
+    ).rstrip("\n")
+
+
+def _agent_persistence_extras(params: dict[str, Any]) -> tuple[str, ...]:
+    extras = ["langgraph"]
+    by_backend = {
+        "sqlite": "langgraph-persistence-sqlite",
+        "postgresql": "langgraph-persistence-postgresql",
+        "mongodb": "langgraph-persistence-mongodb",
+        "redis": "langgraph-persistence-redis",
+    }
+    for backend in (str(params.get("checkpointer")), str(params.get("store"))):
+        extra = by_backend.get(backend)
+        if extra is not None and extra not in extras:
+            extras.append(extra)
+    return tuple(extras)
+
+
+def _configured_agent_persistence_extras(
+    project_dir: Path,
+    fallback: dict[str, Any],
+) -> tuple[str, ...]:
+    langgraph_config = _read_yaml_mapping(
+        project_dir / "config" / "adapters" / "inbound" / "langgraph.yaml"
+    )
+    persistence = langgraph_config.get("persistence")
+    if not isinstance(persistence, dict):
+        return _agent_persistence_extras(fallback)
+    checkpointer = persistence.get("checkpointer")
+    store = persistence.get("store")
+    configured = {
+        "checkpointer": (
+            checkpointer.get("adapter") if isinstance(checkpointer, dict) else None
+        ),
+        "store": store.get("adapter") if isinstance(store, dict) else None,
+    }
+    return _agent_persistence_extras(configured)
+
+
+def _ensure_arclith_extras(project_dir: Path, required: tuple[str, ...]) -> None:
+    pyproject = project_dir / "pyproject.toml"
+    text = pyproject.read_text(encoding="utf-8")
+    match = _ARCLITH_DEPENDENCY_RE.search(text)
+    if match is None:
+        raise typer.Exit(1)
+    current = [
+        extra.strip()
+        for extra in (match.group("extras") or "").split(",")
+        if extra.strip()
+    ]
+    if "all" in current:
+        return
+    merged = current + [extra for extra in required if extra not in current]
+    if merged == current:
+        return
+    quote = match.group("quote")
+    constraint = match.group("constraint")
+    replacement = f"{quote}arclith[{','.join(merged)}]{constraint}{quote}"
+    updated = text[: match.start()] + replacement + text[match.end() :]
+    pyproject.write_text(updated, encoding="utf-8")
+    console.print(
+        "[cyan]↺[/cyan] pyproject.toml → extras arclith: " + ", ".join(merged)
+    )
 
 
 def _secret_template_yaml(field_path: str) -> str:
@@ -718,7 +973,9 @@ def _secret_chain_yaml(resolvers: str) -> str:
     return "".join(f"  - {value}\n" for value in values).rstrip("\n")
 
 
-def _update_active_capability(project_dir: Path, capability: CapabilitySpec, adapter: AdapterSpec) -> None:
+def _update_active_capability(
+    project_dir: Path, capability: CapabilitySpec, adapter: AdapterSpec
+) -> None:
     if capability.activation_config_key is None:
         return
     if capability.name == "observability":
@@ -734,11 +991,15 @@ def _update_active_capability(project_dir: Path, capability: CapabilitySpec, ada
     else:
         text = cfg.read_text(encoding="utf-8")
         if re.search(rf"(?m)^{escaped_key}:", text):
-            text = re.sub(rf"(?m)^({escaped_key}:\s*).*$", rf"\g<1>{adapter.name}", text)
+            text = re.sub(
+                rf"(?m)^({escaped_key}:\s*).*$", rf"\g<1>{adapter.name}", text
+            )
         else:
             text = text.rstrip("\n") + f"\n{key}: {adapter.name}\n"
         cfg.write_text(text, encoding="utf-8")
-    console.print(f"[cyan]↺[/cyan] config/adapters/adapters.yaml → {key}: {adapter.name}")
+    console.print(
+        f"[cyan]↺[/cyan] config/adapters/adapters.yaml → {key}: {adapter.name}"
+    )
 
 
 def _enable_observability_adapter(project_dir: Path, adapter: AdapterSpec) -> None:
@@ -758,7 +1019,9 @@ def _enable_observability_adapter(project_dir: Path, adapter: AdapterSpec) -> No
 
     data["observability"] = {"enabled": enabled}
     cfg.parent.mkdir(parents=True, exist_ok=True)
-    cfg.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    cfg.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8"
+    )
     console.print(
         f"[cyan]↺[/cyan] config/adapters/adapters.yaml → observability.enabled += {adapter.name}"
     )
@@ -778,7 +1041,9 @@ def _parse_env_template(rendered: str) -> dict[str, str]:
 
 def _merge_env_file(env_path: Path, updates: dict[str, str]) -> None:
     env_path.parent.mkdir(parents=True, exist_ok=True)
-    existing_lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+    existing_lines = (
+        env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+    )
     merged_lines: list[str] = []
     seen: set[str] = set()
 
@@ -805,15 +1070,28 @@ def _merge_env_file(env_path: Path, updates: dict[str, str]) -> None:
     env_path.write_text("\n".join(merged_lines).rstrip("\n") + "\n", encoding="utf-8")
 
 
-def _merge_yaml_file(path: Path, rendered_yaml: str) -> None:
+def _merge_yaml_file(
+    path: Path,
+    rendered_yaml: str,
+    *,
+    preserve_existing: bool = False,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     existing = _read_yaml_mapping(path)
     update = yaml.safe_load(rendered_yaml) or {}
     if not isinstance(update, dict):
-        console.print("[red]✗[/red] La configuration YAML générée doit être un mapping.")
+        console.print(
+            "[red]✗[/red] La configuration YAML générée doit être un mapping."
+        )
         raise typer.Exit(1)
-    merged = _deep_merge_mapping(existing, update)
-    path.write_text(yaml.safe_dump(merged, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    merged = (
+        {**update, **existing}
+        if preserve_existing
+        else _deep_merge_mapping(existing, update)
+    )
+    path.write_text(
+        yaml.safe_dump(merged, sort_keys=False, allow_unicode=True), encoding="utf-8"
+    )
 
 
 def _merge_secrets_file(
@@ -837,7 +1115,9 @@ def _merge_secrets_file(
         rendered_config = render(config_template, render_params)
         config_data = yaml.safe_load(rendered_config) or {}
         if not isinstance(config_data, dict):
-            console.print("[red]✗[/red] La configuration de secrets générée doit être un mapping YAML.")
+            console.print(
+                "[red]✗[/red] La configuration de secrets générée doit être un mapping YAML."
+            )
             raise typer.Exit(1)
         data = _deep_merge_mapping(data, config_data)
 
@@ -850,7 +1130,9 @@ def _merge_secrets_file(
         field_path = render(mapping.field_path, render_params).strip()
         secret_key = render(mapping.secret_key, render_params).strip()
         if not field_path:
-            console.print("[red]✗[/red] Un mapping de secret doit cibler un champ non vide.")
+            console.print(
+                "[red]✗[/red] Un mapping de secret doit cibler un champ non vide."
+            )
             raise typer.Exit(1)
         merged_mappings[field_path] = secret_key
     data["mappings"] = merged_mappings
@@ -859,7 +1141,9 @@ def _merge_secrets_file(
     secrets_path.write_text(rendered, encoding="utf-8")
 
 
-def _deep_merge_mapping(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+def _deep_merge_mapping(
+    base: dict[str, Any], override: dict[str, Any]
+) -> dict[str, Any]:
     result = dict(base)
     for key, value in override.items():
         current = result.get(key)

@@ -19,7 +19,11 @@ from .core_scaffold import add_entity_cmd, add_intent_interpreter_cmd, add_useca
 from .export_config import export_config_cmd
 from .init_project import init_project_cmd
 from .rename import EntityNames, apply_rename
-from .runtime_templates import DOCKERIGNORE_TEMPLATE, render_arclith_run, render_dockerfile
+from .runtime_templates import (
+    DOCKERIGNORE_TEMPLATE,
+    render_arclith_run,
+    render_dockerfile,
+)
 from .scaffold import download_and_extract
 from .updater import run_update
 
@@ -47,7 +51,9 @@ def init(
     ] = Path("."),
 ) -> None:
     """Initialiser un projet arclith minimal sans entité métier."""
-    init_project_cmd(project_name=project_name or _prompt_project(), directory=directory)
+    init_project_cmd(
+        project_name=project_name or _prompt_project(), directory=directory
+    )
 
 
 @app.command()
@@ -60,7 +66,9 @@ def new(
     ] = None,
     project_name: Annotated[
         str | None,
-        typer.Argument(help="Nom du répertoire du projet. Exemple : [dim]my-recipe-service[/dim]"),
+        typer.Argument(
+            help="Nom du répertoire du projet. Exemple : [dim]my-recipe-service[/dim]"
+        ),
     ] = None,
     directory: Annotated[
         Path,
@@ -76,7 +84,9 @@ def new(
     ] = "main",
     template_dir: Annotated[
         Path | None,
-        typer.Option("--template-dir", help="Répertoire local du template _sample", hidden=True),
+        typer.Option(
+            "--template-dir", help="Répertoire local du template _sample", hidden=True
+        ),
     ] = None,
 ) -> None:
     """Créer un nouveau projet [bold]arclith[/bold] scaffoldé depuis le template officiel [dim]_sample[/dim]."""
@@ -88,7 +98,9 @@ def new(
     target_dir = directory.resolve() / project_name
 
     if target_dir.exists():
-        console.print(f"[red]✗[/red] Le répertoire existe déjà : [bold]{target_dir}[/bold]")
+        console.print(
+            f"[red]✗[/red] Le répertoire existe déjà : [bold]{target_dir}[/bold]"
+        )
         raise typer.Exit(1)
 
     console.print(
@@ -145,7 +157,8 @@ def add_adapter(
             "--capability",
             help=(
                 "Capacité cible: repository, cache, logger, secrets, api, mcp, probe, http, "
-                "command-bus, runtime, auth, tenant, license, llm, agent ou observability"
+                "command-bus, runtime, auth, tenant, license, llm, agent, agent-persistence "
+                "ou observability"
             ),
         ),
     ] = "repository",
@@ -155,11 +168,15 @@ def add_adapter(
     ] = None,
     entity: Annotated[
         str | None,
-        typer.Option("--entity", "-e", help="Entité cible. Liste séparée par virgule acceptée."),
+        typer.Option(
+            "--entity", "-e", help="Entité cible. Liste séparée par virgule acceptée."
+        ),
     ] = None,
     all_entities: Annotated[
         bool,
-        typer.Option("--all-entities", help="Générer l'adapter pour toutes les entités détectées"),
+        typer.Option(
+            "--all-entities", help="Générer l'adapter pour toutes les entités détectées"
+        ),
     ] = False,
     activate: Annotated[
         bool,
@@ -182,11 +199,18 @@ def add_adapter(
     ] = None,
     param: Annotated[
         list[str] | None,
-        typer.Option("--param", help="Paramètre adapter key=value, répétable pour les adapters du catalogue"),
+        typer.Option(
+            "--param",
+            help="Paramètre adapter key=value, répétable pour les adapters du catalogue",
+        ),
     ] = None,
     yes: Annotated[
         bool,
-        typer.Option("--yes", "-y", help="Utiliser les valeurs fournies ou par défaut sans confirmation"),
+        typer.Option(
+            "--yes",
+            "-y",
+            help="Utiliser les valeurs fournies ou par défaut sans confirmation",
+        ),
     ] = False,
 ) -> None:
     """Wizard ou mode direct pour scaffolder un nouvel [bold]adapter[/bold] dans le projet courant."""
@@ -288,6 +312,7 @@ def export_config(
 
 # ── Prompts interactifs ───────────────────────────────────────────────────────
 
+
 def _prompt_entity() -> str:
     console.print(
         "\n[bold]Entité[/bold] — utilisez le [yellow]singulier[/yellow] "
@@ -307,7 +332,9 @@ def _prompt_entity() -> str:
 
 
 def _prompt_project() -> str:
-    console.print("\n[bold]Projet[/bold] [dim](ex : my-recipe-service, meal-planner)[/dim]")
+    console.print(
+        "\n[bold]Projet[/bold] [dim](ex : my-recipe-service, meal-planner)[/dim]"
+    )
     while True:
         value = Prompt.ask("  [bold green]Nom du projet[/bold green]").strip()
         if not value:
@@ -322,7 +349,9 @@ def _prompt_project() -> str:
 
 
 def _prompt_usecase() -> str:
-    console.print("\n[bold]Cas d'usage[/bold] [dim](ex : PlanShoppingList, find_by_name)[/dim]")
+    console.print(
+        "\n[bold]Cas d'usage[/bold] [dim](ex : PlanShoppingList, find_by_name)[/dim]"
+    )
     while True:
         value = Prompt.ask("  [bold green]Nom du cas d'usage[/bold green]").strip()
         if not value:
@@ -337,7 +366,9 @@ def _prompt_usecase() -> str:
 
 
 def _prompt_intent_interpreter() -> str:
-    console.print("\n[bold]Interpréteur d'intention[/bold] [dim](ex : IngredientIntent, todo_intent)[/dim]")
+    console.print(
+        "\n[bold]Interpréteur d'intention[/bold] [dim](ex : IngredientIntent, todo_intent)[/dim]"
+    )
     while True:
         value = Prompt.ask("  [bold green]Nom de l'interpréteur[/bold green]").strip()
         if not value:
@@ -353,6 +384,7 @@ def _prompt_intent_interpreter() -> str:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _split_entity_option(value: str | None) -> list[str] | None:
     if value is None:
         return None
@@ -366,7 +398,9 @@ def _parse_param_options(values: list[str] | None) -> dict[str, str]:
         key, separator, value = raw.partition("=")
         key = key.strip()
         if separator != "=" or not key:
-            console.print(f"[red]✗[/red] Paramètre invalide: [bold]{raw}[/bold]. Format attendu: key=value.")
+            console.print(
+                f"[red]✗[/red] Paramètre invalide: [bold]{raw}[/bold]. Format attendu: key=value."
+            )
             raise typer.Exit(1)
         result[key] = value.strip()
     return result

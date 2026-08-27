@@ -156,6 +156,11 @@ Le `assistant_id` doit correspondre au nom déclaré dans `langgraph.json`.
 
 Pour pouvoir relire l'état final, créer un thread explicite:
 
+Sous Agent Server, la persistance est gérée par le serveur. Pour reproduire le même test avec un
+graphe embedded, activer d'abord `agent-persistence` et invoquer le graphe avec
+`{"configurable": {"thread_id": "<id-stable>"}}`. Voir la
+[capability dédiée](../capabilities/agent-persistence.md).
+
 ```bash
 THREAD_ID=$(curl -fsS -X POST "http://127.0.0.1:2024/threads" \
   -H "Content-Type: application/json" \
@@ -252,6 +257,7 @@ propriétaires de leur métier.
 - `langgraph dev --no-browser --allow-blocking --port 2024` démarre.
 - un run `values` répond via `/runs/stream`.
 - un thread explicite peut être relu via `/threads/{thread_id}/state`.
+- une mémoire store écrite pour un utilisateur est relue depuis un autre thread.
 - les tests unitaires importants utilisent un fake LLM.
 
 ## Sources

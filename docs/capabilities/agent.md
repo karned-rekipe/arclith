@@ -84,6 +84,24 @@ agent = arclith.langgraph(AgentState, register_agent, name="agent")
 Le template généré est volontairement minimal. Le projet remplace ensuite
 `AgentState`, les nodes et les edges par son propre parcours.
 
+## Threads Et Mémoire Durable
+
+La capability optionnelle [agent-persistence](agent-persistence.md) câble les checkpointers de
+threads et les stores cross-thread sans boilerplate projet :
+
+```bash
+arclith-cli add-adapter \
+  --capability agent-persistence \
+  --adapter langgraph \
+  --param checkpointer=memory \
+  --param store=memory \
+  --yes
+uv sync
+```
+
+`memory` convient aux tests. SQLite permet un debug local reproductible ; PostgreSQL, MongoDB et
+Redis sont disponibles via des extras séparés pour la production.
+
 ## Streaming Et Progression
 
 `config/adapters/inbound/langgraph.yaml` peut fixer le mode de streaming par
@@ -250,5 +268,5 @@ tools MCP. Il ne lit pas directement leurs repositories ou bases.
 
 ## Suite
 
-Lire [llm](llm.md), [observability](observability.md), [Validation IA locale](../learning/local-ai-validation.md),
+Lire [agent-persistence](agent-persistence.md), [llm](llm.md), [observability](observability.md), [Validation IA locale](../learning/local-ai-validation.md),
 puis le [parcours Todo agent](../tutorials/todo-list/06-agent.md).
