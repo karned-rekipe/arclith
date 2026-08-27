@@ -48,10 +48,12 @@ class ParameterSpec:
 class FileTemplateSpec:
     path: str
     template: str
+    preserve_existing: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "path": self.path,
+            "preserve_existing": self.preserve_existing,
         }
 
 
@@ -1651,6 +1653,116 @@ agent = arclith.langgraph(AgentState, register_agent, name="{graph_name}")
     ),
 )
 
+
+AGENT_PERSISTENCE_CAPABILITY = CapabilitySpec(
+    name="agent-persistence",
+    layer="inbound",
+    description="Checkpoints de threads et memoire cross-thread pour LangGraph.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="langgraph",
+            capability="agent-persistence",
+            layer="inbound",
+            description="Persistance LangGraph optionnelle, configurable et extensible.",
+            merge_config_templates=(
+                FileTemplateSpec(
+                    path="config/adapters/inbound/langgraph.yaml",
+                    template="{persistence_config_yaml}\n",
+                    preserve_existing=True,
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="mode",
+                    kind="string",
+                    prompt="Mode de persistance LangGraph",
+                    default="auto",
+                    choices=("auto", "embedded", "agent_server"),
+                ),
+                ParameterSpec(
+                    name="checkpointer",
+                    kind="string",
+                    prompt="Backend de checkpoints",
+                    default="memory",
+                    choices=(
+                        "none",
+                        "memory",
+                        "sqlite",
+                        "postgresql",
+                        "mongodb",
+                        "custom",
+                    ),
+                ),
+                ParameterSpec(
+                    name="store",
+                    kind="string",
+                    prompt="Backend de memoire cross-thread",
+                    default="memory",
+                    choices=(
+                        "none",
+                        "memory",
+                        "postgresql",
+                        "mongodb",
+                        "redis",
+                        "custom",
+                    ),
+                ),
+                ParameterSpec(
+                    name="checkpointer_setup",
+                    kind="boolean",
+                    prompt="Executer setup() pour le checkpointer",
+                    default=False,
+                ),
+                ParameterSpec(
+                    name="store_setup",
+                    kind="boolean",
+                    prompt="Executer setup() pour le store",
+                    default=False,
+                ),
+                ParameterSpec(
+                    name="ttl_seconds",
+                    kind="string",
+                    prompt="TTL des checkpoints en secondes (vide = illimite)",
+                    default="",
+                ),
+                ParameterSpec(
+                    name="sqlite_path",
+                    kind="string",
+                    prompt="Fichier SQLite des checkpoints",
+                    default=".arclith/langgraph-checkpoints.sqlite",
+                ),
+                ParameterSpec(
+                    name="database",
+                    kind="string",
+                    prompt="Base de persistance LangGraph",
+                    default="langgraph",
+                ),
+                ParameterSpec(
+                    name="namespace_template",
+                    kind="string",
+                    prompt="Template de namespace long-term memory",
+                    default="{tenant_id}:{user_id}:memories",
+                ),
+                ParameterSpec(
+                    name="checkpointer_factory",
+                    kind="string",
+                    prompt="Import path de la factory custom checkpointer",
+                    default="",
+                ),
+                ParameterSpec(
+                    name="store_factory",
+                    kind="string",
+                    prompt="Import path de la factory custom store",
+                    default="",
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
+
 OBSERVABILITY_CAPABILITY = CapabilitySpec(
     name="observability",
     layer="outbound",
@@ -1818,6 +1930,7 @@ CAPABILITY_CATALOG = (
     LICENSE_CAPABILITY,
     LLM_CAPABILITY,
     AGENT_CAPABILITY,
+    AGENT_PERSISTENCE_CAPABILITY,
     OBSERVABILITY_CAPABILITY,
 )
 

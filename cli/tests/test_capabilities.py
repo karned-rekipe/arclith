@@ -487,6 +487,36 @@ def test_agent_capability_catalog_declares_langgraph() -> None:
     ]
 
 
+def test_agent_persistence_capability_catalog_declares_langgraph_backends() -> None:
+    capability = get_capability("agent-persistence")
+
+    assert capability is not None
+    assert capability.layer == "inbound"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("langgraph",)
+    langgraph = capability.get_adapter("langgraph")
+    assert langgraph is not None
+    assert langgraph.config_path is None
+    assert langgraph.entity_scoped is False
+    assert [template.path for template in langgraph.merge_config_templates] == [
+        "config/adapters/inbound/langgraph.yaml"
+    ]
+    assert langgraph.merge_config_templates[0].preserve_existing is True
+    assert [parameter.name for parameter in langgraph.parameters] == [
+        "mode",
+        "checkpointer",
+        "store",
+        "checkpointer_setup",
+        "store_setup",
+        "ttl_seconds",
+        "sqlite_path",
+        "database",
+        "namespace_template",
+        "checkpointer_factory",
+        "store_factory",
+    ]
+
+
 def test_repository_adapter_specs_include_config_and_parameters() -> None:
     capability = get_capability("repository")
     assert capability is not None

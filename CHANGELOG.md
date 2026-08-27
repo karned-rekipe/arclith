@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Persistance agent LangGraph** — capability optionnelle `agent-persistence`, configuration
+  checkpointer/store, registry custom, wiring embedded/Agent Server et extras SQLite, PostgreSQL,
+  MongoDB et Redis granulaires.
+
 ---
 
 ## [0.18.0] — 2026-08-25

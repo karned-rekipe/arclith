@@ -24,6 +24,7 @@ arclith-cli capabilities --json
 | [api](capabilities/api.md) | inbound | `fastapi` | exposer des endpoints HTTP |
 | [mcp](capabilities/mcp.md) | inbound | `fastmcp` | exposer des tools MCP |
 | [agent](capabilities/agent.md) | inbound | `langgraph` | exposer un agent LangGraph |
+| [agent-persistence](capabilities/agent-persistence.md) | inbound | `langgraph` | conserver threads et mémoire cross-thread |
 | [auth](capabilities/auth.md) | inbound | `keycloak` | sécuriser API ou MCP |
 | [tenant](capabilities/tenant.md) | inbound | `vault` | résoudre un contexte tenant |
 | [license](capabilities/license.md) | inbound | `role` | contrôler un droit d'accès |
@@ -46,7 +47,7 @@ arclith-cli capabilities --json
 | API minimale | [Quickstart API](quickstarts/api.md), [formation API](tutorials/todo-list/04-api.md), puis [api/fastapi](capabilities/api.md) |
 | MCP minimal | [Quickstart MCP](quickstarts/mcp.md), [formation MCP](tutorials/todo-list/05-mcp.md), puis [mcp/fastmcp](capabilities/mcp.md) |
 | Bus RabbitMQ | [Quickstart Bus](quickstarts/bus.md), puis [command-bus/rabbitmq](capabilities/command-bus.md) |
-| Agent local | [Quickstart Agent](quickstarts/agent.md), [formation agent](tutorials/todo-list/06-agent.md), puis [agent/langgraph](capabilities/agent.md) |
+| Agent local | [Quickstart Agent](quickstarts/agent.md), [formation agent](tutorials/todo-list/06-agent.md), puis [agent/langgraph](capabilities/agent.md) et [persistance](capabilities/agent-persistence.md) |
 | Fichiers et blobs | [storage](capabilities/storage.md), [quickstart filesystem](capabilities/storage/quickstart.md), puis [secrets](capabilities/secrets.md) pour les credentials |
 | Service production | [Baseline production](production/baseline.md), puis les pages de la section Production |
 | Déploiement | [Runtime Docker](runtime-docker.md), puis [Docker Compose](runtime-docker/docker-compose.md) |

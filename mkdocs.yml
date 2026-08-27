@@ -53,6 +53,7 @@ nav:
       - API: capabilities/api.md
       - MCP: capabilities/mcp.md
       - Agent: capabilities/agent.md
+      - Persistance Agent: capabilities/agent-persistence.md
       - Command Bus: capabilities/command-bus.md
       - Probe: capabilities/probe.md
       - Runtime: capabilities/runtime.md

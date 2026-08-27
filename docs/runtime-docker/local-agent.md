@@ -24,6 +24,25 @@ arclith-cli add-adapter \
   --yes
 ```
 
+Pour un debug embedded hors Agent Server, utiliser par exemple SQLite :
+
+```bash
+arclith-cli add-adapter \
+  --capability agent-persistence \
+  --adapter langgraph \
+  --param mode=embedded \
+  --param checkpointer=sqlite \
+  --param store=memory \
+  --yes
+uv sync
+```
+
+Ce profil s'applique aux appels directs à `arclith.langgraph(...)`, pas à la commande Agent Server
+ci-dessous. Pour `arclith-run agent`, conserver `mode=auto` ou choisir `mode=agent_server` : le
+serveur gère sa propre persistance et Arclith n'ouvre pas une seconde connexion. Pour MongoDB Agent
+Server, utiliser un replica set ou un `mongos`, configurer `checkpointer.backend: mongo` dans
+`langgraph.json` et injecter `LS_MONGODB_URI`. PostgreSQL est le backend Agent Server par défaut.
+
 Si le projet utilise LM Studio ou un endpoint OpenAI-compatible lancé sur le poste, ne pas utiliser
 `localhost` depuis le conteneur. Sur Docker Desktop, utiliser souvent:
 
@@ -113,6 +132,8 @@ OPENAI_API_KEY
 ANTHROPIC_API_KEY
 LANGSMITH_API_KEY
 MONGODB_URI
+POSTGRESQL_URL
+REDIS_URL
 VAULT_TOKEN
 ```
 
@@ -136,6 +157,7 @@ docker run --rm --env-file .env.local my-service:local agent
 - `host.docker.internal` utilisé quand le modèle tourne sur le poste hôte.
 - API locale `:2024` testée même sans LangSmith.
 - Traces LangSmith/OpenTelemetry activées par configuration, pas par code métier.
+- Checkpointer/store gérés une seule fois : par Arclith embedded ou par l'Agent Server.
 - En production, remplacer `langgraph dev` par la commande serveur validée du projet via
   `ARCLITH_AGENT_COMMAND` si nécessaire.
 

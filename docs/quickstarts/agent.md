@@ -24,6 +24,14 @@ uvx --from arclith-cli arclith-cli add-adapter \
   --capability agent \
   --adapter langgraph \
   --yes
+
+uvx --from arclith-cli arclith-cli add-adapter \
+  --capability agent-persistence \
+  --adapter langgraph \
+  --param checkpointer=memory \
+  --param store=memory \
+  --yes
+uv sync
 ```
 
 Pour un LLM local :
@@ -93,5 +101,5 @@ transitions pour appeler ses use cases.
 
 ## Suite
 
-Lire [agent/langgraph](../capabilities/agent.md), [Validation IA locale](../learning/local-ai-validation.md),
+Lire [agent/langgraph](../capabilities/agent.md), [persistance agent](../capabilities/agent-persistence.md), [Validation IA locale](../learning/local-ai-validation.md),
 puis le [parcours Todo agent](../tutorials/todo-list/06-agent.md).

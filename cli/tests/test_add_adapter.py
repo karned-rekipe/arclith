@@ -1497,6 +1497,101 @@ def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(
     assert not (package_root / "adapters" / "outbound" / "langgraph").exists()
 
 
+def test_add_langgraph_persistence_enriches_config_and_dependency_without_overwrite(
+    tmp_path: Path,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    (project_dir / "pyproject.toml").write_text(
+        """[project]
+name = "demo-service"
+dependencies = ["arclith[fastapi,mcp]>=0.18.0"]
+""",
+        encoding="utf-8",
+    )
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="agent",
+        adapter="langgraph",
+        adapter_params={"graph_name": "support_agent", "stream_mode": "updates,custom"},
+        yes=True,
+    )
+    langgraph_path = project_dir / "config" / "adapters" / "inbound" / "langgraph.yaml"
+    existing = yaml.safe_load(langgraph_path.read_text(encoding="utf-8"))
+    existing["project_field"] = {"preserved": True}
+    langgraph_path.write_text(
+        yaml.safe_dump(existing, sort_keys=False), encoding="utf-8"
+    )
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="agent-persistence",
+        adapter="langgraph",
+        adapter_params={
+            "checkpointer": "mongodb",
+            "store": "mongodb",
+            "database": "agent_memory",
+            "ttl_seconds": "3600",
+        },
+        yes=True,
+    )
+
+    generated = yaml.safe_load(langgraph_path.read_text(encoding="utf-8"))
+    assert generated["name"] == "support_agent"
+    assert generated["stream_mode"] == ["updates", "custom"]
+    assert generated["project_field"] == {"preserved": True}
+    assert generated["persistence"]["enabled"] is True
+    assert generated["persistence"]["mode"] == "auto"
+    assert generated["persistence"]["checkpointer"] == {
+        "adapter": "mongodb",
+        "setup": False,
+        "ttl_seconds": 3600,
+        "connection_uri_env": "MONGODB_URI",
+        "database": "agent_memory",
+    }
+    assert generated["persistence"]["store"]["adapter"] == "mongodb"
+    assert generated["persistence"]["store"]["database"] == "agent_memory"
+    assert (
+        generated["persistence"]["store"]["namespace_template"]
+        == "{tenant_id}:{user_id}:memories"
+    )
+    pyproject = (project_dir / "pyproject.toml").read_text(encoding="utf-8")
+    assert (
+        "arclith[fastapi,mcp,langgraph,langgraph-persistence-mongodb]>=0.18.0"
+        in pyproject
+    )
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="agent-persistence",
+        adapter="langgraph",
+        adapter_params={"checkpointer": "sqlite", "store": "redis"},
+        yes=True,
+    )
+    regenerated = yaml.safe_load(langgraph_path.read_text(encoding="utf-8"))
+    assert regenerated == generated
+    assert (project_dir / "pyproject.toml").read_text(encoding="utf-8") == pyproject
+
+
+def test_add_langgraph_persistence_requires_agent_capability(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    (project_dir / "pyproject.toml").write_text(
+        '[project]\ndependencies = ["arclith>=0.18.0"]\n', encoding="utf-8"
+    )
+
+    with pytest.raises(typer.Exit):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="agent-persistence",
+            adapter="langgraph",
+            yes=True,
+        )
+
+    assert "Generez d'abord" in capsys.readouterr().out
+
+
 @pytest.mark.asyncio
 async def test_add_langgraph_agent_adapter_generates_compilable_minimal_agent(
     tmp_path: Path,
