@@ -860,19 +860,17 @@ def _build_sampler(settings: OpenTelemetrySettings) -> Any:
     )
 
     traces = settings.signals.traces
-    match traces.sampler:
-        case "always_on":
-            return ALWAYS_ON
-        case "always_off":
-            return ALWAYS_OFF
-        case "traceidratio":
-            return TraceIdRatioBased(traces.sampling_ratio)
-        case "parentbased_always_on":
-            return ParentBased(ALWAYS_ON)
-        case "parentbased_always_off":
-            return ParentBased(ALWAYS_OFF)
-        case _:
-            return ParentBased(TraceIdRatioBased(traces.sampling_ratio))
+    if traces.sampler == "always_on":
+        return ALWAYS_ON
+    if traces.sampler == "always_off":
+        return ALWAYS_OFF
+    if traces.sampler == "traceidratio":
+        return TraceIdRatioBased(traces.sampling_ratio)
+    if traces.sampler == "parentbased_always_on":
+        return ParentBased(ALWAYS_ON)
+    if traces.sampler == "parentbased_always_off":
+        return ParentBased(ALWAYS_OFF)
+    return ParentBased(TraceIdRatioBased(traces.sampling_ratio))
 
 
 def _build_exemplar_filter(name: str) -> Any:

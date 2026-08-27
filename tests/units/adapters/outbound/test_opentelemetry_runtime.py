@@ -580,7 +580,7 @@ def test_managed_mode_rejects_preinstalled_global_provider(
         _settings(), logger, service_name="demo", service_version="1.0"
     )
     monkeypatch.setattr(
-        "opentelemetry.trace.get_tracer_provider", lambda: RecordingProvider()
+        "opentelemetry.trace.get_tracer_provider", RecordingProvider
     )
 
     with pytest.raises(RuntimeError, match="global existe deja"):
