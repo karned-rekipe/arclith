@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+---
+
+## [0.19.0] — 2026-08-27
+
 ### Added
 
 - **Runtime OpenTelemetry optionnel de bout en bout** — contrats neutres pour runtime, métriques,
@@ -24,6 +28,9 @@
   sans secret et ajout idempotent de l'extra `arclith[langsmith]`.
 
 ### Changed
+
+- **Versions release** — `arclith` passe à `0.19.0`; `arclith-cli` passe à `0.16.0`
+  et dépend de `arclith>=0.19.0`.
 
 - **Composition d'observabilité neutre** — `Arclith` pilote désormais un unique
   `ObservabilityRuntimePort`; le logger console et RabbitMQ n'importent plus OpenTelemetry.

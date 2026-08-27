@@ -52,7 +52,7 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
         "observability:\n"
         "  enabled: []\n"
     )
-    assert "arclith[fastapi,mcp]>=0.18.0" in (generated / "pyproject.toml").read_text(encoding="utf-8")
+    assert "arclith[fastapi,mcp]>=0.19.0" in (generated / "pyproject.toml").read_text(encoding="utf-8")
     assert (package_root / "domain" / "models" / "__init__.py").exists()
     assert (package_root / "domain" / "ports" / "inbound" / "__init__.py").exists()
     assert (package_root / "domain" / "ports" / "outbound" / "__init__.py").exists()
