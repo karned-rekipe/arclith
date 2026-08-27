@@ -36,9 +36,9 @@ def resolve_langsmith_config(settings: LangSmithSettings) -> ResolvedLangSmithCo
             "LANGSMITH_TRACING_SAMPLING_RATE doit etre compris entre 0.0 et 1.0"
         )
 
-    tracing_mode_raw = (
-        os.getenv("LANGSMITH_TRACING_MODE", settings.tracing.mode).strip().lower()
-    )
+    tracing_mode_raw = _env_string(
+        "LANGSMITH_TRACING_MODE", settings.tracing.mode
+    ).lower()
     if tracing_mode_raw not in _TRACING_MODES:
         allowed = ", ".join(sorted(_TRACING_MODES))
         raise RuntimeError(f"LANGSMITH_TRACING_MODE invalide. Valeurs: {allowed}")
@@ -68,8 +68,8 @@ def resolve_langsmith_config(settings: LangSmithSettings) -> ResolvedLangSmithCo
         workspace_id = os.getenv(settings.workspace_id_env, "").strip()
 
     return ResolvedLangSmithConfig(
-        project=os.getenv("LANGSMITH_PROJECT", settings.project).strip(),
-        endpoint=os.getenv("LANGSMITH_ENDPOINT", settings.endpoint).strip(),
+        project=_env_string("LANGSMITH_PROJECT", settings.project),
+        endpoint=_env_string("LANGSMITH_ENDPOINT", settings.endpoint),
         api_key=api_key,
         workspace_id=workspace_id or None,
         tracing_enabled=tracing_enabled,
@@ -88,6 +88,13 @@ def resolve_langsmith_config(settings: LangSmithSettings) -> ResolvedLangSmithCo
             not settings.capture.metadata,
         ),
     )
+
+
+def _env_string(name: str, default: str) -> str:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    return raw.strip()
 
 
 def _env_bool(name: str, default: bool) -> bool:

@@ -61,6 +61,28 @@ def test_resolve_langsmith_config_uses_custom_secret_names(
     assert resolved.tracing_mode == "langsmith"
 
 
+@pytest.mark.parametrize("empty_value", ["", " \t "])
+def test_resolve_langsmith_config_ignores_empty_string_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+    empty_value: str,
+) -> None:
+    monkeypatch.setenv("LANGSMITH_API_KEY", "secret-key")
+    monkeypatch.setenv("LANGSMITH_PROJECT", empty_value)
+    monkeypatch.setenv("LANGSMITH_ENDPOINT", empty_value)
+    monkeypatch.setenv("LANGSMITH_TRACING_MODE", empty_value)
+    settings = LangSmithSettings(
+        project="yaml-project",
+        endpoint="https://yaml.example.test",
+        tracing={"mode": "hybrid"},
+    )
+
+    resolved = resolve_langsmith_config(settings)
+
+    assert resolved.project == "yaml-project"
+    assert resolved.endpoint == "https://yaml.example.test"
+    assert resolved.tracing_mode == "hybrid"
+
+
 def test_resolve_langsmith_config_requires_api_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
