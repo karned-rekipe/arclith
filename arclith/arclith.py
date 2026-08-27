@@ -521,7 +521,7 @@ class Arclith:
         stream_mode: LangGraphStreamMode | Sequence[LangGraphStreamMode] | None = None,
         transformers: Sequence[Callable[[tuple[str, ...]], Any]] | None = None,
         persistence: bool | None = None,
-        persistence_registry: "LangGraphPersistenceRegistry | None" = None,
+        persistence_registry: LangGraphPersistenceRegistry | None = None,
     ) -> Any:
         from langgraph.graph import StateGraph
 
@@ -577,7 +577,7 @@ class Arclith:
         checkpointer: Any,
         store: Any,
         persistence: bool | None,
-        registry: "LangGraphPersistenceRegistry | None",
+        registry: LangGraphPersistenceRegistry | None,
     ) -> tuple[Any, Any, "LangGraphPersistenceComponents | None"]:
         checkpointer_is_explicit = checkpointer is not _LANGGRAPH_UNSET
         store_is_explicit = store is not _LANGGRAPH_UNSET

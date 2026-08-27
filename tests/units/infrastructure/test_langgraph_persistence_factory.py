@@ -5,13 +5,13 @@ from types import SimpleNamespace
 
 import pytest
 
+import arclith.infrastructure.langgraph_persistence_factory as factory_module
 from arclith.infrastructure.config import LangGraphPersistenceSettings
-from arclith.infrastructure.langgraph_persistence_factory import (
-    LangGraphPersistenceRegistry,
-    build_langgraph_persistence,
-    render_langgraph_namespace,
-    resolve_langgraph_persistence_mode,
-)
+
+LangGraphPersistenceRegistry = factory_module.LangGraphPersistenceRegistry
+build_langgraph_persistence = factory_module.build_langgraph_persistence
+render_langgraph_namespace = factory_module.render_langgraph_namespace
+resolve_langgraph_persistence_mode = factory_module.resolve_langgraph_persistence_mode
 
 
 def test_builds_memory_components_without_optional_backend_dependencies() -> None:
@@ -108,8 +108,6 @@ def test_registry_supports_custom_backend_and_closes_its_context() -> None:
 def test_missing_backend_dependency_names_the_extra(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import arclith.infrastructure.langgraph_persistence_factory as factory_module
-
     real_import = factory_module.importlib.import_module
 
     def import_module(name: str):
@@ -158,8 +156,6 @@ def test_invalid_auto_mode_override_is_rejected() -> None:
 def test_custom_import_factories_run_setup_and_close(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import arclith.infrastructure.langgraph_persistence_factory as factory_module
-
     events: list[str] = []
 
     class Resource:
@@ -208,8 +204,6 @@ def test_custom_import_factories_run_setup_and_close(
 def test_builtin_database_factories_receive_connection_and_options(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import arclith.infrastructure.langgraph_persistence_factory as factory_module
-
     calls: list[tuple[str, str, dict[str, object]]] = []
 
     class Resource:
