@@ -16,12 +16,12 @@ persistence:
   enabled: true
   mode: embedded
   checkpointer:
-    adapter: sqlite
+    adapter: SQLite
     path: data/checkpoints.sqlite
     setup: false
     ttl_seconds: null
   store:
-    adapter: memory
+    adapter: Memory
     namespace_template: "{tenant_id}:{user_id}:memories"
     semantic_search:
       enabled: false

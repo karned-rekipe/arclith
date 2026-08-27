@@ -232,7 +232,15 @@ class LangGraphCheckpointerSettings(BaseModel):
     factory: str | None = None
     options: dict[str, object] = Field(default_factory=dict)
 
-    @field_validator("adapter", "path", "database")
+    @field_validator("adapter")
+    @classmethod
+    def normalize_adapter(cls, v: str) -> str:
+        value = v.strip().lower()
+        if not value:
+            raise ValueError("la valeur ne doit pas etre vide")
+        return value
+
+    @field_validator("path", "database")
     @classmethod
     def must_not_be_blank(cls, v: str) -> str:
         value = v.strip()
@@ -263,7 +271,15 @@ class LangGraphStoreSettings(BaseModel):
         default_factory=LangGraphSemanticSearchSettings
     )
 
-    @field_validator("adapter", "database", "collection")
+    @field_validator("adapter")
+    @classmethod
+    def normalize_adapter(cls, v: str) -> str:
+        value = v.strip().lower()
+        if not value:
+            raise ValueError("la valeur ne doit pas etre vide")
+        return value
+
+    @field_validator("database", "collection")
     @classmethod
     def must_not_be_blank(cls, v: str) -> str:
         value = v.strip()
