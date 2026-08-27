@@ -19,6 +19,7 @@ connaissent ni LangSmith ni OpenTelemetry.
 arclith-cli add-adapter \
   --capability observability \
   --adapter opentelemetry \
+  --profile production \
   --yes
 
 arclith-cli add-adapter \
@@ -30,6 +31,11 @@ arclith-cli add-adapter \
 
 Lorsque les deux backends sont actifs, LangSmith doit utiliser `tracing.mode: otel`. Arclith refuse
 les modes natif/hybride dans cette combinaison afin d'éviter les doublons.
+
+Conserver `mode: managed` lorsque Arclith possède le bootstrap du worker. Utiliser `attach` pour
+ajouter uniquement les processors traces/logs à des providers compatibles, ou `external` lorsque
+la plateforme possède providers, readers et exporters. Arclith ne remplace jamais silencieusement
+un provider global existant.
 
 ## Secrets et variables
 
@@ -61,6 +67,7 @@ versionné. Utiliser le secret store de la plateforme.
 - diagnostics LangSmith désactivés hors incident;
 - timeouts et buffers bornés;
 - Collector OTLP recommandé pour le fan-out runtime;
+- export OTLP des logs désactivé sauf besoin explicite; la corrélation locale reste indépendante;
 - `failure_mode: log-and-continue` pour ne jamais bloquer le métier.
 
 Les metadata stables recommandées sont `service.name`, `service.version`,
@@ -92,6 +99,9 @@ curl -fsS http://127.0.0.1:9000/health
 
 Vérifier aussi qu'une requête API, un tool MCP, une commande RabbitMQ et un run agent partagent le
 même contexte, sans payload sensible ni span dupliqué.
+
+Lire la [configuration OpenTelemetry complète](../capabilities/opentelemetry.md) pour les trois
+signaux, la propagation W3C, les limites de cardinalité, les profils CLI et le POC Collector local.
 
 ## Suite
 

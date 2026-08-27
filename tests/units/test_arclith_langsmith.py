@@ -12,11 +12,11 @@ from fastapi.testclient import TestClient
 
 from arclith import Arclith
 from arclith.adapters.outbound.langsmith.runtime import LangSmithRuntime
-from arclith.adapters.outbound.noop.observability import NoOpTraceAdapter
-from arclith.domain.ports.outbound.observability import TracePort, TraceSpan
-from arclith.infrastructure.observability_factory import (
-    _configure_shared_opentelemetry,
+from arclith.adapters.outbound.noop.observability import (
+    NoOpObservabilityRuntime,
+    NoOpTraceAdapter,
 )
+from arclith.domain.ports.outbound.observability import TracePort, TraceSpan
 
 
 class RecordingSpan(TraceSpan):
@@ -73,6 +73,27 @@ class RecordingTracer(TracePort):
         return self.capability
 
 
+class RecordingRuntime(NoOpObservabilityRuntime):
+    def __init__(self, tracer: RecordingTracer | None = None) -> None:
+        super().__init__()
+        self.recording_tracer = tracer or RecordingTracer()
+        self.started = 0
+        self.closed = 0
+
+    @property
+    def tracer(self) -> TracePort:
+        return self.recording_tracer
+
+    def start(self) -> None:
+        self.started += 1
+
+    def shutdown(self, timeout: float | None = None) -> None:
+        self.closed += 1
+
+    def pydantic_ai_instrumentation(self) -> object | None:
+        return self.recording_tracer.capability
+
+
 def _config_dir(tmp_path: Path, *, langsmith: dict[str, Any] | None = None) -> Path:
     config_dir = tmp_path / "config"
     (config_dir / "adapters" / "outbound").mkdir(parents=True)
@@ -94,7 +115,8 @@ def test_arclith_returns_noop_tracer_by_default(tmp_path: Path) -> None:
     assert isinstance(arclith.tracer(), NoOpTraceAdapter)
     assert arclith.observability_diagnostics() == {
         "backend": "noop",
-        "tracing": False,
+        "started": False,
+        "signals": {"traces": False, "metrics": False, "logs": False},
     }
     arclith.flush_observability()
     arclith.close_observability()
@@ -117,17 +139,6 @@ def test_arclith_rejects_selected_langsmith_without_adapter_config(
 
     with pytest.raises(RuntimeError, match="adapters.langsmith est absent"):
         arclith.tracer()
-
-
-def test_shared_opentelemetry_setup_is_noop_without_complete_selection(
-    tmp_path: Path,
-) -> None:
-    inactive = Arclith(_config_dir(tmp_path / "inactive")).config
-    _configure_shared_opentelemetry(inactive)
-
-    selected = Arclith(_config_dir(tmp_path / "selected")).config
-    selected.adapters.observability.enabled = ["opentelemetry"]
-    _configure_shared_opentelemetry(selected)
 
 
 def test_arclith_forwards_provider_neutral_trace_anonymizer(tmp_path: Path) -> None:
@@ -160,15 +171,16 @@ def test_arclith_langsmith_client_is_an_explicit_escape_hatch(
 
 def test_fastapi_lifespan_starts_and_closes_observability(tmp_path: Path) -> None:
     arclith = Arclith(_config_dir(tmp_path))
-    tracer = RecordingTracer()
-    arclith.__dict__["_trace_adapter"] = tracer
+    runtime = RecordingRuntime()
+    arclith.__dict__["_observability_runtime"] = runtime
+    arclith.__dict__["_trace_adapter"] = runtime.tracer
     app = arclith.fastapi()
 
     with TestClient(app) as client:
         assert client.get("/openapi.json").status_code == 200
-        assert tracer.started == 1
+        assert runtime.started == 1
 
-    assert tracer.closed == 1
+    assert runtime.closed == 1
 
 
 def test_arclith_fastapi_adds_langsmith_instrumentation_when_selected(
@@ -195,7 +207,9 @@ def test_arclith_fastapi_adds_langsmith_instrumentation_when_selected(
 @pytest.mark.asyncio
 async def test_arclith_fastmcp_instrumentation_is_idempotent(tmp_path: Path) -> None:
     arclith = Arclith(_config_dir(tmp_path, langsmith={}))
-    arclith.__dict__["_trace_adapter"] = RecordingTracer()
+    runtime = RecordingRuntime()
+    arclith.__dict__["_observability_runtime"] = runtime
+    arclith.__dict__["_trace_adapter"] = runtime.tracer
 
     async def echo(value: str) -> str:
         return value
@@ -220,8 +234,9 @@ class GraphState(TypedDict, total=False):
 def test_langgraph_starts_configured_langsmith_runtime(tmp_path: Path) -> None:
     graph = pytest.importorskip("langgraph.graph")
     arclith = Arclith(_config_dir(tmp_path, langsmith={"tracing": False}))
-    tracer = RecordingTracer()
-    arclith.__dict__["_trace_adapter"] = tracer
+    runtime = RecordingRuntime()
+    arclith.__dict__["_observability_runtime"] = runtime
+    arclith.__dict__["_trace_adapter"] = runtime.tracer
 
     def register(builder: Any, _arclith: Arclith) -> None:
         builder.add_node("echo", lambda state: state)
@@ -230,7 +245,7 @@ def test_langgraph_starts_configured_langsmith_runtime(tmp_path: Path) -> None:
 
     compiled = arclith.langgraph(GraphState, register)
 
-    assert tracer.started == 1
+    assert runtime.started == 1
     assert compiled.invoke({"value": "ok"}) == {"value": "ok"}
 
 
@@ -249,7 +264,9 @@ def test_pydantic_ai_factory_injects_per_agent_capability(tmp_path: Path) -> Non
     )
     arclith = Arclith(config_dir)
     capability = object()
-    arclith.__dict__["_trace_adapter"] = RecordingTracer(capability)
+    runtime = RecordingRuntime(RecordingTracer(capability))
+    arclith.__dict__["_observability_runtime"] = runtime
+    arclith.__dict__["_trace_adapter"] = runtime.tracer
 
     adapter = arclith.pydantic_ai_llm()
 

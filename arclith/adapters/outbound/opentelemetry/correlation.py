@@ -1,4 +1,7 @@
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, Callable
+
+from arclith.domain.ports.outbound.observability import CorrelationContextPort
 
 
 type TraceMetadata = dict[str, str | bool]
@@ -48,3 +51,18 @@ def _valid_injected_id(value: Any, *, expected_length: int) -> bool:
         and any(char != "0" for char in value)
         and all(char.lower() in _HEX_DIGITS for char in value)
     )
+
+
+class OpenTelemetryCorrelationContext(CorrelationContextPort):
+    def __init__(self, enabled: Callable[[], bool] | None = None) -> None:
+        self._enabled = enabled or (lambda: True)
+
+    def current(self) -> Mapping[str, str | bool]:
+        if not self._enabled():
+            return {}
+        return current_trace_metadata()
+
+    def from_log_record(self, record: Any) -> Mapping[str, str | bool]:
+        if not self._enabled():
+            return {}
+        return log_record_trace_metadata(record)

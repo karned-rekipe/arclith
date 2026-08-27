@@ -40,4 +40,6 @@ Si `/health` ne répond pas, le serveur n'est pas encore prêt ou le port `9000`
 
 ## Suite
 
-Lire [MCP](mcp.md), puis [api/fastapi](../capabilities/api.md).
+Lire [MCP](mcp.md), puis [api/fastapi](../capabilities/api.md). Pour exporter les traces et
+métriques sans modifier le service, suivre
+[OpenTelemetry de bout en bout](../capabilities/opentelemetry.md).

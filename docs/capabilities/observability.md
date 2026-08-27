@@ -8,10 +8,14 @@ dans le domaine ou les use cases.
 | Adapter | Usage |
 |---|---|
 | `langsmith` | traces agents, contexte distribué et API avancées LangSmith |
-| `opentelemetry` | traces et métriques OTLP du runtime |
+| [`opentelemetry`](opentelemetry.md) | runtime traces, métriques, logs OTLP et propagation W3C |
 
 Sans adapter activé, `arclith.tracer()` retourne un tracer no-op. Le code applicatif reste donc
 identique avec ou sans backend.
+
+Pour la configuration complète des providers, signaux, profils, instrumentations, règles de
+confidentialité et du Collector local, lire le guide
+[OpenTelemetry de bout en bout](opentelemetry.md).
 
 ## Installer et activer LangSmith
 

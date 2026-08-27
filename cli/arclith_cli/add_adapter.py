@@ -380,6 +380,8 @@ def _normalize_adapter_params(
         return _normalize_agent_persistence_params(params)
     if adapter.capability == "observability" and adapter.name == "langsmith":
         return _normalize_langsmith_params(params)
+    if adapter.capability == "observability" and adapter.name == "opentelemetry":
+        return _normalize_opentelemetry_params(params)
     return params
 
 
@@ -403,6 +405,33 @@ def _normalize_langsmith_params(params: dict[str, Any]) -> dict[str, Any]:
     ):
         enabled = _parse_boolean_param(str(normalized[capture])) is True
         normalized[hide] = _yaml_bool(not enabled)
+    return normalized
+
+
+def _normalize_opentelemetry_params(params: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(params)
+    try:
+        sampling_ratio = float(str(normalized["sampling_ratio"]))
+    except ValueError:
+        console.print(
+            "[red]✗[/red] sampling_ratio doit être un nombre entre 0.0 et 1.0."
+        )
+        raise typer.Exit(1) from None
+    if not 0.0 <= sampling_ratio <= 1.0:
+        console.print("[red]✗[/red] sampling_ratio doit être compris entre 0.0 et 1.0.")
+        raise typer.Exit(1)
+    normalized["sampling_ratio"] = str(sampling_ratio)
+    try:
+        interval = int(str(normalized["metrics_export_interval_millis"]))
+    except ValueError:
+        console.print(
+            "[red]✗[/red] metrics_export_interval_millis doit être un entier positif."
+        )
+        raise typer.Exit(1) from None
+    if interval <= 0:
+        console.print("[red]✗[/red] metrics_export_interval_millis doit être > 0.")
+        raise typer.Exit(1)
+    normalized["metrics_export_interval_millis"] = interval
     return normalized
 
 
@@ -908,9 +937,7 @@ def _langgraph_persistence_yaml(params: dict[str, Any]) -> str:
     database = str(params.get("database") or "langgraph")
     checkpointer: dict[str, Any] = {
         "adapter": checkpointer_adapter,
-        "setup": _parse_boolean_param(
-            str(params.get("checkpointer_setup", "false"))
-        )
+        "setup": _parse_boolean_param(str(params.get("checkpointer_setup", "false")))
         is True,
         "ttl_seconds": params.get("ttl_seconds"),
     }
@@ -930,8 +957,7 @@ def _langgraph_persistence_yaml(params: dict[str, Any]) -> str:
 
     store: dict[str, Any] = {
         "adapter": store_adapter,
-        "setup": _parse_boolean_param(str(params.get("store_setup", "false")))
-        is True,
+        "setup": _parse_boolean_param(str(params.get("store_setup", "false"))) is True,
         "namespace_template": str(
             params.get("namespace_template") or "{tenant_id}:{user_id}:memories"
         ),

@@ -4,6 +4,13 @@
 
 ### Added
 
+- **Runtime OpenTelemetry optionnel de bout en bout** — contrats neutres pour runtime, métriques,
+  corrélation, propagation et logs; providers `managed`/`attach`/`external`; traces, métriques,
+  logs OTLP, batch/flush/shutdown, diagnostics et escape hatch natif.
+- **Instrumentations OpenTelemetry** — FastAPI, HTTPX, FastMCP expérimental versionné, RabbitMQ,
+  Pydantic AI/LangGraph, repositories et caches, avec propagation W3C et cardinalité bornée.
+- **Profils CLI OpenTelemetry** — profils `development` et `production`, YAML imbriqué,
+  `.env.example` sans secret et ajout idempotent de `arclith[opentelemetry]`.
 - **Persistance agent LangGraph** — capability optionnelle `agent-persistence`, configuration
   checkpointer/store, registry custom, wiring embedded/Agent Server et extras SQLite, PostgreSQL,
   MongoDB et Redis granulaires.
@@ -18,6 +25,10 @@
 
 ### Changed
 
+- **Composition d'observabilité neutre** — `Arclith` pilote désormais un unique
+  `ObservabilityRuntimePort`; le logger console et RabbitMQ n'importent plus OpenTelemetry.
+- **Extra OpenTelemetry** — l'instrumentation HTTPX rejoint l'extra optionnel; la corrélation des
+  logs n'installe plus de handler/root logger global.
 - **Extra LangSmith dédié** — `langsmith[otel]>=0.10,<1` quitte la déclaration directe de l'extra
   `langgraph`. Les projets utilisant explicitement LangSmith doivent ajouter
   `arclith[langsmith]`; `arclith[all]` continue de l'inclure.
@@ -27,6 +38,8 @@
 
 ### Security
 
+- **Télémétrie privacy-safe** — pas de payload, corps HTTP, contenu GenAI, clé de cache, entité,
+  UUID ou header implicite; baggage allowlisté et diagnostics sans valeur de secret.
 - **Capture sûre par défaut** — inputs, outputs, prompts, réponses, binaires et paramètres modèle
   sont masqués; le baggage est vide sans allowlist et la CLI refuse toute clé LangSmith en argument.
 

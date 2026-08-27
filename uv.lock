@@ -142,7 +142,7 @@ all = [
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-fastapi" },
-    { name = "opentelemetry-instrumentation-logging" },
+    { name = "opentelemetry-instrumentation-httpx" },
     { name = "opentelemetry-sdk" },
     { name = "psycopg", extra = ["binary", "pool"] },
     { name = "pydantic-ai-slim", extra = ["anthropic", "openai"] },
@@ -211,7 +211,7 @@ opentelemetry = [
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-fastapi" },
-    { name = "opentelemetry-instrumentation-logging" },
+    { name = "opentelemetry-instrumentation-httpx" },
     { name = "opentelemetry-sdk" },
 ]
 postgresql = [
@@ -301,8 +301,8 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp", marker = "extra == 'opentelemetry'", specifier = ">=1.30.0" },
     { name = "opentelemetry-instrumentation-fastapi", marker = "extra == 'all'", specifier = ">=0.51b0" },
     { name = "opentelemetry-instrumentation-fastapi", marker = "extra == 'opentelemetry'", specifier = ">=0.51b0" },
-    { name = "opentelemetry-instrumentation-logging", marker = "extra == 'all'", specifier = ">=0.51b0" },
-    { name = "opentelemetry-instrumentation-logging", marker = "extra == 'opentelemetry'", specifier = ">=0.51b0" },
+    { name = "opentelemetry-instrumentation-httpx", marker = "extra == 'all'", specifier = ">=0.51b0" },
+    { name = "opentelemetry-instrumentation-httpx", marker = "extra == 'opentelemetry'", specifier = ">=0.51b0" },
     { name = "opentelemetry-sdk", marker = "extra == 'all'", specifier = ">=1.30.0" },
     { name = "opentelemetry-sdk", marker = "extra == 'opentelemetry'", specifier = ">=1.30.0" },
     { name = "psycopg", extras = ["binary", "pool"], marker = "extra == 'all'", specifier = ">=3.2.0,<4.0.0" },
@@ -2711,16 +2711,19 @@ wheels = [
 ]
 
 [[package]]
-name = "opentelemetry-instrumentation-logging"
+name = "opentelemetry-instrumentation-httpx"
 version = "0.58b0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
     { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "opentelemetry-util-http" },
+    { name = "wrapt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e2/65/db3ce7a7eda7ae70338339baeb80894e283d24a0036a0021745e54a5b874/opentelemetry_instrumentation_logging-0.58b0.tar.gz", hash = "sha256:1475e531cf0e1c03e1c42995fcf312767edaadfe335d04d1d3b27c9a8c8c7049", size = 9969, upload-time = "2025-09-11T11:42:40.384Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/07/21/ba3a0106795337716e5e324f58fd3c04f5967e330c0408d0d68d873454db/opentelemetry_instrumentation_httpx-0.58b0.tar.gz", hash = "sha256:3cd747e7785a06d06bd58875e8eb11595337c98c4341f4fe176ff1f734a90db7", size = 19887, upload-time = "2025-09-11T11:42:37.926Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a7/d7/40f03745f540630b9e5712dfe5971b9a3f0032df89c5f7bdd167db7ebafc/opentelemetry_instrumentation_logging-0.58b0-py3-none-any.whl", hash = "sha256:9bc59602be50e21c4946de9026de3c00556b5f5845c25c834518a0b63ba897b9", size = 12577, upload-time = "2025-09-11T11:41:36.395Z" },
+    { url = "https://files.pythonhosted.org/packages/cc/e7/6dc8ee4881889993fa4a7d3da225e5eded239c975b9831eff392abd5a5e4/opentelemetry_instrumentation_httpx-0.58b0-py3-none-any.whl", hash = "sha256:d3f5a36c7fed08c245f1b06d1efd91f624caf2bff679766df80981486daaccdb", size = 15197, upload-time = "2025-09-11T11:41:32.66Z" },
 ]
 
 [[package]]

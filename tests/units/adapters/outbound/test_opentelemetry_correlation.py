@@ -1,6 +1,9 @@
 from types import SimpleNamespace
 
-from arclith.adapters.outbound.opentelemetry.correlation import log_record_trace_metadata
+from arclith.adapters.outbound.opentelemetry.correlation import (
+    OpenTelemetryCorrelationContext,
+    log_record_trace_metadata,
+)
 
 
 def test_log_record_trace_metadata_reads_injected_trace_ids() -> None:
@@ -24,7 +27,9 @@ def test_log_record_trace_metadata_ignores_missing_span_context() -> None:
 
 
 def test_log_record_trace_metadata_ignores_zero_padded_span_context() -> None:
-    record = SimpleNamespace(otelTraceID="0" * 32, otelSpanID="0" * 16, otelTraceSampled=False)
+    record = SimpleNamespace(
+        otelTraceID="0" * 32, otelSpanID="0" * 16, otelTraceSampled=False
+    )
 
     assert log_record_trace_metadata(record) == {}
 
@@ -47,3 +52,10 @@ def test_log_record_trace_metadata_ignores_wrong_length_span_ids() -> None:
     )
 
     assert log_record_trace_metadata(record) == {}
+
+
+def test_correlation_context_can_be_disabled_without_reading_vendor_context() -> None:
+    context = OpenTelemetryCorrelationContext(lambda: False)
+
+    assert context.current() == {}
+    assert context.from_log_record(object()) == {}

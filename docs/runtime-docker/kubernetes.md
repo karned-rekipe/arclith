@@ -54,6 +54,38 @@ stringData:
 En vrai déploiement, générer les `Secret` depuis le gestionnaire de secrets de la plateforme, pas
 depuis un manifeste commité en clair.
 
+### OpenTelemetry optionnel
+
+Lorsque `observability/opentelemetry` est activé, appliquer la même configuration à chaque
+workload API, MCP, agent et worker. L'identifiant d'instance vient de l'UID du Pod ; les headers
+d'authentification restent dans un `Secret` créé par le secret manager :
+
+```yaml
+env:
+  - name: OTEL_SERVICE_NAME
+    value: my-service
+  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+    value: http://otel-collector.observability.svc:4318
+  - name: OTEL_EXPORTER_OTLP_PROTOCOL
+    value: http/protobuf
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: deployment.environment.name=production,release.revision=0.1.0
+  - name: OTEL_SERVICE_INSTANCE_ID
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.uid
+  - name: OTEL_EXPORTER_OTLP_HEADERS
+    valueFrom:
+      secretKeyRef:
+        name: my-service-otel
+        key: headers
+        optional: true
+```
+
+Le `Secret/my-service-otel` ne doit pas être écrit en clair dans Git. Voir la
+[capability OpenTelemetry](../capabilities/opentelemetry.md) pour les profils, les modes de
+providers, le sampling et les limites de cardinalité.
+
 ## Deployment API
 
 ```yaml

@@ -460,19 +460,25 @@ def test_observability_capability_catalog_declares_opentelemetry() -> None:
     opentelemetry = capability.get_adapter("opentelemetry")
     assert opentelemetry is not None
     assert opentelemetry.config_path == "config/adapters/outbound/opentelemetry.yaml"
-    assert opentelemetry.env_path == ".env"
+    assert opentelemetry.env_path == ".env.example"
+    assert opentelemetry.dependency_extra == "opentelemetry"
     assert opentelemetry.entity_scoped is False
     assert [parameter.name for parameter in opentelemetry.parameters] == [
         "service_name",
         "endpoint",
-        "traces_endpoint",
-        "metrics_endpoint",
+        "mode",
         "protocol",
         "traces",
         "metrics",
-        "instrument_fastapi",
+        "logs",
+        "correlate_logs",
+        "sampling_ratio",
         "metrics_export_interval_millis",
-        "headers",
+        "deployment_environment",
+    ]
+    assert [profile.name for profile in opentelemetry.profiles] == [
+        "development",
+        "production",
     ]
 
 

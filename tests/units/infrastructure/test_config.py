@@ -586,6 +586,19 @@ def test_parallel_observability_rejects_duplicate_native_trace_trees():
         )
 
 
+def test_parallel_observability_requires_shared_opentelemetry_traces():
+    with pytest.raises(ValidationError, match="signals.traces.enabled=true"):
+        AppConfig.model_validate(
+            {
+                "adapters": {
+                    "observability": {"enabled": ["langsmith", "opentelemetry"]},
+                    "langsmith": {"project": "agent-tests"},
+                    "opentelemetry": {"signals": {"traces": {"enabled": False}}},
+                }
+            }
+        )
+
+
 def test_load_config_dir_langgraph_scoped():
     path = _make_config_dir(
         {

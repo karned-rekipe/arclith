@@ -536,6 +536,73 @@ def test_add_langsmith_adds_dependency_extra_idempotently(tmp_path: Path) -> Non
     assert "arclith[fastapi,mcp,langsmith]>=0.18.0" in pyproject.read_text()
 
 
+def test_add_opentelemetry_adds_dependency_extra_idempotently(
+    tmp_path: Path,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    pyproject = project_dir / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\ndependencies = ["arclith[fastapi,mcp]>=0.18.0"]\n',
+        encoding="utf-8",
+    )
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="observability",
+            adapter="opentelemetry",
+            adapter_params={"service_name": "demo-api"},
+            yes=True,
+        )
+
+    assert "arclith[fastapi,mcp,opentelemetry]>=0.18.0" in pyproject.read_text()
+
+
+@pytest.mark.parametrize(
+    ("profile", "sampling_ratio", "environment"),
+    [
+        ("development", 1.0, "development"),
+        ("production", 0.1, "production"),
+    ],
+)
+def test_add_opentelemetry_profiles_are_privacy_safe_and_idempotent(
+    tmp_path: Path,
+    profile: str,
+    sampling_ratio: float,
+    environment: str,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="observability",
+            adapter="opentelemetry",
+            profile=profile,
+            yes=True,
+        )
+
+    config = yaml.safe_load(
+        (project_dir / "config/adapters/outbound/opentelemetry.yaml").read_text()
+    )
+    assert config["signals"]["traces"]["sampling_ratio"] == sampling_ratio
+    assert config["signals"]["metrics"]["enabled"] is True
+    assert config["signals"]["logs"]["enabled"] is False
+    assert config["signals"]["logs"]["correlate"] is True
+    assert config["capture"] == {
+        "request_headers_allowlist": [],
+        "response_headers_allowlist": [],
+        "genai_content": False,
+        "tool_content": False,
+        "db_statement": False,
+    }
+    assert (
+        config["resource"]["attributes"]["deployment.environment.name"] == environment
+    )
+    env_example = (project_dir / ".env.example").read_text()
+    assert "OTEL_EXPORTER_OTLP_HEADERS=" not in env_example
+
+
 def test_add_langsmith_preserves_existing_config_values(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
     config_path = project_dir / "config/adapters/outbound/langsmith.yaml"
@@ -1435,14 +1502,15 @@ def test_add_opentelemetry_observability_adapter_uses_catalog_params(
         adapter_params={
             "service_name": "demo-api",
             "endpoint": "http://otel-collector:4318",
-            "traces_endpoint": "http://otel-collector:4318/custom/traces",
-            "metrics_endpoint": "http://otel-collector:4318/custom/metrics",
+            "mode": "managed",
             "protocol": "http/protobuf",
             "traces": "true",
             "metrics": "true",
-            "instrument_fastapi": "true",
+            "logs": "false",
+            "correlate_logs": "true",
+            "sampling_ratio": "0.5",
             "metrics_export_interval_millis": "15000",
-            "headers": "authorization=Bearer test",
+            "deployment_environment": "staging",
         },
         yes=True,
     )
@@ -1450,16 +1518,27 @@ def test_add_opentelemetry_observability_adapter_uses_catalog_params(
     config = (
         project_dir / "config" / "adapters" / "outbound" / "opentelemetry.yaml"
     ).read_text(encoding="utf-8")
-    assert 'service_name: "demo-api"' in config
-    assert 'endpoint: "http://otel-collector:4318"' in config
-    assert "traces_endpoint: http://otel-collector:4318/custom/traces" in config
-    assert "metrics_endpoint: http://otel-collector:4318/custom/metrics" in config
-    assert 'protocol: "http/protobuf"' in config
-    assert "headers_env: OTEL_EXPORTER_OTLP_HEADERS" in config
-    assert "traces: true" in config
-    assert "metrics: true" in config
-    assert "instrument_fastapi: true" in config
-    assert "metrics_export_interval_millis: 15000" in config
+    parsed_config = yaml.safe_load(config)
+    assert parsed_config["mode"] == "managed"
+    assert parsed_config["service"]["name"] == "demo-api"
+    assert parsed_config["export"]["endpoint"] == "http://otel-collector:4318"
+    assert parsed_config["export"]["protocol"] == "http/protobuf"
+    assert parsed_config["export"]["headers_env"] == "OTEL_EXPORTER_OTLP_HEADERS"
+    assert parsed_config["signals"]["traces"] == {
+        "enabled": True,
+        "sampler": "parentbased_traceidratio",
+        "sampling_ratio": 0.5,
+    }
+    assert parsed_config["signals"]["metrics"]["enabled"] is True
+    assert parsed_config["signals"]["metrics"]["export_interval_millis"] == 15000
+    assert parsed_config["signals"]["logs"] == {
+        "enabled": False,
+        "correlate": True,
+    }
+    assert parsed_config["capture"]["genai_content"] is False
+    assert parsed_config["resource"]["attributes"] == {
+        "deployment.environment.name": "staging"
+    }
     adapters_config = yaml.safe_load(
         (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
             encoding="utf-8"
@@ -1469,10 +1548,13 @@ def test_add_opentelemetry_observability_adapter_uses_catalog_params(
 
     env = (project_dir / ".env").read_text(encoding="utf-8")
     assert "EXISTING=value" in env
-    assert "OTEL_SERVICE_NAME=demo-api" in env
-    assert "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318" in env
-    assert "OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf" in env
-    assert "OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer test" in env
+    env_example = (project_dir / ".env.example").read_text(encoding="utf-8")
+    assert "OTEL_SERVICE_NAME=demo-api" in env_example
+    assert "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318" in env_example
+    assert "OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf" in env_example
+    assert "OTEL_TRACES_SAMPLER_ARG=0.5" in env_example
+    assert "OTEL_EXPORTER_OTLP_HEADERS=" not in env_example
+    assert "authorization=Bearer test" not in env_example
     assert ".env" in (project_dir / ".gitignore").read_text(encoding="utf-8")
 
 
@@ -1553,10 +1635,10 @@ def test_add_langsmith_preserves_existing_opentelemetry_activation(
     assert adapters_config["observability"]["enabled"].count("langsmith") == 1
     assert adapters_config["observability"]["enabled"].count("opentelemetry") == 1
     assert "EXISTING=value" in env
-    assert "OTEL_SERVICE_NAME=demo-api" in env
+    assert "OTEL_SERVICE_NAME=demo-api" in env_example
     assert "LANGSMITH_PROJECT=agent-tests" in env_example
     assert "LANGSMITH_API_KEY=" not in env_example
-    assert 'service_name: "demo-api"' in opentelemetry_config
+    assert 'name: "demo-api"' in opentelemetry_config
 
 
 def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(
