@@ -12,7 +12,7 @@ import pytest
 from arclith.adapters.bidirectional.rabbitmq import RabbitMQCommandBus
 from arclith.application.command_bus import CommandDispatcher
 from arclith.domain.ports.inbound.command_bus import CommandHandler
-from arclith.domain.ports.outbound.observability import TracePort, TraceSpan
+from arclith.domain.ports.outbound.observability import MetricPort, TracePort, TraceSpan
 from arclith.infrastructure.config import RabbitMQCommandBusSettings
 
 
@@ -179,6 +179,7 @@ class RecordingTraceSpan(TraceSpan):
 class RecordingTracer(TracePort):
     def __init__(self) -> None:
         self.span_names: list[str] = []
+        self.span_metadata: list[dict[str, object]] = []
         self.parents: list[Mapping[str, str] | None] = []
         self.events: list[str] = []
 
@@ -193,6 +194,7 @@ class RecordingTracer(TracePort):
         metadata: Mapping[str, object] | None = None,
     ) -> Iterator[TraceSpan]:
         self.span_names.append(name)
+        self.span_metadata.append(dict(metadata or {}))
         self.events.append(f"span:{name}")
         yield RecordingTraceSpan()
 
@@ -212,12 +214,41 @@ class RecordingTracer(TracePort):
     def inject(self, headers: MutableMapping[str, str]) -> None:
         self.events.append("inject")
         headers["langsmith-trace"] = "trace-value"
+        headers["traceparent"] = f"00-{'a' * 32}-{'b' * 16}-01"
 
     def flush(self, timeout: float | None = None) -> None:
         return None
 
     def close(self, timeout: float | None = None) -> None:
         return None
+
+
+class RecordingMetrics(MetricPort):
+    def __init__(self) -> None:
+        self.counters: list[tuple[str, dict[str, object]]] = []
+        self.histograms: list[tuple[str, dict[str, object]]] = []
+
+    def add_counter(
+        self,
+        name: str,
+        value: int | float = 1,
+        *,
+        attributes: Mapping[str, str | bool | int | float] | None = None,
+        description: str = "",
+        unit: str = "1",
+    ) -> None:
+        self.counters.append((name, dict(attributes or {})))
+
+    def record_histogram(
+        self,
+        name: str,
+        value: int | float,
+        *,
+        attributes: Mapping[str, str | bool | int | float] | None = None,
+        description: str = "",
+        unit: str = "ms",
+    ) -> None:
+        self.histograms.append((name, dict(attributes or {})))
 
 
 async def test_rabbitmq_command_bus_publish_configures_reliable_channel(logger) -> None:
@@ -298,7 +329,6 @@ async def test_rabbitmq_command_bus_connect_can_disable_retry_dlx(logger) -> Non
 
 async def test_rabbitmq_command_bus_publish_adds_current_traceparent(
     logger,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     connection = FakeConnection()
 
@@ -306,18 +336,12 @@ async def test_rabbitmq_command_bus_publish_adds_current_traceparent(
         assert url == "amqp://broker/"
         return connection
 
-    monkeypatch.setattr(
-        "arclith.adapters.bidirectional.rabbitmq.command_bus.current_trace_metadata",
-        lambda: {
-            "trace_id": "a" * 32,
-            "span_id": "b" * 16,
-            "trace_sampled": True,
-        },
-    )
     settings = RabbitMQCommandBusSettings(url="amqp://broker/")
+    tracer = RecordingTracer()
     bus = RabbitMQCommandBus(
         settings,
         logger,
+        tracer=tracer,
         connector=connector,
         aio_pika_module=FakeAioPika,
     )
@@ -426,6 +450,38 @@ async def test_rabbitmq_command_bus_nacks_to_dlx_after_dispatch_error(logger) ->
 
     assert message.acked is False
     assert message.nacked is False
+
+
+async def test_rabbitmq_command_bus_records_bounded_retry_and_redelivery_metrics(
+    logger,
+) -> None:
+    dispatcher = CommandDispatcher([FailingHandler()])
+    message = FakeIncomingMessage(
+        b'{"payload": {"title": "write docs"}}',
+        headers={"command_type": "todo.create"},
+    )
+    message.redelivered = True
+    tracer = RecordingTracer()
+    metrics = RecordingMetrics()
+    bus = RabbitMQCommandBus(
+        RabbitMQCommandBusSettings(retry_requeue=True),
+        logger,
+        tracer=tracer,
+        metrics=metrics,
+        aio_pika_module=FakeAioPika,
+    )
+
+    await bus.handle_message(message, dispatcher)
+
+    assert message.nacked is True
+    assert tracer.span_metadata[0]["messaging.message.redelivery_count"] == 1
+    assert [name for name, _ in metrics.counters] == [
+        "arclith.messaging.operations",
+        "arclith.messaging.retries",
+        "arclith.messaging.rejected",
+    ]
+    assert metrics.histograms[0][0] == "arclith.messaging.duration"
+    assert "payload" not in repr(metrics.counters)
 
 
 async def test_rabbitmq_command_bus_invalid_json_never_requeues(logger) -> None:

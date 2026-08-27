@@ -1,13 +1,21 @@
+from __future__ import annotations
+
 import logging
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 from arclith import Arclith
+from arclith.adapters.outbound.noop.observability import NoOpObservabilityRuntime
+from arclith.adapters.outbound.opentelemetry.runtime import OpenTelemetryRuntime
 from arclith.arclith import _UvicornLogInterceptHandler
-from arclith.adapters.outbound.opentelemetry import fastapi as otel_fastapi
 from arclith.domain.ports.outbound.logger import Logger, LogLevel
+from arclith.infrastructure.observability_factory import (
+    CompositeObservabilityRuntime,
+)
 
 
 class CapturingLogger(Logger):
@@ -18,115 +26,115 @@ class CapturingLogger(Logger):
         self.records.append({"level": level, "message": message, "metadata": metadata})
 
 
-def _make_config_dir(tmp_path: Path) -> Path:
+class RecordingRuntime(NoOpObservabilityRuntime):
+    def __init__(self, events: list[str]) -> None:
+        super().__init__()
+        self.events = events
+
+    def instrument_fastapi(self, app: Any) -> None:
+        self.events.append("runtime")
+
+
+class InjectedCorrelation:
+    def current(self) -> dict[str, str | bool]:
+        return {}
+
+    def from_log_record(self, record: Any) -> dict[str, str | bool]:
+        return {
+            "trace_id": record.otelTraceID,
+            "span_id": record.otelSpanID,
+            "trace_sampled": record.otelTraceSampled,
+        }
+
+
+class CurrentCorrelation:
+    def current(self) -> dict[str, str | bool]:
+        return {
+            "trace_id": "0" * 31 + "3",
+            "span_id": "0" * 15 + "4",
+            "trace_sampled": False,
+        }
+
+    def from_log_record(self, record: Any) -> dict[str, str | bool]:
+        return {}
+
+
+def _make_config_dir(tmp_path: Path, *, langsmith: bool = False) -> Path:
     config_dir = tmp_path / "config"
     (config_dir / "adapters" / "outbound").mkdir(parents=True)
     (config_dir / "app.yaml").write_text(
         yaml.dump({"name": "demo-api", "version": "1.2.3"}),
         encoding="utf-8",
     )
+    enabled = ["opentelemetry"]
+    if langsmith:
+        enabled.append("langsmith")
+        (config_dir / "adapters" / "outbound" / "langsmith.yaml").write_text(
+            yaml.dump({"project": "agent-tests", "tracing": {"enabled": False}}),
+            encoding="utf-8",
+        )
     (config_dir / "adapters" / "adapters.yaml").write_text(
-        yaml.dump({"observability": {"enabled": ["langsmith", "opentelemetry"]}}),
-        encoding="utf-8",
-    )
-    (config_dir / "adapters" / "outbound" / "langsmith.yaml").write_text(
-        yaml.dump({"project": "agent-tests"}),
+        yaml.dump({"observability": {"enabled": enabled}}),
         encoding="utf-8",
     )
     (config_dir / "adapters" / "outbound" / "opentelemetry.yaml").write_text(
-        yaml.dump({"instrument_fastapi": True}),
+        yaml.dump(
+            {
+                "signals": {
+                    "traces": {"enabled": False},
+                    "metrics": {"enabled": False},
+                    "logs": {"enabled": False},
+                }
+            }
+        ),
         encoding="utf-8",
     )
     return config_dir
 
 
-def test_opentelemetry_hook_uses_configured_adapter(
-    tmp_path: Path, monkeypatch
+def test_arclith_builds_opentelemetry_runtime_only_when_selected(
+    tmp_path: Path,
 ) -> None:
-    calls: list[dict[str, Any]] = []
-
-    def fake_instrument_fastapi_app(
-        app: Any,
-        settings: Any,
-        *,
-        service_name: str,
-        service_version: str,
-    ) -> None:
-        calls.append(
-            {
-                "app": app,
-                "settings": settings,
-                "service_name": service_name,
-                "service_version": service_version,
-            }
-        )
-
-    monkeypatch.setattr(
-        otel_fastapi, "instrument_fastapi_app", fake_instrument_fastapi_app
-    )
-
     arclith = Arclith(_make_config_dir(tmp_path))
-    app = object()
-    arclith._instrument_fastapi_opentelemetry(app)  # type: ignore[arg-type]
 
-    assert len(calls) == 1
-    assert calls[0]["app"] is app
-    assert calls[0]["service_name"] == "demo-api"
-    assert calls[0]["service_version"] == "1.2.3"
-    assert calls[0]["settings"].instrument_fastapi is True
+    assert isinstance(arclith._observability_runtime, OpenTelemetryRuntime)
+    assert arclith.observability_diagnostics()["service"]["name"] == "demo-api"
+    assert arclith.observability_diagnostics()["started"] is False
 
 
-def test_fastapi_instruments_opentelemetry_after_middlewares(
+def test_parallel_backends_build_one_composite_runtime(tmp_path: Path) -> None:
+    arclith = Arclith(_make_config_dir(tmp_path, langsmith=True))
+
+    assert isinstance(arclith._observability_runtime, CompositeObservabilityRuntime)
+    diagnostics = arclith.observability_diagnostics()
+    assert diagnostics["backend"] == "composite"
+    assert set(diagnostics) == {"backend", "opentelemetry", "langsmith"}
+
+
+def test_fastapi_delegates_instrumentation_to_neutral_runtime(
     tmp_path: Path, monkeypatch
 ) -> None:
     events: list[str] = []
 
-    def fake_add_fastapi_observability(self: Arclith, app: Any) -> None:
-        events.append("observability")
-
-    def fake_add_fastapi_http_middlewares(self: Arclith, app: Any) -> None:
-        events.append("http")
-
-    def fake_instrument_fastapi_opentelemetry(self: Arclith, app: Any) -> None:
-        events.append("opentelemetry")
-
     monkeypatch.setattr(
-        Arclith, "_add_fastapi_observability", fake_add_fastapi_observability
-    )
-    monkeypatch.setattr(
-        Arclith, "_add_fastapi_http_middlewares", fake_add_fastapi_http_middlewares
+        Arclith,
+        "_add_fastapi_observability",
+        lambda self, app: events.append("observability"),
     )
     monkeypatch.setattr(
         Arclith,
-        "_instrument_fastapi_opentelemetry",
-        fake_instrument_fastapi_opentelemetry,
+        "_add_fastapi_http_middlewares",
+        lambda self, app: events.append("http"),
     )
+    arclith = Arclith(_make_config_dir(tmp_path))
+    arclith.__dict__["_observability_runtime"] = RecordingRuntime(events)
 
-    Arclith(_make_config_dir(tmp_path)).fastapi()
+    arclith.fastapi()
 
-    assert events == ["observability", "http", "opentelemetry"]
-
-
-def test_langsmith_runtime_preconfigures_shared_opentelemetry_provider(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    calls: list[tuple[Any, str, str]] = []
-    monkeypatch.setattr(
-        otel_fastapi,
-        "configure_opentelemetry",
-        lambda settings, *, service_name, service_version: calls.append(
-            (settings, service_name, service_version)
-        ),
-    )
-    tracer = Arclith(_make_config_dir(tmp_path)).tracer()
-
-    tracer._before_start()  # type: ignore[attr-defined]
-
-    assert calls[0][1:] == ("demo-api", "1.2.3")
+    assert events == ["observability", "http", "runtime"]
 
 
-def test_uvicorn_log_interceptor_keeps_injected_trace_metadata() -> None:
+def test_uvicorn_log_interceptor_uses_neutral_correlation_port() -> None:
     logger = CapturingLogger()
     record = logging.LogRecord(
         "uvicorn.access", logging.INFO, __file__, 1, "request finished", (), None
@@ -135,7 +143,7 @@ def test_uvicorn_log_interceptor_keeps_injected_trace_metadata() -> None:
     record.otelSpanID = "0" * 15 + "2"
     record.otelTraceSampled = True
 
-    _UvicornLogInterceptHandler(logger).emit(record)
+    _UvicornLogInterceptHandler(logger, InjectedCorrelation()).emit(record)  # type: ignore[arg-type]
 
     assert logger.records == [
         {
@@ -148,3 +156,36 @@ def test_uvicorn_log_interceptor_keeps_injected_trace_metadata() -> None:
             },
         }
     ]
+
+
+def test_uvicorn_log_interceptor_falls_back_to_current_context() -> None:
+    logger = CapturingLogger()
+    record = logging.LogRecord(
+        "uvicorn.access", logging.INFO, __file__, 1, "request finished", (), None
+    )
+
+    _UvicornLogInterceptHandler(logger, CurrentCorrelation()).emit(record)  # type: ignore[arg-type]
+
+    assert logger.records[0]["metadata"] == {
+        "trace_id": "0" * 31 + "3",
+        "span_id": "0" * 15 + "4",
+        "trace_sampled": False,
+    }
+
+
+def test_base_import_does_not_load_opentelemetry_when_disabled() -> None:
+    script = """
+import sys
+from arclith import Arclith
+assert not any(name.startswith('opentelemetry') for name in sys.modules)
+print('clean')
+"""
+
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", script],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.stdout.strip() == "clean"

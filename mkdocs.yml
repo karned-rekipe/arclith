@@ -78,7 +78,9 @@ nav:
       - License: capabilities/license.md
       - HTTP: capabilities/http.md
       - LLM: capabilities/llm.md
-      - Observability: capabilities/observability.md
+      - Observability:
+          - Vue d'ensemble: capabilities/observability.md
+          - OpenTelemetry: capabilities/opentelemetry.md
       - Production:
           - Baseline: production/baseline.md
           - Auth: production/auth.md

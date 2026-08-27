@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import logging
 import threading
+import time
 import traceback
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -11,13 +12,16 @@ from functools import cached_property, wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncIterator, Literal, TypeVar, overload
 
-from arclith.adapters.outbound.opentelemetry.correlation import (
-    log_record_trace_metadata,
-)
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.outbound.file_storage import FileStoragePort
 from arclith.domain.ports.outbound.logger import Logger, LogLevel
-from arclith.domain.ports.outbound.observability import TraceAnonymizer, TracePort
+from arclith.domain.ports.outbound.observability import (
+    CorrelationContextPort,
+    MetricPort,
+    ObservabilityRuntimePort,
+    TraceAnonymizer,
+    TracePort,
+)
 from arclith.domain.ports.outbound.repository import Repository
 from arclith.infrastructure.config import (
     AppConfig,
@@ -105,9 +109,14 @@ def _langgraph_configured_value(explicit: Any, configured: object | None) -> Any
 
 
 class _UvicornLogInterceptHandler(logging.Handler):
-    def __init__(self, logger: Logger) -> None:
+    def __init__(
+        self,
+        logger: Logger,
+        correlation: CorrelationContextPort | None = None,
+    ) -> None:
         super().__init__()
         self._logger = logger
+        self._correlation = correlation
 
     def emit(self, record: logging.LogRecord) -> None:
         message = record.getMessage()
@@ -115,10 +124,15 @@ class _UvicornLogInterceptHandler(logging.Handler):
             exc = record.exc_info[1]
             tb = "".join(traceback.format_exception(exc))
             message = f"{message}\n{tb}"
+        injected: Mapping[str, str | bool] = {}
+        if self._correlation is not None:
+            injected = self._correlation.from_log_record(record)
+            if not injected:
+                injected = self._correlation.current()
         self._logger.log(
             _LEVEL_MAP.get(record.levelname, LogLevel.INFO),
             message,
-            **log_record_trace_metadata(record),
+            **injected,
         )
 
 
@@ -128,6 +142,7 @@ class Arclith:
         config_path: str | Path,
         *,
         trace_anonymizer: TraceAnonymizer | None = None,
+        opentelemetry_overrides: Mapping[str, Any] | None = None,
     ) -> None:
         p = Path(config_path)
         if p.is_dir():
@@ -137,6 +152,7 @@ class Arclith:
         else:
             raise ValueError(f"Config path not found: {p}")
         self._trace_anonymizer = trace_anonymizer
+        self._opentelemetry_overrides = dict(opentelemetry_overrides or {})
 
     @cached_property
     def logger(self) -> Logger:
@@ -176,9 +192,25 @@ class Arclith:
     ) -> Repository[T] | R:
         from arclith.infrastructure.repository_factory import build_repository
 
-        return build_repository(
+        repository = build_repository(
             self.config, entity_class, self.logger, registry=registry
         )
+        settings = self.config.adapters.opentelemetry
+        if (
+            self.config.adapters.observability.is_enabled("opentelemetry")
+            and settings is not None
+            and settings.instrumentation.repositories
+        ):
+            from arclith.adapters.outbound.opentelemetry.instrumentations.repository import (
+                ObservedRepository,
+            )
+
+            return ObservedRepository(
+                repository,
+                self.tracer(),
+                self.metrics(),
+            )
+        return repository
 
     def file_storage(
         self,
@@ -196,23 +228,26 @@ class Arclith:
             )
         from arclith.adapters.bidirectional.rabbitmq import RabbitMQCommandBus
 
-        tracer: TracePort | None = None
-        langsmith = self.config.adapters.langsmith
-        if (
-            self.config.adapters.observability.is_enabled("langsmith")
-            and langsmith is not None
-            and langsmith.instrumentation.command_bus
-        ):
-            tracer = self.tracer()
+        trace_rabbitmq = self._langsmith_instrumentation_enabled(
+            "command_bus"
+        ) or self._opentelemetry_instrumentation_enabled("rabbitmq", "traces")
+        tracer = self.tracer() if trace_rabbitmq else None
+        metrics = (
+            self._observability_runtime.metrics
+            if self._opentelemetry_instrumentation_enabled("rabbitmq", "metrics")
+            else None
+        )
         return RabbitMQCommandBus(
             self.config.command_bus.rabbitmq,
             self.logger,
             tracer=tracer,
+            metrics=metrics,
         )
 
     def run_command_bus(self, dispatcher: "CommandDispatcher") -> None:
         async def _run() -> None:
             bus = self.rabbitmq_command_bus()
+            self._start_observability()
             try:
                 await bus.run(dispatcher)
             finally:
@@ -244,10 +279,7 @@ class Arclith:
         app = FastAPI(lifespan=_lifespan, **kwargs)
         self._add_fastapi_observability(app)
         self._add_fastapi_http_middlewares(app)
-        if self.config.adapters.observability.is_enabled("langsmith"):
-            self._instrument_fastapi_langsmith(app)
-        if self.config.adapters.observability.is_enabled("opentelemetry"):
-            self._instrument_fastapi_opentelemetry(app)
+        self._observability_runtime.instrument_fastapi(app)
 
         if self.config.keycloak:
             self._patch_openapi_keycloak(app)
@@ -286,38 +318,6 @@ class Arclith:
             self._probe_server.add_collector(
                 ApiMetricsCollector(app=None, registry=self._metrics_registry)  # type: ignore[arg-type]
             )
-
-    def _instrument_fastapi_opentelemetry(self, app: "FastAPI") -> None:
-        settings = self.config.adapters.opentelemetry
-        if settings is None:
-            return
-
-        from arclith.adapters.outbound.opentelemetry.fastapi import (
-            instrument_fastapi_app,
-        )
-
-        instrument_fastapi_app(
-            app,
-            settings,
-            service_name=self.config.app.name,
-            service_version=self.config.app.version,
-        )
-
-    def _instrument_fastapi_langsmith(self, app: "FastAPI") -> None:
-        settings = self.config.adapters.langsmith
-        if settings is None or not settings.instrumentation.fastapi:
-            return
-        otel = self.config.adapters.opentelemetry
-        if (
-            self.config.adapters.observability.is_enabled("opentelemetry")
-            and otel is not None
-            and otel.traces
-            and otel.instrument_fastapi
-        ):
-            return
-        from arclith.adapters.outbound.langsmith.fastapi import instrument_fastapi_app
-
-        instrument_fastapi_app(app, self.tracer())
 
     def _add_fastapi_http_middlewares(self, app: "FastAPI") -> None:
         # Order matters: Starlette applies the last registered middleware first.
@@ -487,24 +487,44 @@ class Arclith:
         """
         collector = self._mcp_collector if self.config.probe.enabled else None
         tracer = self._selected_mcp_tracer()
-        if collector is None and tracer is None:
+        metrics = self._selected_mcp_metrics()
+        if collector is None and tracer is None and metrics is None:
             return
         components = self._mcp_components(mcp)
         if components is None:
             return
         count = sum(
-            self._instrument_mcp_component(component, collector, tracer)
+            self._instrument_mcp_component(component, collector, tracer, metrics)
             for component in components.values()
         )
         self.logger.info("🔬 MCP tools instrumented", count=count)
 
     def _selected_mcp_tracer(self) -> TracePort | None:
-        settings = self.config.adapters.langsmith
-        if not self.config.adapters.observability.is_enabled("langsmith"):
+        langsmith = self.config.adapters.langsmith
+        otel = self.config.adapters.opentelemetry
+        selected = (
+            self.config.adapters.observability.is_enabled("langsmith")
+            and langsmith is not None
+            and langsmith.instrumentation.fastmcp
+        ) or (
+            self.config.adapters.observability.is_enabled("opentelemetry")
+            and otel is not None
+            and otel.instrumentation.fastmcp
+            and otel.signals.traces.enabled
+        )
+        return self.tracer() if selected else None
+
+    def _selected_mcp_metrics(self) -> MetricPort | None:
+        settings = self.config.adapters.opentelemetry
+        if not self.config.adapters.observability.is_enabled("opentelemetry"):
             return None
-        if settings is None or not settings.instrumentation.fastmcp:
+        if (
+            settings is None
+            or not settings.instrumentation.fastmcp
+            or not settings.signals.metrics.enabled
+        ):
             return None
-        return self.tracer()
+        return self._observability_runtime.metrics
 
     def _mcp_components(self, mcp: "_fastmcp.FastMCP") -> dict[str, Any] | None:
         try:
@@ -521,6 +541,7 @@ class Arclith:
         component: Any,
         collector: Any | None,
         tracer: TracePort | None,
+        metrics: MetricPort | None,
     ) -> int:
         fn = getattr(component, "fn", None)
         if fn is None or not callable(fn):
@@ -528,37 +549,89 @@ class Arclith:
         if getattr(fn, "__arclith_instrumented__", False):
             return 0
         wrapped = collector.wrap(component.name, fn) if collector is not None else fn
-        if tracer is not None and not getattr(wrapped, "__arclith_traced__", False):
-            wrapped = self._wrap_mcp_trace(component.name, wrapped, tracer)
+        if (tracer is not None or metrics is not None) and not getattr(
+            wrapped, "__arclith_traced__", False
+        ):
+            wrapped = self._wrap_mcp_trace(
+                component.name,
+                wrapped,
+                tracer,
+                metrics,
+            )
         setattr(wrapped, "__arclith_instrumented__", True)
         component.fn = wrapped
         return 1
 
     @staticmethod
-    def _wrap_mcp_trace(name: str, fn: Callable, tracer: TracePort) -> Callable:
-        metadata = {"mcp.method.name": name, "mcp.operation.name": "tools/call"}
+    def _wrap_mcp_trace(
+        name: str,
+        fn: Callable,
+        tracer: TracePort | None,
+        metrics: MetricPort | None = None,
+    ) -> Callable:
+        from arclith.adapters.outbound.noop.observability import NoOpTraceAdapter
+
+        selected_tracer = tracer or NoOpTraceAdapter()
+        metadata = {
+            "arclith.mcp.convention.version": "1",
+            "arclith.mcp.method.name": name,
+            "arclith.mcp.operation.name": "tools/call",
+        }
+
+        def _record_metrics(started_at: float, outcome: str) -> None:
+            if metrics is None:
+                return
+            attributes = {
+                "rpc.system": "mcp",
+                "rpc.method": "tools/call",
+                "error.type": outcome,
+            }
+            metrics.add_counter(
+                "arclith.mcp.requests",
+                attributes=attributes,
+                description="MCP calls processed by Arclith",
+            )
+            metrics.record_histogram(
+                "arclith.mcp.duration",
+                (time.perf_counter() - started_at) * 1000,
+                attributes=attributes,
+                description="MCP call duration",
+            )
+
         if inspect.iscoroutinefunction(fn):
 
             @wraps(fn)
             async def _async_wrapped(*args: Any, **kwargs: Any) -> Any:
-                with tracer.span(name, kind="tool", metadata=metadata) as span:
-                    result = await fn(*args, **kwargs)
-                    span.set_outputs(
-                        {"status": "success", "result_type": type(result).__name__}
-                    )
-                    return result
+                started_at = time.perf_counter()
+                try:
+                    with selected_tracer.span(
+                        "arclith.mcp.tool", kind="server", metadata=metadata
+                    ) as span:
+                        result = await fn(*args, **kwargs)
+                        span.set_outputs({"status": "success"})
+                        _record_metrics(started_at, "none")
+                        return result
+                except BaseException as exc:
+                    _record_metrics(started_at, type(exc).__name__)
+                    raise
 
             setattr(_async_wrapped, "__arclith_traced__", True)
             return _async_wrapped
 
         @wraps(fn)
         def _wrapped(*args: Any, **kwargs: Any) -> Any:
-            with tracer.span(name, kind="tool", metadata=metadata) as span:
-                result = fn(*args, **kwargs)
-                span.set_outputs(
-                    {"status": "success", "result_type": type(result).__name__}
-                )
-                return result
+            started_at = time.perf_counter()
+            try:
+                with selected_tracer.span(
+                    "arclith.mcp.tool", kind="server", metadata=metadata
+                ) as span:
+                    result = fn(*args, **kwargs)
+                    span.set_outputs({"status": "success"})
+                    _record_metrics(started_at, "none")
+                    return result
+            except BaseException as exc:
+                _record_metrics(started_at, type(exc).__name__)
+                raise
 
         setattr(_wrapped, "__arclith_traced__", True)
         return _wrapped
@@ -608,13 +681,17 @@ class Arclith:
         """Return the configured provider-neutral tracer (a no-op by default)."""
         return self._trace_adapter
 
+    def metrics(self) -> MetricPort:
+        """Return the configured provider-neutral metric recorder."""
+        return self._observability_runtime.metrics
+
     def langsmith_client(self) -> Any:
         """Return the configured native LangSmith client for advanced operations."""
         if not self.config.adapters.observability.is_enabled("langsmith"):
             raise RuntimeError(
                 "LangSmith n'est pas active dans adapters.observability.enabled"
             )
-        client = getattr(self._trace_adapter, "client", None)
+        client = getattr(self._observability_runtime, "client", None)
         if not callable(client):
             raise RuntimeError("Le runtime LangSmith ne fournit pas de client")
         return client()
@@ -628,20 +705,22 @@ class Arclith:
             )
         from arclith.adapters.outbound.pydantic_ai.llm import PydanticAILLMAdapter
 
-        instrumentation = None
-        capability = getattr(self._trace_adapter, "pydantic_ai_capability", None)
-        if callable(capability):
-            instrumentation = capability()
+        instrumentation = self._observability_runtime.pydantic_ai_instrumentation()
         return PydanticAILLMAdapter(settings, instrumentation=instrumentation)
 
     def flush_observability(self, timeout: float | None = None) -> None:
-        self._trace_adapter.flush(timeout)
+        self._observability_runtime.force_flush(timeout)
 
     def close_observability(self, timeout: float | None = None) -> None:
-        self._trace_adapter.close(timeout)
+        self._observability_runtime.shutdown(timeout)
 
     def observability_diagnostics(self) -> Mapping[str, Any]:
-        return self._trace_adapter.diagnostics()
+        return self._observability_runtime.diagnostics()
+
+    def observability_providers(self) -> Mapping[str, Any]:
+        """Return native providers for advanced, explicitly vendor-specific use."""
+
+        return self._observability_runtime.native_providers()
 
     def langgraph(
         self,
@@ -663,12 +742,9 @@ class Arclith:
         persistence: bool | None = None,
         persistence_registry: LangGraphPersistenceRegistry | None = None,
     ) -> Any:
-        langsmith = self.config.adapters.langsmith
-        if (
-            self.config.adapters.observability.is_enabled("langsmith")
-            and langsmith is not None
-            and langsmith.instrumentation.langgraph
-        ):
+        if self._langsmith_instrumentation_enabled(
+            "langgraph"
+        ) or self._opentelemetry_instrumentation_enabled("langgraph", "traces"):
             self._start_observability()
         from langgraph.graph import StateGraph
 
@@ -704,6 +780,7 @@ class Arclith:
             if persistence_components is not None:
                 persistence_components.close()
             raise
+        compiled = self._observability_runtime.instrument_langgraph(compiled, name=name)
         if persistence_components is not None:
             self._remember_langgraph_persistence(persistence_components)
             setattr(compiled, "_arclith_persistence", persistence_components)
@@ -718,6 +795,25 @@ class Arclith:
             )
         return compiled
 
+    def _langsmith_instrumentation_enabled(self, name: str) -> bool:
+        settings = self.config.adapters.langsmith
+        return bool(
+            self.config.adapters.observability.is_enabled("langsmith")
+            and settings is not None
+            and getattr(settings.instrumentation, name)
+        )
+
+    def _opentelemetry_instrumentation_enabled(
+        self, name: str, signal: Literal["traces", "metrics", "logs"]
+    ) -> bool:
+        settings = self.config.adapters.opentelemetry
+        return bool(
+            self.config.adapters.observability.is_enabled("opentelemetry")
+            and settings is not None
+            and getattr(settings.instrumentation, name)
+            and getattr(settings.signals, signal).enabled
+        )
+
     def _resolve_langgraph_persistence(
         self,
         *,
@@ -730,7 +826,11 @@ class Arclith:
         store_is_explicit = store is not _LANGGRAPH_UNSET
         persistence_settings = _langgraph_persistence_settings(self.config)
         if not _langgraph_persistence_requested(persistence_settings, persistence):
-            return _langgraph_compile_value(checkpointer), _langgraph_compile_value(store), None
+            return (
+                _langgraph_compile_value(checkpointer),
+                _langgraph_compile_value(store),
+                None,
+            )
         if checkpointer_is_explicit and store_is_explicit:
             return checkpointer, store, None
 
@@ -820,38 +920,27 @@ class Arclith:
 
     @cached_property
     def _trace_adapter(self) -> TracePort:
-        from arclith.infrastructure.observability_factory import build_trace_adapter
+        return self._observability_runtime.tracer
 
-        return build_trace_adapter(
+    @cached_property
+    def _observability_runtime(self) -> ObservabilityRuntimePort:
+        from arclith.infrastructure.observability_factory import (
+            build_observability_runtime,
+        )
+
+        runtime = build_observability_runtime(
             self.config,
             self.logger,
             anonymizer=self._trace_anonymizer,
+            opentelemetry_overrides=self._opentelemetry_overrides,
         )
+        configure_logger = getattr(self.logger, "configure_observability", None)
+        if callable(configure_logger):
+            configure_logger(runtime.correlation, runtime.logs)
+        return runtime
 
     def _start_observability(self) -> None:
-        if self.config.adapters.observability.is_enabled("opentelemetry"):
-            settings = self.config.adapters.opentelemetry
-            if settings is not None:
-                from arclith.adapters.outbound.opentelemetry.fastapi import (
-                    configure_opentelemetry,
-                )
-
-                configure_opentelemetry(
-                    settings,
-                    service_name=self.config.app.name,
-                    service_version=self.config.app.version,
-                )
-        start = getattr(self._trace_adapter, "start", None)
-        if callable(start):
-            start()
-        if self.config.adapters.observability.is_enabled("opentelemetry"):
-            attach = getattr(
-                self._trace_adapter,
-                "attach_to_current_opentelemetry",
-                None,
-            )
-            if callable(attach):
-                attach()
+        self._observability_runtime.start()
 
     @cached_property
     def _cache(self) -> Any:
@@ -860,13 +949,29 @@ class Arclith:
         Uses Redis when ``config.cache.backend == "redis"`` (recommended for production
         and multi-replica deployments), falls back to in-process memory otherwise.
         """
+        cache: Any
         if self.config.cache.backend == "redis":
             from arclith.adapters.outbound.redis.cache_adapter import RedisCacheAdapter
 
-            return RedisCacheAdapter(self.config.cache.redis_url)
-        from arclith.adapters.outbound.memory.cache_adapter import MemoryCacheAdapter
+            cache = RedisCacheAdapter(self.config.cache.redis_url)
+        else:
+            from arclith.adapters.outbound.memory.cache_adapter import (
+                MemoryCacheAdapter,
+            )
 
-        return MemoryCacheAdapter()
+            cache = MemoryCacheAdapter()
+        settings = self.config.adapters.opentelemetry
+        if (
+            self.config.adapters.observability.is_enabled("opentelemetry")
+            and settings is not None
+            and settings.instrumentation.caches
+        ):
+            from arclith.adapters.outbound.opentelemetry.instrumentations.cache import (
+                ObservedCache,
+            )
+
+            return ObservedCache(cache, self.tracer(), self.metrics())
+        return cache
 
     @cached_property
     def _metrics_registry(self) -> Any:
@@ -896,7 +1001,10 @@ class Arclith:
         )
 
     def _setup_uvicorn_logging(self) -> None:
-        handler = _UvicornLogInterceptHandler(self.logger)
+        handler = _UvicornLogInterceptHandler(
+            self.logger,
+            self._observability_runtime.correlation,
+        )
         for name in ("uvicorn", "uvicorn.access", "uvicorn.error", "watchfiles"):
             log = logging.getLogger(name)
             log.setLevel(logging.DEBUG)

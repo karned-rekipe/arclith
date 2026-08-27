@@ -51,7 +51,7 @@ langgraph-persistence-postgresql = ["langgraph-checkpoint-postgres>=3.0.0,<4.0.0
 langgraph-persistence-mongodb = ["langgraph-checkpoint-mongodb>=0.3.0,<1.0.0", "langgraph-store-mongodb>=0.2.0,<1.0.0"]
 langgraph-persistence-redis = ["langgraph-checkpoint-redis>=0.2.0,<1.0.0"]
 langsmith = ["langsmith[otel]>=0.10,<1"]
-opentelemetry = ["opentelemetry-api>=1.30.0", "opentelemetry-sdk>=1.30.0", "opentelemetry-exporter-otlp>=1.30.0", "opentelemetry-instrumentation-fastapi>=0.51b0", "opentelemetry-instrumentation-logging>=0.51b0"]
+opentelemetry = ["opentelemetry-api>=1.30.0", "opentelemetry-sdk>=1.30.0", "opentelemetry-exporter-otlp>=1.30.0", "opentelemetry-instrumentation-fastapi>=0.51b0", "opentelemetry-instrumentation-httpx>=0.51b0"]
 all     = [
     "motor==3.7.1",
     "duckdb==1.5.0",
@@ -82,7 +82,7 @@ all     = [
     "opentelemetry-sdk>=1.30.0",
     "opentelemetry-exporter-otlp>=1.30.0",
     "opentelemetry-instrumentation-fastapi>=0.51b0",
-    "opentelemetry-instrumentation-logging>=0.51b0",
+    "opentelemetry-instrumentation-httpx>=0.51b0",
     "azure-storage-blob>=12.27.1,<13.0.0",
     "azure-identity>=1.25.1,<2.0.0",
     "boto3>=1.43.70",

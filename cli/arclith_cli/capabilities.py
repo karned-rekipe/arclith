@@ -1976,26 +1976,73 @@ LANGSMITH_HIDE_METADATA={hide_metadata}
             name="opentelemetry",
             capability="observability",
             layer="outbound",
-            description="Export OTLP traces/metrics et instrumentation FastAPI.",
+            description="Runtime OTLP traces, métriques, logs et propagation W3C.",
             config_path="config/adapters/outbound/opentelemetry.yaml",
             config_template="""\
-service_name: "{service_name}"
-endpoint: "{endpoint}"
-traces_endpoint: {traces_endpoint}
-metrics_endpoint: {metrics_endpoint}
-protocol: "{protocol}"
-headers_env: OTEL_EXPORTER_OTLP_HEADERS
-traces: {traces}
-metrics: {metrics}
-instrument_fastapi: {instrument_fastapi}
-metrics_export_interval_millis: {metrics_export_interval_millis}
+mode: "{mode}"
+service:
+  name: "{service_name}"
+  namespace: null
+  version: null
+  instance_id_env: OTEL_SERVICE_INSTANCE_ID
+resource:
+  attributes:
+    deployment.environment.name: "{deployment_environment}"
+  detectors: [env, process, host]
+export:
+  protocol: "{protocol}"
+  endpoint: "{endpoint}"
+  traces_endpoint: null
+  metrics_endpoint: null
+  logs_endpoint: null
+  headers_env: OTEL_EXPORTER_OTLP_HEADERS
+  compression: gzip
+  timeout_millis: 10000
+  insecure: false
+signals:
+  traces:
+    enabled: {traces}
+    sampler: parentbased_traceidratio
+    sampling_ratio: {sampling_ratio}
+  metrics:
+    enabled: {metrics}
+    export_interval_millis: {metrics_export_interval_millis}
+    export_timeout_millis: 30000
+    exemplar_filter: trace_based
+  logs:
+    enabled: {logs}
+    correlate: {correlate_logs}
+propagation:
+  propagators: [tracecontext, baggage]
+  baggage_allowlist: []
+  max_baggage_bytes: 8192
+instrumentation:
+  fastapi: true
+  httpx: true
+  fastmcp: true
+  rabbitmq: true
+  pydantic_ai: true
+  langgraph: true
+  repositories: false
+  caches: false
+  excluded_urls: [/health, /ready, /metrics]
+capture:
+  request_headers_allowlist: []
+  response_headers_allowlist: []
+  genai_content: false
+  tool_content: false
+  db_statement: false
+failure_mode: log-and-continue
 """,
-            env_path=".env",
+            env_path=".env.example",
             env_template="""\
 OTEL_SERVICE_NAME={service_name}
 OTEL_EXPORTER_OTLP_ENDPOINT={endpoint}
 OTEL_EXPORTER_OTLP_PROTOCOL={protocol}
-OTEL_EXPORTER_OTLP_HEADERS={headers}
+OTEL_TRACES_SAMPLER=parentbased_traceidratio
+OTEL_TRACES_SAMPLER_ARG={sampling_ratio}
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name={deployment_environment}
+# OTEL_EXPORTER_OTLP_HEADERS vient du secret store du runtime, jamais de Git.
 """,
             parameters=(
                 ParameterSpec(
@@ -2011,22 +2058,18 @@ OTEL_EXPORTER_OTLP_HEADERS={headers}
                     default="http://localhost:4318",
                 ),
                 ParameterSpec(
-                    name="traces_endpoint",
+                    name="mode",
                     kind="string",
-                    prompt="OTLP traces endpoint",
-                    default="null",
-                ),
-                ParameterSpec(
-                    name="metrics_endpoint",
-                    kind="string",
-                    prompt="OTLP metrics endpoint",
-                    default="null",
+                    prompt="Mode de composition des providers",
+                    default="managed",
+                    choices=("managed", "attach", "external"),
                 ),
                 ParameterSpec(
                     name="protocol",
                     kind="string",
                     prompt="OTLP protocol",
                     default="http/protobuf",
+                    choices=("http/protobuf", "grpc"),
                 ),
                 ParameterSpec(
                     name="traces",
@@ -2041,10 +2084,22 @@ OTEL_EXPORTER_OTLP_HEADERS={headers}
                     default=False,
                 ),
                 ParameterSpec(
-                    name="instrument_fastapi",
+                    name="logs",
                     kind="boolean",
-                    prompt="Instrumenter FastAPI",
+                    prompt="Exporter les logs OTLP",
+                    default=False,
+                ),
+                ParameterSpec(
+                    name="correlate_logs",
+                    kind="boolean",
+                    prompt="Corréler les logs locaux",
                     default=True,
+                ),
+                ParameterSpec(
+                    name="sampling_ratio",
+                    kind="string",
+                    prompt="Taux d'échantillonnage traces (0.0-1.0)",
+                    default="1.0",
                 ),
                 ParameterSpec(
                     name="metrics_export_interval_millis",
@@ -2053,13 +2108,41 @@ OTEL_EXPORTER_OTLP_HEADERS={headers}
                     default="60000",
                 ),
                 ParameterSpec(
-                    name="headers",
+                    name="deployment_environment",
                     kind="string",
-                    prompt="OTEL_EXPORTER_OTLP_HEADERS",
-                    default="",
-                    secret=True,
+                    prompt="Environnement de déploiement",
+                    default="development",
+                    choices=("development", "test", "staging", "production"),
                 ),
             ),
+            profiles=(
+                AdapterProfileSpec(
+                    name="development",
+                    parameters=(
+                        ("mode", "managed"),
+                        ("traces", True),
+                        ("metrics", True),
+                        ("logs", False),
+                        ("correlate_logs", True),
+                        ("sampling_ratio", "1.0"),
+                        ("deployment_environment", "development"),
+                    ),
+                ),
+                AdapterProfileSpec(
+                    name="production",
+                    parameters=(
+                        ("mode", "managed"),
+                        ("traces", True),
+                        ("metrics", True),
+                        ("logs", False),
+                        ("correlate_logs", True),
+                        ("sampling_ratio", "0.1"),
+                        ("deployment_environment", "production"),
+                    ),
+                ),
+            ),
+            dependency_extra="opentelemetry",
+            gitignore_entries=(".env",),
             entity_scoped=False,
         ),
     ),

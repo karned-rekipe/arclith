@@ -1,8 +1,14 @@
 import ast
 from pathlib import Path
 
-from arclith.adapters.outbound.noop.observability import NoOpTraceAdapter
-from arclith.domain.ports.outbound.observability import TracePort
+from arclith.adapters.outbound.noop.observability import (
+    NoOpObservabilityRuntime,
+    NoOpTraceAdapter,
+)
+from arclith.domain.ports.outbound.observability import (
+    ObservabilityRuntimePort,
+    TracePort,
+)
 
 
 def test_noop_trace_adapter_honors_full_port_contract() -> None:
@@ -44,3 +50,25 @@ def test_core_does_not_import_observability_vendors() -> None:
                 module.startswith(("langsmith", "opentelemetry"))
                 for module in imported_modules
             ), path
+
+
+def test_noop_runtime_exposes_all_neutral_capabilities() -> None:
+    runtime = NoOpObservabilityRuntime()
+    headers: dict[str, str] = {}
+
+    assert isinstance(runtime, ObservabilityRuntimePort)
+    runtime.start()
+    runtime.propagator.inject(headers)
+    runtime.metrics.add_counter("ignored")
+    runtime.metrics.record_histogram("ignored", 1)
+    runtime.logs.emit("INFO", "ignored")
+    assert runtime.correlation.current() == {}
+    assert runtime.force_flush(1.0) is True
+    runtime.shutdown(1.0)
+
+    assert headers == {}
+    assert runtime.diagnostics() == {
+        "backend": "noop",
+        "started": False,
+        "signals": {"traces": False, "metrics": False, "logs": False},
+    }

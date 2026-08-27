@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 from uuid import uuid4
 
-from arclith.adapters.outbound.opentelemetry.correlation import current_trace_metadata
 from arclith.application.command_bus import (
     CommandDispatcher,
     CommandEnvelope,
@@ -15,7 +15,7 @@ from arclith.application.command_bus import (
 )
 from arclith.domain.ports.outbound.command_bus import CommandPublisher
 from arclith.domain.ports.outbound.logger import Logger
-from arclith.domain.ports.outbound.observability import TracePort
+from arclith.domain.ports.outbound.observability import MetricPort, TracePort
 from arclith.infrastructure.config import RabbitMQCommandBusSettings
 
 type AioPikaModule = Any
@@ -31,6 +31,7 @@ class RabbitMQCommandBus(CommandPublisher):
         logger: Logger,
         *,
         tracer: TracePort | None = None,
+        metrics: MetricPort | None = None,
         connector: Connector | None = None,
         aio_pika_module: AioPikaModule | None = None,
     ) -> None:
@@ -41,6 +42,11 @@ class RabbitMQCommandBus(CommandPublisher):
 
             tracer = NoOpTraceAdapter()
         self._tracer = tracer
+        if metrics is None:
+            from arclith.adapters.outbound.noop.observability import NoOpMetricAdapter
+
+            metrics = NoOpMetricAdapter()
+        self._metrics = metrics
         self._connector = connector
         self._aio_pika = aio_pika_module
         self._connection: Any | None = None
@@ -99,41 +105,50 @@ class RabbitMQCommandBus(CommandPublisher):
             raise RuntimeError("RabbitMQ exchange non initialise")
 
         aio_pika = self._load_aio_pika()
-        with self._tracer.span(
-            "rabbitmq.publish",
-            kind="tool",
-            metadata={
-                "messaging.system": "rabbitmq",
-                "messaging.destination.name": self._settings.exchange,
-                "messaging.operation.name": "publish",
-                "messaging.command.type": command_type,
-            },
-        ) as span:
-            message_headers = self._message_headers(
-                command_type,
-                headers=headers,
-                correlation_id=correlation_id,
-            )
-            message = aio_pika.Message(
-                body=encode_command_message(
-                    CommandEnvelope(
-                        command_type=command_type,
-                        payload=dict(payload),
-                        headers=message_headers,
-                    )
-                ),
-                content_type="application/json",
-                delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
-                headers=message_headers,
-                correlation_id=message_headers["correlation_id"],
-            )
-            await self._exchange.publish(
-                message,
-                routing_key=routing_key or self._settings.routing_key,
-            )
-            span.set_outputs({"status": "published"})
+        started_at = time.perf_counter()
+        error_type = "none"
+        try:
+            with self._tracer.span(
+                "rabbitmq.publish",
+                kind="producer",
+                metadata={
+                    "messaging.system": "rabbitmq",
+                    "messaging.destination.name": self._settings.exchange,
+                    "messaging.operation.name": "publish",
+                    "messaging.command.type": command_type,
+                },
+            ) as span:
+                message_headers = self._message_headers(
+                    command_type,
+                    headers=headers,
+                    correlation_id=correlation_id,
+                )
+                message = aio_pika.Message(
+                    body=encode_command_message(
+                        CommandEnvelope(
+                            command_type=command_type,
+                            payload=dict(payload),
+                            headers=message_headers,
+                        )
+                    ),
+                    content_type="application/json",
+                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                    headers=message_headers,
+                    correlation_id=message_headers["correlation_id"],
+                )
+                await self._exchange.publish(
+                    message,
+                    routing_key=routing_key or self._settings.routing_key,
+                )
+                span.set_outputs({"status": "published"})
+        except BaseException as exc:
+            error_type = type(exc).__name__
+            raise
+        finally:
+            self._record_messaging_metrics(started_at, "publish", error_type)
 
     async def handle_message(self, message: Any, dispatcher: CommandDispatcher) -> None:
+        started_at = time.perf_counter()
         headers = self._headers_from_message(message)
         fallback_command_type = headers.get(
             "command_type",
@@ -154,6 +169,12 @@ class RabbitMQCommandBus(CommandPublisher):
                 retry_requeue=False,
                 error=str(exc),
             )
+            self._record_messaging_metrics(
+                started_at,
+                "process",
+                type(exc).__name__,
+                rejected=True,
+            )
             return
 
         with self._tracer.context(
@@ -162,12 +183,15 @@ class RabbitMQCommandBus(CommandPublisher):
         ):
             with self._tracer.span(
                 "rabbitmq.process",
-                kind="chain",
+                kind="consumer",
                 metadata={
                     "messaging.system": "rabbitmq",
                     "messaging.destination.name": self._settings.queue,
                     "messaging.operation.name": "process",
                     "messaging.command.type": fallback_command_type,
+                    "messaging.message.redelivery_count": int(
+                        bool(getattr(message, "redelivered", False))
+                    ),
                 },
             ) as span:
                 try:
@@ -188,6 +212,18 @@ class RabbitMQCommandBus(CommandPublisher):
                     )
                     span.set_metadata({"error.type": type(exc).__name__})
                     span.set_outputs({"status": "rejected"})
+                    span.record_exception(exc)
+                    span.set_status("error", type(exc).__name__)
+                    self._record_messaging_metrics(
+                        started_at,
+                        "process",
+                        type(exc).__name__,
+                        retry=(
+                            self._settings.retry_enabled
+                            and self._settings.retry_requeue
+                        ),
+                        rejected=True,
+                    )
                     return
 
                 await message.ack()
@@ -197,6 +233,7 @@ class RabbitMQCommandBus(CommandPublisher):
                     command_type=fallback_command_type,
                     correlation_id=headers.get("correlation_id"),
                 )
+                self._record_messaging_metrics(started_at, "process", "none")
 
     async def run(self, dispatcher: CommandDispatcher) -> None:
         await self.connect()
@@ -241,9 +278,6 @@ class RabbitMQCommandBus(CommandPublisher):
         normalized = {str(key): str(value) for key, value in (headers or {}).items()}
         normalized["command_type"] = command_type
         normalized.setdefault("correlation_id", correlation_id or str(uuid4()))
-        traceparent = self._current_traceparent()
-        if traceparent:
-            normalized.setdefault("traceparent", traceparent)
         self._tracer.inject(normalized)
         return normalized
 
@@ -268,13 +302,43 @@ class RabbitMQCommandBus(CommandPublisher):
         exchange_type = self._settings.exchange_type.upper()
         return getattr(aio_pika.ExchangeType, exchange_type)
 
-    @staticmethod
-    def _current_traceparent() -> str:
-        metadata = current_trace_metadata()
-        if not metadata:
-            return ""
-        trace_flags = "01" if metadata.get("trace_sampled") else "00"
-        return f"00-{metadata['trace_id']}-{metadata['span_id']}-{trace_flags}"
+    def _record_messaging_metrics(
+        self,
+        started_at: float,
+        operation: str,
+        error_type: str,
+        *,
+        retry: bool = False,
+        rejected: bool = False,
+    ) -> None:
+        attributes = {
+            "messaging.system": "rabbitmq",
+            "messaging.operation.name": operation,
+            "error.type": error_type,
+        }
+        self._metrics.add_counter(
+            "arclith.messaging.operations",
+            attributes=attributes,
+            description="RabbitMQ operations processed by Arclith",
+        )
+        self._metrics.record_histogram(
+            "arclith.messaging.duration",
+            (time.perf_counter() - started_at) * 1000,
+            attributes=attributes,
+            description="RabbitMQ operation duration",
+        )
+        if retry:
+            self._metrics.add_counter(
+                "arclith.messaging.retries",
+                attributes=attributes,
+                description="RabbitMQ operations retried by Arclith",
+            )
+        if rejected:
+            self._metrics.add_counter(
+                "arclith.messaging.rejected",
+                attributes=attributes,
+                description="RabbitMQ messages rejected by Arclith",
+            )
 
     def _load_aio_pika(self) -> AioPikaModule:
         if self._aio_pika is not None:

@@ -16,14 +16,20 @@ def test_console_logger_enriches_metadata_with_current_trace(monkeypatch) -> Non
         captured["bind"] = kwargs
         return BoundLogger()
 
-    monkeypatch.setattr(
-        console_logger,
-        "current_trace_metadata",
-        lambda: {"trace_id": "trace", "span_id": "span", "trace_sampled": True},
-    )
     monkeypatch.setattr(console_logger.loguru_logger, "bind", fake_bind)
 
-    ConsoleLogger().log(
+    correlation = type(
+        "Correlation",
+        (),
+        {
+            "current": lambda self: {
+                "trace_id": "trace",
+                "span_id": "span",
+                "trace_sampled": True,
+            }
+        },
+    )()
+    ConsoleLogger(correlation=correlation).log(  # type: ignore[arg-type]
         LogLevel.INFO,
         "hello",
         request_id="req-1",
