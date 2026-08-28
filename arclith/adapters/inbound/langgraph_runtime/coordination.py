@@ -99,6 +99,7 @@ class RedisRunCoordinator:
             try:
                 await renewal
             except asyncio.CancelledError:
+                # Expected after cancelling the lease-renewal task above.
                 pass
             try:
                 await lock.release()
