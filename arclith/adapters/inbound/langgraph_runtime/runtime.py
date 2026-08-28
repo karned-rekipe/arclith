@@ -158,7 +158,7 @@ class LangGraphRuntime:
 
     async def state(self, thread_id: str) -> dict[str, Any]:
         await self.get_thread(thread_id)
-        graph = next(iter(self.graphs.values()))
+        graph = await self._thread_graph(thread_id)
         snapshot = await graph.aget_state(_graph_config(thread_id, None))
         if not snapshot.config:
             return _empty_snapshot(thread_id)
@@ -166,7 +166,7 @@ class LangGraphRuntime:
 
     async def history(self, thread_id: str, *, limit: int) -> list[dict[str, Any]]:
         await self.get_thread(thread_id)
-        graph = next(iter(self.graphs.values()))
+        graph = await self._thread_graph(thread_id)
         snapshots = graph.aget_state_history(
             _graph_config(thread_id, None),
             limit=limit,
@@ -283,6 +283,17 @@ class LangGraphRuntime:
             input=jsonable(request.input),
         )
         return await self.catalog.create_run(record)
+
+    async def _thread_graph(self, thread_id: str) -> Any:
+        runs = await self.catalog.list_runs(
+            thread_id,
+            status=None,
+            limit=1,
+            offset=0,
+        )
+        if runs:
+            return self._graph(runs[0].assistant_id)
+        return next(iter(self.graphs.values()))
 
     @asynccontextmanager
     async def _run_session(

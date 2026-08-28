@@ -319,6 +319,36 @@ async def test_in_memory_coordinator_rejects_concurrent_thread_runs() -> None:
 
 
 @pytest.mark.asyncio
+async def test_state_and_history_use_the_graph_from_the_latest_run() -> None:
+    first_graph = _graph()
+    second_graph = _graph()
+    runtime = LangGraphRuntime(
+        {"first": first_graph, "second": second_graph},
+        InMemoryRuntimeCatalog(),
+        InMemoryRunCoordinator(),
+        cancel_poll_seconds=0.01,
+    )
+    await runtime.create_thread(
+        thread_id=THREAD_ID,
+        metadata=None,
+        if_exists=None,
+    )
+    await runtime.wait(
+        THREAD_ID,
+        RunRequest(
+            assistant_id="second",
+            input={"messages": [{"role": "user", "content": "second graph"}]},
+        ),
+    )
+
+    state = await runtime.state(THREAD_ID)
+    history = await runtime.history(THREAD_ID, limit=10)
+    assert state["values"]["messages"][-1]["content"] == "Echo: second graph"
+    assert history[0]["values"]["messages"][-1]["content"] == ("Echo: second graph")
+    assert (await first_graph.aget_state(_graph_config(THREAD_ID, None))).values == {}
+
+
+@pytest.mark.asyncio
 async def test_busy_run_does_not_create_a_second_record_or_change_status() -> None:
     runtime = _runtime(_graph(delay=30))
     await runtime.create_thread(

@@ -32,7 +32,7 @@ class RunCoordinator(Protocol):
 
 class InMemoryRunCoordinator:
     def __init__(self) -> None:
-        self._locks: dict[str, asyncio.Lock] = {}
+        self._active_threads: set[str] = set()
         self._cancelled: set[str] = set()
 
     @asynccontextmanager
@@ -40,14 +40,13 @@ class InMemoryRunCoordinator:
         self, thread_id: str, *, timeout_seconds: int
     ) -> AsyncIterator[None]:
         del timeout_seconds
-        lock = self._locks.setdefault(thread_id, asyncio.Lock())
-        if lock.locked():
+        if thread_id in self._active_threads:
             raise RunBusyError(f"Thread {thread_id} already has an active run")
-        await lock.acquire()
+        self._active_threads.add(thread_id)
         try:
             yield
         finally:
-            lock.release()
+            self._active_threads.discard(thread_id)
 
     async def request_cancel(self, run_id: str) -> None:
         self._cancelled.add(run_id)
