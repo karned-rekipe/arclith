@@ -12,6 +12,12 @@ Le mode `agent` nécessite:
 - un `langgraph.json`;
 - les variables LLM et LangSmith injectées au runtime.
 
+En production durable sans Agent Server sous licence, ajouter également :
+
+```bash
+uv add "arclith[langgraph,langgraph-runtime]"
+```
+
 Préparer le projet:
 
 ```bash
@@ -79,6 +85,41 @@ docker run --rm \
   -p 2024:2024 \
   my-service:local agent
 ```
+
+`langgraph dev` garde son stockage en mémoire et reste réservé au développement. Le runtime durable
+open source Arclith se sélectionne sans modifier l'image :
+
+```bash
+docker run --rm \
+  --env-file .env.local \
+  -e ARCLITH_AGENT_RUNTIME=durable \
+  -e DATABASE_URI='postgresql://runtime@postgres/runtime' \
+  -e REDIS_URI='redis://runtime@redis/1' \
+  -e ARCLITH_LANGGRAPH_REDIS_PREFIX='my-agent:langgraph' \
+  -p 2024:2024 \
+  my-service:local agent
+```
+
+Les URI de cet exemple sont des formes sans credential à adapter : en exploitation, injecter les
+valeurs complètes par secret. Le runtime crée les tables LangGraph, son catalogue de threads/runs,
+expose `/health` et `/ready`, puis exécute les graphes déclarés dans `langgraph.json`. PostgreSQL
+porte l'état durable ; Redis porte exclusivement les verrous de thread et signaux d'annulation.
+
+Variables de réglage :
+
+| Variable | Défaut | Rôle |
+|---|---:|---|
+| `ARCLITH_LANGGRAPH_CONFIG` | `langgraph.json` | fichier des graphes |
+| `ARCLITH_LANGGRAPH_REDIS_PREFIX` | `arclith:langgraph` | espace de coordination isolé |
+| `ARCLITH_LANGGRAPH_REDIS_LEASE_SECONDS` | `30` | durée du verrou renouvelé par thread |
+| `ARCLITH_LANGGRAPH_POSTGRES_POOL_SIZE` | `10` | connexions PostgreSQL maximum |
+| `ARCLITH_LANGGRAPH_RUN_TIMEOUT_SECONDS` | `900` | durée maximale d'un run |
+| `ARCLITH_GRACEFUL_TIMEOUT_SECONDS` | `120` | arrêt gracieux Uvicorn |
+| `ARCLITH_LANGGRAPH_AUTO_SETUP` | `true` | applique les tables/indexes au démarrage |
+
+Une base ou un schéma dédié par agent est recommandé : les tables de checkpoints sont partagées par
+`thread_id`, et l'isolation évite qu'un identifiant fourni par un client ne croise un autre agent.
+Un préfixe Redis distinct est obligatoire entre runtimes partageant le même serveur.
 
 ## Vérifier
 
@@ -161,8 +202,8 @@ docker run --rm --env-file .env.local my-service:local agent
 - API locale `:2024` testée même sans LangSmith.
 - Traces LangSmith/OpenTelemetry activées par configuration, pas par code métier.
 - Checkpointer/store gérés une seule fois : par Arclith embedded ou par l'Agent Server.
-- En production, remplacer `langgraph dev` par la commande serveur validée du projet via
-  `ARCLITH_AGENT_COMMAND` si nécessaire.
+- En production durable, utiliser `ARCLITH_AGENT_RUNTIME=durable` avec PostgreSQL et Redis, ou une
+  commande serveur validée du projet via `ARCLITH_AGENT_COMMAND`.
 
 Page suivante: [autres modes locaux](local-other-modes.md). Voir aussi
 [Validation IA locale](../learning/local-ai-validation.md).

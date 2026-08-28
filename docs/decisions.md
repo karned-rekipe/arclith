@@ -341,6 +341,36 @@ Pydantic AI ne sont pas créées deux fois.
 
 ---
 
+## ADR-015 — Runtime LangGraph durable open source sur PostgreSQL et Redis
+
+**Date :** 2026-08-28
+
+**Contexte :** `langgraph dev` est volontairement volatile et le serveur standalone officiel de
+production requiert une licence LangGraph Cloud. Les projets Jarvis doivent conserver threads,
+runs, checkpoints et mémoire après redémarrage, tout en gardant LangSmith optionnel et sans exposer
+les agents privés au navigateur.
+
+**Décision :** fournir un runtime inbound optionnel sous `arclith[langgraph-runtime]`. Il charge le
+contrat `langgraph.json`, expose le sous-ensemble HTTP/SSE nécessaire au SDK et au Gateway, et attache
+les implémentations officielles `AsyncPostgresSaver` / `AsyncPostgresStore`. Un catalogue PostgreSQL
+séparé conserve les métadonnées de threads/runs. Redis sert uniquement aux verrous distribués et à
+l'annulation ; il ne devient pas une source de vérité durable.
+
+Le runtime de développement reste le défaut. Le choix de production est explicite via
+`ARCLITH_AGENT_RUNTIME=durable`, avec `DATABASE_URI` et `REDIS_URI` injectées au runtime.
+
+**Conséquences :**
+
+- aucune clé `LANGGRAPH_CLOUD_LICENSE_KEY` ou `LANGSMITH_API_KEY` n'est requise ;
+- PostgreSQL est sauvegardé/restauré comme donnée critique, Redis est reconstructible ;
+- chaque agent reçoit une base ou un schéma et un préfixe Redis isolés ;
+- un seul run peut muter un thread à la fois, y compris avec plusieurs replicas ;
+- arrêt client, annulation explicite et timeout mettent à jour le statut du run ;
+- les erreurs de graphe sont conservées pour l'exploitation mais assainies dans les réponses ;
+- la surface ne prétend pas fournir crons, déploiements, webhooks ou plateforme LangSmith.
+
+---
+
 **Contexte :** Exposer les services via le Model Context Protocol.
 
 **Décision :** `fastmcp>=3.1.0` avec trois transports : stdio, SSE, streamable-HTTP.

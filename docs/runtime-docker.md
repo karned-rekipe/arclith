@@ -40,7 +40,7 @@ image Docker Arclith
 | `mcp` / `mcp_http` | `MODE=mcp_http python main.py` |
 | `mcp_sse` | `MODE=mcp_sse python main.py` |
 | `bus` / `command_bus` / `command-bus` | `MODE=bus python main.py` |
-| `agent` | `langgraph dev` ou `ARCLITH_AGENT_COMMAND` |
+| `agent` | `langgraph dev`, `arclith-agent-runtime` durable ou `ARCLITH_AGENT_COMMAND` |
 | `all` | `MODE=all python main.py` |
 
 Les modes `bus`, `agent` et `all` supposent que le projet a bien les adapters, runners et
