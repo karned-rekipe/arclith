@@ -11,17 +11,23 @@ class RunBusyError(RuntimeError):
 
 
 class RunCoordinator(Protocol):
-    def thread_lock(self, thread_id: str, *, timeout_seconds: int) -> Any: ...
+    def thread_lock(self, thread_id: str, *, timeout_seconds: int) -> Any:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
-    async def request_cancel(self, run_id: str) -> None: ...
+    async def request_cancel(self, run_id: str) -> None:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
-    async def is_cancelled(self, run_id: str) -> bool: ...
+    async def is_cancelled(self, run_id: str) -> bool:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
-    async def clear_cancel(self, run_id: str) -> None: ...
+    async def clear_cancel(self, run_id: str) -> None:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
-    async def healthcheck(self) -> bool: ...
+    async def healthcheck(self) -> bool:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
-    async def close(self) -> None: ...
+    async def close(self) -> None:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
 
 class InMemoryRunCoordinator:

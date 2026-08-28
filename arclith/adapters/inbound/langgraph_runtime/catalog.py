@@ -56,9 +56,11 @@ class RunRecord:
 
 
 class RuntimeCatalog(Protocol):
-    async def setup(self) -> None: ...
+    async def setup(self) -> None:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
-    async def healthcheck(self) -> bool: ...
+    async def healthcheck(self) -> bool:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
     async def create_thread(
         self,
@@ -66,9 +68,11 @@ class RuntimeCatalog(Protocol):
         metadata: dict[str, Any],
         *,
         if_exists: str | None = None,
-    ) -> ThreadRecord: ...
+    ) -> ThreadRecord:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
-    async def get_thread(self, thread_id: str) -> ThreadRecord | None: ...
+    async def get_thread(self, thread_id: str) -> ThreadRecord | None:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
     async def search_threads(
         self,
@@ -77,13 +81,17 @@ class RuntimeCatalog(Protocol):
         status: str | None,
         limit: int,
         offset: int,
-    ) -> list[ThreadRecord]: ...
+    ) -> list[ThreadRecord]:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
-    async def set_thread_status(self, thread_id: str, status: str) -> None: ...
+    async def set_thread_status(self, thread_id: str, status: str) -> None:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
-    async def delete_thread(self, thread_id: str) -> None: ...
+    async def delete_thread(self, thread_id: str) -> None:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
-    async def create_run(self, record: RunRecord) -> RunRecord: ...
+    async def create_run(self, record: RunRecord) -> RunRecord:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
     async def finish_run(
         self,
@@ -92,9 +100,11 @@ class RuntimeCatalog(Protocol):
         status: str,
         output: Any = None,
         error: dict[str, Any] | None = None,
-    ) -> RunRecord | None: ...
+    ) -> RunRecord | None:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
-    async def get_run(self, thread_id: str, run_id: str) -> RunRecord | None: ...
+    async def get_run(self, thread_id: str, run_id: str) -> RunRecord | None:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
     async def list_runs(
         self,
@@ -103,7 +113,8 @@ class RuntimeCatalog(Protocol):
         status: str | None,
         limit: int,
         offset: int,
-    ) -> list[RunRecord]: ...
+    ) -> list[RunRecord]:
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
 
 class InMemoryRuntimeCatalog:

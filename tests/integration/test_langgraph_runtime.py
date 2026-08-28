@@ -78,4 +78,5 @@ def test_durable_runtime_resumes_after_complete_server_restart() -> None:
                 "success",
             ]
         finally:
-            assert second_server.delete(f"/threads/{thread_id}").status_code == 204
+            deleted = second_server.delete(f"/threads/{thread_id}")
+            assert deleted.status_code == 204
