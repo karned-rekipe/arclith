@@ -4,6 +4,25 @@
 
 ---
 
+## [0.20.0] — 2026-08-28
+
+### Added
+
+- **Runtime LangGraph durable auto-hébergeable** — serveur FastAPI chargé depuis `langgraph.json`,
+  API assistants/threads/state/history/runs, streaming SSE, catalogue et checkpoints PostgreSQL,
+  coordination et annulation Redis, sans dépendance à LangGraph Cloud.
+- **Profil CLI de production agent** — `ARCLITH_AGENT_RUNTIME=durable` démarre
+  `arclith-agent-runtime`, tandis que `langgraph dev` reste le comportement local par défaut.
+- **Extra runtime dédié** — `arclith[langgraph-runtime]` installe uniquement les dépendances
+  nécessaires au runtime durable, avec probes, reprise après redémarrage et contrôle du setup DDL.
+
+### Changed
+
+- **Versions release** — `arclith` passe à `0.20.0`; `arclith-cli` passe à `0.17.0`
+  et dépend de `arclith>=0.20.0`.
+
+---
+
 ## [0.19.0] — 2026-08-27
 
 ### Added
