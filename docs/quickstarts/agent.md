@@ -52,6 +52,11 @@ export LANGGRAPH_CLI_NO_ANALYTICS=1
 uv run langgraph dev --no-browser --allow-blocking --port 2024
 ```
 
+Cette commande est volatile et réservée au développement. Pour conserver threads, runs et
+checkpoints en production sans licence LangGraph Cloud, installer `arclith[langgraph-runtime]` et
+utiliser `ARCLITH_AGENT_RUNTIME=durable`; voir
+[Agent Persistence](../capabilities/agent-persistence.md#runtime-durable-open-source).
+
 Dans un second terminal:
 
 ```bash

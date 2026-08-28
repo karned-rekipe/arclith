@@ -34,7 +34,7 @@ arclith-run
 | `api` | `MODE=api python main.py` |
 | `mcp_http` | `MODE=mcp_http python main.py` |
 | `bus` | `MODE=bus python main.py` |
-| `agent` | `langgraph dev` ou `ARCLITH_AGENT_COMMAND` |
+| `agent` | `langgraph dev`, runtime durable Arclith ou `ARCLITH_AGENT_COMMAND` |
 
 ## Variables Utiles
 
@@ -45,7 +45,13 @@ arclith-run
 | `ARCLITH_MCP_PORT` | port exposé MCP |
 | `ARCLITH_PROBE_PORT` | port probes |
 | `ARCLITH_AGENT_PORT` | port LangGraph |
+| `ARCLITH_AGENT_RUNTIME` | `development` (défaut) ou `durable` |
 | `ARCLITH_AGENT_COMMAND` | commande agent personnalisée |
+
+Le profil `durable` lance `arclith-agent-runtime` et requiert l'extra
+`arclith[langgraph-runtime]`, PostgreSQL et Redis. Il conserve les threads et checkpoints sans clé
+de licence LangGraph Cloud. Voir [Agent Persistence](agent-persistence.md) pour le contrat et les
+limites de compatibilité.
 
 ## Règles
 

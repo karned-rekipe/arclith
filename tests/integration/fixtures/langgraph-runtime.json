@@ -1,0 +1,5 @@
+{
+  "graphs": {
+    "integration_agent": "./langgraph_runtime_graph.py:graph"
+  }
+}

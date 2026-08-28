@@ -87,12 +87,14 @@ requires-dist = [
     { name = "hvac", marker = "extra == 'vault'", specifier = "==2.3.0" },
     { name = "langgraph", marker = "extra == 'all'", specifier = ">=1.0.8" },
     { name = "langgraph", marker = "extra == 'langgraph'", specifier = ">=1.0.8" },
+    { name = "langgraph", marker = "extra == 'langgraph-runtime'", specifier = ">=1.0.8" },
     { name = "langgraph-api", marker = "extra == 'all'", specifier = ">=0.11.0" },
     { name = "langgraph-api", marker = "extra == 'langgraph'", specifier = ">=0.11.0" },
     { name = "langgraph-checkpoint-mongodb", marker = "extra == 'all'", specifier = ">=0.3.0,<1.0.0" },
     { name = "langgraph-checkpoint-mongodb", marker = "extra == 'langgraph-persistence-mongodb'", specifier = ">=0.3.0,<1.0.0" },
     { name = "langgraph-checkpoint-postgres", marker = "extra == 'all'", specifier = ">=3.0.0,<4.0.0" },
     { name = "langgraph-checkpoint-postgres", marker = "extra == 'langgraph-persistence-postgresql'", specifier = ">=3.0.0,<4.0.0" },
+    { name = "langgraph-checkpoint-postgres", marker = "extra == 'langgraph-runtime'", specifier = ">=3.0.0,<4.0.0" },
     { name = "langgraph-checkpoint-redis", marker = "extra == 'all'", specifier = ">=0.2.0,<1.0.0" },
     { name = "langgraph-checkpoint-redis", marker = "extra == 'langgraph-persistence-redis'", specifier = ">=0.2.0,<1.0.0" },
     { name = "langgraph-checkpoint-sqlite", marker = "extra == 'all'", specifier = ">=3.0.0,<4.0.0" },
@@ -118,6 +120,7 @@ requires-dist = [
     { name = "opentelemetry-sdk", marker = "extra == 'opentelemetry'", specifier = ">=1.30.0" },
     { name = "psycopg", extras = ["binary", "pool"], marker = "extra == 'all'", specifier = ">=3.2.0,<4.0.0" },
     { name = "psycopg", extras = ["binary", "pool"], marker = "extra == 'langgraph-persistence-postgresql'", specifier = ">=3.2.0,<4.0.0" },
+    { name = "psycopg", extras = ["binary", "pool"], marker = "extra == 'langgraph-runtime'", specifier = ">=3.2.0,<4.0.0" },
     { name = "pydantic", specifier = "==2.12.5" },
     { name = "pydantic-ai-slim", extras = ["anthropic", "openai"], marker = "extra == 'all'", specifier = ">=2.24.0,<3.0.0" },
     { name = "pydantic-ai-slim", extras = ["anthropic", "openai"], marker = "extra == 'langgraph'", specifier = ">=2.24.0,<3.0.0" },
@@ -128,14 +131,16 @@ requires-dist = [
     { name = "pyyaml", specifier = "==6.0.3" },
     { name = "redis", marker = "extra == 'all'", specifier = ">=5.0.0" },
     { name = "redis", marker = "extra == 'cache'", specifier = ">=5.0.0" },
+    { name = "redis", marker = "extra == 'langgraph-runtime'", specifier = ">=5.0.0" },
     { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'all'", specifier = ">=2.0.36" },
     { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'mariadb'", specifier = ">=2.0.36" },
     { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'postgresql'", specifier = ">=2.0.36" },
     { name = "uuid6", specifier = "==2025.0.1" },
     { name = "uvicorn", marker = "extra == 'all'", specifier = "==0.41.0" },
     { name = "uvicorn", marker = "extra == 'fastapi'", specifier = "==0.41.0" },
+    { name = "uvicorn", marker = "extra == 'langgraph-runtime'", specifier = "==0.41.0" },
 ]
-provides-extras = ["mongodb", "duckdb", "mariadb", "postgresql", "fastapi", "mcp", "vault", "cache", "auth", "rabbitmq", "langgraph", "langgraph-persistence-sqlite", "langgraph-persistence-postgresql", "langgraph-persistence-mongodb", "langgraph-persistence-redis", "langsmith", "opentelemetry", "all", "azure-blob", "s3", "gcs"]
+provides-extras = ["mongodb", "duckdb", "mariadb", "postgresql", "fastapi", "mcp", "vault", "cache", "auth", "rabbitmq", "langgraph", "langgraph-runtime", "langgraph-persistence-sqlite", "langgraph-persistence-postgresql", "langgraph-persistence-mongodb", "langgraph-persistence-redis", "langsmith", "opentelemetry", "all", "azure-blob", "s3", "gcs"]
 
 [package.metadata.requires-dev]
 dev = [

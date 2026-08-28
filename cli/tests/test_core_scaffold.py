@@ -83,6 +83,8 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
     assert "api|mcp|mcp_http|mcp_sse|bus|command_bus|command-bus|agent|all) shift ;;" in entrypoint
     assert "bus|command_bus|command-bus)" in entrypoint
     assert "langgraph dev" in entrypoint
+    assert '"${ARCLITH_AGENT_RUNTIME:-development}" = "durable"' in entrypoint
+    assert "exec arclith-agent-runtime" in entrypoint
     assert '_VALID_MODES = {"api", "mcp_http", "mcp_sse", "all"}' in main
     assert 'arclith.run_with_probes(_run_api, _run_mcp_http, transports=["api", "mcp_http"])' in main
     assert arclith_run.stat().st_mode & stat.S_IXUSR

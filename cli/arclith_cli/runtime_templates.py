@@ -132,6 +132,13 @@ case "$mode" in
             echo "langgraph.json missing; configure agent/langgraph or set ARCLITH_AGENT_COMMAND." >&2
             exit 64
         fi
+        if [ "${{ARCLITH_AGENT_RUNTIME:-development}}" = "durable" ]; then
+            exec arclith-agent-runtime \\
+                --config "${{ARCLITH_LANGGRAPH_CONFIG:-langgraph.json}}" \\
+                --host "${{LANGGRAPH_HOST:-0.0.0.0}}" \\
+                --port "${{LANGGRAPH_PORT:-2024}}" \\
+                "$@"
+        fi
         exec langgraph dev \\
             --host "${{LANGGRAPH_HOST:-0.0.0.0}}" \\
             --port "${{LANGGRAPH_PORT:-2024}}" \\

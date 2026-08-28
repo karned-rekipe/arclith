@@ -182,6 +182,59 @@ Pour l'Agent Server, PostgreSQL est le backend géré par défaut. MongoDB se co
 store custom Agent Server est un async context manager référencé par `checkpointer.path` ou
 `store.path`.
 
+### Runtime Durable Open Source
+
+Arclith fournit aussi `arclith-agent-runtime`, un serveur autonome destiné aux déploiements qui ne
+disposent pas de `LANGGRAPH_CLOUD_LICENSE_KEY`. Il ne requiert ni clé LangGraph Cloud ni clé
+LangSmith. `LANGSMITH_API_KEY` reste une intégration d'observabilité optionnelle et indépendante.
+
+Installer puis sélectionner le runtime dans l'image standard :
+
+```bash
+uv add "arclith[langgraph,langgraph-runtime]"
+ARCLITH_AGENT_RUNTIME=durable ./arclith-run agent
+```
+
+Variables requises :
+
+| Variable primaire | Alias accepté | Contenu |
+|---|---|---|
+| `DATABASE_URI` | `POSTGRESQL_URL` | URI PostgreSQL du runtime |
+| `REDIS_URI` | `REDIS_URL` | URI Redis de coordination |
+
+Le runtime charge les graphes de `langgraph.json`, force le mode de persistance `agent_server` à
+l'import, puis attache un `AsyncPostgresSaver` et un `AsyncPostgresStore` sur un pool partagé. Il
+ajoute un catalogue PostgreSQL pour les métadonnées de threads et de runs. Redis ne contient pas la
+conversation : il fournit un verrou distribué par thread et les demandes d'annulation, avec une
+expiration de sécurité. Le verrou est renouvelé pendant le run et expire en 30 secondes par défaut
+si un pod disparaît sans arrêt gracieux.
+
+Surface HTTP compatible avec les usages Jarvis et le SDK LangGraph :
+
+- assistants : recherche et lecture ;
+- threads : création, recherche, lecture, suppression, état et historique ;
+- runs : attente, streaming SSE, liste, lecture et annulation ;
+- streaming : événements `metadata`, `values`, `custom` et `messages` ;
+- reprise : `checkpoint`, `checkpoint_id` et `command` LangGraph.
+
+Cette surface n'est pas une réimplémentation exhaustive de la plateforme LangGraph. Les crons,
+déploiements, revisions d'assistants, webhooks, double-texting autre que `reject` et services
+LangSmith ne sont pas fournis. `/info` annonce explicitement ces limites.
+
+Garde-fous de production :
+
+- une base ou un schéma isolé par agent/trust boundary ;
+- un utilisateur PostgreSQL dédié, autorisé à créer les tables au premier démarrage ;
+- un utilisateur Redis et `ARCLITH_LANGGRAPH_REDIS_PREFIX` dédiés ;
+- une NetworkPolicy limitant les flux aux seuls PostgreSQL et Redis ;
+- `terminationGracePeriodSeconds` supérieur à `ARCLITH_GRACEFUL_TIMEOUT_SECONDS` ;
+- sauvegarde PostgreSQL vérifiée par restauration, Redis restant reconstructible ;
+- aucun URI ni message d'exception interne écrit dans la réponse SSE.
+
+Le schéma est créé de façon idempotente au démarrage. Pour une gouvernance DDL séparée, exécuter une
+première initialisation avec un rôle propriétaire, puis lancer les pods avec
+`ARCLITH_LANGGRAPH_AUTO_SETUP=false` après avoir retiré les privilèges de création au rôle runtime.
+
 ## Validation
 
 En embedded, deux appels avec le même `thread_id` doivent reprendre le même état :
@@ -214,6 +267,9 @@ un second `thread_id`.
 | état absent au second run | vérifier `configurable.thread_id` et sa stabilité |
 | aucun objet injecté sous Agent Server | comportement attendu : le serveur fournit ses backends |
 | `setup()` asynchrone en embedded | utiliser une implémentation sync ou le mode Agent Server |
+| `/ready` retourne `503` | vérifier PostgreSQL, Redis, credentials et NetworkPolicy |
+| second run refusé avec `409` | un run est déjà actif pour ce `thread_id` |
+| état présent mais thread absent | ne pas écrire directement dans les tables du checkpointer ; créer le thread via l'API |
 
 ## Projet
 
