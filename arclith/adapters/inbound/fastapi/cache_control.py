@@ -5,6 +5,7 @@ Critical for CDN integration, bandwidth optimization, and API performance.
 
 RFC Reference: RFC 7234 (Caching)
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
@@ -43,12 +44,12 @@ class CacheControlMiddleware:
     """
 
     def __init__(
-            self,
-            app: Any,
-            logger: "Logger",
-            get_single_max_age: int = 300,  # 5 minutes
-            get_list_max_age: int = 60,  # 1 minute
-            mutations_no_store: bool = True,
+        self,
+        app: Any,
+        logger: "Logger",
+        get_single_max_age: int = 300,  # 5 minutes
+        get_list_max_age: int = 60,  # 1 minute
+        mutations_no_store: bool = True,
     ) -> None:
         self._app = app
         self._logger = logger
@@ -71,16 +72,18 @@ class CacheControlMiddleware:
             if message["type"] == "http.response.start":
                 # Inject Cache-Control header if not already present
                 headers = list(message.get("headers", []))
-                has_cache_control = any(k.lower() == b"cache-control" for k, _ in headers)
+                has_cache_control = any(
+                    k.lower() == b"cache-control" for k, _ in headers
+                )
 
                 if not has_cache_control and cache_control:
                     headers.append((b"cache-control", cache_control.encode()))
                     message = {**message, "headers": headers}
                     self._logger.debug(
                         "📦 Cache-Control injected",
-                        method = method,
-                        path = path,
-                        directive = cache_control,
+                        method=method,
+                        path=path,
+                        directive=cache_control,
                     )
 
             await send(message)
@@ -89,34 +92,25 @@ class CacheControlMiddleware:
 
     def _get_cache_control(self, method: str, path: str) -> str | None:
         """Determine Cache-Control directive based on method and path."""
-        # Mutations → no caching
         if method in {"POST", "PUT", "PATCH", "DELETE"}:
-            if self._mutations_no_store:
-                return "no-cache, no-store, must-revalidate"
-            return "no-cache"
-
-        # GET requests
-        if method == "GET":
-            # Heuristic: path ends with UUID → single resource
-            # Otherwise → collection/list
-            if self._is_single_resource_path(path):
-                return f"private, max-age={self._get_single_max_age}"
-            else:
-                # Collection or list endpoint
-                # Use shorter TTL or no-store for real-time data
-                if self._get_list_max_age == 0:
-                    return "no-store"
-                return f"private, max-age={self._get_list_max_age}"
-
-        # HEAD, OPTIONS → cacheable
+            return (
+                "no-cache, no-store, must-revalidate"
+                if self._mutations_no_store
+                else "no-cache"
+            )
         if method in {"HEAD", "OPTIONS"}:
             return "public, max-age=86400"  # 24 hours
-
-        return None
+        if method != "GET":
+            return None
+        if self._is_single_resource_path(path):
+            return f"private, max-age={self._get_single_max_age}"
+        if self._get_list_max_age == 0:
+            return "no-store"
+        return f"private, max-age={self._get_list_max_age}"
 
     def _is_single_resource_path(self, path: str) -> bool:
         """Heuristic to detect single resource GET vs list GET.
-        
+
         Examples:
             /v1/ingredients/01234... → True (single)
             /v1/ingredients → False (list)
@@ -130,7 +124,6 @@ class CacheControlMiddleware:
 
         # UUID-like pattern (hex, 8-4-4-4-12 format)
         # Simplified: if last segment is long hex string → likely UUID
-        if len(last_part) >= 32 and all(c in "0123456789abcdefABCDEF-" for c in last_part):
-            return True
-
-        return False
+        return len(last_part) >= 32 and all(
+            c in "0123456789abcdefABCDEF-" for c in last_part
+        )

@@ -10,6 +10,7 @@ RFC References:
 Usage:
     app.add_middleware(ETaggerMiddleware, logger=logger)
 """
+
 from __future__ import annotations
 
 import json
@@ -57,7 +58,9 @@ class ETaggerMiddleware:
             return
 
         method = scope.get("method", "")
-        headers_dict = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
+        headers_dict = {
+            k.decode().lower(): v.decode() for k, v in scope.get("headers", [])
+        }
 
         # Initialize state for conditional requests
         if "state" not in scope:
@@ -72,9 +75,9 @@ class ETaggerMiddleware:
                 scope["state"]["expected_version"] = expected_version
                 self._logger.debug(
                     "🔍 Conditional update",
-                    method = method,
-                    if_match = if_match,
-                    expected_version = expected_version,
+                    method=method,
+                    if_match=if_match,
+                    expected_version=expected_version,
                 )
 
         # Handle If-None-Match for GET (cache validation)
@@ -95,13 +98,15 @@ class ETaggerMiddleware:
         await self._send_response(send, method, if_none_match, response_data)
 
     async def _send_response(
-            self,
-            send: Any,
-            method: str,
-            if_none_match: str | None,
-            response_data: dict[str, Any],
+        self,
+        send: Any,
+        method: str,
+        if_none_match: str | None,
+        response_data: dict[str, Any],
     ) -> None:
-        etag = self._extract_etag_from_body(response_data["body"], response_data["status"])
+        etag = self._extract_etag_from_body(
+            response_data["body"], response_data["status"]
+        )
         if method != "GET" or etag is None:
             await self._send_original_response(send, response_data)
             return
@@ -116,7 +121,9 @@ class ETaggerMiddleware:
                 {
                     "type": "http.response.start",
                     "status": 304,
-                    "headers": self._headers_with_etag(response_data["headers"], etag, drop_body_headers=True),
+                    "headers": self._headers_with_etag(
+                        response_data["headers"], etag, drop_body_headers=True
+                    ),
                 }
             )
             await send({"type": "http.response.body", "body": b""})
@@ -144,15 +151,17 @@ class ETaggerMiddleware:
 
     @staticmethod
     def _headers_with_etag(
-            headers: list[tuple[bytes, bytes]],
-            etag: str,
-            *,
-            drop_body_headers: bool = False,
+        headers: list[tuple[bytes, bytes]],
+        etag: str,
+        *,
+        drop_body_headers: bool = False,
     ) -> list[tuple[bytes, bytes]]:
         dropped = {b"etag"}
         if drop_body_headers:
             dropped.update({b"content-length"})
-        filtered = [(key, value) for key, value in headers if key.lower() not in dropped]
+        filtered = [
+            (key, value) for key, value in headers if key.lower() not in dropped
+        ]
         return [*filtered, (b"etag", etag.encode("utf-8"))]
 
     @staticmethod
@@ -163,7 +172,7 @@ class ETaggerMiddleware:
 
     def _parse_etag(self, etag: str) -> int | None:
         """Parse ETag header to extract version number.
-        
+
         Examples:
             "v1" → 1
             "v42" → 42
@@ -171,18 +180,16 @@ class ETaggerMiddleware:
         """
         etag = etag.strip()
         # Remove W/ prefix for weak ETags
-        if etag.startswith("W/"):
-            etag = etag[2:]
+        etag = etag.removeprefix("W/")
         # Remove quotes
         etag = etag.strip('"')
         # Remove v prefix
-        if etag.startswith("v"):
-            etag = etag[1:]
+        etag = etag.removeprefix("v")
 
         try:
             return int(etag)
         except ValueError:
-            self._logger.warning("⚠️ Invalid ETag format", etag = etag)
+            self._logger.warning("⚠️ Invalid ETag format", etag=etag)
             return None
 
     def _extract_etag_from_body(self, body: bytes, status: int) -> str | None:
@@ -218,7 +225,7 @@ class ETaggerMiddleware:
 
 def get_expected_version_from_request(request: Any) -> int | None:
     """FastAPI dependency to extract expected version from If-Match header.
-    
+
     Usage:
         async def update_resource(
             expected_version: Annotated[int | None, Depends(get_expected_version_from_request)]

@@ -1,13 +1,15 @@
+from contextlib import suppress
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Generic, Optional, TypeVar
 
 import duckdb
-from arclith.domain.models.entity import Entity
-from arclith.domain.ports.outbound import repository as repository_port
-from datetime import datetime
-from typing import Any, Generic, Optional, TypeVar
 from uuid6 import UUID, uuid7
 
-T = TypeVar("T", bound = Entity)
+from arclith.domain.models.entity import Entity
+from arclith.domain.ports.outbound import repository as repository_port
+
+T = TypeVar("T", bound=Entity)
 
 _SUPPORTED_EXTENSIONS = {".csv", ".parquet", ".json", ".arrow"}
 
@@ -54,10 +56,16 @@ def _write_file(con: duckdb.DuckDBPyConnection, table: str, path: Path) -> None:
 class DuckDBRepository(repository_port.Repository[T], Generic[T]):
     _repository_contract = repository_port.Repository
 
-    def __init__(self, path: str | Path, entity_class: type[T], default_ext: str = ".csv") -> None:
+    def __init__(
+        self, path: str | Path, entity_class: type[T], default_ext: str = ".csv"
+    ) -> None:
         base = Path(path)
         is_dir_path = base.is_dir() or not base.suffix
-        self._path = base / f"{entity_class.__name__.lower()}{default_ext}" if is_dir_path else base
+        self._path = (
+            base / f"{entity_class.__name__.lower()}{default_ext}"
+            if is_dir_path
+            else base
+        )
         self._entity_class = entity_class
         self._table = entity_class.__name__.lower()
         _validate_extension(self._path)
@@ -95,10 +103,8 @@ class DuckDBRepository(repository_port.Repository[T], Generic[T]):
         cleaned = {k: v for k, v in row.items() if k in entity_fields}
         for k, v in cleaned.items():
             if isinstance(v, str):
-                try:
+                with suppress(ValueError):
                     cleaned[k] = datetime.fromisoformat(v)
-                except ValueError:
-                    pass
         if "uuid" in cleaned and isinstance(cleaned["uuid"], str):
             cleaned["uuid"] = UUID(cleaned["uuid"])
         return self._entity_class(**cleaned)
@@ -122,8 +128,10 @@ class DuckDBRepository(repository_port.Repository[T], Generic[T]):
         row = self._entity_to_row(entity)
         cols = ", ".join(row.keys())
         placeholders = ", ".join("?" for _ in row)
-        self._con.execute(f"INSERT INTO {self._table} ({cols}) VALUES ({placeholders})",  # nosec B608
-                          list(row.values()))
+        self._con.execute(
+            f"INSERT INTO {self._table} ({cols}) VALUES ({placeholders})",  # nosec B608
+            list(row.values()),
+        )
         self._persist()
         return entity
 
@@ -152,7 +160,9 @@ class DuckDBRepository(repository_port.Repository[T], Generic[T]):
         return [self._row_to_entity(r) for r in rows]
 
     # noinspection SqlNoDataSourceInspection
-    async def find_page(self, offset: int = 0, limit: int | None = None) -> tuple[list[T], int]:
+    async def find_page(
+        self, offset: int = 0, limit: int | None = None
+    ) -> tuple[list[T], int]:
         """Single-query pagination — COUNT(*) OVER () gives total before offset/limit."""
         limit_clause = f"LIMIT {limit}" if limit is not None else ""
         rows = self._fetch(
@@ -160,7 +170,10 @@ class DuckDBRepository(repository_port.Repository[T], Generic[T]):
             f"WHERE deleted_at IS NULL ORDER BY rowid OFFSET {offset} {limit_clause}"
         )
         total = int(rows[0]["__total"]) if rows else 0
-        return [self._row_to_entity({k: v for k, v in r.items() if k != "__total"}) for r in rows], total
+        return [
+            self._row_to_entity({k: v for k, v in r.items() if k != "__total"})
+            for r in rows
+        ], total
 
     # noinspection SqlNoDataSourceInspection
     async def find_deleted(self) -> list[T]:

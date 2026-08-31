@@ -76,9 +76,13 @@ class ApiMetricsCollector:
         latency_count = reg.get("api", "_latency_count")
         return {
             "request_count": request_count,
-            "latency_avg_ms": round(latency_sum / latency_count, 2) if latency_count else 0.0,
+            "latency_avg_ms": round(latency_sum / latency_count, 2)
+            if latency_count
+            else 0.0,
             "error_count": error_count,
-            "error_rate": round(error_count / request_count, 4) if request_count else 0.0,
+            "error_rate": round(error_count / request_count, 4)
+            if request_count
+            else 0.0,
         }
 
 
@@ -96,7 +100,9 @@ class McpMetricsCollector:
         self._registry = registry
         self._logger = logger
 
-    def wrap(self, tool_name: str, fn: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+    def wrap(
+        self, tool_name: str, fn: Callable[..., Awaitable[Any]]
+    ) -> Callable[..., Awaitable[Any]]:
         """Wrap an async MCP tool function to record call/latency/failure metrics."""
         registry = self._registry
         logger = self._logger
@@ -108,8 +114,7 @@ class McpMetricsCollector:
             start = time.monotonic()
             ok = True
             try:
-                result = await fn(*args, **kwargs)
-                return result
+                return await fn(*args, **kwargs)
             except Exception:
                 ok = False
                 registry.increment("mcp", "failures")
@@ -119,7 +124,9 @@ class McpMetricsCollector:
                 elapsed_ms = round((time.monotonic() - start) * 1000, 2)
                 registry.increment("mcp", "_latency_sum_ms", elapsed_ms)
                 registry.increment("mcp", "_latency_count")
-                registry.increment(f"mcp._tool.{tool_name}", "_latency_sum_ms", elapsed_ms)
+                registry.increment(
+                    f"mcp._tool.{tool_name}", "_latency_sum_ms", elapsed_ms
+                )
                 registry.increment(f"mcp._tool.{tool_name}", "_latency_count")
                 if logger:
                     logger.info(f"⏱ mcp.{tool_name}", duration_ms=elapsed_ms, ok=ok)
@@ -142,7 +149,7 @@ class McpMetricsCollector:
         for bucket, values in reg.raw_snapshot().items():
             if not bucket.startswith("mcp._tool."):
                 continue
-            name = bucket[len("mcp._tool."):]
+            name = bucket[len("mcp._tool.") :]
             t_calls = int(values.get("calls", 0))
             t_fail = int(values.get("failures", 0))
             t_sum = values.get("_latency_sum_ms", 0.0)
@@ -156,7 +163,9 @@ class McpMetricsCollector:
         return {
             "tool_calls_total": total_calls,
             "failures": failures,
-            "latency_avg_ms": round(latency_sum / latency_count, 2) if latency_count else 0.0,
+            "latency_avg_ms": round(latency_sum / latency_count, 2)
+            if latency_count
+            else 0.0,
             "token_usage": {
                 "input": int(reg.get("mcp", "token_usage_input")),
                 "output": int(reg.get("mcp", "token_usage_output")),
@@ -177,4 +186,3 @@ class EventBusCollectorProtocol(Protocol):
     transport: str
 
     def collect(self) -> dict[str, float | int | dict[str, Any]]: ...
-

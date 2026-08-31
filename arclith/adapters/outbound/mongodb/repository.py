@@ -1,6 +1,7 @@
 from datetime import date, datetime
+from typing import Any, ClassVar, Generic, Optional, TypeVar
+
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
-from typing import Any, Generic, Optional, TypeVar
 from uuid6 import UUID, uuid7
 
 from arclith.adapters.context import get_adapter_tenant_context
@@ -9,12 +10,12 @@ from arclith.domain.models.entity import Entity
 from arclith.domain.ports.outbound.logger import Logger
 from arclith.domain.ports.outbound.repository import Repository
 
-T = TypeVar("T", bound = Entity)
+T = TypeVar("T", bound=Entity)
 
 
 class _MongoCollection:
     # Cache de clients par URI pour réutiliser le pool de connexions Motor
-    _clients: dict[str, AsyncIOMotorClient] = {}
+    _clients: ClassVar[dict[str, AsyncIOMotorClient]] = {}
 
     def __init__(self, config: MongoDBConfig, logger: Logger) -> None:
         self._config = config
@@ -24,9 +25,13 @@ class _MongoCollection:
     async def __aenter__(self) -> AsyncIOMotorCollection:
         coords = get_adapter_tenant_context("mongodb")
         effective_uri = (coords.get("uri") if coords else None) or self._config.uri
-        effective_db = (coords.get("db_name") if coords else None) or self._config.db_name
+        effective_db = (
+            coords.get("db_name") if coords else None
+        ) or self._config.db_name
         if not effective_uri:
-            raise ValueError("Aucune URI MongoDB : configurez uri ou activez le mode multitenant")
+            raise ValueError(
+                "Aucune URI MongoDB : configurez uri ou activez le mode multitenant"
+            )
 
         if effective_uri in self._clients:
             self._client = self._clients[effective_uri]
@@ -56,9 +61,13 @@ class _MongoCollection:
 
 
 class MongoDBRepository(Repository[T], Generic[T]):
-    def __init__(self, config: MongoDBConfig, entity_class: type[T], logger: Logger) -> None:
+    def __init__(
+        self, config: MongoDBConfig, entity_class: type[T], logger: Logger
+    ) -> None:
         resolved_name = config.collection_name or entity_class.__name__.lower()
-        self._config = MongoDBConfig(uri=config.uri, db_name=config.db_name, collection_name=resolved_name)
+        self._config = MongoDBConfig(
+            uri=config.uri, db_name=config.db_name, collection_name=resolved_name
+        )
         self._entity_class = entity_class
         self._logger = logger
 
@@ -121,11 +130,13 @@ class MongoDBRepository(Repository[T], Generic[T]):
         async with self._collection() as col:
             return [self._from_doc(doc) async for doc in col.find({"deleted_at": None})]
 
-    async def find_page(self, offset: int = 0, limit: int | None = None) -> tuple[list[T], int]:
+    async def find_page(
+        self, offset: int = 0, limit: int | None = None
+    ) -> tuple[list[T], int]:
         """Single-query pagination via MongoDB $facet aggregation."""
-        from typing import Any, cast
         from collections.abc import Mapping, Sequence
-        
+        from typing import Any, cast
+
         data_pipeline: list[dict] = [{"$skip": offset}]
         if limit is not None:
             data_pipeline.append({"$limit": limit})
@@ -133,11 +144,13 @@ class MongoDBRepository(Repository[T], Generic[T]):
             Sequence[Mapping[str, Any]],
             [
                 {"$match": {"deleted_at": None}},
-                {"$facet": {
-                    "data": data_pipeline,
-                    "total": [{"$count": "count"}],
-                }},
-            ]
+                {
+                    "$facet": {
+                        "data": data_pipeline,
+                        "total": [{"$count": "count"}],
+                    }
+                },
+            ],
         )
         async with self._collection() as col:
             result = await col.aggregate(pipeline).to_list(length=1)
@@ -150,7 +163,10 @@ class MongoDBRepository(Repository[T], Generic[T]):
 
     async def find_deleted(self) -> list[T]:
         async with self._collection() as col:
-            return [self._from_doc(doc) async for doc in col.find({"deleted_at": {"$ne": None}})]
+            return [
+                self._from_doc(doc)
+                async for doc in col.find({"deleted_at": {"$ne": None}})
+            ]
 
     async def duplicate(self, uuid: UUID) -> T:
         async with self._collection() as col:

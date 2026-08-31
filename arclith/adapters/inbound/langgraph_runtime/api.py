@@ -7,8 +7,8 @@ from fastapi import FastAPI, Query, Request, Response, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from arclith.adapters.inbound.langgraph_runtime.coordination import RunBusyError
 from arclith.adapters.inbound.langgraph_runtime.catalog import ThreadAlreadyExistsError
+from arclith.adapters.inbound.langgraph_runtime.coordination import RunBusyError
 from arclith.adapters.inbound.langgraph_runtime.runtime import (
     AssistantNotFoundError,
     LangGraphRuntime,
@@ -86,65 +86,157 @@ def create_langgraph_runtime_app(runtime: LangGraphRuntime) -> FastAPI:
         version="1.0.0",
     )
     app.state.langgraph_runtime = runtime
+    _RuntimeEndpoints(runtime).register(app)
     _register_exception_handlers(app)
+    return app
 
-    @app.get(
-        "/info",
-        status_code=status.HTTP_200_OK,
-        responses={503: {"description": "Runtime unavailable"}},
-    )
-    async def info() -> dict[str, Any]:
+
+class _RuntimeEndpoints:
+    def __init__(self, runtime: LangGraphRuntime) -> None:
+        self.runtime = runtime
+
+    def register(self, app: FastAPI) -> None:
+        app.add_api_route(
+            "/info",
+            self.info,
+            methods=["GET"],
+            status_code=status.HTTP_200_OK,
+            responses={503: {"description": "Runtime unavailable"}},
+        )
+        app.add_api_route(
+            "/health",
+            self.health,
+            methods=["GET"],
+            status_code=status.HTTP_200_OK,
+            responses={503: {"description": "Runtime unavailable"}},
+        )
+        app.add_api_route(
+            "/ready",
+            self.ready,
+            methods=["GET"],
+            status_code=status.HTTP_200_OK,
+            responses={503: {"description": "Runtime storage unavailable"}},
+        )
+        app.add_api_route(
+            "/assistants/search",
+            self.search_assistants,
+            methods=["POST"],
+            status_code=status.HTTP_200_OK,
+            responses={503: {"description": "Runtime unavailable"}},
+        )
+        app.add_api_route(
+            "/assistants/{assistant_id}",
+            self.get_assistant,
+            methods=["GET"],
+            status_code=status.HTTP_200_OK,
+            responses=_NOT_FOUND,
+        )
+        app.add_api_route(
+            "/threads/search",
+            self.search_threads,
+            methods=["POST"],
+            status_code=status.HTTP_200_OK,
+            responses={503: {"description": "Runtime storage unavailable"}},
+        )
+        app.add_api_route(
+            "/threads",
+            self.create_thread,
+            methods=["POST"],
+            status_code=status.HTTP_200_OK,
+            responses={
+                409: {"description": "Thread already exists"},
+                503: {"description": "Runtime storage unavailable"},
+            },
+        )
+        app.add_api_route(
+            "/threads/{thread_id}",
+            self.get_thread,
+            methods=["GET"],
+            status_code=status.HTTP_200_OK,
+            responses=_NOT_FOUND,
+        )
+        app.add_api_route(
+            "/threads/{thread_id}",
+            self.delete_thread,
+            methods=["DELETE"],
+            status_code=status.HTTP_204_NO_CONTENT,
+            responses=_NOT_FOUND,
+        )
+        app.add_api_route(
+            "/threads/{thread_id}/state",
+            self.get_thread_state,
+            methods=["GET"],
+            status_code=status.HTTP_200_OK,
+            responses=_NOT_FOUND,
+        )
+        app.add_api_route(
+            "/threads/{thread_id}/history",
+            self.get_thread_history,
+            methods=["POST"],
+            status_code=status.HTTP_200_OK,
+            responses=_NOT_FOUND,
+        )
+        app.add_api_route(
+            "/threads/{thread_id}/runs/wait",
+            self.wait_for_run,
+            methods=["POST"],
+            status_code=status.HTTP_200_OK,
+            responses=_RUN_ERRORS,
+        )
+        app.add_api_route(
+            "/threads/{thread_id}/runs/stream",
+            self.stream_run,
+            methods=["POST"],
+            status_code=status.HTTP_200_OK,
+            responses=_RUN_ERRORS,
+        )
+        app.add_api_route(
+            "/threads/{thread_id}/runs",
+            self.list_runs,
+            methods=["GET"],
+            status_code=status.HTTP_200_OK,
+            responses=_NOT_FOUND,
+        )
+        app.add_api_route(
+            "/threads/{thread_id}/runs/{run_id}",
+            self.get_run,
+            methods=["GET"],
+            status_code=status.HTTP_200_OK,
+            responses=_NOT_FOUND,
+        )
+        app.add_api_route(
+            "/threads/{thread_id}/runs/{run_id}/cancel",
+            self.cancel_run,
+            methods=["POST"],
+            status_code=status.HTTP_204_NO_CONTENT,
+            responses=_NOT_FOUND,
+        )
+
+    async def info(self) -> dict[str, Any]:
         return {
             "version": "arclith-open-source",
-            "flags": {
-                "assistants": True,
-                "crons": False,
-                "langsmith": False,
-            },
+            "flags": {"assistants": True, "crons": False, "langsmith": False},
             "host": {"kind": "self-hosted-open-source"},
         }
 
-    @app.get(
-        "/health",
-        status_code=status.HTTP_200_OK,
-        responses={503: {"description": "Runtime unavailable"}},
-    )
-    async def health() -> dict[str, str]:
+    async def health(self) -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get(
-        "/ready",
-        status_code=status.HTTP_200_OK,
-        responses={503: {"description": "Runtime storage unavailable"}},
-    )
-    async def ready() -> dict[str, str]:
-        if not await runtime.ready():
+    async def ready(self) -> dict[str, str]:
+        if not await self.runtime.ready():
             raise RuntimeStorageError("Runtime storage is not ready")
         return {"status": "ready"}
 
-    @app.post(
-        "/assistants/search",
-        status_code=status.HTTP_200_OK,
-        responses={503: {"description": "Runtime unavailable"}},
-    )
-    async def search_assistants() -> list[dict[str, Any]]:
-        return runtime.assistants()
+    async def search_assistants(self) -> list[dict[str, Any]]:
+        return self.runtime.assistants()
 
-    @app.get(
-        "/assistants/{assistant_id}",
-        status_code=status.HTTP_200_OK,
-        responses=_NOT_FOUND,
-    )
-    async def get_assistant(assistant_id: str) -> dict[str, Any]:
-        return runtime.assistant(assistant_id)
+    async def get_assistant(self, assistant_id: str) -> dict[str, Any]:
+        return self.runtime.assistant(assistant_id)
 
-    @app.post(
-        "/threads/search",
-        status_code=status.HTTP_200_OK,
-        responses={503: {"description": "Runtime storage unavailable"}},
-    )
-    async def search_threads(payload: ThreadSearchPayload) -> list[dict[str, Any]]:
-        records = await runtime.search_threads(
+    async def search_threads(
+        self, payload: ThreadSearchPayload
+    ) -> list[dict[str, Any]]:
+        records = await self.runtime.search_threads(
             metadata=payload.metadata,
             status=payload.status,
             limit=payload.limit,
@@ -152,80 +244,45 @@ def create_langgraph_runtime_app(runtime: LangGraphRuntime) -> FastAPI:
         )
         return [record.as_api_dict() for record in records]
 
-    @app.post(
-        "/threads",
-        status_code=status.HTTP_200_OK,
-        responses={
-            409: {"description": "Thread already exists"},
-            503: {"description": "Runtime storage unavailable"},
-        },
-    )
-    async def create_thread(payload: ThreadCreatePayload) -> dict[str, Any]:
-        record = await runtime.create_thread(
+    async def create_thread(self, payload: ThreadCreatePayload) -> dict[str, Any]:
+        record = await self.runtime.create_thread(
             thread_id=str(payload.thread_id) if payload.thread_id else None,
             metadata=payload.metadata,
             if_exists=payload.if_exists,
         )
         return record.as_api_dict()
 
-    @app.get(
-        "/threads/{thread_id}",
-        status_code=status.HTTP_200_OK,
-        responses=_NOT_FOUND,
-    )
-    async def get_thread(thread_id: UUID) -> dict[str, Any]:
-        return (await runtime.get_thread(str(thread_id))).as_api_dict()
+    async def get_thread(self, thread_id: UUID) -> dict[str, Any]:
+        return (await self.runtime.get_thread(str(thread_id))).as_api_dict()
 
-    @app.delete(
-        "/threads/{thread_id}",
-        status_code=status.HTTP_204_NO_CONTENT,
-        responses=_NOT_FOUND,
-    )
-    async def delete_thread(thread_id: UUID) -> Response:
-        await runtime.delete_thread(str(thread_id))
+    async def delete_thread(self, thread_id: UUID) -> Response:
+        await self.runtime.delete_thread(str(thread_id))
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    @app.get(
-        "/threads/{thread_id}/state",
-        status_code=status.HTTP_200_OK,
-        responses=_NOT_FOUND,
-    )
-    async def get_thread_state(thread_id: UUID) -> dict[str, Any]:
-        return await runtime.state(str(thread_id))
+    async def get_thread_state(self, thread_id: UUID) -> dict[str, Any]:
+        return await self.runtime.state(str(thread_id))
 
-    @app.post(
-        "/threads/{thread_id}/history",
-        status_code=status.HTTP_200_OK,
-        responses=_NOT_FOUND,
-    )
     async def get_thread_history(
+        self,
         thread_id: UUID,
         payload: ThreadHistoryPayload,
     ) -> list[dict[str, Any]]:
-        return await runtime.history(str(thread_id), limit=payload.limit)
+        return await self.runtime.history(str(thread_id), limit=payload.limit)
 
-    @app.post(
-        "/threads/{thread_id}/runs/wait",
-        status_code=status.HTTP_200_OK,
-        responses=_RUN_ERRORS,
-    )
-    async def wait_for_run(thread_id: UUID, payload: RunPayload) -> Any:
-        return await runtime.wait(
+    async def wait_for_run(self, thread_id: UUID, payload: RunPayload) -> Any:
+        return await self.runtime.wait(
             str(thread_id),
             payload.as_runtime_request(),
         )
 
-    @app.post(
-        "/threads/{thread_id}/runs/stream",
-        status_code=status.HTTP_200_OK,
-        responses=_RUN_ERRORS,
-    )
-    async def stream_run(thread_id: UUID, payload: RunPayload) -> StreamingResponse:
+    async def stream_run(
+        self, thread_id: UUID, payload: RunPayload
+    ) -> StreamingResponse:
         resolved_thread = str(thread_id)
-        await runtime.get_thread(resolved_thread)
-        runtime.assistant(payload.assistant_id)
+        await self.runtime.get_thread(resolved_thread)
+        self.runtime.assistant(payload.assistant_id)
         return StreamingResponse(
-            runtime.stream(resolved_thread, payload.as_runtime_request()),
+            self.runtime.stream(resolved_thread, payload.as_runtime_request()),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache, no-store",
@@ -233,18 +290,14 @@ def create_langgraph_runtime_app(runtime: LangGraphRuntime) -> FastAPI:
             },
         )
 
-    @app.get(
-        "/threads/{thread_id}/runs",
-        status_code=status.HTTP_200_OK,
-        responses=_NOT_FOUND,
-    )
     async def list_runs(
+        self,
         thread_id: UUID,
         limit: int = Query(default=10, ge=1, le=1000),
         offset: int = Query(default=0, ge=0),
         run_status: str | None = Query(default=None, alias="status"),
     ) -> list[dict[str, Any]]:
-        runs = await runtime.list_runs(
+        runs = await self.runtime.list_runs(
             str(thread_id),
             status=run_status,
             limit=limit,
@@ -252,24 +305,12 @@ def create_langgraph_runtime_app(runtime: LangGraphRuntime) -> FastAPI:
         )
         return [run.as_api_dict() for run in runs]
 
-    @app.get(
-        "/threads/{thread_id}/runs/{run_id}",
-        status_code=status.HTTP_200_OK,
-        responses=_NOT_FOUND,
-    )
-    async def get_run(thread_id: UUID, run_id: UUID) -> dict[str, Any]:
-        return (await runtime.get_run(str(thread_id), str(run_id))).as_api_dict()
+    async def get_run(self, thread_id: UUID, run_id: UUID) -> dict[str, Any]:
+        return (await self.runtime.get_run(str(thread_id), str(run_id))).as_api_dict()
 
-    @app.post(
-        "/threads/{thread_id}/runs/{run_id}/cancel",
-        status_code=status.HTTP_204_NO_CONTENT,
-        responses=_NOT_FOUND,
-    )
-    async def cancel_run(thread_id: UUID, run_id: UUID) -> Response:
-        await runtime.cancel_run(str(thread_id), str(run_id))
+    async def cancel_run(self, thread_id: UUID, run_id: UUID) -> Response:
+        await self.runtime.cancel_run(str(thread_id), str(run_id))
         return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-    return app
 
 
 def _register_exception_handlers(app: FastAPI) -> None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import shutil
 import zipfile
+from contextlib import suppress
 from pathlib import Path
 
 import httpx
@@ -10,16 +11,32 @@ import httpx
 _TEMPLATE_URL = "https://github.com/karned-rekipe/_sample/archive/refs/heads/{ref}.zip"
 
 _DIRS_TO_REMOVE = {
-    "__pycache__", ".venv", ".mypy_cache", ".pytest_cache",
-    ".ruff_cache", ".idea", ".github", ".git", ".files", ".dev", "htmlcov",
+    "__pycache__",
+    ".venv",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".idea",
+    ".github",
+    ".git",
+    ".files",
+    ".dev",
+    "htmlcov",
 }
 _FILES_TO_REMOVE = {
-    ".coverage", "uv.lock", "AGENTS.md", "README.md", ".gitignore", "config.yaml",
+    ".coverage",
+    "uv.lock",
+    "AGENTS.md",
+    "README.md",
+    ".gitignore",
+    "config.yaml",
 }
 _DATA_FILES_TO_REMOVE = {"ingredient.csv"}
 
 
-def download_and_extract(target_dir: Path, *, ref: str = "main", template_dir: Path | None = None) -> None:
+def download_and_extract(
+    target_dir: Path, *, ref: str = "main", template_dir: Path | None = None
+) -> None:
     if template_dir is not None:
         target_dir.parent.mkdir(parents=True, exist_ok=True)
         _copy_template(template_dir, target_dir)
@@ -34,7 +51,7 @@ def download_and_extract(target_dir: Path, *, ref: str = "main", template_dir: P
         root_prefix = _zip_root(zf)
         target_dir.mkdir(parents=True, exist_ok=False)
         for member in zf.infolist():
-            rel = member.filename[len(root_prefix):]
+            rel = member.filename[len(root_prefix) :]
             if not rel:
                 continue
             dest = target_dir / rel
@@ -74,7 +91,5 @@ def _cleanup(target_dir: Path) -> None:
     if data_dir.exists():
         for fname in _DATA_FILES_TO_REMOVE:
             (data_dir / fname).unlink(missing_ok=True)
-        try:
+        with suppress(OSError):
             data_dir.rmdir()  # only succeeds if empty
-        except OSError:
-            pass

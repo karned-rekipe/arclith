@@ -7,7 +7,9 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 
-from arclith.adapters.outbound.opentelemetry import runtime as runtime_module
+from arclith.adapters.outbound.opentelemetry import (
+    provider_lifecycle as provider_module,
+)
 from arclith.adapters.outbound.opentelemetry.runtime import OpenTelemetryRuntime
 from arclith.infrastructure.config import OpenTelemetrySettings
 
@@ -70,7 +72,7 @@ def test_managed_runtime_is_idempotent_and_owns_shutdown(
     logger, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     provider = RecordingProvider()
-    monkeypatch.setattr(runtime_module, "_MANAGED_STATE", None)
+    monkeypatch.setattr(provider_module, "_MANAGED_STATE", None)
     runtime = OpenTelemetryRuntime(
         _settings(),
         logger,
@@ -93,7 +95,7 @@ def test_managed_runtime_is_idempotent_and_owns_shutdown(
         runtime, "_build_logger_provider", lambda settings, resource: None
     )
     monkeypatch.setattr(runtime, "_set_global_providers", lambda **providers: None)
-    monkeypatch.setattr(runtime_module, "build_resource", lambda settings: object())
+    monkeypatch.setattr(provider_module, "build_resource", lambda settings: object())
 
     runtime.start()
     runtime.start()
@@ -110,7 +112,7 @@ def test_identical_managed_runtimes_share_providers_without_duplicates(
     logger, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     provider = RecordingProvider()
-    monkeypatch.setattr(runtime_module, "_MANAGED_STATE", None)
+    monkeypatch.setattr(provider_module, "_MANAGED_STATE", None)
     runtimes = [
         OpenTelemetryRuntime(
             _settings(), logger, service_name="demo", service_version="1.0"
@@ -136,7 +138,7 @@ def test_identical_managed_runtimes_share_providers_without_duplicates(
             runtime, "_build_logger_provider", lambda settings, resource: None
         )
         monkeypatch.setattr(runtime, "_set_global_providers", lambda **providers: None)
-    monkeypatch.setattr(runtime_module, "build_resource", lambda settings: object())
+    monkeypatch.setattr(provider_module, "build_resource", lambda settings: object())
 
     runtimes[0].start()
     runtimes[1].start()
@@ -152,9 +154,9 @@ def test_managed_runtime_rejects_incompatible_process_configuration(
     logger, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        runtime_module,
+        provider_module,
         "_MANAGED_STATE",
-        runtime_module._ManagedProviderState("different", None, None, None),
+        provider_module._ManagedProviderState("different", None, None, None),
     )
     runtime = OpenTelemetryRuntime(
         _settings(), logger, service_name="demo", service_version="1.0"
@@ -195,13 +197,13 @@ def test_attach_runtimes_share_processor_until_last_shutdown(
         processors.append(processor)
         return processor
 
-    monkeypatch.setattr(runtime_module, "_ATTACHMENTS", {})
+    monkeypatch.setattr(provider_module, "_ATTACHMENTS", {})
     monkeypatch.setattr("opentelemetry.trace.get_tracer_provider", lambda: provider)
     monkeypatch.setattr(
         "opentelemetry.sdk.trace.export.BatchSpanProcessor", processor_factory
     )
     monkeypatch.setattr(
-        runtime_module, "build_span_exporter", lambda settings: object()
+        provider_module, "build_span_exporter", lambda settings: object()
     )
     runtimes = [
         OpenTelemetryRuntime(
@@ -290,17 +292,17 @@ def test_provider_builders_cover_all_signals_and_disabled_paths(
     resource = Resource.create({"service.name": "demo"})
     output = io.StringIO()
     monkeypatch.setattr(
-        runtime_module,
+        provider_module,
         "build_span_exporter",
         lambda resolved: ConsoleSpanExporter(out=output),
     )
     monkeypatch.setattr(
-        runtime_module,
+        provider_module,
         "build_metric_exporter",
         lambda resolved: ConsoleMetricExporter(out=output),
     )
     monkeypatch.setattr(
-        runtime_module,
+        provider_module,
         "build_log_exporter",
         lambda resolved: ConsoleLogExporter(out=output),
     )
@@ -336,7 +338,7 @@ def test_sampler_variants(sampler: str, expected_type: str) -> None:
     settings = _settings()
     settings.signals.traces.sampler = sampler
 
-    assert type(runtime_module._build_sampler(settings)).__name__ == expected_type
+    assert type(provider_module._build_sampler(settings)).__name__ == expected_type
 
 
 @pytest.mark.parametrize(
@@ -348,7 +350,7 @@ def test_sampler_variants(sampler: str, expected_type: str) -> None:
     ],
 )
 def test_exemplar_filter_variants(name: str, expected_type: str) -> None:
-    assert type(runtime_module._build_exemplar_filter(name)).__name__ == expected_type
+    assert type(provider_module._build_exemplar_filter(name)).__name__ == expected_type
 
 
 def test_external_runtime_adopts_all_signal_providers_without_ownership(
@@ -414,7 +416,7 @@ def test_attach_mode_installs_trace_and_log_processors_and_reuses_metrics(
         processors.append(processor)
         return processor
 
-    monkeypatch.setattr(runtime_module, "_ATTACHMENTS", {})
+    monkeypatch.setattr(provider_module, "_ATTACHMENTS", {})
     monkeypatch.setattr(
         "opentelemetry.trace.get_tracer_provider", lambda: trace_provider
     )
@@ -431,9 +433,11 @@ def test_attach_mode_installs_trace_and_log_processors_and_reuses_metrics(
         "opentelemetry.sdk._logs.export.BatchLogRecordProcessor", processor_factory
     )
     monkeypatch.setattr(
-        runtime_module, "build_span_exporter", lambda settings: object()
+        provider_module, "build_span_exporter", lambda settings: object()
     )
-    monkeypatch.setattr(runtime_module, "build_log_exporter", lambda settings: object())
+    monkeypatch.setattr(
+        provider_module, "build_log_exporter", lambda settings: object()
+    )
     runtime = OpenTelemetryRuntime(
         _settings(mode="attach", traces=True, metrics=True, logs=True),
         logger,
@@ -579,9 +583,7 @@ def test_managed_mode_rejects_preinstalled_global_provider(
     runtime = OpenTelemetryRuntime(
         _settings(), logger, service_name="demo", service_version="1.0"
     )
-    monkeypatch.setattr(
-        "opentelemetry.trace.get_tracer_provider", RecordingProvider
-    )
+    monkeypatch.setattr("opentelemetry.trace.get_tracer_provider", RecordingProvider)
 
     with pytest.raises(RuntimeError, match="global existe deja"):
         runtime._assert_global_slots_available(runtime.settings)
@@ -592,7 +594,7 @@ def test_httpx_instrumentation_is_reference_counted(
 ) -> None:
     provider = RecordingProvider()
     events: list[tuple[str, dict[str, Any] | None]] = []
-    monkeypatch.setattr(runtime_module, "_HTTPX_REFERENCES", 0)
+    monkeypatch.setattr(provider_module, "_HTTPX_REFERENCES", 0)
     monkeypatch.setattr("opentelemetry.trace.get_tracer_provider", lambda: provider)
     monkeypatch.setattr(
         "opentelemetry.instrumentation.httpx.HTTPXClientInstrumentor.instrument",
@@ -669,7 +671,7 @@ def test_force_flush_failure_modes_are_explicit(
         _settings(traces=False), logger, service_name="demo", service_version="1.0"
     )
     runtime.start()
-    runtime._managed_state = runtime_module._ManagedProviderState(
+    runtime._managed_state = provider_module._ManagedProviderState(
         "test", FailingProvider(), None, None
     )
 
