@@ -63,8 +63,11 @@ def test_unknown_logger_adapter_is_rejected():
     ids=["root", "adapters", "mongodb", "postgresql-alias"],
 )
 def test_unknown_configuration_keys_are_rejected(data):
-    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+    with pytest.raises(ValidationError) as exc_info:
         AppConfig.model_validate(data)
+    assert {error["type"] for error in exc_info.value.errors()} == {
+        "extra_forbidden"
+    }
 
 
 def test_default_retention_is_none():
