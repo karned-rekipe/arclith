@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
+
+from arclith.infrastructure.settings._base import SettingsModel
 
 from arclith.infrastructure.settings.langgraph import LangGraphSettings
 from arclith.infrastructure.settings.langsmith import LangSmithSettings
@@ -33,7 +35,7 @@ _OBSERVABILITY_CONFIG_SECTIONS: dict[ObservabilityAdapter, str] = {
 }
 
 
-class SoftDeleteSettings(BaseModel):
+class SoftDeleteSettings(SettingsModel):
     retention_days: float | None = None
 
     @field_validator("retention_days")
@@ -44,7 +46,7 @@ class SoftDeleteSettings(BaseModel):
         return v
 
 
-class AdaptersSettings(BaseModel):
+class AdaptersSettings(SettingsModel):
     logger: str = "console"
     repository: str = "memory"
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
@@ -128,24 +130,24 @@ class AdaptersSettings(BaseModel):
             )
 
 
-class ApiSettings(BaseModel):
+class ApiSettings(SettingsModel):
     host: str = "0.0.0.0"  # nosec B104
     port: int = 8000
     reload: bool = True
 
 
-class McpSettings(BaseModel):
+class McpSettings(SettingsModel):
     host: str = "127.0.0.1"
     port: int = 8001
 
 
-class ProbeSettings(BaseModel):
+class ProbeSettings(SettingsModel):
     host: str = "0.0.0.0"  # nosec B104
     port: int = 9000
     enabled: bool = True
 
 
-class KeycloakSettings(BaseModel):
+class KeycloakSettings(SettingsModel):
     url: str
     realm: str
     audience: str | None = None
@@ -154,18 +156,18 @@ class KeycloakSettings(BaseModel):
     )
 
 
-class TenantSettings(BaseModel):
+class TenantSettings(SettingsModel):
     vault_addr: str = "http://127.0.0.1:8200"
     vault_mount: str = "kv"
     vault_path_prefix: str
     tenant_claim: str = "sub"
 
 
-class LicenseSettings(BaseModel):
+class LicenseSettings(SettingsModel):
     role: str = "rekipe:licensed"
 
 
-class CacheSettings(BaseModel):
+class CacheSettings(SettingsModel):
     backend: Literal["memory", "redis"] = "memory"
     redis_url: str = "redis://127.0.0.1:6379"
     jwks_ttl: int = 3600
@@ -175,7 +177,7 @@ class CacheSettings(BaseModel):
 CommandBusAdapter = Literal["rabbitmq"]
 
 
-class RabbitMQCommandBusSettings(BaseModel):
+class RabbitMQCommandBusSettings(SettingsModel):
     url: str = "amqp://guest:guest@127.0.0.1:5672/"
     exchange: str = "arclith.commands"
     exchange_type: Literal["direct", "topic"] = "topic"
@@ -216,7 +218,7 @@ class RabbitMQCommandBusSettings(BaseModel):
         return v
 
 
-class CommandBusSettings(BaseModel):
+class CommandBusSettings(SettingsModel):
     enabled: list[CommandBusAdapter] = Field(default_factory=list)
     rabbitmq: RabbitMQCommandBusSettings = RabbitMQCommandBusSettings()
 
@@ -233,17 +235,17 @@ class CommandBusSettings(BaseModel):
         return adapter in self.enabled
 
 
-class IdempotencySettings(BaseModel):
+class IdempotencySettings(SettingsModel):
     enabled: bool = True
     ttl_seconds: int = 86400  # 24 hours
     required: bool = False  # If True, reject POST without Idempotency-Key
 
 
-class ETagSettings(BaseModel):
+class ETagSettings(SettingsModel):
     enabled: bool = True
 
 
-class CacheControlSettings(BaseModel):
+class CacheControlSettings(SettingsModel):
     get_single_max_age: int = 300  # 5 minutes
     get_list_max_age: int = 60  # 1 minute
 
@@ -255,19 +257,19 @@ class CacheControlSettings(BaseModel):
         return v
 
 
-class HttpSettings(BaseModel):
+class HttpSettings(SettingsModel):
     idempotency: IdempotencySettings = IdempotencySettings()
     etag: ETagSettings = ETagSettings()
     cache_control: CacheControlSettings = CacheControlSettings()
 
 
-class AppSettings(BaseModel):
+class AppSettings(SettingsModel):
     name: str = "arclith-service"
     version: str = "0.0.0"
     description: str = "API service built with arclith framework"
 
 
-class AppConfig(BaseModel):
+class AppConfig(SettingsModel):
     app: AppSettings = AppSettings()
     adapters: AdaptersSettings = AdaptersSettings()
     soft_delete: SoftDeleteSettings = SoftDeleteSettings()

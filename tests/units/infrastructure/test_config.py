@@ -48,6 +48,28 @@ def test_unknown_logger_adapter_is_rejected():
         AppConfig.model_validate({"adapters": {"logger": "custom"}})
 
 
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"unknown_section": {}},
+        {"adapters": {"unknown_adapter": {}}},
+        {"adapters": {"mongodb": {"db_name": "test", "database_name": "typo"}}},
+        {
+            "adapters": {
+                "postgresql": {"database": "test", "schema_nam": "typo"}
+            }
+        },
+    ],
+    ids=["root", "adapters", "mongodb", "postgresql-alias"],
+)
+def test_unknown_configuration_keys_are_rejected(data):
+    with pytest.raises(ValidationError) as exc_info:
+        AppConfig.model_validate(data)
+    assert {error["type"] for error in exc_info.value.errors()} == {
+        "extra_forbidden"
+    }
+
+
 def test_default_retention_is_none():
     assert AppConfig().soft_delete.retention_days is None
 
@@ -1054,11 +1076,14 @@ def test_export_config_yaml_round_trip():
             "adapters/inbound/fastapi.yaml": {"port": 8765},
         }
     )
-    out = config_dir / "config.yaml"
+    out = config_dir.parent / f"{config_dir.name}-config.yaml"
     export_config_yaml(config_dir, out)
 
-    from_dir = load_config_dir(config_dir)
-    from_file = load_config_file(out)
+    try:
+        from_dir = load_config_dir(config_dir)
+        from_file = load_config_file(out)
+    finally:
+        out.unlink(missing_ok=True)
 
     assert from_dir.app.name == from_file.app.name
     assert from_dir.soft_delete.retention_days == from_file.soft_delete.retention_days

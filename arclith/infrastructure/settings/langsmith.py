@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
+
+from arclith.infrastructure.settings._base import SettingsModel
 
 
-class LangSmithTracingSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class LangSmithTracingSettings(SettingsModel):
     enabled: bool = True
     mode: Literal["langsmith", "otel", "hybrid"] = "otel"
     sampling_rate: float = 1.0
@@ -20,9 +20,7 @@ class LangSmithTracingSettings(BaseModel):
         return v
 
 
-class LangSmithInstrumentationSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class LangSmithInstrumentationSettings(SettingsModel):
     langgraph: bool = True
     pydantic_ai: bool = True
     fastapi: bool = False
@@ -30,9 +28,7 @@ class LangSmithInstrumentationSettings(BaseModel):
     command_bus: bool = True
 
 
-class LangSmithCaptureSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class LangSmithCaptureSettings(SettingsModel):
     inputs: bool = False
     outputs: bool = False
     metadata: bool = True
@@ -41,9 +37,7 @@ class LangSmithCaptureSettings(BaseModel):
     model_request_parameters: bool = False
 
 
-class LangSmithPropagationSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class LangSmithPropagationSettings(SettingsModel):
     enabled: bool = True
     langsmith_headers: bool = True
     traceparent: bool = True
@@ -58,9 +52,7 @@ class LangSmithPropagationSettings(BaseModel):
         return normalized
 
 
-class LangSmithLifecycleSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class LangSmithLifecycleSettings(SettingsModel):
     flush_timeout_seconds: float = 5.0
 
     @field_validator("flush_timeout_seconds")
@@ -71,16 +63,12 @@ class LangSmithLifecycleSettings(BaseModel):
         return v
 
 
-class LangSmithDiagnosticsSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class LangSmithDiagnosticsSettings(SettingsModel):
     enabled: bool = False
     log_level: Literal["debug", "info", "warning", "error"] = "info"
 
 
-class LangSmithSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class LangSmithSettings(SettingsModel):
     project: str
     endpoint: str = "https://api.smith.langchain.com"
     api_key_env: str = "LANGSMITH_API_KEY"

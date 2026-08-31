@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
+
+from arclith.infrastructure.settings._base import SettingsModel
 
 ObservabilityAdapter = Literal["langsmith", "opentelemetry"]
 
 
-class ObservabilitySettings(BaseModel):
+class ObservabilitySettings(SettingsModel):
     enabled: list[ObservabilityAdapter] = Field(default_factory=list)
 
     @field_validator("enabled")

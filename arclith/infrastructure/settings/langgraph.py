@@ -4,12 +4,12 @@ from typing import Annotated, Literal
 
 from pydantic import (
     AfterValidator,
-    BaseModel,
-    ConfigDict,
     Field,
     field_validator,
     model_validator,
 )
+
+from arclith.infrastructure.settings._base import SettingsModel
 
 LangGraphStreamMode = Literal[
     "values", "updates", "custom", "messages", "checkpoints", "tasks", "debug"
@@ -34,9 +34,7 @@ _NormalizedAdapter = Annotated[str, AfterValidator(_normalize_adapter)]
 _NonBlankString = Annotated[str, AfterValidator(_require_non_blank)]
 
 
-class LangGraphSemanticSearchSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class LangGraphSemanticSearchSettings(SettingsModel):
     enabled: bool = False
     embed: str | None = None
     dims: int | None = None
@@ -67,9 +65,7 @@ class LangGraphSemanticSearchSettings(BaseModel):
         return self
 
 
-class LangGraphCheckpointerSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class LangGraphCheckpointerSettings(SettingsModel):
     adapter: _NormalizedAdapter = "none"
     setup: bool = False
     ttl_seconds: int | None = None
@@ -87,9 +83,7 @@ class LangGraphCheckpointerSettings(BaseModel):
         return v
 
 
-class LangGraphStoreSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class LangGraphStoreSettings(SettingsModel):
     adapter: _NormalizedAdapter = "none"
     setup: bool = False
     connection_uri_env: str | None = None
@@ -113,9 +107,7 @@ class LangGraphStoreSettings(BaseModel):
         return value
 
 
-class LangGraphPersistenceSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class LangGraphPersistenceSettings(SettingsModel):
     enabled: bool = False
     mode: Literal["auto", "embedded", "agent_server"] = "auto"
     checkpointer: LangGraphCheckpointerSettings = Field(
@@ -124,7 +116,7 @@ class LangGraphPersistenceSettings(BaseModel):
     store: LangGraphStoreSettings = Field(default_factory=LangGraphStoreSettings)
 
 
-class LangGraphSettings(BaseModel):
+class LangGraphSettings(SettingsModel):
     name: str = "agent"
     graph: str = "agent"
     entrypoint: str

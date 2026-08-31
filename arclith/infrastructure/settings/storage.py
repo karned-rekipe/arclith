@@ -2,19 +2,18 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import field_validator, model_validator
 
 from arclith.domain.ports.outbound.file_storage import (
     FileStorageInvalidKey,
     normalize_storage_key,
 )
+from arclith.infrastructure.settings._base import SettingsModel
 
 StorageAdapter = Literal["filesystem", "s3", "azure-blob", "gcs"]
 
 
-class StorageSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class StorageSettings(SettingsModel):
     adapter: StorageAdapter
     prefix: str = ""
     multitenant: bool = False

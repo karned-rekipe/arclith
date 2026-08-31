@@ -137,6 +137,12 @@ def _resolve_secrets(data: dict, base_path: Path) -> dict:
     return resolve_dict_secrets(data, resolver)
 
 
+def _prepare_config(data: dict, base_path: Path) -> dict:
+    """Resolve loader directives and return only AppConfig input fields."""
+    resolved = _resolve_secrets(data, base_path)
+    return {key: value for key, value in resolved.items() if key != "secrets"}
+
+
 # ── Public loaders ────────────────────────────────────────────────────────────
 
 
@@ -150,7 +156,7 @@ def load_config_dir(path: Path) -> AppConfig:
     if not path.is_dir():
         raise ValueError(f"Expected a config directory, got: {path}")
 
-    merged = _resolve_secrets(_build_merged_dict(path), path.parent)
+    merged = _prepare_config(_build_merged_dict(path), path.parent)
     return AppConfig.model_validate(merged)
 
 
@@ -167,7 +173,7 @@ def load_config_file(path: Path) -> AppConfig:
     with open(path) as f:
         data = yaml.safe_load(f) or {}
 
-    data = _resolve_secrets(data, path.parent)
+    data = _prepare_config(data, path.parent)
     return AppConfig.model_validate(data)
 
 
