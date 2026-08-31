@@ -177,11 +177,12 @@ class RabbitMQCommandBus(CommandPublisher):
             )
             return
 
-        with self._tracer.context(
-            parent=headers,
-            metadata={"correlation.id": headers.get("correlation_id", "")},
-        ):
-            with self._tracer.span(
+        with (
+            self._tracer.context(
+                parent=headers,
+                metadata={"correlation.id": headers.get("correlation_id", "")},
+            ),
+            self._tracer.span(
                 "rabbitmq.process",
                 kind="consumer",
                 metadata={
@@ -193,47 +194,46 @@ class RabbitMQCommandBus(CommandPublisher):
                         bool(getattr(message, "redelivered", False))
                     ),
                 },
-            ) as span:
-                try:
-                    await dispatcher.dispatch(envelope)
-                except Exception as exc:
-                    await message.nack(
-                        requeue=(
-                            self._settings.retry_enabled
-                            and self._settings.retry_requeue
-                        )
+            ) as span,
+        ):
+            try:
+                await dispatcher.dispatch(envelope)
+            except Exception as exc:
+                await message.nack(
+                    requeue=(
+                        self._settings.retry_enabled and self._settings.retry_requeue
                     )
-                    self._logger.error(
-                        "RabbitMQ command rejected",
-                        command_type=fallback_command_type,
-                        correlation_id=headers.get("correlation_id"),
-                        retry_requeue=self._settings.retry_requeue,
-                        error=str(exc),
-                    )
-                    span.set_metadata({"error.type": type(exc).__name__})
-                    span.set_outputs({"status": "rejected"})
-                    span.record_exception(exc)
-                    span.set_status("error", type(exc).__name__)
-                    self._record_messaging_metrics(
-                        started_at,
-                        "process",
-                        type(exc).__name__,
-                        retry=(
-                            self._settings.retry_enabled
-                            and self._settings.retry_requeue
-                        ),
-                        rejected=True,
-                    )
-                    return
-
-                await message.ack()
-                span.set_outputs({"status": "acknowledged"})
-                self._logger.info(
-                    "RabbitMQ command acknowledged",
+                )
+                self._logger.error(
+                    "RabbitMQ command rejected",
                     command_type=fallback_command_type,
                     correlation_id=headers.get("correlation_id"),
+                    retry_requeue=self._settings.retry_requeue,
+                    error=str(exc),
                 )
-                self._record_messaging_metrics(started_at, "process", "none")
+                span.set_metadata({"error.type": type(exc).__name__})
+                span.set_outputs({"status": "rejected"})
+                span.record_exception(exc)
+                span.set_status("error", type(exc).__name__)
+                self._record_messaging_metrics(
+                    started_at,
+                    "process",
+                    type(exc).__name__,
+                    retry=(
+                        self._settings.retry_enabled and self._settings.retry_requeue
+                    ),
+                    rejected=True,
+                )
+                return
+
+            await message.ack()
+            span.set_outputs({"status": "acknowledged"})
+            self._logger.info(
+                "RabbitMQ command acknowledged",
+                command_type=fallback_command_type,
+                correlation_id=headers.get("correlation_id"),
+            )
+            self._record_messaging_metrics(started_at, "process", "none")
 
     async def run(self, dispatcher: CommandDispatcher) -> None:
         await self.connect()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Any, Protocol
 
 
@@ -96,11 +96,8 @@ class RedisRunCoordinator:
             yield
         finally:
             renewal.cancel()
-            try:
+            with suppress(asyncio.CancelledError):
                 await renewal
-            except asyncio.CancelledError:
-                # Expected after cancelling the lease-renewal task above.
-                pass
             try:
                 await lock.release()
             except Exception as error:  # pragma: no cover - defensive Redis race
