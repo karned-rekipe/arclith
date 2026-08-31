@@ -1,7 +1,7 @@
 from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Optional, TypeVar
 
 import duckdb
 from uuid6 import UUID, uuid7
@@ -53,7 +53,7 @@ def _write_file(con: duckdb.DuckDBPyConnection, table: str, path: Path) -> None:
             raise ValueError(f"Écriture non supportée pour le format : {ext}")
 
 
-class DuckDBRepository(repository_port.Repository[T], Generic[T]):
+class DuckDBRepository(repository_port.Repository[T]):
     _repository_contract = repository_port.Repository
 
     def __init__(

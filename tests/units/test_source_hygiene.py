@@ -19,7 +19,7 @@ def _python_files() -> list[Path]:
 @pytest.mark.parametrize(
     "package_dir",
     sorted({path.parent for path in _python_files()}),
-    ids=lambda path: str(path),
+    ids=str,
 )
 def test_python_source_directories_are_importable_packages(package_dir: Path) -> None:
     assert (package_dir / "__init__.py").is_file(), (
@@ -36,7 +36,7 @@ def _is_overload(node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) ->
     )
 
 
-@pytest.mark.parametrize("path", _python_files(), ids=lambda path: str(path))
+@pytest.mark.parametrize("path", _python_files(), ids=str)
 def test_source_has_no_unintentional_duplicate_definitions(path: Path) -> None:
     """Prevent silent shadowing while preserving standard typing overload sets."""
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -70,7 +70,7 @@ def test_source_has_no_unintentional_duplicate_definitions(path: Path) -> None:
     )
 
 
-@pytest.mark.parametrize("path", _python_files(), ids=lambda path: str(path))
+@pytest.mark.parametrize("path", _python_files(), ids=str)
 def test_classes_have_no_duplicate_fields(path: Path) -> None:
     """Catch repeated annotated fields, which Python otherwise overwrites silently."""
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -92,7 +92,7 @@ def test_classes_have_no_duplicate_fields(path: Path) -> None:
     assert not duplicates, f"Duplicate fields in {path}: {duplicates}"
 
 
-@pytest.mark.parametrize("path", _python_files(), ids=lambda path: str(path))
+@pytest.mark.parametrize("path", _python_files(), ids=str)
 def test_source_modules_remain_focused(path: Path) -> None:
     line_count = len(path.read_text(encoding="utf-8").splitlines())
 
@@ -102,7 +102,7 @@ def test_source_modules_remain_focused(path: Path) -> None:
     )
 
 
-@pytest.mark.parametrize("path", _python_files(), ids=lambda path: str(path))
+@pytest.mark.parametrize("path", _python_files(), ids=str)
 def test_source_has_no_adjacent_duplicate_statements(path: Path) -> None:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     duplicates: list[str] = []

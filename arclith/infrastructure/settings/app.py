@@ -59,17 +59,13 @@ class AdaptersSettings(BaseModel):
 
     @property
     def multitenant(self) -> bool:
-        match self.repository:
-            case "mongodb":
-                return self.mongodb.multitenant if self.mongodb else False
-            case "duckdb":
-                return self.duckdb.multitenant if self.duckdb else False
-            case "mariadb":
-                return self.mariadb.multitenant if self.mariadb else False
-            case "postgresql":
-                return self.postgresql.multitenant if self.postgresql else False
-            case _:
-                return False
+        settings = {
+            "mongodb": self.mongodb,
+            "duckdb": self.duckdb,
+            "mariadb": self.mariadb,
+            "postgresql": self.postgresql,
+        }.get(self.repository)
+        return bool(settings and settings.multitenant)
 
     @field_validator("logger")
     @classmethod

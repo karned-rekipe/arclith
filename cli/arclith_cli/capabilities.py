@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from arclith_cli.capability_models import (  # noqa: F401
+from arclith_cli.capability_models import (
     AdapterProfileSpec,
     AdapterSpec,
     CapabilitySpec,
@@ -37,6 +37,40 @@ from arclith_cli.catalogs.transports import (
     PROBE_CAPABILITY,
     RUNTIME_CAPABILITY,
 )
+
+__all__ = [
+    "AGENT_CAPABILITY",
+    "AGENT_PERSISTENCE_CAPABILITY",
+    "API_CAPABILITY",
+    "AUTH_CAPABILITY",
+    "AdapterProfileSpec",
+    "AdapterSpec",
+    "CACHE_CAPABILITY",
+    "CAPABILITY_CATALOG",
+    "COMMAND_BUS_CAPABILITY",
+    "CapabilitySpec",
+    "FileTemplateSpec",
+    "HTTP_CAPABILITY",
+    "LICENSE_CAPABILITY",
+    "LLM_CAPABILITY",
+    "LOGGER_CAPABILITY",
+    "LayerKind",
+    "MCP_CAPABILITY",
+    "OBSERVABILITY_CAPABILITY",
+    "PROBE_CAPABILITY",
+    "ParameterKind",
+    "ParameterSpec",
+    "REPOSITORY_CAPABILITY",
+    "RUNTIME_CAPABILITY",
+    "SECRETS_CAPABILITY",
+    "STORAGE_CAPABILITY",
+    "SecretMappingSpec",
+    "TENANT_CAPABILITY",
+    "capability_catalog_as_dict",
+    "capability_names",
+    "get_capability",
+    "repository_adapter_names",
+]
 
 CAPABILITY_CATALOG = (
     REPOSITORY_CAPABILITY,
