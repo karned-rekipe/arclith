@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
+
+from arclith.infrastructure.settings._base import SettingsModel
 
 
-class OpenTelemetryServiceSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class OpenTelemetryServiceSettings(SettingsModel):
     name: str | None = None
     namespace: str | None = None
     version: str | None = None
@@ -18,18 +18,14 @@ def _default_resource_detectors() -> list[Literal["env", "process", "host"]]:
     return ["env", "process", "host"]
 
 
-class OpenTelemetryResourceSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class OpenTelemetryResourceSettings(SettingsModel):
     attributes: dict[str, str | bool | int | float] = Field(default_factory=dict)
     detectors: list[Literal["env", "process", "host"]] = Field(
         default_factory=_default_resource_detectors
     )
 
 
-class OpenTelemetryExportSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class OpenTelemetryExportSettings(SettingsModel):
     protocol: Literal["http/protobuf", "grpc"] = "http/protobuf"
     endpoint: str = "http://localhost:4318"
     traces_endpoint: str | None = None
@@ -56,9 +52,7 @@ class OpenTelemetryExportSettings(BaseModel):
         return v
 
 
-class OpenTelemetryTracesSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class OpenTelemetryTracesSettings(SettingsModel):
     enabled: bool = True
     sampler: Literal[
         "always_on",
@@ -78,9 +72,7 @@ class OpenTelemetryTracesSettings(BaseModel):
         return v
 
 
-class OpenTelemetryMetricsSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class OpenTelemetryMetricsSettings(SettingsModel):
     enabled: bool = False
     export_interval_millis: int = 60000
     export_timeout_millis: int = 30000
@@ -94,16 +86,12 @@ class OpenTelemetryMetricsSettings(BaseModel):
         return v
 
 
-class OpenTelemetryLogsSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class OpenTelemetryLogsSettings(SettingsModel):
     enabled: bool = False
     correlate: bool = True
 
 
-class OpenTelemetrySignalsSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class OpenTelemetrySignalsSettings(SettingsModel):
     traces: OpenTelemetryTracesSettings = Field(
         default_factory=OpenTelemetryTracesSettings
     )
@@ -185,9 +173,7 @@ def _migrate_legacy_opentelemetry(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-class OpenTelemetryPropagationSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class OpenTelemetryPropagationSettings(SettingsModel):
     propagators: list[Literal["tracecontext", "baggage"]] = Field(
         default_factory=_default_propagators
     )
@@ -209,9 +195,7 @@ class OpenTelemetryPropagationSettings(BaseModel):
         return v
 
 
-class OpenTelemetryInstrumentationSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class OpenTelemetryInstrumentationSettings(SettingsModel):
     fastapi: bool = True
     httpx: bool = True
     fastmcp: bool = True
@@ -225,9 +209,7 @@ class OpenTelemetryInstrumentationSettings(BaseModel):
     )
 
 
-class OpenTelemetryCaptureSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class OpenTelemetryCaptureSettings(SettingsModel):
     request_headers_allowlist: list[str] = Field(default_factory=list)
     response_headers_allowlist: list[str] = Field(default_factory=list)
     genai_content: bool = False
@@ -235,9 +217,7 @@ class OpenTelemetryCaptureSettings(BaseModel):
     db_statement: bool = False
 
 
-class OpenTelemetryBatchSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class OpenTelemetryBatchSettings(SettingsModel):
     max_queue_size: int = 2048
     schedule_delay_millis: int = 5000
     max_export_batch_size: int = 512
@@ -262,9 +242,7 @@ class OpenTelemetryBatchSettings(BaseModel):
         return self
 
 
-class OpenTelemetryLimitsSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class OpenTelemetryLimitsSettings(SettingsModel):
     attribute_count: int = 128
     attribute_value_length: int = 4096
     span_event_count: int = 128
@@ -283,9 +261,7 @@ class OpenTelemetryLimitsSettings(BaseModel):
         return v
 
 
-class OpenTelemetrySettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class OpenTelemetrySettings(SettingsModel):
     mode: Literal["managed", "attach", "external"] = "managed"
     service: OpenTelemetryServiceSettings = Field(
         default_factory=OpenTelemetryServiceSettings

@@ -42,7 +42,7 @@ ou par Vault, mais ne doit pas contenir la vraie valeur.
 
 ```yaml
 # config/secrets.yaml
-provider: env
+resolver: env
 ```
 
 Les mappings de secret permettent de remplir des champs comme
@@ -84,7 +84,9 @@ PY
 ```
 
 La validation doit échouer tôt si un secret requis manque ou si un adapter est
-mal configuré.
+mal configuré. Toutes les sections refusent aussi les clés inconnues : une faute
+de frappe comme `database_name` à la place de `db_name` provoque une erreur
+Pydantic explicite au démarrage, au lieu d'être ignorée.
 
 ## Erreurs Fréquentes
 
@@ -93,6 +95,7 @@ mal configuré.
 | vraie clé API dans YAML | utiliser `secrets.yaml` et `.env` |
 | config différente par environnement | garder la même structure |
 | fichier géant | découper par capability |
+| clé YAML inconnue | corriger le nom indiqué dans l'erreur Pydantic |
 | valeur par défaut dangereuse | expliciter la valeur de production |
 | doc oubliée après ajout capability | documenter la capability dans la même PR |
 

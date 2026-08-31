@@ -4,20 +4,22 @@ import re
 from pathlib import Path
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
+
+from arclith.infrastructure.settings._base import SettingsModel
 
 _DUCKDB_SUPPORTED_EXTENSIONS = {".csv", ".parquet", ".json", ".arrow"}
 _SQL_IDENTIFIER_RE = r"^[A-Za-z_][A-Za-z0-9_]*$"
 
 
-class MongoDBSettings(BaseModel):
+class MongoDBSettings(SettingsModel):
     uri: str | None = None
     db_name: str
     collection_name: str | None = None
     multitenant: bool = False
 
 
-class DuckDBSettings(BaseModel):
+class DuckDBSettings(SettingsModel):
     path: str
     multitenant: bool = False
 
@@ -36,7 +38,7 @@ class DuckDBSettings(BaseModel):
         return v
 
 
-class _SQLRepositorySettings(BaseModel):
+class _SQLRepositorySettings(SettingsModel):
     url: str | None = None
     host: str = "127.0.0.1"
     port: int
