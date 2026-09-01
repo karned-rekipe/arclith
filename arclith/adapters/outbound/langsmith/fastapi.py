@@ -21,7 +21,8 @@ def instrument_fastapi_app(app: "FastAPI", tracer: "TracePort") -> None:
             parent = {
                 key.lower(): value
                 for key, value in request.headers.items()
-                if key.lower() in {"langsmith-trace", "traceparent", "baggage"}
+                if key.lower()
+                in {"langsmith-trace", "traceparent", "tracestate", "baggage"}
             }
             with (
                 tracer.context(parent=parent),

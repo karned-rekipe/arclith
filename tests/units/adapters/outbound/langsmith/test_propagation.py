@@ -40,6 +40,7 @@ def test_normalized_parent_headers_filters_transport_headers() -> None:
         {
             "LangSmith-Trace": "trace-value",
             "TraceParent": "00-abc-def-01",
+            "TraceState": "vendor=value",
             "Baggage": "safe=yes,secret=no",
             "Authorization": "Bearer secret",
         },
@@ -51,6 +52,7 @@ def test_normalized_parent_headers_filters_transport_headers() -> None:
     assert headers == {
         "langsmith-trace": "trace-value",
         "traceparent": "00-abc-def-01",
+        "tracestate": "vendor=value",
         "baggage": "safe=yes",
     }
     assert (

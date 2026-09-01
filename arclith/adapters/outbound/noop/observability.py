@@ -97,6 +97,9 @@ class NoOpCorrelationContext(CorrelationContextPort):
 
 
 class NoOpContextPropagator(ContextPropagatorPort):
+    def extract(self, carrier: Mapping[str, str]) -> Mapping[str, str]:
+        return {}
+
     def inject(self, carrier: MutableMapping[str, str]) -> None:
         return None
 

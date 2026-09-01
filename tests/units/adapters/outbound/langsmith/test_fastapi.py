@@ -78,6 +78,8 @@ def test_fastapi_instrumentation_propagates_context_without_sensitive_headers() 
         "/items/42?token=secret",
         headers={
             "langsmith-trace": "trace-value",
+            "traceparent": "00-trace-parent-01",
+            "tracestate": "vendor=value",
             "baggage": "safe=yes",
             "authorization": "Bearer secret",
         },
@@ -85,7 +87,12 @@ def test_fastapi_instrumentation_propagates_context_without_sensitive_headers() 
 
     assert response.status_code == 200
     assert tracer.context_parents == [
-        {"langsmith-trace": "trace-value", "baggage": "safe=yes"}
+        {
+            "langsmith-trace": "trace-value",
+            "traceparent": "00-trace-parent-01",
+            "tracestate": "vendor=value",
+            "baggage": "safe=yes",
+        }
     ]
     name, metadata, span = tracer.spans[0]
     assert name == "http.server.request"

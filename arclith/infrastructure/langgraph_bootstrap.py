@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     )
 
 LANGGRAPH_UNSET = object()
+LANGGRAPH_OBSERVABILITY_RUNTIME_ATTR = "_arclith_observability_runtime"
 
 
 def _normalize_langgraph_stream_mode(
@@ -128,6 +129,11 @@ class LangGraphBootstrap:
             raise
         compiled = self._owner._observability_runtime.instrument_langgraph(
             compiled, name=name
+        )
+        setattr(
+            compiled,
+            LANGGRAPH_OBSERVABILITY_RUNTIME_ATTR,
+            self._owner._observability_runtime,
         )
         if persistence_components is not None:
             self._remember_langgraph_persistence(persistence_components)

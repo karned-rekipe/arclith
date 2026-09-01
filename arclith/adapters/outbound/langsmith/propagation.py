@@ -7,6 +7,7 @@ from collections.abc import Mapping
 _LANGSMITH_TRACE = "langsmith-trace"
 _BAGGAGE = "baggage"
 _TRACEPARENT = "traceparent"
+_TRACESTATE = "tracestate"
 
 
 def normalized_parent_headers(
@@ -24,6 +25,8 @@ def normalized_parent_headers(
         result[_LANGSMITH_TRACE] = normalized[_LANGSMITH_TRACE]
     if traceparent and normalized.get(_TRACEPARENT):
         result[_TRACEPARENT] = normalized[_TRACEPARENT]
+        if normalized.get(_TRACESTATE):
+            result[_TRACESTATE] = normalized[_TRACESTATE]
     baggage = filter_baggage(normalized.get(_BAGGAGE, ""), allowlist=allowlist)
     if baggage:
         result[_BAGGAGE] = baggage

@@ -223,6 +223,35 @@ FastAPI, FastMCP et les runners Arclith ferment automatiquement le runtime à l'
 Les metadata de transport sont bornées: méthode/route HTTP, nom du tool, type de commande,
 destination et statut. Les payloads métier ne sont jamais ajoutés automatiquement.
 
+### Runtime LangGraph durable
+
+Un graphe compilé par `Arclith.langgraph()` conserve une référence en mémoire vers son
+`ObservabilityRuntimePort`. Lorsque `arclith-agent-runtime` charge ce graphe, il réutilise ce même
+runtime pour la propagation entrante et son cycle de vie. Cette référence n'est ni sérialisée ni
+placée dans le catalogue PostgreSQL.
+
+Pour `/threads/{thread_id}/runs/wait` et `/threads/{thread_id}/runs/stream`, le propagateur actif
+extrait uniquement:
+
+- `langsmith-trace` lorsque le backend LangSmith l'autorise;
+- `traceparent` et `tracestate` lorsque la propagation W3C est active;
+- les membres de `baggage` présents dans la `baggage_allowlist` du backend.
+
+`Authorization`, `Cookie`, clés API, JWT et tout header arbitraire sont éliminés avant l'exécution.
+Le contexte filtré reste éphémère: il n'est ajouté ni à `RunRecord`, ni à `input`, ni à la
+configuration LangGraph persistée.
+
+Le runtime ouvre une span serveur `langgraph.runtime.run` pendant toute la durée du graphe, y
+compris les itérations SSE, erreurs et annulations. Ses seules métadonnées automatiques sont
+`langgraph.thread_id`, `langgraph.run_id`, `langgraph.assistant_id` et le statut technique
+`langgraph.run.status`; aucun payload métier n'est capturé. Le graphe et ses instrumentations créent
+leurs spans sous ce parent distribué.
+
+Au démarrage, le serveur durable appelle `start()` et compose l'instrumentation FastAPI configurée.
+À l'arrêt, il exécute `force_flush()` puis `shutdown()`. `/ready` continue de vérifier uniquement le
+catalogue et la coordination: une panne d'export LangSmith ou OTLP ne devient pas une dépendance de
+readiness. Sans adapter actif, le runtime utilise le propagateur et le tracer no-op.
+
 ## LangSmith et OpenTelemetry ensemble
 
 Les deux adapters partagent un seul `TracerProvider` et plusieurs processors/exporters. Lorsque les

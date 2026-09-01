@@ -55,3 +55,34 @@ def test_propagator_attaches_and_detaches_incoming_context() -> None:
 
     with tracer.start_as_current_span("independent") as independent:
         assert independent.get_span_context().trace_id != expected_trace_id
+
+
+def test_propagator_extracts_only_normalized_safe_headers() -> None:
+    propagator = OpenTelemetryContextPropagator(
+        OpenTelemetryPropagationSettings(baggage_allowlist=["safe"])
+    )
+
+    assert propagator.extract(
+        {
+            "TraceParent": "00-trace-parent-01",
+            "TraceState": "vendor=value",
+            "Baggage": "safe=yes,secret=no",
+            "Authorization": "Bearer sensitive",
+            "Cookie": "session=sensitive",
+        }
+    ) == {
+        "traceparent": "00-trace-parent-01",
+        "tracestate": "vendor=value",
+        "baggage": "safe=yes",
+    }
+
+    disabled = OpenTelemetryContextPropagator(
+        OpenTelemetryPropagationSettings(
+            propagators=[],
+            baggage_allowlist=["safe"],
+        )
+    )
+    assert (
+        disabled.extract({"traceparent": "00-trace-parent-01", "baggage": "safe=yes"})
+        == {}
+    )
