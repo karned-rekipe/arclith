@@ -66,14 +66,21 @@ def snapshot_project_files(project_dir: Path) -> dict[str, str]:
         if _ignore_snapshot_path(relative) or not (path.is_file() or path.is_symlink()):
             continue
         if path.is_symlink():
-            digest = hashlib.sha256(b"symlink").hexdigest()
+            try:
+                target = os.readlink(path)
+            except OSError as exc:
+                raise RecipeError(
+                    f"Unable to inspect generated symlink {relative}: {exc}"
+                ) from exc
+            payload = b"symlink\0" + os.fsencode(target)
         else:
             try:
-                digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                payload = b"file\0" + path.read_bytes()
             except OSError as exc:
                 raise RecipeError(
                     f"Unable to inspect generated file {relative}: {exc}"
                 ) from exc
+        digest = hashlib.sha256(payload).hexdigest()
         snapshot[relative.as_posix()] = digest
     return snapshot
 
@@ -196,15 +203,9 @@ def replay_recipe(
     """Replay selected recipe actions through the existing Python command helpers."""
     target_dir = target_dir.resolve()
     target_recipe_existed = (target_dir / RECIPE_FILENAME).is_file()
-    validate_replay_steps(steps, strict=strict)
+    planned_steps = plan_replay_steps(steps, strict=strict)
     prepared: list[tuple[RecipeStep, dict[str, Any]]] = []
-    for step in steps:
-        if step.command not in _SUPPORTED_COMMANDS:
-            if strict:
-                raise RecipeError(
-                    f"Step {step.id} uses unsupported command {step.command!r}."
-                )
-            continue
+    for step in planned_steps:
         prepared.append((step, _hydrate_step_args(step)))
 
     executed: list[str] = []
@@ -213,16 +214,25 @@ def replay_recipe(
         executed.append(step.id)
 
     if executed and target_dir.is_dir() and not target_recipe_existed:
-        selected = tuple(step for step in steps if step.id in executed)
         copied = Recipe(
             version=recipe.version,
             project=recipe.project,
-            created_at=selected[0].at,
-            updated_at=selected[-1].at,
-            steps=selected,
+            created_at=planned_steps[0].at,
+            updated_at=planned_steps[-1].at,
+            steps=planned_steps,
         )
         save_recipe(copied, target_dir / RECIPE_FILENAME)
     return tuple(executed)
+
+
+def plan_replay_steps(
+    steps: tuple[RecipeStep, ...],
+    *,
+    strict: bool,
+) -> tuple[RecipeStep, ...]:
+    """Return the steps that replay will execute after compatibility checks."""
+    validate_replay_steps(steps, strict=strict)
+    return tuple(step for step in steps if step.command in _SUPPORTED_COMMANDS)
 
 
 def validate_replay_steps(

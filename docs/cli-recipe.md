@@ -123,8 +123,11 @@ arclith-cli replay arclith.recipe.yaml \
 ```
 
 Si la plage ne contient pas `init` ou `new`, la cible doit déjà être un projet
-compatible. `--strict` refuse toute commande que la version courante de la CLI
-ne sait pas rejouer.
+compatible. Le plan affiche chaque étape comme `rejouer` ou
+`ignorer (non supportée)` et compte uniquement les étapes réellement
+exécutables. Les secrets d'une étape ignorée ne sont pas demandés. `--strict`
+refuse au contraire toute commande que la version courante de la CLI ne sait
+pas rejouer.
 
 ## Exécuter un replay
 

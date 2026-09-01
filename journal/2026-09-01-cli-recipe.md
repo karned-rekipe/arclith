@@ -17,6 +17,10 @@ prises via `arclith-cli`, distincte de Git et de `export-config`.
 - redaction des secrets par métadonnées du catalogue et heuristique défensive ;
 - ajout des commandes `history` et `replay`, du dry-run, des bornes de steps et
   du mode strict ;
+- alignement du plan de dry-run sur les étapes réellement rejouables et
+  signalement explicite des commandes ignorées hors mode strict ;
+- empreinte des liens symboliques fondée sur leur cible pour détecter leurs
+  mises à jour ;
 - replay direct des fonctions Python existantes, sans shell et sans double
   enregistrement ;
 - documentation Pages, README CLI et quickstart mis à jour.

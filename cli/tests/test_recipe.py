@@ -13,6 +13,7 @@ from arclith_cli.recipe import (
     RecipeError,
     load_recipe,
     record_successful_step,
+    snapshot_project_files,
 )
 
 runner = CliRunner()
@@ -287,6 +288,79 @@ def test_replay_dry_run_does_not_touch_target(
     assert result.exit_code == 0, result.output
     assert "Dry-run" in result.output
     assert "add-entity" in result.output
+    assert not target.exists()
+
+
+def test_snapshot_detects_symlink_target_changes(tmp_path: Path) -> None:
+    link = tmp_path / "current-config"
+    link.symlink_to("config-v1.yaml")
+    before = snapshot_project_files(tmp_path)
+
+    link.unlink()
+    link.symlink_to("config-v2.yaml")
+    after = snapshot_project_files(tmp_path)
+
+    assert before[link.name] != after[link.name]
+
+
+def test_snapshot_reports_unreadable_symlink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    link = tmp_path / "current-config"
+    link.symlink_to("config-v1.yaml")
+
+    def fail_readlink(path: Path) -> str:
+        raise OSError("readlink denied")
+
+    monkeypatch.setattr("arclith_cli.recipe.os.readlink", fail_readlink)
+
+    with pytest.raises(RecipeError, match="Unable to inspect generated symlink"):
+        snapshot_project_files(tmp_path)
+
+
+def test_non_strict_dry_run_marks_unsupported_steps_as_ignored(
+    tmp_path: Path,
+) -> None:
+    project_dir = _init_project(tmp_path)
+    recipe_path = project_dir / RECIPE_FILENAME
+    raw = yaml.safe_load(recipe_path.read_text(encoding="utf-8"))
+    unknown = dict(raw["steps"][0])
+    unknown.update(
+        {
+            "id": "0002",
+            "command": "add-blueprint",
+            "args": {"token": REDACTED},
+            "secrets": [
+                {
+                    "field_path": "args.token",
+                    "source": "env",
+                    "key": "IGNORED_BLUEPRINT_TOKEN",
+                    "value": REDACTED,
+                }
+            ],
+        }
+    )
+    raw["steps"].append(unknown)
+    recipe_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+    target = tmp_path / "non-strict-target"
+
+    result = runner.invoke(
+        app,
+        [
+            "replay",
+            str(recipe_path),
+            "--dir",
+            str(target),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "add-blueprint" in result.output
+    assert "ignorer (non supportée)" in result.output
+    assert "1 étape(s) à exécuter, 1 ignorée(s)" in result.output
+    assert "IGNORED_BLUEPRINT_TOKEN" not in result.output
     assert not target.exists()
 
 

@@ -11,11 +11,11 @@ from arclith_cli.recipe import (
     RECIPE_FILENAME,
     RecipeError,
     load_recipe,
+    plan_replay_steps,
     replay_recipe,
     required_replay_env,
     select_recipe_steps,
     step_summary,
-    validate_replay_steps,
 )
 
 console = Console()
@@ -83,7 +83,7 @@ def replay_command(
             from_step=from_step,
             to_step=to_step,
         )
-        validate_replay_steps(steps, strict=strict)
+        planned_steps = plan_replay_steps(steps, strict=strict)
     except RecipeError as exc:
         _recipe_error(exc)
 
@@ -91,24 +91,29 @@ def replay_command(
     table.add_column("ID", style="cyan")
     table.add_column("Commande", style="green")
     table.add_column("Résumé")
+    table.add_column("Action")
+    planned_ids = {step.id for step in planned_steps}
     for step in steps:
-        table.add_row(step.id, step.command, step_summary(step))
+        action = "rejouer" if step.id in planned_ids else "ignorer (non supportée)"
+        table.add_row(step.id, step.command, step_summary(step), action)
     console.print(table)
 
-    required_env = required_replay_env(steps)
+    required_env = required_replay_env(planned_steps)
     if required_env:
         console.print(
             "[yellow]Secrets requis via l'environnement :[/yellow] "
             + ", ".join(required_env)
         )
     if dry_run:
+        skipped_count = len(steps) - len(planned_steps)
         console.print(
-            f"[bold cyan]Dry-run :[/bold cyan] {len(steps)} étape(s), "
-            f"aucune écriture dans {directory}."
+            f"[bold cyan]Dry-run :[/bold cyan] {len(planned_steps)} étape(s) "
+            f"à exécuter, {skipped_count} ignorée(s), aucune écriture dans "
+            f"{directory}."
         )
         return
-    if not steps:
-        console.print("[yellow]Aucune étape à rejouer.[/yellow]")
+    if not planned_steps:
+        console.print("[yellow]Aucune étape supportée à rejouer.[/yellow]")
         return
 
     try:
