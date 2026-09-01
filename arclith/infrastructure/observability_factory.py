@@ -203,7 +203,11 @@ class LangSmithObservabilityRuntime(ObservabilityRuntimePort):
             return
         from arclith.adapters.outbound.langsmith.fastapi import instrument_fastapi_app
 
-        instrument_fastapi_app(app, self._runtime)
+        instrument_fastapi_app(
+            app,
+            self._runtime,
+            propagation=self._runtime.settings.propagation,
+        )
 
     def pydantic_ai_instrumentation(self) -> Any | None:
         return self._runtime.pydantic_ai_capability()

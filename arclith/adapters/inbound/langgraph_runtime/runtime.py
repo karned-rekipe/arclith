@@ -451,7 +451,14 @@ class LangGraphRuntime:
                 metadata=metadata,
             ) as span,
         ):
-            yield span
+            try:
+                yield span
+            except (asyncio.CancelledError, RunCancelledError):
+                span.set_metadata({"langgraph.run.status": "interrupted"})
+                raise
+            except BaseException:
+                span.set_metadata({"langgraph.run.status": "error"})
+                raise
 
     def _graph(self, assistant_id: str) -> Any:
         graph = self.graphs.get(assistant_id)

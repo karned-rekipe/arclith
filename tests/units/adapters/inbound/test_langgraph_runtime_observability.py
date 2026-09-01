@@ -127,6 +127,10 @@ async def test_wait_and_stream_release_trace_context_after_errors() -> None:
 
     assert (await wait_runtime.get_thread(THREAD_ID)).status == "error"
     assert ("span.exception", "ValueError") in wait_observability.events
+    assert (
+        "span.metadata",
+        {"langgraph.run.status": "error"},
+    ) in wait_observability.events
     assert any(event == "context.exit" for event, _value in wait_observability.events)
 
     stream_observability = RecordingObservability()
@@ -149,6 +153,10 @@ async def test_wait_and_stream_release_trace_context_after_errors() -> None:
     assert b"GraphExecutionError" in b"".join(chunks)
     assert (await stream_runtime.get_thread(SECOND_THREAD_ID)).status == "error"
     assert ("span.exception", "ValueError") in stream_observability.events
+    assert (
+        "span.metadata",
+        {"langgraph.run.status": "error"},
+    ) in stream_observability.events
     assert any(event == "context.exit" for event, _value in stream_observability.events)
 
 
@@ -176,6 +184,10 @@ async def test_wait_and_stream_release_trace_context_after_cancellation() -> Non
         await asyncio.wait_for(wait_task, timeout=1)
 
     assert ("span.exception", "RunCancelledError") in wait_observability.events
+    assert (
+        "span.metadata",
+        {"langgraph.run.status": "interrupted"},
+    ) in wait_observability.events
     assert any(event == "context.exit" for event, _value in wait_observability.events)
 
     stream_observability = RecordingObservability()
@@ -204,4 +216,35 @@ async def test_wait_and_stream_release_trace_context_after_cancellation() -> Non
 
     assert b"RunCancelledError" in b"".join(chunks)
     assert ("span.exception", "RunCancelledError") in stream_observability.events
+    assert (
+        "span.metadata",
+        {"langgraph.run.status": "interrupted"},
+    ) in stream_observability.events
     assert any(event == "context.exit" for event, _value in stream_observability.events)
+
+
+@pytest.mark.asyncio
+async def test_wait_records_error_status_after_timeout() -> None:
+    observability = RecordingObservability()
+    runtime = build_runtime(
+        observability,
+        RecordingGraph(observability.current, delay=30),
+    )
+    runtime.run_timeout_seconds = 0.01
+    await create_thread(runtime, THREAD_ID)
+
+    with pytest.raises(TimeoutError):
+        await runtime.wait(
+            THREAD_ID,
+            RunRequest(
+                assistant_id="test_agent",
+                trace_context={"traceparent": "wait-parent"},
+            ),
+        )
+
+    assert (await runtime.get_thread(THREAD_ID)).status == "error"
+    assert ("span.exception", "TimeoutError") in observability.events
+    assert (
+        "span.metadata",
+        {"langgraph.run.status": "error"},
+    ) in observability.events

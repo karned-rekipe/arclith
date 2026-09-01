@@ -102,10 +102,12 @@ def test_langsmith_runtime_adapts_every_neutral_capability(
     raw = RecordingLangSmithRuntime()
     runtime = LangSmithObservabilityRuntime(raw)
     app = object()
-    instrumented: list[tuple[Any, Any]] = []
+    instrumented: list[tuple[Any, Any, Any]] = []
     monkeypatch.setattr(
         "arclith.adapters.outbound.langsmith.fastapi.instrument_fastapi_app",
-        lambda target, adapter: instrumented.append((target, adapter)),
+        lambda target, adapter, *, propagation: instrumented.append(
+            (target, adapter, propagation)
+        ),
     )
     carrier: dict[str, str] = {}
 
@@ -134,7 +136,7 @@ def test_langsmith_runtime_adapts_every_neutral_capability(
     assert runtime.correlation.current() == {}
     assert runtime.logs is not None
     assert carrier == {"traceparent": "test"}
-    assert instrumented == [(app, raw)]
+    assert instrumented == [(app, raw, raw.settings.propagation)]
     assert runtime.pydantic_ai_instrumentation() == "pydantic-ai"
     assert runtime.force_flush(1.5) is True
     runtime.shutdown(2.5)
