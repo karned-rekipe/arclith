@@ -82,9 +82,9 @@ class LangSmithIntegrationMixin:
 
             carrier: dict[str, str] = {}
             propagate.inject(carrier)
-            traceparent = carrier.get("traceparent")
-            if traceparent:
-                headers.setdefault("traceparent", traceparent)
+            for key in ("traceparent", "tracestate"):
+                if value := carrier.get(key):
+                    headers.setdefault(key, value)
             return filter_baggage(carrier.get("baggage", ""), allowlist=allowlist)
         except ImportError:
             return ""

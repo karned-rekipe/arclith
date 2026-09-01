@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Mapping
-from contextlib import asynccontextmanager, suppress
+from collections.abc import AsyncIterator, Iterator, Mapping
+from contextlib import asynccontextmanager, contextmanager, suppress
 from dataclasses import dataclass
 from typing import Any
 
@@ -22,6 +22,11 @@ from arclith.adapters.inbound.langgraph_runtime.serialization import (
     safe_error,
     snapshot_to_dict,
     sse_event,
+)
+from arclith.adapters.outbound.noop.observability import NoOpObservabilityRuntime
+from arclith.domain.ports.outbound.observability import (
+    ObservabilityRuntimePort,
+    TraceSpan,
 )
 
 
@@ -56,6 +61,7 @@ class RunRequest:
     stream_mode: str | list[str] | None = None
     on_disconnect: str = "cancel"
     multitask_strategy: str = "reject"
+    trace_context: Mapping[str, str] | None = None
 
 
 class LangGraphRuntime:
@@ -67,6 +73,7 @@ class LangGraphRuntime:
         *,
         run_timeout_seconds: int = 900,
         cancel_poll_seconds: float = 0.2,
+        observability_runtime: ObservabilityRuntimePort | None = None,
     ) -> None:
         if not graphs:
             raise ValueError("Le runtime LangGraph exige au moins un graphe")
@@ -79,6 +86,14 @@ class LangGraphRuntime:
         self.coordinator = coordinator
         self.run_timeout_seconds = run_timeout_seconds
         self.cancel_poll_seconds = cancel_poll_seconds
+        self.observability_runtime = (
+            observability_runtime
+            if observability_runtime is not None
+            else NoOpObservabilityRuntime()
+        )
+
+    def extract_trace_context(self, carrier: Mapping[str, str]) -> dict[str, str]:
+        return dict(self.observability_runtime.propagator.extract(carrier))
 
     async def setup(self) -> None:
         await self.catalog.setup()
@@ -177,20 +192,22 @@ class LangGraphRuntime:
         await self.get_thread(thread_id)
         graph = self._graph(request.assistant_id)
         async with self._run_session(thread_id, request) as run:
-            async with asyncio.timeout(self.run_timeout_seconds):
-                output = await self._invoke(
-                    graph,
-                    thread_id,
+            with self._trace_execution(thread_id, run.run_id, request) as span:
+                async with asyncio.timeout(self.run_timeout_seconds):
+                    output = await self._invoke(
+                        graph,
+                        thread_id,
+                        run.run_id,
+                        request,
+                    )
+                encoded = jsonable(output)
+                await self.catalog.finish_run(
                     run.run_id,
-                    request,
+                    status="success",
+                    output=encoded,
                 )
-            encoded = jsonable(output)
-            await self.catalog.finish_run(
-                run.run_id,
-                status="success",
-                output=encoded,
-            )
-            return encoded
+                span.set_metadata({"langgraph.run.status": "success"})
+                return encoded
 
     async def stream(
         self,
@@ -202,30 +219,32 @@ class LangGraphRuntime:
         stream = None
         try:
             async with self._run_session(thread_id, request) as run:
-                async with asyncio.timeout(self.run_timeout_seconds):
-                    modes = _stream_modes(request.stream_mode)
-                    stream = graph.astream(
-                        _run_input(request),
-                        _graph_config(thread_id, request),
-                        stream_mode=modes,
-                    )
-                    yield sse_event(
-                        "metadata",
-                        {"run_id": run.run_id, "thread_id": thread_id},
-                    )
-                    async for mode, chunk in self._cancel_aware_stream(
-                        stream,
+                with self._trace_execution(thread_id, run.run_id, request) as span:
+                    async with asyncio.timeout(self.run_timeout_seconds):
+                        modes = _stream_modes(request.stream_mode)
+                        stream = graph.astream(
+                            _run_input(request),
+                            _graph_config(thread_id, request),
+                            stream_mode=modes,
+                        )
+                        yield sse_event(
+                            "metadata",
+                            {"run_id": run.run_id, "thread_id": thread_id},
+                        )
+                        async for mode, chunk in self._cancel_aware_stream(
+                            stream,
+                            run.run_id,
+                            modes,
+                        ):
+                            yield sse_event(mode, chunk)
+                    state = await graph.aget_state(_graph_config(thread_id, None))
+                    output = jsonable(state.values) if state.config else None
+                    await self.catalog.finish_run(
                         run.run_id,
-                        modes,
-                    ):
-                        yield sse_event(mode, chunk)
-                state = await graph.aget_state(_graph_config(thread_id, None))
-                output = jsonable(state.values) if state.config else None
-                await self.catalog.finish_run(
-                    run.run_id,
-                    status="success",
-                    output=output,
-                )
+                        status="success",
+                        output=output,
+                    )
+                    span.set_metadata({"langgraph.run.status": "success"})
         except asyncio.CancelledError:
             raise
         except RunBusyError:
@@ -409,6 +428,37 @@ class LangGraphRuntime:
     async def _wait_for_cancel(self, run_id: str) -> None:
         while not await self.coordinator.is_cancelled(run_id):
             await asyncio.sleep(self.cancel_poll_seconds)
+
+    @contextmanager
+    def _trace_execution(
+        self,
+        thread_id: str,
+        run_id: str,
+        request: RunRequest,
+    ) -> Iterator[TraceSpan]:
+        metadata = {
+            "langgraph.thread_id": thread_id,
+            "langgraph.run_id": run_id,
+            "langgraph.assistant_id": request.assistant_id,
+        }
+        parent = self.extract_trace_context(request.trace_context or {})
+        with (
+            self.observability_runtime.propagator.context(parent),
+            self.observability_runtime.tracer.span(
+                "langgraph.runtime.run",
+                kind="server",
+                tags=("langgraph-runtime",),
+                metadata=metadata,
+            ) as span,
+        ):
+            try:
+                yield span
+            except (asyncio.CancelledError, RunCancelledError):
+                span.set_metadata({"langgraph.run.status": "interrupted"})
+                raise
+            except BaseException:
+                span.set_metadata({"langgraph.run.status": "error"})
+                raise
 
     def _graph(self, assistant_id: str) -> Any:
         graph = self.graphs.get(assistant_id)

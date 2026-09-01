@@ -3,6 +3,9 @@ from typing import Any, TypedDict
 import pytest
 
 from arclith import Arclith
+from arclith.infrastructure.langgraph_bootstrap import (
+    LANGGRAPH_OBSERVABILITY_RUNTIME_ATTR,
+)
 
 langgraph_graph = pytest.importorskip("langgraph.graph")
 END = langgraph_graph.END
@@ -32,6 +35,10 @@ def test_langgraph_builds_compiled_graph(tmp_path):
     agent = arclith.langgraph(AgentState, register_agent, name="test_agent")
 
     assert registered["arclith"] is arclith
+    assert (
+        getattr(agent, LANGGRAPH_OBSERVABILITY_RUNTIME_ATTR)
+        is arclith._observability_runtime
+    )
     assert agent.invoke({"value": "ok"}) == {"value": "ok!"}
 
 
@@ -84,6 +91,8 @@ stream_mode: "updates"
         builder.add_edge(START, "echo")
         builder.add_edge("echo", END)
 
-    agent = arclith.langgraph(AgentState, register_agent, name="test_agent", stream_mode="values")
+    agent = arclith.langgraph(
+        AgentState, register_agent, name="test_agent", stream_mode="values"
+    )
 
     assert agent.stream_mode == "values"

@@ -20,7 +20,7 @@ from arclith.domain.ports.outbound.observability import (
     TraceAnonymizer,
     TracePort,
 )
-from arclith.infrastructure.config import AppConfig
+from arclith.infrastructure.config import AppConfig, LangSmithPropagationSettings
 
 
 def build_observability_runtime(
@@ -133,11 +133,30 @@ def _configure_shared_opentelemetry(config: AppConfig) -> None:
 
 
 class _TraceContextPropagator(ContextPropagatorPort):
-    def __init__(self, tracer: TracePort) -> None:
+    def __init__(
+        self,
+        tracer: TracePort,
+        settings: LangSmithPropagationSettings,
+    ) -> None:
         self._tracer = tracer
+        self._settings = settings
 
     def inject(self, carrier: MutableMapping[str, str]) -> None:
         self._tracer.inject(carrier)
+
+    def extract(self, carrier: Mapping[str, str]) -> Mapping[str, str]:
+        from arclith.adapters.outbound.langsmith.propagation import (
+            normalized_parent_headers,
+        )
+
+        if not self._settings.enabled:
+            return {}
+        return normalized_parent_headers(
+            carrier,
+            allowlist=set(self._settings.baggage_allowlist),
+            langsmith_headers=self._settings.langsmith_headers,
+            traceparent=self._settings.traceparent,
+        )
 
     @contextmanager
     def context(self, carrier: Mapping[str, str] | None = None) -> Iterator[None]:
@@ -150,7 +169,10 @@ class LangSmithObservabilityRuntime(ObservabilityRuntimePort):
         self._runtime = runtime
         self._metrics = NoOpMetricAdapter()
         self._correlation = NoOpCorrelationContext()
-        self._propagator = _TraceContextPropagator(runtime)
+        self._propagator = _TraceContextPropagator(
+            runtime,
+            runtime.settings.propagation,
+        )
         self._logs = NoOpLogRecordAdapter()
 
     @property
@@ -181,7 +203,11 @@ class LangSmithObservabilityRuntime(ObservabilityRuntimePort):
             return
         from arclith.adapters.outbound.langsmith.fastapi import instrument_fastapi_app
 
-        instrument_fastapi_app(app, self._runtime)
+        instrument_fastapi_app(
+            app,
+            self._runtime,
+            propagation=self._runtime.settings.propagation,
+        )
 
     def pydantic_ai_instrumentation(self) -> Any | None:
         return self._runtime.pydantic_ai_capability()

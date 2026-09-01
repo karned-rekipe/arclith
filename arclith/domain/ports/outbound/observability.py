@@ -111,6 +111,11 @@ class CorrelationContextPort(ABC):
 class ContextPropagatorPort(ABC):
     """Inject and attach distributed context for transport adapters."""
 
+    def extract(self, carrier: Mapping[str, str]) -> Mapping[str, str]:
+        """Return a sanitized carrier or nothing for custom/no-op propagators."""
+
+        return {}
+
     @abstractmethod
     def inject(self, carrier: MutableMapping[str, str]) -> None:
         raise NotImplementedError  # pragma: no cover

@@ -17,6 +17,9 @@ class OpenTelemetryContextPropagator(ContextPropagatorPort):
         self._settings = settings
         self._propagator = None
 
+    def extract(self, carrier: Mapping[str, str]) -> Mapping[str, str]:
+        return _safe_carrier(carrier, self._settings)
+
     def inject(self, carrier: MutableMapping[str, str]) -> None:
         propagated: dict[str, str] = {}
         self._get_propagator().inject(propagated)
@@ -64,10 +67,15 @@ class OpenTelemetryContextPropagator(ContextPropagatorPort):
 def _safe_carrier(
     carrier: Mapping[str, str], settings: OpenTelemetryPropagationSettings
 ) -> dict[str, str]:
+    allowed: set[str] = set()
+    if "tracecontext" in settings.propagators:
+        allowed.update({"traceparent", "tracestate"})
+    if "baggage" in settings.propagators:
+        allowed.add("baggage")
     safe = {
-        key: str(value)
+        key.lower(): str(value)
         for key, value in carrier.items()
-        if key.lower() in {"traceparent", "tracestate", "baggage"}
+        if key.lower() in allowed
     }
     baggage = _filter_baggage(
         safe.get("baggage", ""),

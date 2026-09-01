@@ -9,6 +9,10 @@ from fastapi.testclient import TestClient
 
 from arclith.adapters.inbound.langgraph_runtime import server
 from arclith.adapters.inbound.langgraph_runtime.catalog import InMemoryRuntimeCatalog
+from arclith.adapters.outbound.noop.observability import NoOpObservabilityRuntime
+from arclith.infrastructure.langgraph_bootstrap import (
+    LANGGRAPH_OBSERVABILITY_RUNTIME_ATTR,
+)
 
 
 class FakePool:
@@ -55,6 +59,25 @@ class FakePersistence:
         self.setup_called = True
 
 
+class RecordingObservability(NoOpObservabilityRuntime):
+    def __init__(self) -> None:
+        super().__init__()
+        self.events: list[str] = []
+
+    def start(self) -> None:
+        self.events.append("start")
+
+    def instrument_fastapi(self, app: Any) -> None:
+        self.events.append("instrument_fastapi")
+
+    def force_flush(self, timeout: float | None = None) -> bool:
+        self.events.append("force_flush")
+        return True
+
+    def shutdown(self, timeout: float | None = None) -> None:
+        self.events.append("shutdown")
+
+
 @pytest.mark.asyncio
 async def test_build_persistence_sets_up_saver_and_store(monkeypatch: Any) -> None:
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -95,6 +118,8 @@ def test_create_durable_app_owns_resources_and_attaches_persistence(
     pool = FakePool()
     redis = FakeRedis()
     graph = FakeGraph()
+    observability = RecordingObservability()
+    setattr(graph, LANGGRAPH_OBSERVABILITY_RUNTIME_ATTR, observability)
     saver = FakePersistence()
     store = FakePersistence()
 
@@ -126,6 +151,34 @@ def test_create_durable_app_owns_resources_and_attaches_persistence(
 
     assert pool.closed is True
     assert redis.closed is True
+    assert observability.events == [
+        "instrument_fastapi",
+        "start",
+        "force_flush",
+        "shutdown",
+    ]
+
+
+def test_graph_observability_runtime_requires_one_valid_shared_instance() -> None:
+    first = FakeGraph()
+    second = FakeGraph()
+    shared = RecordingObservability()
+    setattr(first, LANGGRAPH_OBSERVABILITY_RUNTIME_ATTR, shared)
+    setattr(second, LANGGRAPH_OBSERVABILITY_RUNTIME_ATTR, shared)
+
+    assert server._graph_observability_runtime([first, second]) is shared
+    assert isinstance(
+        server._graph_observability_runtime([FakeGraph()]),
+        NoOpObservabilityRuntime,
+    )
+
+    setattr(second, LANGGRAPH_OBSERVABILITY_RUNTIME_ATTR, RecordingObservability())
+    with pytest.raises(RuntimeError, match="meme instance Arclith"):
+        server._graph_observability_runtime([first, second])
+
+    setattr(second, LANGGRAPH_OBSERVABILITY_RUNTIME_ATTR, object())
+    with pytest.raises(TypeError, match="invalide"):
+        server._graph_observability_runtime([second])
 
 
 def test_create_durable_app_rejects_unhealthy_redis(

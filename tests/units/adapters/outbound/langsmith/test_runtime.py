@@ -301,11 +301,23 @@ def test_runtime_propagates_only_allowlisted_baggage(
         "langsmith.run_helpers.get_current_run_tree",
         lambda: run_tree,
     )
+    monkeypatch.setattr(
+        "opentelemetry.propagate.inject",
+        lambda carrier: carrier.update(
+            {
+                "traceparent": "00-trace-parent-01",
+                "tracestate": "vendor=value",
+                "baggage": "safe=otel,secret=hidden",
+            }
+        ),
+    )
     headers: dict[str, str] = {"authorization": "Bearer existing"}
 
     runtime.inject(headers)
 
     assert headers["langsmith-trace"] == "trace-value"
+    assert headers["traceparent"] == "00-trace-parent-01"
+    assert headers["tracestate"] == "vendor=value"
     assert "safe" in headers["baggage"]
     assert "secret" not in headers["baggage"]
     assert headers["authorization"] == "Bearer existing"

@@ -17,6 +17,7 @@ from arclith.adapters.outbound.noop.observability import (
     NoOpTraceAdapter,
 )
 from arclith.domain.ports.outbound.observability import TracePort, TraceSpan
+from arclith.infrastructure.config import LangSmithPropagationSettings
 
 
 class RecordingSpan(TraceSpan):
@@ -187,10 +188,12 @@ def test_arclith_fastapi_adds_langsmith_instrumentation_when_selected(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[tuple[Any, Any]] = []
+    calls: list[tuple[Any, Any, Any]] = []
     monkeypatch.setattr(
         "arclith.adapters.outbound.langsmith.fastapi.instrument_fastapi_app",
-        lambda app, tracer: calls.append((app, tracer)),
+        lambda app, tracer, *, propagation: calls.append(
+            (app, tracer, propagation)
+        ),
     )
     arclith = Arclith(
         _config_dir(
@@ -201,7 +204,7 @@ def test_arclith_fastapi_adds_langsmith_instrumentation_when_selected(
 
     app = arclith.fastapi()
 
-    assert calls == [(app, arclith.tracer())]
+    assert calls == [(app, arclith.tracer(), LangSmithPropagationSettings())]
 
 
 @pytest.mark.asyncio

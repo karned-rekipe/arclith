@@ -10,6 +10,7 @@ import pytest
 from arclith.adapters.outbound.noop.observability import NoOpObservabilityRuntime
 from arclith.infrastructure.config import (
     AppConfig,
+    LangSmithPropagationSettings,
     LangSmithSettings,
     OpenTelemetrySettings,
 )
@@ -25,7 +26,13 @@ from arclith.infrastructure.observability_factory import (
 class RecordingLangSmithRuntime:
     def __init__(self, *, fastapi: bool = True) -> None:
         self.settings = SimpleNamespace(
-            instrumentation=SimpleNamespace(fastapi=fastapi)
+            instrumentation=SimpleNamespace(fastapi=fastapi),
+            propagation=LangSmithPropagationSettings(
+                enabled=True,
+                baggage_allowlist=["safe"],
+                langsmith_headers=True,
+                traceparent=True,
+            ),
         )
         self.events: list[tuple[str, Any]] = []
 
@@ -95,14 +102,30 @@ def test_langsmith_runtime_adapts_every_neutral_capability(
     raw = RecordingLangSmithRuntime()
     runtime = LangSmithObservabilityRuntime(raw)
     app = object()
-    instrumented: list[tuple[Any, Any]] = []
+    instrumented: list[tuple[Any, Any, Any]] = []
     monkeypatch.setattr(
         "arclith.adapters.outbound.langsmith.fastapi.instrument_fastapi_app",
-        lambda target, adapter: instrumented.append((target, adapter)),
+        lambda target, adapter, *, propagation: instrumented.append(
+            (target, adapter, propagation)
+        ),
     )
     carrier: dict[str, str] = {}
 
     runtime.start()
+    assert runtime.propagator.extract(
+        {
+            "LangSmith-Trace": "parent",
+            "TraceParent": "w3c-parent",
+            "TraceState": "vendor=value",
+            "Baggage": "safe=yes,secret=no",
+            "Authorization": "Bearer sensitive",
+        }
+    ) == {
+        "langsmith-trace": "parent",
+        "traceparent": "w3c-parent",
+        "tracestate": "vendor=value",
+        "baggage": "safe=yes",
+    }
     runtime.propagator.inject(carrier)
     with runtime.propagator.context(carrier):
         pass
@@ -113,7 +136,7 @@ def test_langsmith_runtime_adapts_every_neutral_capability(
     assert runtime.correlation.current() == {}
     assert runtime.logs is not None
     assert carrier == {"traceparent": "test"}
-    assert instrumented == [(app, raw)]
+    assert instrumented == [(app, raw, raw.settings.propagation)]
     assert runtime.pydantic_ai_instrumentation() == "pydantic-ai"
     assert runtime.force_flush(1.5) is True
     runtime.shutdown(2.5)
@@ -132,6 +155,19 @@ def test_langsmith_fastapi_instrumentation_respects_opt_in(
     )
 
     runtime.instrument_fastapi(object())
+
+
+def test_langsmith_propagator_extract_respects_disabled_propagation() -> None:
+    raw = RecordingLangSmithRuntime()
+    raw.settings.propagation.enabled = False
+    runtime = LangSmithObservabilityRuntime(raw)
+
+    assert (
+        runtime.propagator.extract(
+            {"langsmith-trace": "parent", "traceparent": "w3c-parent"}
+        )
+        == {}
+    )
 
 
 def test_composite_runtime_keeps_one_otel_tree_and_delegates_lifecycle() -> None:

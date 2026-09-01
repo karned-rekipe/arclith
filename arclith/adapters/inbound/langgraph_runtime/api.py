@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Literal
 from uuid import UUID
 
@@ -66,7 +67,11 @@ class RunPayload(BaseModel):
     on_disconnect: Literal["cancel", "continue"] = "cancel"
     multitask_strategy: Literal["reject"] = "reject"
 
-    def as_runtime_request(self) -> RunRequest:
+    def as_runtime_request(
+        self,
+        *,
+        trace_context: Mapping[str, str] | None = None,
+    ) -> RunRequest:
         return RunRequest(
             assistant_id=self.assistant_id,
             input=self.input,
@@ -77,6 +82,7 @@ class RunPayload(BaseModel):
             stream_mode=self.stream_mode,
             on_disconnect=self.on_disconnect,
             multitask_strategy=self.multitask_strategy,
+            trace_context=trace_context,
         )
 
 
@@ -86,6 +92,7 @@ def create_langgraph_runtime_app(runtime: LangGraphRuntime) -> FastAPI:
         version="1.0.0",
     )
     app.state.langgraph_runtime = runtime
+    app.state.observability_runtime = runtime.observability_runtime
     _RuntimeEndpoints(runtime).register(app)
     _register_exception_handlers(app)
     return app
@@ -269,20 +276,35 @@ class _RuntimeEndpoints:
     ) -> list[dict[str, Any]]:
         return await self.runtime.history(str(thread_id), limit=payload.limit)
 
-    async def wait_for_run(self, thread_id: UUID, payload: RunPayload) -> Any:
+    async def wait_for_run(
+        self,
+        thread_id: UUID,
+        payload: RunPayload,
+        request: Request,
+    ) -> Any:
         return await self.runtime.wait(
             str(thread_id),
-            payload.as_runtime_request(),
+            payload.as_runtime_request(
+                trace_context=self.runtime.extract_trace_context(request.headers)
+            ),
         )
 
     async def stream_run(
-        self, thread_id: UUID, payload: RunPayload
+        self,
+        thread_id: UUID,
+        payload: RunPayload,
+        request: Request,
     ) -> StreamingResponse:
         resolved_thread = str(thread_id)
         await self.runtime.get_thread(resolved_thread)
         self.runtime.assistant(payload.assistant_id)
         return StreamingResponse(
-            self.runtime.stream(resolved_thread, payload.as_runtime_request()),
+            self.runtime.stream(
+                resolved_thread,
+                payload.as_runtime_request(
+                    trace_context=self.runtime.extract_trace_context(request.headers)
+                ),
+            ),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache, no-store",

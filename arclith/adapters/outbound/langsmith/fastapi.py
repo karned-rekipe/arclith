@@ -2,13 +2,23 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from arclith.adapters.outbound.langsmith.propagation import (
+    normalized_parent_headers,
+)
+from arclith.infrastructure.config import LangSmithPropagationSettings
+
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
     from arclith.domain.ports.outbound.observability import TracePort
 
 
-def instrument_fastapi_app(app: "FastAPI", tracer: "TracePort") -> None:
+def instrument_fastapi_app(
+    app: "FastAPI",
+    tracer: "TracePort",
+    *,
+    propagation: LangSmithPropagationSettings | None = None,
+) -> None:
     try:
         from starlette.middleware.base import BaseHTTPMiddleware
     except ImportError as exc:
@@ -16,13 +26,20 @@ def instrument_fastapi_app(app: "FastAPI", tracer: "TracePort") -> None:
             'L\'instrumentation FastAPI LangSmith requiert "arclith[fastapi,langsmith]".'
         ) from exc
 
+    settings = propagation or LangSmithPropagationSettings()
+
     class LangSmithTracingMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Any, call_next: Any) -> Any:
-            parent = {
-                key.lower(): value
-                for key, value in request.headers.items()
-                if key.lower() in {"langsmith-trace", "traceparent", "baggage"}
-            }
+            parent = (
+                normalized_parent_headers(
+                    request.headers,
+                    allowlist=set(settings.baggage_allowlist),
+                    langsmith_headers=settings.langsmith_headers,
+                    traceparent=settings.traceparent,
+                )
+                if settings.enabled
+                else {}
+            )
             with (
                 tracer.context(parent=parent),
                 tracer.span(

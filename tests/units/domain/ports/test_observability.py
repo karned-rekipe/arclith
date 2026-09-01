@@ -57,6 +57,12 @@ def test_noop_runtime_exposes_all_neutral_capabilities() -> None:
     headers: dict[str, str] = {}
 
     assert isinstance(runtime, ObservabilityRuntimePort)
+    assert (
+        runtime.propagator.extract(
+            {"traceparent": "ignored", "authorization": "Bearer sensitive"}
+        )
+        == {}
+    )
     runtime.start()
     runtime.propagator.inject(headers)
     runtime.metrics.add_counter("ignored")

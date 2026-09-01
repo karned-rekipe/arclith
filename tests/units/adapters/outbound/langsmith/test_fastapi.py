@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from arclith.adapters.outbound.langsmith.fastapi import instrument_fastapi_app
 from arclith.domain.ports.outbound.observability import TracePort, TraceSpan
+from arclith.infrastructure.config import LangSmithPropagationSettings
 
 
 class RecordingSpan(TraceSpan):
@@ -72,20 +73,31 @@ def test_fastapi_instrumentation_propagates_context_without_sensitive_headers() 
         return {"item_id": item_id}
 
     tracer = RecordingTracer()
-    instrument_fastapi_app(app, tracer)
+    instrument_fastapi_app(
+        app,
+        tracer,
+        propagation=LangSmithPropagationSettings(baggage_allowlist=["safe"]),
+    )
 
     response = TestClient(app).get(
         "/items/42?token=secret",
         headers={
             "langsmith-trace": "trace-value",
-            "baggage": "safe=yes",
+            "traceparent": "00-trace-parent-01",
+            "tracestate": "vendor=value",
+            "baggage": "safe=yes,secret=no",
             "authorization": "Bearer secret",
         },
     )
 
     assert response.status_code == 200
     assert tracer.context_parents == [
-        {"langsmith-trace": "trace-value", "baggage": "safe=yes"}
+        {
+            "langsmith-trace": "trace-value",
+            "traceparent": "00-trace-parent-01",
+            "tracestate": "vendor=value",
+            "baggage": "safe=yes",
+        }
     ]
     name, metadata, span = tracer.spans[0]
     assert name == "http.server.request"
@@ -94,3 +106,30 @@ def test_fastapi_instrumentation_propagates_context_without_sensitive_headers() 
     assert span.metadata == [
         {"http.response.status_code": 200, "http.route": "/items/{item_id}"}
     ]
+
+
+def test_fastapi_instrumentation_ignores_parent_when_propagation_is_disabled() -> None:
+    app = FastAPI()
+
+    @app.get("/")
+    async def read_root() -> dict[str, bool]:
+        return {"ok": True}
+
+    tracer = RecordingTracer()
+    instrument_fastapi_app(
+        app,
+        tracer,
+        propagation=LangSmithPropagationSettings(enabled=False),
+    )
+
+    response = TestClient(app).get(
+        "/",
+        headers={
+            "langsmith-trace": "trace-value",
+            "traceparent": "00-trace-parent-01",
+            "baggage": "safe=yes",
+        },
+    )
+
+    assert response.status_code == 200
+    assert tracer.context_parents == [{}]

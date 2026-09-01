@@ -20,6 +20,11 @@ from arclith.adapters.inbound.langgraph_runtime.coordination import (
 )
 from arclith.adapters.inbound.langgraph_runtime.loader import load_graphs
 from arclith.adapters.inbound.langgraph_runtime.runtime import LangGraphRuntime
+from arclith.adapters.outbound.noop.observability import NoOpObservabilityRuntime
+from arclith.domain.ports.outbound.observability import ObservabilityRuntimePort
+from arclith.infrastructure.langgraph_bootstrap import (
+    LANGGRAPH_OBSERVABILITY_RUNTIME_ATTR,
+)
 
 
 def create_durable_langgraph_runtime_app(
@@ -29,6 +34,7 @@ def create_durable_langgraph_runtime_app(
     redis_uri: str | None = None,
     redis_prefix: str | None = None,
     run_timeout_seconds: int | None = None,
+    observability_runtime: ObservabilityRuntimePort | None = None,
 ) -> FastAPI:
     resolved_database_uri = _required_uri(
         database_uri,
@@ -41,6 +47,11 @@ def create_durable_langgraph_runtime_app(
         fallback_env="REDIS_URL",
     )
     graphs = load_graphs(config_path)
+    resolved_observability = (
+        observability_runtime
+        if observability_runtime is not None
+        else _graph_observability_runtime(graphs.values())
+    )
 
     pool, catalog = _postgres_catalog(resolved_database_uri)
     redis_client = _redis_client(resolved_redis_uri)
@@ -60,14 +71,17 @@ def create_durable_langgraph_runtime_app(
         coordinator,
         run_timeout_seconds=run_timeout_seconds
         or _positive_int_env("ARCLITH_LANGGRAPH_RUN_TIMEOUT_SECONDS", 900),
+        observability_runtime=resolved_observability,
     )
     app = create_langgraph_runtime_app(runtime)
+    resolved_observability.instrument_fastapi(app)
     auto_setup = _boolean_env("ARCLITH_LANGGRAPH_AUTO_SETUP", True)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-        await pool.open()
+        resolved_observability.start()
         try:
+            await pool.open()
             saver, store = await _build_langgraph_persistence(
                 pool,
                 setup=auto_setup,
@@ -79,11 +93,38 @@ def create_durable_langgraph_runtime_app(
                 raise RuntimeError("Redis coordination is unavailable")
             yield
         finally:
-            await coordinator.close()
-            await pool.close()
+            try:
+                await coordinator.close()
+            finally:
+                try:
+                    await pool.close()
+                finally:
+                    try:
+                        resolved_observability.force_flush()
+                    finally:
+                        resolved_observability.shutdown()
 
     app.router.lifespan_context = lifespan
     return app
+
+
+def _graph_observability_runtime(graphs: Any) -> ObservabilityRuntimePort:
+    runtimes: dict[int, ObservabilityRuntimePort] = {}
+    for graph in graphs:
+        candidate = getattr(graph, LANGGRAPH_OBSERVABILITY_RUNTIME_ATTR, None)
+        if candidate is None:
+            continue
+        if not isinstance(candidate, ObservabilityRuntimePort):
+            raise TypeError("Le runtime d'observabilite attache au graphe est invalide")
+        runtimes[id(candidate)] = candidate
+    if not runtimes:
+        return NoOpObservabilityRuntime()
+    if len(runtimes) > 1:
+        raise RuntimeError(
+            "Tous les graphes du runtime durable doivent partager la meme instance "
+            "Arclith ou fournir observability_runtime explicitement"
+        )
+    return next(iter(runtimes.values()))
 
 
 def main(argv: Sequence[str] | None = None) -> None:
