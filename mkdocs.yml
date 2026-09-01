@@ -79,6 +79,7 @@ nav:
       - License: capabilities/license.md
       - HTTP: capabilities/http.md
       - LLM: capabilities/llm.md
+      - Embedding: capabilities/embedding.md
       - Observability:
           - Vue d'ensemble: capabilities/observability.md
           - OpenTelemetry: capabilities/opentelemetry.md

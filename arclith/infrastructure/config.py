@@ -14,6 +14,8 @@ from arclith.infrastructure.settings import (  # noqa: F401
     CommandBusAdapter,
     CommandBusSettings,
     DuckDBSettings,
+    EmbeddingAdapter,
+    EmbeddingSettings,
     ETagSettings,
     HttpSettings,
     IdempotencySettings,

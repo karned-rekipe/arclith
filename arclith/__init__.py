@@ -5,6 +5,7 @@ from arclith.adapters.outbound.azure_blob import (
     AzureBlobFileStorage,
     AzureBlobStorageConfig,
 )
+from arclith.adapters.outbound.deterministic import DeterministicEmbeddingAdapter
 from arclith.adapters.outbound.filesystem import (
     FilesystemFileStorage,
     FilesystemStorageConfig,
@@ -19,6 +20,20 @@ from arclith.arclith import Arclith
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.inbound.command_bus import CommandHandler
 from arclith.domain.ports.outbound.command_bus import CommandPublisher
+from arclith.domain.ports.outbound.embedding import (
+    EmbeddingAuthenticationError,
+    EmbeddingDimensionMismatch,
+    EmbeddingError,
+    EmbeddingInvalidInput,
+    EmbeddingPort,
+    EmbeddingRateLimitError,
+    EmbeddingResponse,
+    EmbeddingResult,
+    EmbeddingText,
+    EmbeddingUnavailable,
+    EmbeddingUsage,
+    validate_embedding_inputs,
+)
 from arclith.domain.ports.outbound.file_storage import (
     FileStorageConflict,
     FileStorageError,
@@ -54,6 +69,11 @@ from arclith.infrastructure.config import (
     load_config_dir,
     load_config_file,
 )
+from arclith.infrastructure.embedding_factory import (
+    EmbeddingRegistry,
+    build_embedding,
+    default_embedding_registry,
+)
 from arclith.infrastructure.file_storage_factory import (
     FileStorageRegistry,
     build_file_storage,
@@ -82,6 +102,19 @@ if TYPE_CHECKING:  # pragma: no cover - for static type checkers only
 __all__ = [
     "Entity",
     "Repository",
+    "EmbeddingPort",
+    "EmbeddingText",
+    "EmbeddingResult",
+    "EmbeddingUsage",
+    "EmbeddingResponse",
+    "EmbeddingError",
+    "EmbeddingUnavailable",
+    "EmbeddingAuthenticationError",
+    "EmbeddingRateLimitError",
+    "EmbeddingInvalidInput",
+    "EmbeddingDimensionMismatch",
+    "validate_embedding_inputs",
+    "DeterministicEmbeddingAdapter",
     "FileStoragePort",
     "StoredObject",
     "StoredObjectMetadata",
@@ -131,6 +164,9 @@ __all__ = [
     "RepositoryRegistry",
     "build_repository",
     "default_repository_registry",
+    "EmbeddingRegistry",
+    "build_embedding",
+    "default_embedding_registry",
     "FileStorageRegistry",
     "build_file_storage",
     "default_file_storage_registry",

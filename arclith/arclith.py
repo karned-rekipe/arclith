@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
 
 from arclith.domain.models.entity import Entity
+from arclith.domain.ports.outbound.embedding import EmbeddingPort
 from arclith.domain.ports.outbound.file_storage import FileStoragePort
 from arclith.domain.ports.outbound.logger import Logger, LogLevel
 from arclith.domain.ports.outbound.observability import (
@@ -26,6 +27,7 @@ from arclith.infrastructure.config import (
     load_config_dir,
     load_config_file,
 )
+from arclith.infrastructure.embedding_factory import EmbeddingRegistry
 from arclith.infrastructure.file_storage_factory import FileStorageRegistry
 from arclith.infrastructure.langgraph_bootstrap import (
     LANGGRAPH_UNSET as _LANGGRAPH_UNSET,
@@ -175,6 +177,15 @@ class Arclith:
         from arclith.infrastructure.file_storage_factory import build_file_storage
 
         return build_file_storage(self.config, self.logger, registry=registry)
+
+    def embedding(
+        self,
+        *,
+        registry: EmbeddingRegistry | None = None,
+    ) -> EmbeddingPort:
+        from arclith.infrastructure.embedding_factory import build_embedding
+
+        return build_embedding(self.config, self.logger, registry=registry)
 
     def rabbitmq_command_bus(self) -> "RabbitMQCommandBus":
         if not self.config.command_bus.is_enabled("rabbitmq"):

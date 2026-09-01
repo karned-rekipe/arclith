@@ -135,6 +135,64 @@ ANTHROPIC_API_KEY={api_key}
     ),
 )
 
+EMBEDDING_CAPABILITY = CapabilitySpec(
+    name="embedding",
+    layer="outbound",
+    description="Calcul de vecteurs texte derrière un port provider-neutral, sans persistance.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="deterministic",
+            capability="embedding",
+            layer="outbound",
+            description="Vecteurs déterministes sans dépendance pour tests et smoke locaux.",
+            config_path="config/adapters/outbound/embedding.yaml",
+            config_template="""\
+adapter: deterministic
+model_name: "{model_name}"
+dimensions: {dimensions}
+batch_size: {batch_size}
+normalize: {normalize}
+multitenant: {multitenant}
+""",
+            parameters=(
+                ParameterSpec(
+                    name="model_name",
+                    kind="string",
+                    prompt="Nom du modèle déterministe",
+                    default="deterministic-test",
+                ),
+                ParameterSpec(
+                    name="dimensions",
+                    kind="string",
+                    prompt="Dimension des vecteurs",
+                    default="1536",
+                ),
+                ParameterSpec(
+                    name="batch_size",
+                    kind="string",
+                    prompt="Taille maximale des sous-batches",
+                    default="64",
+                ),
+                ParameterSpec(
+                    name="normalize",
+                    kind="boolean",
+                    prompt="Normaliser les vecteurs en norme L2",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="multitenant",
+                    kind="boolean",
+                    prompt="Réserver la résolution de contexte par tenant",
+                    default=False,
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)
+
+
 AGENT_CAPABILITY = CapabilitySpec(
     name="agent",
     layer="inbound",
