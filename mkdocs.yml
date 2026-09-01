@@ -40,6 +40,7 @@ nav:
       - Comprendre le modèle: learning/foundations.md
       - Le chemin hexagonal: foundations/hexagonal-flow.md
       - Modes runtime: foundations/runtime-modes.md
+      - Recettes CLI: cli-recipe.md
   - Formation:
       - Parcours: learning/training-path.md
       - Quickstarts essentiels: learning/quickstarts.md
