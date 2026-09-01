@@ -143,4 +143,4 @@ class EmbeddingPort(ABC):
     @abstractmethod
     async def embed_texts(self, inputs: Sequence[EmbeddingText]) -> EmbeddingResponse:
         """Embed a non-empty text batch while preserving input order."""
-        ...
+        pass  # pragma: no cover
