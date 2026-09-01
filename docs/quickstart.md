@@ -33,6 +33,11 @@ arclith-cli add-entity Todo
 arclith-cli add-usecase CreateTodo
 ```
 
+Chaque commande mutante réussie enrichit `arclith.recipe.yaml`. Ce fichier
+versionné conserve les décisions de scaffolding sans remplacer Git et sans
+stocker de secret. Consulter la timeline avec `arclith-cli history`, puis lire
+le guide [Recettes Arclith CLI](cli-recipe.md) pour le dry-run et le replay.
+
 Pour tester une branche de développement avant merge:
 
 ```bash

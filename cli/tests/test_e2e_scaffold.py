@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from arclith_cli.recipe import RECIPE_FILENAME, load_recipe
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -73,6 +75,9 @@ def test_init_scaffold_creates_blank_project_then_core_files(temp_workspace: Pat
     assert "repository: memory" in (project_dir / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     )
+    assert [
+        step.command for step in load_recipe(project_dir / RECIPE_FILENAME).steps
+    ] == ["init"]
 
     result = subprocess.run(
         ["arclith-cli", "add-entity", "Todo"],
@@ -151,6 +156,9 @@ def test_scaffold_and_run(temp_workspace: Path):
     assert (project_dir / "pyproject.toml").exists()
     assert (project_dir / "main.py").exists()
     assert (project_dir / "config").is_dir()
+    assert [
+        step.command for step in load_recipe(project_dir / RECIPE_FILENAME).steps
+    ] == ["new"]
     
     # Step 2 — verify no [tool.uv.sources] in generated pyproject.toml
     pyproject_content = (project_dir / "pyproject.toml").read_text()

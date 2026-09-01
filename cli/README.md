@@ -307,6 +307,34 @@ arclith = Arclith("config.yaml")
 
 ---
 
+### `history` et `replay` — Relire et rejouer les décisions CLI
+
+`init`, `new`, `add-entity`, `add-usecase`, `add-intent-interpreter` et
+`add-adapter` ajoutent une étape à `arclith.recipe.yaml` uniquement après leur
+succès complet. La recette est un historique fonctionnel rejouable ; Git reste
+l'historique du code et `export-config` reste la configuration consolidée de
+déploiement.
+
+```bash
+arclith-cli history
+arclith-cli replay arclith.recipe.yaml --dir ../rebuilt-service --dry-run
+arclith-cli replay arclith.recipe.yaml --dir ../rebuilt-service
+```
+
+Sélectionner une plage avec `--from-step 0003` et `--to-step 0008`. Utiliser
+`--strict` pour refuser une commande non supportée.
+
+Les paramètres secrets sont remplacés par `<redacted>` et référencent une
+variable d'environnement. Le dry-run liste les variables requises sans lire
+leur valeur ; le replay réel exige qu'elles soient définies. Les chemins de
+fichiers générés restent relatifs à la racine du projet et les étapes rejouées
+ne sont pas enregistrées une seconde fois.
+
+Voir la documentation complète :
+[Recettes Arclith CLI](https://karned-rekipe.github.io/arclith/cli-recipe/).
+
+---
+
 ### `update` — Mettre à jour le CLI
 
 ```bash

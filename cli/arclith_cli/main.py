@@ -3,14 +3,12 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any, Mapping, Never
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
-from rich.tree import Tree
 
 from . import __version__
 from .add_adapter import add_adapter_cmd
@@ -18,13 +16,15 @@ from .capabilities import CAPABILITY_CATALOG, capability_catalog_as_dict
 from .core_scaffold import add_entity_cmd, add_intent_interpreter_cmd, add_usecase_cmd
 from .export_config import export_config_cmd
 from .init_project import init_project_cmd
-from .rename import EntityNames, apply_rename
-from .runtime_templates import (
-    DOCKERIGNORE_TEMPLATE,
-    render_arclith_run,
-    render_dockerfile,
+from .new_project import new_project_cmd as _new_project_cmd
+from .recipe import (
+    RecipeError,
+    RecipeSecretRef,
+    adapter_secret_metadata,
+    record_successful_step,
+    snapshot_project_files,
 )
-from .scaffold import download_and_extract
+from .recipe_cli import history_command, replay_command
 from .updater import run_update
 
 app = typer.Typer(
@@ -34,6 +34,8 @@ app = typer.Typer(
     rich_markup_mode="rich",
 )
 console = Console()
+app.command(name="history")(history_command)
+app.command(name="replay")(replay_command)
 
 _ENTITY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
 _PROJECT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
@@ -49,11 +51,25 @@ def init(
         Path,
         typer.Option("--dir", "-d", help="Répertoire parent où le projet sera créé"),
     ] = Path("."),
+    no_record: Annotated[
+        bool,
+        typer.Option(
+            "--no-record",
+            help="Ne pas écrire la recette CLI (usage interne).",
+            hidden=True,
+        ),
+    ] = False,
 ) -> None:
     """Initialiser un projet arclith minimal sans entité métier."""
-    init_project_cmd(
-        project_name=project_name or _prompt_project(), directory=directory
-    )
+    resolved_name = project_name or _prompt_project()
+    target_dir = init_project_cmd(project_name=resolved_name, directory=directory)
+    if not no_record:
+        _record_success(
+            target_dir,
+            command="init",
+            args={"project_name": resolved_name, "directory": "."},
+            before={},
+        )
 
 
 @app.command()
@@ -88,48 +104,39 @@ def new(
             "--template-dir", help="Répertoire local du template _sample", hidden=True
         ),
     ] = None,
+    no_record: Annotated[
+        bool,
+        typer.Option(
+            "--no-record",
+            help="Ne pas écrire la recette CLI (usage interne).",
+            hidden=True,
+        ),
+    ] = False,
 ) -> None:
     """Créer un nouveau projet [bold]arclith[/bold] scaffoldé depuis le template officiel [dim]_sample[/dim]."""
     entity = entity or _prompt_entity()
     project_name = project_name or _prompt_project()
-    _validate_runtime_ports(api_port=port, mcp_port=port + 1)
-
-    names = EntityNames.from_input(entity)
-    target_dir = directory.resolve() / project_name
-
-    if target_dir.exists():
-        console.print(
-            f"[red]✗[/red] Le répertoire existe déjà : [bold]{target_dir}[/bold]"
-        )
-        raise typer.Exit(1)
-
-    console.print(
-        Panel.fit(
-            f"[bold blue]arclith-cli[/bold blue] [dim]v{__version__}[/dim]\n\n"
-            f"  Entité   [bold green]{names.pascal}[/bold green]  [dim]({names.snake} / {names.upper})[/dim]\n"
-            f"  Projet   [bold]{project_name}[/bold]\n"
-            f"  Cible    [dim]{target_dir}[/dim]\n"
-            f"  Ports    REST [bold]{port}[/bold]  ·  MCP [bold]{port + 1}[/bold]",
-            border_style="blue",
-            title="[bold]Nouveau projet[/bold]",
-        )
+    target_dir = _new_project_cmd(
+        entity=entity,
+        project_name=project_name,
+        directory=directory,
+        port=port,
+        repo_ref=repo_ref,
+        template_dir=template_dir,
     )
-
-    with console.status("[bold]Préparation du template…[/bold]"):
-        try:
-            download_and_extract(target_dir, ref=repo_ref, template_dir=template_dir)
-        except Exception as exc:
-            console.print(f"[red]✗ Téléchargement échoué :[/red] {exc}")
-            raise typer.Exit(1) from exc
-
-    console.print("[green]✓[/green] Template extrait")
-
-    with console.status("[bold]Renommage de l'entité…[/bold]"):
-        apply_rename(target_dir, names, project_name=project_name, port=port)
-        _write_runtime_files(target_dir, api_port=port, mcp_port=port + 1)
-
-    console.print("[green]✓[/green] Renommage terminé")
-    _print_summary(target_dir, project_name, port)
+    if not no_record:
+        _record_success(
+            target_dir,
+            command="new",
+            args={
+                "entity": entity,
+                "project_name": project_name,
+                "directory": ".",
+                "port": port,
+                "repo_ref": repo_ref,
+            },
+            before={},
+        )
 
 
 @app.command()
@@ -219,9 +226,20 @@ def add_adapter(
             help="Utiliser les valeurs fournies ou par défaut sans confirmation",
         ),
     ] = False,
+    no_record: Annotated[
+        bool,
+        typer.Option(
+            "--no-record",
+            help="Ne pas écrire la recette CLI (usage interne).",
+            hidden=True,
+        ),
+    ] = False,
 ) -> None:
     """Wizard ou mode direct pour scaffolder un nouvel [bold]adapter[/bold] dans le projet courant."""
-    add_adapter_cmd(
+    project_dir = Path.cwd()
+    before = snapshot_project_files(project_dir) if not no_record else {}
+    result = add_adapter_cmd(
+        project_dir=project_dir,
         capability_name=capability,
         adapter=adapter,
         entity_names=_split_entity_option(entity),
@@ -234,6 +252,23 @@ def add_adapter(
         profile=profile,
         yes=yes,
     )
+    if not no_record:
+        secret_fields, secret_references = adapter_secret_metadata(result.adapter)
+        _record_success(
+            project_dir,
+            command="add-adapter",
+            args={
+                "capability": result.capability.name,
+                "adapter": result.adapter.name,
+                "entities": [entity.pascal for entity in result.entities],
+                "activate": result.activate,
+                "profile": result.profile,
+                "params": result.params,
+            },
+            before=before,
+            secret_fields=secret_fields,
+            secret_references=secret_references,
+        )
 
 
 @app.command(name="add-entity")
@@ -244,9 +279,23 @@ def add_entity(
             help="Nom de l'entité métier au singulier. Exemple : Recipe, recipe_step, meal-plan",
         ),
     ] = None,
+    no_record: Annotated[
+        bool,
+        typer.Option("--no-record", hidden=True),
+    ] = False,
 ) -> None:
     """Créer uniquement le fichier minimal d'une entité métier dans domain/models."""
-    add_entity_cmd(entity_name=entity or _prompt_entity())
+    resolved_name = entity or _prompt_entity()
+    project_dir = Path.cwd()
+    before = snapshot_project_files(project_dir) if not no_record else {}
+    add_entity_cmd(project_dir=project_dir, entity_name=resolved_name)
+    if not no_record:
+        _record_success(
+            project_dir,
+            command="add-entity",
+            args={"entity": resolved_name},
+            before=before,
+        )
 
 
 @app.command(name="add-usecase")
@@ -257,9 +306,23 @@ def add_usecase(
             help="Nom du cas d'usage. Exemple : PlanShoppingList, find_by_name, import-catalog",
         ),
     ] = None,
+    no_record: Annotated[
+        bool,
+        typer.Option("--no-record", hidden=True),
+    ] = False,
 ) -> None:
     """Créer uniquement le fichier minimal d'un cas d'usage dans application/use_cases."""
-    add_usecase_cmd(usecase_name=usecase or _prompt_usecase())
+    resolved_name = usecase or _prompt_usecase()
+    project_dir = Path.cwd()
+    before = snapshot_project_files(project_dir) if not no_record else {}
+    add_usecase_cmd(project_dir=project_dir, usecase_name=resolved_name)
+    if not no_record:
+        _record_success(
+            project_dir,
+            command="add-usecase",
+            args={"usecase": resolved_name},
+            before=before,
+        )
 
 
 @app.command(name="add-intent-interpreter")
@@ -270,9 +333,23 @@ def add_intent_interpreter(
             help="Nom de l'interpréteur d'intention. Exemple : IngredientIntent, todo-intent, command-router",
         ),
     ] = None,
+    no_record: Annotated[
+        bool,
+        typer.Option("--no-record", hidden=True),
+    ] = False,
 ) -> None:
     """Créer uniquement le fichier minimal d'un interpréteur d'intention."""
-    add_intent_interpreter_cmd(intent_name=intent or _prompt_intent_interpreter())
+    resolved_name = intent or _prompt_intent_interpreter()
+    project_dir = Path.cwd()
+    before = snapshot_project_files(project_dir) if not no_record else {}
+    add_intent_interpreter_cmd(project_dir=project_dir, intent_name=resolved_name)
+    if not no_record:
+        _record_success(
+            project_dir,
+            command="add-intent-interpreter",
+            args={"intent": resolved_name},
+            before=before,
+        )
 
 
 @app.command(name="capabilities")
@@ -393,6 +470,33 @@ def _prompt_intent_interpreter() -> str:
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
+def _record_success(
+    project_dir: Path,
+    *,
+    command: str,
+    args: Mapping[str, Any],
+    before: Mapping[str, str],
+    secret_fields: Mapping[str, str] | None = None,
+    secret_references: tuple[RecipeSecretRef, ...] = (),
+) -> None:
+    try:
+        record_successful_step(
+            project_dir,
+            command=command,
+            args=args,
+            before=before,
+            secret_fields=secret_fields,
+            secret_references=secret_references,
+        )
+    except (OSError, RecipeError) as exc:
+        _recipe_error(exc)
+
+
+def _recipe_error(exc: Exception) -> Never:
+    console.print(f"[red]✗ Recette CLI invalide :[/red] {exc}")
+    raise typer.Exit(1)
+
+
 def _split_entity_option(value: str | None) -> list[str] | None:
     if value is None:
         return None
@@ -412,60 +516,3 @@ def _parse_param_options(values: list[str] | None) -> dict[str, str]:
             raise typer.Exit(1)
         result[key] = value.strip()
     return result
-
-
-def _write_runtime_files(target_dir: Path, *, api_port: int, mcp_port: int) -> None:
-    _validate_runtime_ports(api_port=api_port, mcp_port=mcp_port)
-    (target_dir / "Dockerfile").write_text(
-        render_dockerfile(api_port=str(api_port), mcp_port=str(mcp_port)),
-        encoding="utf-8",
-    )
-    (target_dir / ".dockerignore").write_text(DOCKERIGNORE_TEMPLATE, encoding="utf-8")
-    entrypoint = target_dir / "arclith-run"
-    entrypoint.write_text(render_arclith_run(), encoding="utf-8")
-    entrypoint.chmod(0o755)
-
-
-def _validate_runtime_ports(*, api_port: int, mcp_port: int) -> None:
-    for label, value in (("REST", api_port), ("MCP", mcp_port)):
-        if value <= 0 or value > 65535:
-            console.print(
-                f"[red]✗[/red] Port {label} invalide: [bold]{value}[/bold]. "
-                "Utilisez une valeur entre 1 et 65535."
-            )
-            raise typer.Exit(1)
-
-
-def _print_summary(target_dir: Path, project_name: str, port: int) -> None:
-    tree = Tree(f"[bold green]{project_name}/[/bold green]")
-    _build_tree(tree, target_dir, depth=0, max_depth=3)
-    console.print()
-    console.print(tree)
-    console.print(
-        Panel(
-            f"[bold cyan]cd[/bold cyan] {target_dir}\n"
-            f"[bold cyan]uv sync[/bold cyan]\n\n"
-            f"[bold cyan]uv run python main.py[/bold cyan]"
-            f"  [dim]# MODE=api → REST :{port}[/dim]\n"
-            f"[bold cyan]MODE=mcp_http uv run python main.py[/bold cyan]"
-            f"  [dim]# MCP :{port + 1}[/dim]",
-            title="[bold blue]Next steps[/bold blue]",
-            border_style="green",
-        )
-    )
-
-
-def _build_tree(node: Tree, path: Path, depth: int, max_depth: int) -> None:
-    if depth >= max_depth:
-        return
-    try:
-        children = sorted(path.iterdir(), key=lambda p: (p.is_file(), p.name))
-    except PermissionError:
-        return
-    for child in children:
-        if child.name.startswith("."):
-            continue
-        label = f"[blue]{child.name}/[/blue]" if child.is_dir() else child.name
-        branch = node.add(label)
-        if child.is_dir():
-            _build_tree(branch, child, depth + 1, max_depth)

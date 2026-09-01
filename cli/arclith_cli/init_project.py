@@ -16,13 +16,20 @@ console = Console()
 _PROJECT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
 
 
-def init_project_cmd(*, project_name: str, directory: Path | None = None) -> Path:
+def init_project_cmd(
+    *,
+    project_name: str,
+    directory: Path | None = None,
+    target_path: Path | None = None,
+) -> Path:
     """Create a minimal Arclith project without a starter entity."""
     project_name = project_name.strip()
     _assert_valid_project_name(project_name)
 
     parent_dir = (directory or Path(".")).resolve()
-    target_dir = parent_dir / project_name
+    target_dir = (
+        target_path.resolve() if target_path is not None else parent_dir / project_name
+    )
     if target_dir.exists():
         console.print(f"[red]✗[/red] Le répertoire existe déjà : [bold]{target_dir}[/bold]")
         raise typer.Exit(1)

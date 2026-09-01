@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,19 @@ from arclith_cli.project_paths import ProjectPaths, detect_project_paths
 console = Console()
 
 
+@dataclass(frozen=True)
+class AdapterCommandResult:
+    """Resolved inputs that produced one successful adapter generation."""
+
+    project_dir: Path
+    capability: CapabilitySpec
+    adapter: AdapterSpec
+    entities: tuple[EntityInfo, ...]
+    params: dict[str, Any]
+    activate: bool
+    profile: str | None
+
+
 def add_adapter_cmd(
     *,
     project_dir: Path | None = None,
@@ -45,7 +59,7 @@ def add_adapter_cmd(
     adapter_params: dict[str, str] | None = None,
     profile: str | None = None,
     yes: bool = False,
-) -> None:
+) -> AdapterCommandResult:
     """Wizard interactif pour scaffolder un adapter du catalogue."""
     project_dir = project_dir or Path.cwd()
 
@@ -95,6 +109,19 @@ def add_adapter_cmd(
             activate=activate,
             explicit_params=explicit_params,
         )
+    )
+    recorded_params = {
+        parameter.name: params.get(parameter.name)
+        for parameter in adapter_spec.parameters
+    }
+    return AdapterCommandResult(
+        project_dir=project_dir,
+        capability=capability,
+        adapter=adapter_spec,
+        entities=tuple(entities),
+        params=recorded_params,
+        activate=activate,
+        profile=profile,
     )
 
 
