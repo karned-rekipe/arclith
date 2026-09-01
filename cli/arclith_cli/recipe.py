@@ -410,11 +410,12 @@ def _read_project_identity(project_dir: Path) -> RecipeProject:
     if pyproject.is_file():
         try:
             data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-            configured_name = data.get("project", {}).get("name")
-            if isinstance(configured_name, str) and configured_name.strip():
-                name = configured_name.strip()
         except (OSError, UnicodeError, tomllib.TOMLDecodeError):
-            pass
+            configured_name = None
+        else:
+            configured_name = data.get("project", {}).get("name")
+        if isinstance(configured_name, str) and configured_name.strip():
+            name = configured_name.strip()
     paths = detect_project_paths(project_dir)
     package = paths.package_name or name.replace("-", "_")
     return RecipeProject(name=name, package=package)

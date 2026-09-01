@@ -12,6 +12,7 @@ from arclith_cli.recipe import (
     REDACTED,
     RecipeError,
     load_recipe,
+    record_successful_step,
 )
 
 runner = CliRunner()
@@ -442,3 +443,20 @@ def test_history_reports_missing_recipe(tmp_path: Path) -> None:
 
     assert result.exit_code == 1
     assert "Recipe file not found" in result.output
+
+
+def test_recipe_identity_falls_back_when_pyproject_is_malformed(tmp_path: Path) -> None:
+    project_dir = tmp_path / "fallback-service"
+    (project_dir / "src" / "fallback_service").mkdir(parents=True)
+    (project_dir / "pyproject.toml").write_text("[invalid", encoding="utf-8")
+
+    record_successful_step(
+        project_dir,
+        command="add-entity",
+        args={"entity": "Widget"},
+        before={},
+    )
+
+    recipe = load_recipe(project_dir / RECIPE_FILENAME)
+    assert recipe.project.name == "fallback-service"
+    assert recipe.project.package == "fallback_service"
