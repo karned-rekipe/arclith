@@ -8,6 +8,21 @@ KEYCLOAK_REALM="${KEYCLOAK_REALM:-arclith-local}"
 KEYCLOAK_CLIENT_ID="${KEYCLOAK_CLIENT_ID:-todo-swagger}"
 KEYCLOAK_PASSWORD="${KEYCLOAK_PASSWORD:-arclith-dev-only}"
 TODO_API_URL="${TODO_API_URL:-}"
+SWAGGER_REDIRECT_URI="${SWAGGER_REDIRECT_URI:-http://127.0.0.1:8120/docs/oauth2-redirect}"
+
+if [[ -n "${PYTHON_BIN:-}" ]]; then
+  command -v "${PYTHON_BIN}" >/dev/null || {
+    printf 'Interpréteur Python introuvable : %s\n' "${PYTHON_BIN}" >&2
+    exit 1
+  }
+elif command -v python3 >/dev/null; then
+  PYTHON_BIN=python3
+elif command -v python >/dev/null; then
+  PYTHON_BIN=python
+else
+  printf '%s\n' 'Python 3 est requis pour décoder localement les claims du smoke.' >&2
+  exit 1
+fi
 
 openid_url="${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration"
 
@@ -33,7 +48,7 @@ token_for() {
 }
 
 decode_claims() {
-  python -c '
+  "${PYTHON_BIN}" -c '
 import base64
 import json
 import sys
@@ -46,13 +61,27 @@ print(json.dumps(json.loads(payload)))
 }
 
 discovery="$(keycloak_request "${openid_url}")"
+authorization_endpoint="$(jq -er '.authorization_endpoint' <<<"${discovery}")"
 token_endpoint="$(jq -er '.token_endpoint' <<<"${discovery}")"
 jwks_uri="$(jq -er '.jwks_uri' <<<"${discovery}")"
 expected_base="${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect"
 
+test "${authorization_endpoint}" = "${expected_base}/auth"
 test "${token_endpoint}" = "${expected_base}/token"
 test "${jwks_uri}" = "${expected_base}/certs"
 keycloak_request "${jwks_uri}" | jq -e '.keys | length > 0' >/dev/null
+
+pkce_rejection="$(
+  curl --silent --show-error --get --output /dev/null --write-out '%{redirect_url}' \
+    --connect-timeout 3 --max-time 10 \
+    --data-urlencode "client_id=${KEYCLOAK_CLIENT_ID}" \
+    --data-urlencode "redirect_uri=${SWAGGER_REDIRECT_URI}" \
+    --data-urlencode "response_type=code" \
+    --data-urlencode "scope=openid" \
+    "${authorization_endpoint}"
+)"
+[[ "${pkce_rejection}" == "${SWAGGER_REDIRECT_URI}?error=invalid_request&"* ]]
+[[ "${pkce_rejection}" == *"code_challenge"* ]]
 
 alice_token="$(token_for alice)"
 alice_claims="$(printf '%s' "${alice_token}" | decode_claims)"
@@ -79,6 +108,7 @@ jq -e \
 printf '%s\n' \
   "Keycloak local prêt :" \
   "- discovery et JWKS cohérents pour ${KEYCLOAK_REALM}" \
+  "- Authorization Code sans challenge PKCE rejeté" \
   "- alice : audience, tenant_id et rôle licence présents" \
   "- bob : rôle licence absent"
 

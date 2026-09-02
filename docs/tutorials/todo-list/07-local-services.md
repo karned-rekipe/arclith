@@ -707,8 +707,9 @@ curl -fsS \
 unset TOKEN
 ```
 
-Le script fourni vérifie sans afficher les tokens le document de découverte, le JWKS, l'audience,
-le rôle et le claim tenant. Avec `TODO_API_URL`, il vérifie aussi les statuts de la route réelle :
+Le script fourni vérifie sans afficher les tokens le document de découverte, le JWKS, le rejet d'un
+flux Authorization Code sans challenge PKCE, l'audience, le rôle et le claim tenant. Avec
+`TODO_API_URL`, il vérifie aussi les statuts de la route réelle :
 
 ```bash
 mkdir -p scripts
@@ -734,6 +735,7 @@ des tokens déjà émis et coordonner la rotation avec le TTL du cache JWKS.
 ```bash
 docker stop arclith-keycloak
 unset TOKEN KEYCLOAK_URL KEYCLOAK_REALM KEYCLOAK_CLIENT_ID KEYCLOAK_PASSWORD
+unset PYTHON_BIN SWAGGER_REDIRECT_URI
 ```
 
 Erreurs fréquentes :

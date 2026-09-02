@@ -18,7 +18,9 @@ local ne proposait ni realm importable ni preuve reproductible du flux PKCE/JWKS
   Authorization Code avec PKCE ;
 - fixer les access tokens à cinq minutes et documenter le lien entre rotation des clés et cache
   JWKS ;
-- permettre de télécharger le realm et le script depuis un tag ou SHA via `ARCLITH_REF`.
+- permettre de télécharger le realm et le script depuis un tag ou SHA via `ARCLITH_REF` ;
+- sélectionner `python3`, puis `python` en fallback, tout en permettant une surcharge explicite par
+  `PYTHON_BIN` pour rendre le smoke portable.
 
 ## Validation
 
@@ -27,6 +29,7 @@ local ne proposait ni realm importable ni preuve reproductible du flux PKCE/JWKS
 - configuration `auth` + `license` + `tenant` générée par la CLI puis chargée par `Arclith` ;
 - import réel du realm dans le container Keycloak épinglé ;
 - document OIDC et JWKS lus depuis le realm local ;
+- requête Authorization Code sans challenge rejetée par Keycloak avec `invalid_request` ;
 - tokens `alice` et `bob` obtenus sans être affichés ;
 - audience, issuer, rôle licence et `tenant_id=client-a` vérifiés ;
 - signature et audience du token validées par le `JWTDecoder` Arclith contre le JWKS local ;
