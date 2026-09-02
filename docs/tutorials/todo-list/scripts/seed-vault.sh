@@ -15,7 +15,14 @@ vault_request() {
     "$@"
 }
 
-if ! vault_request "${VAULT_ADDR}/v1/sys/mounts" | grep -Fq "\"${VAULT_MOUNT}/\""; then
+if mount_details=$(
+  vault_request "${VAULT_ADDR}/v1/sys/mounts/${VAULT_MOUNT}/tune" 2>/dev/null
+); then
+  if ! grep -Fq '"version":"2"' <<<"${mount_details}"; then
+    printf 'Erreur : le mount %s existe mais n\x27est pas un KV v2.\n' "${VAULT_MOUNT}" >&2
+    exit 1
+  fi
+else
   vault_request \
     --request POST \
     --header "Content-Type: application/json" \

@@ -370,7 +370,9 @@ chmod +x scripts/seed-vault.sh
 ./scripts/seed-vault.sh
 ```
 
-Le script active le mount `kv` en KV v2 s'il n'existe pas, puis écrit deux entrées de démonstration :
+Le script active le mount `kv` en KV v2 s'il n'existe pas. S'il existe déjà dans une autre version,
+le script échoue explicitement au lieu de poursuivre avec des routes incompatibles. Il écrit ensuite
+deux entrées de démonstration :
 
 | Chemin | Consommateur | Forme attendue |
 | --- | --- | --- |
