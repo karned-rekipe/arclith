@@ -207,9 +207,13 @@ def _query_filter(models: Any, filters: Mapping[str, JsonValue]) -> Any | None:
 
 
 def _normalized_point_ids(ids: Sequence[str]) -> list[str]:
-    normalized = [point_id.strip() for point_id in ids]
-    if any(not point_id for point_id in normalized):
-        raise VectorStoreInvalidPayload("qdrant point IDs must not be empty")
+    normalized: list[str] = []
+    for point_id in ids:
+        if not isinstance(point_id, str) or not point_id.strip():
+            raise VectorStoreInvalidPayload(
+                "qdrant point IDs must be non-empty strings"
+            )
+        normalized.append(point_id.strip())
     return normalized
 
 

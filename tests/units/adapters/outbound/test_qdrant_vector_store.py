@@ -3,7 +3,6 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from qdrant_client import models
 
 from arclith.adapters.context import set_tenant_context
 from arclith.adapters.outbound.qdrant import QdrantVectorStore
@@ -23,6 +22,8 @@ from arclith.domain.ports.outbound.vector_store import (
     VectorStoreUnavailable,
 )
 from arclith.infrastructure.settings.vector_store import VectorStoreSettings
+
+models = pytest.importorskip("qdrant_client.models")
 
 
 class FakeProviderError(Exception):
@@ -142,6 +143,17 @@ async def test_upsert_and_delete_map_provider_models() -> None:
     assert provider_point.payload == {"kind": "guide", "published": True}
     delete = client.calls[1][1]
     assert delete["points_selector"].points == ["8c7ecb96-2c97-4df9-bbf1-c3bd98bdfd07"]
+
+
+@pytest.mark.asyncio
+async def test_delete_rejects_non_string_ids_before_provider_call() -> None:
+    client = FakeQdrantClient()
+    store = QdrantVectorStore(_settings(), client=client)
+
+    with pytest.raises(VectorStoreInvalidPayload, match="non-empty strings"):
+        await store.delete([1])  # type: ignore[list-item]
+
+    assert client.calls == []
 
 
 @pytest.mark.asyncio
