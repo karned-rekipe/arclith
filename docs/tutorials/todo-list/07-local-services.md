@@ -713,6 +713,7 @@ flux Authorization Code sans challenge PKCE, l'audience, le rôle et le claim te
 
 ```bash
 mkdir -p scripts
+export ARCLITH_REF="${ARCLITH_REF:-main}"
 curl -fsSLo scripts/smoke-keycloak.sh \
   "https://raw.githubusercontent.com/karned-rekipe/arclith/${ARCLITH_REF}/docs/tutorials/todo-list/scripts/smoke-keycloak.sh"
 chmod +x scripts/smoke-keycloak.sh
