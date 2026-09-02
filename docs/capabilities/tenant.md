@@ -125,6 +125,10 @@ Tester au minimum:
 | tenant inconnu dans Vault | erreur d'accès au tenant |
 | tenant valide | repository initialisé avec les coordonnées du tenant |
 
+Le [POC Vault du tutoriel Todo](../tutorials/todo-list/07-local-services.md#ajouter-vault-localement)
+fournit un seed local reproductible et vérifie séparément `VaultSecretAdapter` et
+`VaultTenantResolver`.
+
 ## Suite
 
 Lire aussi:

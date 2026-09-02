@@ -76,6 +76,10 @@ uv run python -c "from arclith.infrastructure.config import load_config_dir; loa
 git diff --check
 ```
 
+Le [POC Vault du tutoriel Todo](../tutorials/todo-list/07-local-services.md#ajouter-vault-localement)
+montre le lancement du serveur dev, le seed KV v2 et la résolution d'un secret applicatif sans
+afficher sa valeur.
+
 ## Suite
 
 Lire [Secrets et Vault](../production/secrets.md), puis [tenant](tenant.md).
