@@ -364,11 +364,16 @@ Télécharger le [script de seed vérifié](scripts/seed-vault.sh), le placer da
 
 ```bash
 mkdir -p scripts
+export ARCLITH_REF="${ARCLITH_REF:-main}"
 curl -fsSLo scripts/seed-vault.sh \
-  https://raw.githubusercontent.com/karned-rekipe/arclith/main/docs/tutorials/todo-list/scripts/seed-vault.sh
+  "https://raw.githubusercontent.com/karned-rekipe/arclith/${ARCLITH_REF}/docs/tutorials/todo-list/scripts/seed-vault.sh"
 chmod +x scripts/seed-vault.sh
 ./scripts/seed-vault.sh
 ```
+
+`ARCLITH_REF` peut désigner le tag ou le SHA correspondant à la version de cette documentation afin
+de conserver un POC reproductible. Sa valeur par défaut, `main`, convient pour suivre la version de
+développement courante.
 
 Le script active le mount `kv` en KV v2 s'il n'existe pas. S'il existe déjà dans une autre version,
 le script échoue explicitement au lieu de poursuivre avec des routes incompatibles. Il écrit ensuite
