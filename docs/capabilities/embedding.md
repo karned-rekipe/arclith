@@ -188,9 +188,13 @@ arclith-cli add-adapter \
   --capability embedding \
   --adapter openai \
   --param model_name=remplacer-par-model-id-openai-embedding \
-  --param dimensions=1536 \
   --yes
 ```
+
+Cette forme laisse le modèle choisir sa dimension native. Pour aligner
+explicitement une collection vectorielle déjà dimensionnée, ajouter par
+exemple `--param dimensions=1536`; le YAML généré contiendra alors
+`dimensions: 1536` au lieu de `null`.
 
 La configuration générée garde le secret hors Git :
 
