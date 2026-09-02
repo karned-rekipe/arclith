@@ -111,6 +111,32 @@ async def test_memory_vector_store_distinguishes_missing_filter_from_json_null()
 
 
 @pytest.mark.asyncio
+async def test_memory_vector_store_distinguishes_json_booleans_from_numbers() -> None:
+    store = _store()
+    await store.ensure_collection()
+    await store.upsert(
+        [
+            VectorPoint(
+                id="boolean",
+                vector=[1.0, 0.0],
+                payload={"value": {"nested": [True]}},
+            ),
+            VectorPoint(
+                id="number",
+                vector=[1.0, 0.0],
+                payload={"value": {"nested": [1]}},
+            ),
+        ]
+    )
+
+    hits = await store.search(
+        VectorSearchQuery(vector=[1.0, 0.0], filters={"value": {"nested": [True]}})
+    )
+
+    assert [hit.id for hit in hits] == ["boolean"]
+
+
+@pytest.mark.asyncio
 async def test_memory_vector_store_replaces_and_deletes_points() -> None:
     store = _store()
     await store.ensure_collection()

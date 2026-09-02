@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 
+from pydantic import JsonValue
+
 from arclith.domain.ports.outbound.vector_store import (
     VectorPoint,
     VectorSearchHit,
@@ -88,7 +90,7 @@ class MemoryVectorStore(VectorStorePort):
     @staticmethod
     def _matches_filters(point: VectorPoint, query: VectorSearchQuery) -> bool:
         return all(
-            key in point.payload and point.payload[key] == value
+            key in point.payload and _json_values_equal(point.payload[key], value)
             for key, value in query.filters.items()
         )
 
@@ -109,3 +111,32 @@ class MemoryVectorStore(VectorStorePort):
             sum((a - b) ** 2 for a, b in zip(left, right, strict=True))
         )
         return 1.0 / (1.0 + distance)
+
+
+def _json_values_equal(left: JsonValue, right: JsonValue) -> bool:
+    if isinstance(left, bool) or isinstance(right, bool):
+        return left is right
+    if isinstance(left, list):
+        return _json_lists_equal(left, right)
+    if isinstance(right, list):
+        return False
+    if isinstance(left, dict):
+        return _json_dicts_equal(left, right)
+    if isinstance(right, dict):
+        return False
+    return left == right
+
+
+def _json_lists_equal(left: list[JsonValue], right: JsonValue) -> bool:
+    if not isinstance(right, list) or len(left) != len(right):
+        return False
+    return all(
+        _json_values_equal(left_item, right_item)
+        for left_item, right_item in zip(left, right, strict=True)
+    )
+
+
+def _json_dicts_equal(left: dict[str, JsonValue], right: JsonValue) -> bool:
+    if not isinstance(right, dict) or left.keys() != right.keys():
+        return False
+    return all(_json_values_equal(left[key], right[key]) for key in left)
