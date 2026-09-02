@@ -252,7 +252,7 @@ def _raise_for_status(status_code: int) -> None:
         raise EmbeddingAuthenticationError("embedding provider rejected authentication")
     if status_code == 429:
         raise EmbeddingRateLimitError("embedding provider rate limit exceeded")
-    if 400 <= status_code < 500:
+    if status_code < 500:
         raise EmbeddingInvalidInput("embedding provider rejected the request")
     raise EmbeddingUnavailable("embedding provider is unavailable")
 
