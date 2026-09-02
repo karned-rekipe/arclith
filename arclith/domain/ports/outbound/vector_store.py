@@ -141,6 +141,8 @@ class VectorSearchHit(_VectorStoreModel):
     def optional_vector_must_be_finite(
         cls, value: list[float] | None
     ) -> list[float] | None:
+        if value == []:
+            raise ValueError("vector search hit vector must not be empty")
         if value is not None and any(
             not math.isfinite(component) for component in value
         ):

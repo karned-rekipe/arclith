@@ -54,3 +54,8 @@ def test_vector_search_query_requires_positive_limit_and_finite_threshold() -> N
 def test_vector_search_hit_rejects_non_finite_score() -> None:
     with pytest.raises(ValidationError, match="score"):
         VectorSearchHit(id="doc-1", score=math.nan)
+
+
+def test_vector_search_hit_rejects_empty_included_vector() -> None:
+    with pytest.raises(ValidationError, match="must not be empty"):
+        VectorSearchHit(id="doc-1", score=1.0, vector=[])

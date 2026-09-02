@@ -46,16 +46,21 @@ class MemoryVectorStore(VectorStorePort):
             if self._matches_filters(point, query)
         ]
         scored.sort(key=lambda item: (-item[0], item[1].id))
-        return [
-            VectorSearchHit(
-                id=point.id,
-                score=score,
-                payload=point.payload if query.include_payload else {},
-                vector=point.vector if query.include_vector else None,
-            ).model_copy(deep=True)
-            for score, point in scored
-            if query.score_threshold is None or score >= query.score_threshold
-        ][: query.limit]
+        hits: list[VectorSearchHit] = []
+        for score, point in scored:
+            if query.score_threshold is not None and score < query.score_threshold:
+                continue
+            hits.append(
+                VectorSearchHit(
+                    id=point.id,
+                    score=score,
+                    payload=point.payload if query.include_payload else {},
+                    vector=point.vector if query.include_vector else None,
+                ).model_copy(deep=True)
+            )
+            if len(hits) == query.limit:
+                break
+        return hits
 
     def _collection(self) -> dict[str, VectorPoint]:
         try:
