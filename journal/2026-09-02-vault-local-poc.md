@@ -10,7 +10,7 @@ serveur local, de seed KV v2 ni de preuve exécutable pour les deux modes de ré
 - utiliser Vault 2.1.0 en mode dev, lié à `127.0.0.1` et sans volume persistant ;
 - conserver le token jetable hors Git et l'exiger par variable d'environnement dans le script ;
 - fournir un script `set -euo pipefail` qui active le mount KV v2 et écrit des valeurs locales
-  idempotentes pour le service et le tenant ;
+  idempotentes pour le service et le tenant, avec timeouts réseau bornés ;
 - utiliser les commandes existantes `secrets/vault` et `tenant/vault`, sans placeholder ;
 - vérifier le secret applicatif au chargement d'`Arclith` et les coordonnées tenant via le resolver,
   sans afficher les URI.

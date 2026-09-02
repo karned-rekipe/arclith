@@ -9,11 +9,13 @@ VAULT_MOUNT="${VAULT_MOUNT:-kv}"
 
 vault_request() {
   curl --fail --silent --show-error \
+    --connect-timeout 3 \
+    --max-time 10 \
     --header "X-Vault-Token: ${VAULT_TOKEN}" \
     "$@"
 }
 
-if ! vault_request "${VAULT_ADDR}/v1/sys/mounts" | grep -q "\"${VAULT_MOUNT}/\""; then
+if ! vault_request "${VAULT_ADDR}/v1/sys/mounts" | grep -Fq "\"${VAULT_MOUNT}/\""; then
   vault_request \
     --request POST \
     --header "Content-Type: application/json" \

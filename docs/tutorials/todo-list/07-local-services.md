@@ -440,9 +440,12 @@ exposer un champ `value`; il convient aux secrets partagés par l'instance du se
 
 ### Résoudre des coordonnées par tenant
 
-Configurer séparément `tenant/vault` avec le catalogue CLI courant :
+Cette sous-partie requiert elle aussi l'extra `arclith[vault]`. L'installer si la sous-partie
+précédente n'a pas été suivie, puis configurer séparément `tenant/vault` avec le catalogue CLI
+courant :
 
 ```bash
+uv add "arclith[vault]"
 arclith-cli add-adapter \
   --capability tenant \
   --adapter vault \
