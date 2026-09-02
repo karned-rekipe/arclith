@@ -4,6 +4,32 @@
 
 ---
 
+## [0.21.0] — 2026-09-02
+
+### Added
+
+- **Embeddings provider-neutral** — port typé, validation et erreurs stables, factory/registry,
+  configuration stricte, adapter déterministe de test et extra HTTP dédié.
+- **Adapter embedding OpenAI-compatible** — requêtes batchées vers `/embeddings`, dimensions
+  contrôlées, usage normalisé et traduction explicite des erreurs HTTP/provider.
+- **Recettes CLI rejouables** — journal YAML atomique des mutations réussies, sélection de plages,
+  dry-run, détection de dérive et replay déterministe avec chemins sûrs.
+- **Propagation du contexte de trace du runtime durable** — chaque run LangGraph conserve son
+  contexte d'observabilité entre l'API, la file de coordination et le worker.
+
+### Changed
+
+- **Structure interne allégée** — les gros modules de configuration, bootstrap, observabilité,
+  runtime et catalogue CLI sont séparés en composants ciblés sans changer les imports publics.
+- **Configuration stricte** — les clés inconnues sont refusées après résolution des champs réservés
+  au chargeur, avec des erreurs Pydantic stables et actionnables.
+- **Métadonnées PyPI de la CLI** — la page `arclith-cli` utilise désormais son README comme
+  description longue au lieu d'une fiche sans documentation.
+- **Versions release** — `arclith` passe à `0.21.0`; `arclith-cli` passe à `0.18.0`
+  et dépend de `arclith>=0.21.0`.
+
+---
+
 ## [0.20.0] — 2026-08-28
 
 ### Added
