@@ -493,5 +493,83 @@ multitenant: {multitenant}
             ),
             entity_scoped=False,
         ),
+        AdapterSpec(
+            name="qdrant",
+            capability="vector-store",
+            layer="outbound",
+            description="Index vectoriel dense Qdrant via le client Python async officiel.",
+            config_path="config/adapters/outbound/vector_store.yaml",
+            config_template="""\
+adapter: qdrant
+url: "{url}"
+api_key: null
+collection_name: "{collection_name}"
+vector_size: {vector_size}
+distance: {distance}
+prefer_grpc: {prefer_grpc}
+timeout: {timeout}
+create_collection: {create_collection}
+multitenant: {multitenant}
+""",
+            secret_mappings=(
+                SecretMappingSpec(
+                    field_path="adapters.vector_store.api_key",
+                    secret_key="QDRANT_API_KEY",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="url",
+                    kind="string",
+                    prompt="Endpoint HTTP Qdrant sans credentials",
+                    default="http://localhost:6333",
+                ),
+                ParameterSpec(
+                    name="collection_name",
+                    kind="string",
+                    prompt="Nom de la collection Qdrant",
+                    default="default",
+                ),
+                ParameterSpec(
+                    name="vector_size",
+                    kind="string",
+                    prompt="Dimension obligatoire des vecteurs",
+                    default="1536",
+                ),
+                ParameterSpec(
+                    name="distance",
+                    kind="string",
+                    prompt="Métrique de similarité",
+                    default="cosine",
+                    choices=("cosine", "dot", "euclid"),
+                ),
+                ParameterSpec(
+                    name="prefer_grpc",
+                    kind="boolean",
+                    prompt="Préférer le transport gRPC",
+                    default=False,
+                ),
+                ParameterSpec(
+                    name="timeout",
+                    kind="string",
+                    prompt="Timeout client en secondes",
+                    default="5.0",
+                ),
+                ParameterSpec(
+                    name="create_collection",
+                    kind="boolean",
+                    prompt="Créer la collection si elle manque",
+                    default=True,
+                ),
+                ParameterSpec(
+                    name="multitenant",
+                    kind="boolean",
+                    prompt="Résoudre url, api_key et collection par tenant",
+                    default=False,
+                ),
+            ),
+            dependency_extra="qdrant",
+            entity_scoped=False,
+        ),
     ),
 )

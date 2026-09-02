@@ -59,6 +59,39 @@ def test_public_vector_store_exports():
     assert arclith.build_vector_store is not None
     assert arclith.VectorStorePort is not None
     assert arclith.MemoryVectorStore is not None
+    assert arclith.QdrantVectorStore is not None
+
+
+def test_import_arclith_does_not_require_qdrant_extra():
+    script = """
+import importlib.abc
+import sys
+
+
+class BlockQdrantExtra(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        if fullname == "qdrant_client" or fullname.startswith("qdrant_client."):
+            raise ModuleNotFoundError(fullname)
+        return None
+
+
+sys.meta_path.insert(0, BlockQdrantExtra())
+
+import arclith
+
+arclith.default_vector_store_registry()
+assert arclith.QdrantVectorStore is not None
+print(arclith.__name__)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "arclith"
 
 
 def test_import_arclith_does_not_require_embedding_extra():

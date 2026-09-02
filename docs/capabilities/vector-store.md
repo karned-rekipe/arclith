@@ -110,6 +110,137 @@ await vector_store.ensure_collection()
 valident tout le batch avant de le modifier et lèvent
 `VectorStoreDimensionMismatch` si une dimension diffère de `vector_size`.
 
+## Adapter Qdrant
+
+`qdrant` fournit l'adapter de production dense via le client Python async
+officiel. La dépendance reste optionnelle :
+
+```bash
+uv add 'arclith[qdrant]'
+```
+
+La commande CLI installe l'extra et génère le même fichier scoped que
+`memory`, sans écrire la clé API :
+
+```bash
+arclith-cli add-adapter \
+  --capability vector-store \
+  --adapter qdrant \
+  --param url=http://localhost:6333 \
+  --param collection_name=documents \
+  --param vector_size=1536 \
+  --param distance=cosine \
+  --yes
+```
+
+`config/adapters/outbound/vector_store.yaml` :
+
+```yaml
+adapter: qdrant
+url: "http://localhost:6333"
+api_key: null
+collection_name: "documents"
+vector_size: 1536
+distance: cosine
+prefer_grpc: false
+timeout: 5.0
+create_collection: true
+multitenant: false
+```
+
+Le catalogue ajoute de façon idempotente les mappings suivants dans
+`config/secrets.yaml` :
+
+```yaml
+resolver: env
+mappings:
+  adapters.vector_store.api_key: QDRANT_API_KEY
+```
+
+`QDRANT_API_KEY` reste optionnelle pour une instance locale. Une URL contenant
+des credentials est refusée afin que ceux-ci ne puissent pas fuiter par la
+configuration. Si l'endpoint doit lui aussi venir d'un resolver, le service
+peut ajouter explicitement `adapters.vector_store.url: QDRANT_URL` à ses
+mappings et fournir la variable correspondante.
+
+### Smoke Local
+
+Un `compose.yaml` minimal peut lancer Qdrant sans service annexe :
+
+```yaml
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.0
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+```
+
+```bash
+docker compose up -d qdrant
+curl --fail http://localhost:6333/healthz
+```
+
+Le service consommateur calcule l'embedding avant d'appeler le vector store ;
+Qdrant n'est jamais invoqué directement depuis le domaine ou l'adapter
+inbound :
+
+```python
+from arclith import (
+    EmbeddingPort,
+    EmbeddingText,
+    VectorPoint,
+    VectorSearchQuery,
+    VectorStorePort,
+)
+
+
+async def index_and_find(
+    embedding: EmbeddingPort,
+    store: VectorStorePort,
+) -> list[str]:
+    await store.ensure_collection()
+    indexed = await embedding.embed_texts(
+        [EmbeddingText(id="guide", text="Guide de démarrage")]
+    )
+    vector = indexed.results[0].vector
+    await store.upsert(
+        [
+            VectorPoint(
+                id="8c7ecb96-2c97-4df9-bbf1-c3bd98bdfd07",
+                vector=vector,
+                payload={"kind": "guide"},
+            )
+        ]
+    )
+    hits = await store.search(
+        VectorSearchQuery(vector=vector, filters={"kind": "guide"})
+    )
+    return [hit.id for hit in hits]
+```
+
+Avant l'upsert ou la recherche, l'adapter vérifie que la dimension correspond
+à `vector_size`, puis mappe les erreurs du SDK vers les erreurs communes. La
+page [Embedding](embedding.md) détaille la production du vecteur.
+
+Les filtres Qdrant v1 sont des exact-match sur un champ de premier niveau et
+acceptent les chaînes, entiers et booléens pris en charge par `MatchValue`.
+Les nombres flottants, `null`, listes et objets restent valides dans les
+payloads mais ne sont pas acceptés comme valeur de filtre Qdrant v1.
+
+### Multitenant Et Cycle De Vie
+
+Avec `multitenant: true`, le contexte d'adapter `qdrant` peut fournir `url`,
+`api_key` et `collection_name`. Chaque champ absent retombe sur la
+configuration single-tenant. L'URL effective est revalidée et aucun message
+d'erreur ne contient la clé.
+
+En single-tenant, l'adapter réutilise un unique `AsyncQdrantClient` et expose
+`await store.close()` pour le fermer lors de l'arrêt du service. Un client
+injecté appartient à l'appelant et n'est pas fermé. En multitenant, un client
+isolé est créé pour l'opération puis fermé immédiatement, afin de ne pas
+conserver les credentials tenant en cache.
+
 ## Erreurs Communes
 
 Les adapters exposent les erreurs provider-neutral suivantes :
@@ -137,6 +268,7 @@ fuiter de types fournisseur dans le domaine.
 ```bash
 uv run pytest tests/units/domain/ports/test_vector_store.py
 uv run pytest tests/units/adapters/outbound/test_memory_vector_store.py
+uv run --extra qdrant pytest tests/units/adapters/outbound/test_qdrant_vector_store.py
 uv run pytest tests/units/infrastructure/test_vector_store_config.py
 uv run pytest tests/units/infrastructure/test_vector_store_factory.py
 uv run --project cli pytest cli/tests/test_vector_store_capability.py

@@ -5,6 +5,7 @@ import pytest
 
 from arclith import Arclith
 from arclith.adapters.outbound.memory.vector_store import MemoryVectorStore
+from arclith.adapters.outbound.qdrant import QdrantVectorStore
 from arclith.domain.ports.outbound.vector_store import (
     VectorPoint,
     VectorSearchHit,
@@ -49,6 +50,22 @@ def _config() -> AppConfig:
 
 def test_build_vector_store_returns_memory_adapter(logger) -> None:
     assert isinstance(build_vector_store(_config(), logger), MemoryVectorStore)
+
+
+def test_build_vector_store_returns_qdrant_adapter(logger) -> None:
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "vector_store": {
+                    "adapter": "qdrant",
+                    "collection_name": "documents",
+                    "vector_size": 3,
+                }
+            }
+        }
+    )
+
+    assert isinstance(build_vector_store(config, logger), QdrantVectorStore)
 
 
 def test_build_vector_store_requires_config(logger) -> None:

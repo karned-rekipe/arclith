@@ -161,6 +161,11 @@ class VectorSearchHit(_VectorStoreModel):
 class VectorStorePort(ABC):
     """Outbound port for a rebuildable dense-vector search index."""
 
+    async def close(self) -> None:
+        """Release owned provider resources; no-op for adapters without clients."""
+
+        return None
+
     @abstractmethod
     async def ensure_collection(self) -> None:
         """Create the configured logical collection when it is absent."""

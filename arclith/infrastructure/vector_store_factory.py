@@ -44,7 +44,11 @@ def build_vector_store(
 
 
 def default_vector_store_registry() -> VectorStoreRegistry:
-    return VectorStoreRegistry().register("memory", _build_memory_vector_store)
+    return (
+        VectorStoreRegistry()
+        .register("memory", _build_memory_vector_store)
+        .register("qdrant", _build_qdrant_vector_store)
+    )
 
 
 def _build_memory_vector_store(config: AppConfig, _logger: Logger) -> VectorStorePort:
@@ -54,3 +58,12 @@ def _build_memory_vector_store(config: AppConfig, _logger: Logger) -> VectorStor
     if settings is None:
         raise ValueError("Memory vector-store settings are required")
     return MemoryVectorStore(settings)
+
+
+def _build_qdrant_vector_store(config: AppConfig, _logger: Logger) -> VectorStorePort:
+    from arclith.adapters.outbound.qdrant.vector_store import QdrantVectorStore
+
+    settings = config.adapters.vector_store
+    if settings is None:
+        raise ValueError("Qdrant vector-store settings are required")
+    return QdrantVectorStore(settings)
