@@ -407,10 +407,10 @@ Le runtime exporte par lot. Après quelques secondes, vérifier sans dépendre d
 indexé le service et au moins une trace :
 
 ```bash
-curl -fsS http://127.0.0.1:16686/api/services | python -m json.tool
+curl -fsS http://127.0.0.1:16686/api/services | uv run python -m json.tool
 curl -fsS \
   "http://127.0.0.1:16686/api/traces?service=todo-list-service&limit=20" \
-  | python -c 'import json, sys; print(len(json.load(sys.stdin)["data"]))'
+  | uv run python -c 'import json, sys; print(len(json.load(sys.stdin)["data"]))'
 ```
 
 La première commande doit contenir `todo-list-service`; la seconde doit afficher un entier supérieur
