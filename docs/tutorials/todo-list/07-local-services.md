@@ -341,7 +341,14 @@ docker run --rm --name arclith-jaeger \
 Attendre que l'API de requête Jaeger réponde, puis ouvrir son UI :
 
 ```bash
-until curl -fsS http://127.0.0.1:16686/api/services >/dev/null; do sleep 1; done
+for attempt in $(seq 1 30); do
+  curl -fsS http://127.0.0.1:16686/api/services >/dev/null && break
+  if [ "$attempt" -eq 30 ]; then
+    docker logs arclith-jaeger
+    exit 1
+  fi
+  sleep 1
+done
 ```
 
 ```text
