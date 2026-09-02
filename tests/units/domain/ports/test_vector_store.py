@@ -56,6 +56,11 @@ def test_vector_search_hit_rejects_non_finite_score() -> None:
         VectorSearchHit(id="doc-1", score=math.nan)
 
 
+def test_vector_search_hit_rejects_non_finite_payload() -> None:
+    with pytest.raises(ValidationError, match="payload"):
+        VectorSearchHit(id="doc-1", score=1.0, payload={"rank": math.inf})
+
+
 def test_vector_search_hit_rejects_empty_included_vector() -> None:
     with pytest.raises(ValidationError, match="must not be empty"):
         VectorSearchHit(id="doc-1", score=1.0, vector=[])

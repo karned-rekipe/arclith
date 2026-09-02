@@ -129,6 +129,14 @@ class VectorSearchHit(_VectorStoreModel):
             raise ValueError("vector search hit id must not be empty")
         return normalized
 
+    @field_validator("payload")
+    @classmethod
+    def payload_must_be_strict_json(
+        cls, value: dict[str, JsonValue]
+    ) -> dict[str, JsonValue]:
+        _validate_finite_json(value)
+        return value
+
     @field_validator("score")
     @classmethod
     def score_must_be_finite(cls, value: float) -> float:
