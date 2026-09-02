@@ -27,7 +27,7 @@ class EmbeddingSettings(SettingsModel):
     base_url: str | None = None
     api_key: str | None = None
     timeout: PositiveFloat = 30.0
-    normalize: bool = True
+    normalize: bool = False
     multitenant: bool = False
 
     @field_validator("model_name")

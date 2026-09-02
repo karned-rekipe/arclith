@@ -86,6 +86,26 @@ def test_load_config_dir_loads_openai_compatible_settings(tmp_path: Path) -> Non
     assert config.adapters.embedding.timeout == 12.5
 
 
+def test_openai_compatible_settings_do_not_normalize_when_omitted(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    embedding_dir = config_dir / "adapters" / "outbound"
+    embedding_dir.mkdir(parents=True)
+    (embedding_dir / "embedding.yaml").write_text(
+        "adapter: openai-compatible\n"
+        "base_url: http://127.0.0.1:1234/v1\n"
+        "model_name: local-embedding-model\n"
+        "dimensions: 768\n",
+        encoding="utf-8",
+    )
+
+    config = load_config_dir(config_dir)
+
+    assert config.adapters.embedding is not None
+    assert config.adapters.embedding.normalize is False
+
+
 @pytest.mark.parametrize(
     "base_url",
     [

@@ -36,7 +36,7 @@ qui exigent un header Authorization.
 
 ## Validation
 
-- `make quality` : 1 710 tests réussis, 5 ignorés, couverture 90,63 %,
+- `make quality` : 1 711 tests réussis, 5 ignorés, couverture 90,65 %,
   lint, Bandit, complexité et mypy verts sur 189 fichiers ;
 - `make precommit` : lint, mypy et Bandit verts ;
 - `uv run --frozen pytest -q` depuis `cli/` : 141 tests réussis, 1 ignoré ;

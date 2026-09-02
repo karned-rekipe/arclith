@@ -166,7 +166,8 @@ Les tests Arclith utilisent un transport HTTP simulé. Ils ne nécessitent ni
 réseau, ni LM Studio, ni Ollama. L'adapter découpe les sous-batches, réordonne
 les résultats selon l'index provider, agrège l'usage, vérifie chaque dimension
 et traduit auth, rate limit, timeout et indisponibilité vers les erreurs
-communes. Avec `normalize: true`, il applique une normalisation L2 locale ; avec
+communes. `normalize` vaut `false` quand le champ est omis. Avec
+`normalize: true`, l'adapter applique une normalisation L2 locale ; avec
 `false`, il conserve exactement les vecteurs du provider.
 
 ## Assemblage
