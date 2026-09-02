@@ -6,6 +6,7 @@ from pydantic import Field, field_validator, model_validator
 
 from arclith.infrastructure.settings._base import SettingsModel
 
+from arclith.infrastructure.settings.embedding import EmbeddingSettings
 from arclith.infrastructure.settings.langgraph import LangGraphSettings
 from arclith.infrastructure.settings.langsmith import LangSmithSettings
 from arclith.infrastructure.settings.llm import LMSettings
@@ -55,6 +56,7 @@ class AdaptersSettings(SettingsModel):
     mariadb: MariaDBSettings | None = None
     postgresql: PostgreSQLSettings | None = None
     storage: StorageSettings | None = None
+    embedding: EmbeddingSettings | None = None
     lm: LMSettings | None = None
     langsmith: LangSmithSettings | None = None
     opentelemetry: OpenTelemetrySettings | None = None

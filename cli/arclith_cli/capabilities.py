@@ -15,6 +15,7 @@ from arclith_cli.capability_models import (
 from arclith_cli.catalogs.ai import (
     AGENT_CAPABILITY,
     AGENT_PERSISTENCE_CAPABILITY,
+    EMBEDDING_CAPABILITY,
     LLM_CAPABILITY,
 )
 from arclith_cli.catalogs.core import (
@@ -49,6 +50,7 @@ __all__ = [
     "CAPABILITY_CATALOG",
     "COMMAND_BUS_CAPABILITY",
     "CapabilitySpec",
+    "EMBEDDING_CAPABILITY",
     "FileTemplateSpec",
     "HTTP_CAPABILITY",
     "LICENSE_CAPABILITY",
@@ -88,6 +90,7 @@ CAPABILITY_CATALOG = (
     TENANT_CAPABILITY,
     LICENSE_CAPABILITY,
     LLM_CAPABILITY,
+    EMBEDDING_CAPABILITY,
     AGENT_CAPABILITY,
     AGENT_PERSISTENCE_CAPABILITY,
     OBSERVABILITY_CAPABILITY,

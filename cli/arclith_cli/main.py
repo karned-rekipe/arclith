@@ -164,8 +164,8 @@ def add_adapter(
             "--capability",
             help=(
                 "Capacité cible: repository, cache, logger, secrets, api, mcp, probe, http, "
-                "command-bus, runtime, auth, tenant, license, llm, agent, agent-persistence "
-                "ou observability"
+                "command-bus, runtime, auth, tenant, license, llm, embedding, agent, "
+                "agent-persistence ou observability"
             ),
         ),
     ] = "repository",

@@ -26,6 +26,10 @@ from arclith.infrastructure.settings.langgraph import (
     LangGraphStoreSettings,
     LangGraphStreamMode,
 )
+from arclith.infrastructure.settings.embedding import (
+    EmbeddingAdapter,
+    EmbeddingSettings,
+)
 from arclith.infrastructure.settings.langsmith import (
     LangSmithCaptureSettings,
     LangSmithDiagnosticsSettings,
@@ -78,6 +82,8 @@ __all__ = [
     "CommandBusAdapter",
     "CommandBusSettings",
     "DuckDBSettings",
+    "EmbeddingAdapter",
+    "EmbeddingSettings",
     "ETagSettings",
     "HttpSettings",
     "IdempotencySettings",

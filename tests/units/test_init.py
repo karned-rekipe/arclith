@@ -43,6 +43,15 @@ def test_public_file_storage_exports():
     assert arclith.GCSFileStorage is not None
 
 
+def test_public_embedding_exports():
+    registry = arclith.default_embedding_registry()
+
+    assert isinstance(registry, arclith.EmbeddingRegistry)
+    assert arclith.build_embedding is not None
+    assert arclith.EmbeddingPort is not None
+    assert arclith.DeterministicEmbeddingAdapter is not None
+
+
 def test_import_arclith_does_not_require_s3_extra():
     script = """
 import importlib.abc
