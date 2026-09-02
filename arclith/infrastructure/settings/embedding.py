@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import urlsplit
 
 from pydantic import (
@@ -27,8 +27,19 @@ class EmbeddingSettings(SettingsModel):
     base_url: str | None = None
     api_key: str | None = None
     timeout: PositiveFloat = 30.0
-    normalize: bool = False
+    normalize: bool = True
     multitenant: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def apply_adapter_defaults(cls, values: Any) -> Any:
+        if (
+            isinstance(values, dict)
+            and values.get("adapter") == "openai-compatible"
+            and "normalize" not in values
+        ):
+            return {**values, "normalize": False}
+        return values
 
     @field_validator("model_name")
     @classmethod
