@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from arclith.domain.ports.outbound.embedding import (
@@ -24,8 +25,39 @@ if TYPE_CHECKING:
     import httpx
 
 
+@dataclass
+class _UsageAccumulator:
+    prompt_tokens: int = 0
+    total_tokens: int = 0
+    has_prompt_tokens: bool = False
+    has_total_tokens: bool = False
+
+    def add(self, usage: EmbeddingUsage | None) -> None:
+        if usage is None:
+            return
+        if usage.prompt_tokens is not None:
+            self.prompt_tokens += usage.prompt_tokens
+            self.has_prompt_tokens = True
+        if usage.total_tokens is not None:
+            self.total_tokens += usage.total_tokens
+            self.has_total_tokens = True
+
+    def build(self) -> EmbeddingUsage | None:
+        if not (self.has_prompt_tokens or self.has_total_tokens):
+            return None
+        return EmbeddingUsage(
+            prompt_tokens=self.prompt_tokens if self.has_prompt_tokens else None,
+            total_tokens=self.total_tokens if self.has_total_tokens else None,
+        )
+
+
 class OpenAICompatibleEmbeddingAdapter(EmbeddingPort):
     """Text embeddings over the OpenAI-compatible HTTP protocol."""
+
+    _include_encoding_format = False
+    _requires_api_key = False
+    _missing_api_key_message = "embedding provider api_key is required"
+    _rate_limit_message = "embedding provider rate limit exceeded"
 
     def __init__(
         self,
@@ -35,6 +67,8 @@ class OpenAICompatibleEmbeddingAdapter(EmbeddingPort):
     ) -> None:
         if settings.base_url is None:
             raise ValueError("OpenAI-compatible embedding base_url is required")
+        if self._requires_api_key and settings.api_key is None:
+            raise EmbeddingAuthenticationError(self._missing_api_key_message)
         self._settings = settings
         self._client = client
 
@@ -53,37 +87,32 @@ class OpenAICompatibleEmbeddingAdapter(EmbeddingPort):
         inputs: tuple[EmbeddingText, ...],
     ) -> EmbeddingResponse:
         results: list[EmbeddingResult] = []
-        prompt_tokens = 0
-        total_tokens = 0
-        has_prompt_tokens = False
-        has_total_tokens = False
+        usage = _UsageAccumulator()
+        dimensions = self._settings.dimensions
 
         for offset in range(0, len(inputs), self._settings.batch_size):
             batch = inputs[offset : offset + self._settings.batch_size]
-            batch_results, batch_usage = await self._request_batch(
+            batch_results, batch_usage, batch_dimensions = await self._request_batch(
                 client,
                 batch,
                 offset=offset,
             )
             results.extend(batch_results)
-            if batch_usage is not None and batch_usage.prompt_tokens is not None:
-                prompt_tokens += batch_usage.prompt_tokens
-                has_prompt_tokens = True
-            if batch_usage is not None and batch_usage.total_tokens is not None:
-                total_tokens += batch_usage.total_tokens
-                has_total_tokens = True
+            if dimensions is None:
+                dimensions = batch_dimensions
+            elif dimensions != batch_dimensions:
+                raise EmbeddingDimensionMismatch(
+                    "embedding provider returned inconsistent vector dimensions"
+                )
+            usage.add(batch_usage)
 
-        usage = None
-        if has_prompt_tokens or has_total_tokens:
-            usage = EmbeddingUsage(
-                prompt_tokens=prompt_tokens if has_prompt_tokens else None,
-                total_tokens=total_tokens if has_total_tokens else None,
-            )
+        if dimensions is None:  # pragma: no cover - guarded by non-empty batches
+            raise EmbeddingError("embedding provider returned no vector dimensions")
         return EmbeddingResponse(
             results=results,
             model_name=self._settings.model_name,
-            dimensions=self._settings.dimensions,
-            usage=usage,
+            dimensions=dimensions,
+            usage=usage.build(),
         )
 
     async def _request_batch(
@@ -92,13 +121,16 @@ class OpenAICompatibleEmbeddingAdapter(EmbeddingPort):
         inputs: tuple[EmbeddingText, ...],
         *,
         offset: int,
-    ) -> tuple[list[EmbeddingResult], EmbeddingUsage | None]:
+    ) -> tuple[list[EmbeddingResult], EmbeddingUsage | None, int]:
         httpx = _require_httpx()
         payload: dict[str, object] = {
             "input": [item.text for item in inputs],
             "model": self._settings.model_name,
-            "dimensions": self._settings.dimensions,
         }
+        if self._settings.dimensions is not None:
+            payload["dimensions"] = self._settings.dimensions
+        if self._include_encoding_format:
+            payload["encoding_format"] = self._settings.encoding_format
         try:
             response = await client.post(
                 f"{self._settings.base_url}/embeddings",
@@ -108,7 +140,7 @@ class OpenAICompatibleEmbeddingAdapter(EmbeddingPort):
         except (httpx.TimeoutException, httpx.TransportError) as error:
             raise EmbeddingUnavailable("embedding provider is unavailable") from error
 
-        _raise_for_status(response.status_code)
+        self._raise_for_status(response.status_code)
         try:
             body = response.json()
         except (TypeError, ValueError) as error:
@@ -123,7 +155,7 @@ class OpenAICompatibleEmbeddingAdapter(EmbeddingPort):
         inputs: tuple[EmbeddingText, ...],
         *,
         offset: int,
-    ) -> tuple[list[EmbeddingResult], EmbeddingUsage | None]:
+    ) -> tuple[list[EmbeddingResult], EmbeddingUsage | None, int]:
         response = _response_mapping(body)
         _validate_provider_model(response.get("model"), self._settings.model_name)
         data = _response_data(response.get("data"), expected_count=len(inputs))
@@ -139,17 +171,18 @@ class OpenAICompatibleEmbeddingAdapter(EmbeddingPort):
         if set(by_index) != set(range(len(inputs))):
             raise EmbeddingError("embedding provider returned invalid result indices")
 
+        dimensions = _consistent_dimensions(by_index.values())
         results = [
             EmbeddingResult(
                 id=inputs[index].id,
                 index=offset + index,
                 vector=by_index[index],
                 model_name=self._settings.model_name,
-                dimensions=self._settings.dimensions,
+                dimensions=dimensions,
             )
             for index in range(len(inputs))
         ]
-        return results, _parse_usage(response.get("usage"))
+        return results, _parse_usage(response.get("usage")), dimensions
 
     def _parse_result_item(self, item: Any) -> tuple[int, list[float]]:
         result = _result_mapping(item)
@@ -161,6 +194,9 @@ class OpenAICompatibleEmbeddingAdapter(EmbeddingPort):
         if self._settings.normalize:
             parsed = _normalize_vector(parsed)
         return index, parsed
+
+    def _raise_for_status(self, status_code: int) -> None:
+        _raise_for_status(status_code, rate_limit_message=self._rate_limit_message)
 
     def _request_headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
@@ -209,16 +245,27 @@ def _provider_index(value: Any) -> int:
     return value
 
 
-def _provider_vector(value: Any, *, dimensions: int) -> list[float]:
-    if not isinstance(value, list) or any(
-        not _is_finite_number(component) for component in value
+def _provider_vector(value: Any, *, dimensions: int | None) -> list[float]:
+    if (
+        not isinstance(value, list)
+        or not value
+        or any(not _is_finite_number(component) for component in value)
     ):
         raise EmbeddingError("embedding provider returned an invalid vector")
-    if len(value) != dimensions:
+    if dimensions is not None and len(value) != dimensions:
         raise EmbeddingDimensionMismatch(
             "embedding provider vector dimensions do not match configuration"
         )
     return [float(component) for component in value]
+
+
+def _consistent_dimensions(vectors: Iterable[Sequence[float]]) -> int:
+    dimensions = {len(vector) for vector in vectors}
+    if len(dimensions) != 1:
+        raise EmbeddingDimensionMismatch(
+            "embedding provider returned inconsistent vector dimensions"
+        )
+    return dimensions.pop()
 
 
 def _is_finite_number(value: Any) -> bool:
@@ -245,13 +292,13 @@ def _normalize_vector(vector: list[float]) -> list[float]:
     return [value / norm for value in vector]
 
 
-def _raise_for_status(status_code: int) -> None:
+def _raise_for_status(status_code: int, *, rate_limit_message: str) -> None:
     if status_code < 400:
         return
     if status_code in {401, 403}:
         raise EmbeddingAuthenticationError("embedding provider rejected authentication")
     if status_code == 429:
-        raise EmbeddingRateLimitError("embedding provider rate limit exceeded")
+        raise EmbeddingRateLimitError(rate_limit_message)
     if status_code < 500:
         raise EmbeddingInvalidInput("embedding provider rejected the request")
     raise EmbeddingUnavailable("embedding provider is unavailable")

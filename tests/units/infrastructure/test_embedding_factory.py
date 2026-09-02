@@ -8,7 +8,9 @@ from arclith.adapters.outbound.deterministic import DeterministicEmbeddingAdapte
 from arclith.adapters.outbound.openai_compatible import (
     OpenAICompatibleEmbeddingAdapter,
 )
+from arclith.adapters.outbound.openai import OpenAIEmbeddingAdapter
 from arclith.domain.ports.outbound.embedding import (
+    EmbeddingAuthenticationError,
     EmbeddingPort,
     EmbeddingResponse,
     EmbeddingText,
@@ -66,6 +68,43 @@ def test_build_embedding_returns_openai_compatible_adapter(logger) -> None:
     embedding = build_embedding(config, logger)
 
     assert isinstance(embedding, OpenAICompatibleEmbeddingAdapter)
+
+
+def test_build_embedding_returns_openai_adapter(logger) -> None:
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "embedding": {
+                    "adapter": "openai",
+                    "api_key": "test-key",
+                    "model_name": "configured-embedding-model",
+                }
+            }
+        }
+    )
+
+    embedding = build_embedding(config, logger)
+
+    assert type(embedding) is OpenAIEmbeddingAdapter
+
+
+def test_build_openai_embedding_requires_resolved_api_key(logger) -> None:
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "embedding": {
+                    "adapter": "openai",
+                    "model_name": "configured-embedding-model",
+                }
+            }
+        }
+    )
+
+    with pytest.raises(
+        EmbeddingAuthenticationError,
+        match="OPENAI_API_KEY.*config/secrets.yaml",
+    ):
+        build_embedding(config, logger)
 
 
 def test_build_embedding_requires_config(logger) -> None:

@@ -260,6 +260,95 @@ multitenant: {multitenant}
             dependency_extra="embedding",
             entity_scoped=False,
         ),
+        AdapterSpec(
+            name="openai",
+            capability="embedding",
+            layer="outbound",
+            description="Embeddings via l'API OpenAI officielle et un secret externe.",
+            config_path="config/adapters/outbound/embedding.yaml",
+            config_template="""\
+adapter: openai
+base_url: "{base_url}"
+api_key: null
+model_name: "{model_name}"
+dimensions: {dimensions}
+batch_size: {batch_size}
+timeout: {timeout}
+encoding_format: {encoding_format}
+normalize: {normalize}
+multitenant: {multitenant}
+""",
+            env_path=".env",
+            env_template="""\
+OPENAI_API_KEY={api_key}
+""",
+            secret_mappings=(
+                SecretMappingSpec(
+                    field_path="adapters.embedding.api_key",
+                    secret_key="OPENAI_API_KEY",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="base_url",
+                    kind="string",
+                    prompt="Endpoint officiel OpenAI avec préfixe API",
+                    default="https://api.openai.com/v1",
+                ),
+                ParameterSpec(
+                    name="api_key",
+                    kind="string",
+                    prompt="OPENAI_API_KEY (laisser vide pour un secret externe)",
+                    default="",
+                    secret=True,
+                ),
+                ParameterSpec(
+                    name="model_name",
+                    kind="string",
+                    prompt="ID du modèle d'embedding OpenAI accessible au projet",
+                    default="remplacer-par-model-id-openai-embedding",
+                ),
+                ParameterSpec(
+                    name="dimensions",
+                    kind="string",
+                    prompt="Dimension optionnelle des vecteurs (null pour le défaut modèle)",
+                    default="null",
+                ),
+                ParameterSpec(
+                    name="batch_size",
+                    kind="string",
+                    prompt="Taille maximale des sous-batches",
+                    default="64",
+                ),
+                ParameterSpec(
+                    name="timeout",
+                    kind="string",
+                    prompt="Timeout HTTP en secondes",
+                    default="30.0",
+                ),
+                ParameterSpec(
+                    name="encoding_format",
+                    kind="string",
+                    prompt="Format des vecteurs retournés",
+                    default="float",
+                    choices=("float",),
+                ),
+                ParameterSpec(
+                    name="normalize",
+                    kind="boolean",
+                    prompt="Normaliser les vecteurs en norme L2",
+                    default=False,
+                ),
+                ParameterSpec(
+                    name="multitenant",
+                    kind="boolean",
+                    prompt="Réserver la résolution de contexte par tenant",
+                    default=False,
+                ),
+            ),
+            dependency_extra="embedding",
+            entity_scoped=False,
+        ),
     ),
 )
 

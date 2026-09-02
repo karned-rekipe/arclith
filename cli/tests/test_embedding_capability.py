@@ -27,7 +27,11 @@ def test_embedding_capability_catalog_declares_deterministic_adapter() -> None:
     assert capability is not None
     assert capability.layer == "outbound"
     assert capability.activation_config_key is None
-    assert capability.adapter_names() == ("deterministic", "openai-compatible")
+    assert capability.adapter_names() == (
+        "deterministic",
+        "openai-compatible",
+        "openai",
+    )
     deterministic = capability.get_adapter("deterministic")
     assert deterministic is not None
     assert deterministic.entity_scoped is False
@@ -53,6 +57,29 @@ def test_embedding_capability_catalog_declares_deterministic_adapter() -> None:
         "normalize",
         "multitenant",
     ]
+    openai = capability.get_adapter("openai")
+    assert openai is not None
+    assert openai.entity_scoped is False
+    assert openai.dependency_extra == "embedding"
+    assert openai.secret_mappings[0].field_path == "adapters.embedding.api_key"
+    assert openai.secret_mappings[0].secret_key == "OPENAI_API_KEY"
+    assert [parameter.name for parameter in openai.parameters] == [
+        "base_url",
+        "api_key",
+        "model_name",
+        "dimensions",
+        "batch_size",
+        "timeout",
+        "encoding_format",
+        "normalize",
+        "multitenant",
+    ]
+    assert (
+        next(
+            parameter for parameter in openai.parameters if parameter.name == "api_key"
+        ).secret
+        is True
+    )
 
 
 def test_embedding_capability_is_exposed_in_json_catalog() -> None:
@@ -65,6 +92,20 @@ def test_embedding_capability_is_exposed_in_json_catalog() -> None:
     assert [adapter["name"] for adapter in embedding["adapters"]] == [
         "deterministic",
         "openai-compatible",
+        "openai",
+    ]
+    openai = embedding["adapters"][2]
+    api_key = next(
+        parameter
+        for parameter in openai["parameters"]
+        if parameter["name"] == "api_key"
+    )
+    assert api_key["secret"] is True
+    assert openai["secret_mappings"] == [
+        {
+            "field_path": "adapters.embedding.api_key",
+            "secret_key": "OPENAI_API_KEY",
+        }
     ]
 
 
@@ -159,3 +200,84 @@ def test_add_openai_compatible_embedding_generates_loadable_config_idempotently(
     assert "arclith[embedding]>=0.21.0" in (project_dir / "pyproject.toml").read_text(
         encoding="utf-8"
     )
+
+
+def test_add_openai_embedding_generates_safe_loadable_config_idempotently(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    (project_dir / ".env").write_text("EXISTING=value\n", encoding="utf-8")
+    params = {
+        "model_name": "configured-embedding-model",
+        "dimensions": "1536",
+    }
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="embedding",
+            adapter="openai",
+            adapter_params=params,
+            yes=True,
+        )
+
+    config_path = project_dir / "config/adapters/outbound/embedding.yaml"
+    config_text = config_path.read_text(encoding="utf-8")
+    secrets_text = (project_dir / "config/secrets.yaml").read_text(encoding="utf-8")
+    env_text = (project_dir / ".env").read_text(encoding="utf-8")
+
+    assert config_text == (
+        "adapter: openai\n"
+        'base_url: "https://api.openai.com/v1"\n'
+        "api_key: null\n"
+        'model_name: "configured-embedding-model"\n'
+        "dimensions: 1536\n"
+        "batch_size: 64\n"
+        "timeout: 30.0\n"
+        "encoding_format: float\n"
+        "normalize: false\n"
+        "multitenant: false\n"
+    )
+    assert "adapters.embedding.api_key: OPENAI_API_KEY" in secrets_text
+    assert secrets_text.count("adapters.embedding.api_key") == 1
+    assert env_text == "EXISTING=value\n"
+    assert "sk-" not in config_text + secrets_text + env_text
+    assert ".env" in (project_dir / ".gitignore").read_text(encoding="utf-8")
+    assert "arclith[embedding]>=0.21.0" in (project_dir / "pyproject.toml").read_text(
+        encoding="utf-8"
+    )
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    from arclith import Arclith
+    from arclith.adapters.outbound.openai import OpenAIEmbeddingAdapter
+
+    app = Arclith(project_dir / "config")
+
+    assert app.config.adapters.embedding is not None
+    assert app.config.adapters.embedding.api_key == "test-key"
+    assert type(app.embedding()) is OpenAIEmbeddingAdapter
+
+
+def test_add_openai_embedding_omits_fake_key_and_keeps_dimensions_optional(
+    tmp_path: Path,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="embedding",
+        adapter="openai",
+        adapter_params={"model_name": "configured-embedding-model"},
+        yes=True,
+    )
+
+    config_text = (project_dir / "config/adapters/outbound/embedding.yaml").read_text(
+        encoding="utf-8"
+    )
+    env_text = (project_dir / ".env").read_text(encoding="utf-8")
+
+    assert "dimensions: null" in config_text
+    assert "api_key: null" in config_text
+    assert "OPENAI_API_KEY=" not in env_text
+    assert "sk-" not in config_text + env_text
