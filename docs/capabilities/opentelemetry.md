@@ -350,6 +350,11 @@ Ne faites pas remonter ces types dans le domaine ou les use cases.
 
 ## Collector local
 
+Le [POC Jaeger du tutoriel Todo](../tutorials/todo-list/07-local-services.md#ajouter-opentelemetry-localement)
+fournit le chemin le plus court pour démarrer un backend local, envoyer une requête FastAPI et
+retrouver sa trace dans l'UI. Le Collector autonome ci-dessous est utile pour inspecter les trois
+signaux OTLP dans le terminal.
+
 Créer `collector-config.yaml` :
 
 ```yaml

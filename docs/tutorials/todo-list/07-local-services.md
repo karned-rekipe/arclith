@@ -323,39 +323,125 @@ db.todo.countDocuments({ deleted_at: null })
 LangSmith observe surtout les runs LLM et LangGraph. OpenTelemetry sert à tracer le service comme un
 microservice classique: requêtes HTTP, spans, latences et erreurs techniques.
 
-Pour un labo local, Jaeger all-in-one suffit:
+### Démarrer Jaeger
+
+Pour ce POC, l'image Jaeger all-in-one regroupe le Collector OTLP, le stockage temporaire et l'UI.
+Elle ne crée ni compte distant ni volume Docker : arrêter le container efface les traces du labo.
 
 ```bash
-docker run --rm --name arclith-jaeger   -p 16686:16686   -p 4317:4317   -p 4318:4318   -p 5778:5778   -p 9411:9411   -d cr.jaegertracing.io/jaegertracing/jaeger:2.20.0
+docker run --rm --name arclith-jaeger \
+  -p 16686:16686 \
+  -p 4317:4317 \
+  -p 4318:4318 \
+  -p 5778:5778 \
+  -p 9411:9411 \
+  -d cr.jaegertracing.io/jaegertracing/jaeger:2.20.0
 ```
 
-Ouvrir ensuite:
+Attendre que l'API de requête Jaeger réponde, puis ouvrir son UI :
+
+```bash
+until curl -fsS http://127.0.0.1:16686/api/services >/dev/null; do sleep 1; done
+```
 
 ```text
 http://127.0.0.1:16686
 ```
 
-Ajouter l'adapter OpenTelemetry:
+Les ports utiles ici sont `4318` pour OTLP HTTP et `16686` pour l'UI. Le runtime Todo s'exécute sur
+l'hôte et envoie donc ses traces à `http://127.0.0.1:4318`. Arclith ajoute automatiquement le chemin
+OTLP `/v1/traces` pour le protocole `http/protobuf`.
+
+### Configurer le projet Todo
+
+Depuis la racine du projet généré, ajouter l'adapter avec les paramètres du catalogue courant :
 
 ```bash
 uv add "arclith[opentelemetry]"
-arclith-cli add-adapter --capability observability
+arclith-cli add-adapter \
+  --capability observability \
+  --adapter opentelemetry \
+  --profile development \
+  --param service_name=todo-list-service \
+  --param endpoint=http://127.0.0.1:4318 \
+  --param metrics=false \
+  --yes
 ```
 
-Choisir `opentelemetry`, puis utiliser un endpoint OTLP HTTP local:
+Le profil `development` active les traces à 100 %. `metrics=false` évite d'envoyer des métriques à
+Jaeger, qui sert ici de backend de traces. Le CLI active `opentelemetry` dans
+`config/adapters/adapters.yaml` et génère notamment :
 
-```text
-endpoint: http://127.0.0.1:4318
-service_name: todo-list-service
+```yaml
+# config/adapters/outbound/opentelemetry.yaml
+service:
+  name: "todo-list-service"
+export:
+  protocol: "http/protobuf"
+  endpoint: "http://127.0.0.1:4318"
+signals:
+  traces:
+    enabled: true
+  metrics:
+    enabled: false
 ```
 
-Pour voir l'environnement dans les ressources OpenTelemetry, ajouter au runtime:
+Pour identifier ce lancement dans les ressources OpenTelemetry, exporter la variable avant de
+démarrer l'API :
 
 ```bash
-OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=local
+export OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=local
+MODE=api uv run python main.py
 ```
 
-Relancer l'API, appeler Swagger ou `curl`, puis chercher le service `todo-list-service` dans Jaeger.
+### Produire et retrouver une trace
+
+Dans un second terminal, appeler une route métier. `/health`, `/ready` et `/metrics` sont exclus de
+l'instrumentation par défaut et ne conviennent donc pas à ce smoke :
+
+```bash
+curl -i -fsS "http://127.0.0.1:8120/v1/todos/?page=1&per_page=20"
+```
+
+Le runtime exporte par lot. Après quelques secondes, vérifier sans dépendre de l'UI que Jaeger a
+indexé le service et au moins une trace :
+
+```bash
+curl -fsS http://127.0.0.1:16686/api/services | python -m json.tool
+curl -fsS \
+  "http://127.0.0.1:16686/api/traces?service=todo-list-service&limit=20" \
+  | python -c 'import json, sys; print(len(json.load(sys.stdin)["data"]))'
+```
+
+La première commande doit contenir `todo-list-service`; la seconde doit afficher un entier supérieur
+ou égal à `1`. Dans l'UI Jaeger, sélectionner ce service, cliquer sur **Find Traces**, puis ouvrir la
+trace dont l'opération est `GET /v1/todos/`.
+
+### Arrêter, relancer ou réinitialiser
+
+```bash
+# Arrêt propre ; --rm supprime ensuite le container et ses traces en mémoire.
+docker stop arclith-jaeger
+
+# Relance à neuf : réexécuter la commande docker run de cette section.
+```
+
+Erreurs fréquentes :
+
+- `port is already allocated` : arrêter le processus ou le container qui utilise déjà `16686`,
+  `4317` ou `4318`, puis relancer Jaeger ;
+- `connection refused` sur `4318` : vérifier `docker ps --filter name=arclith-jaeger` et
+  `docker logs arclith-jaeger` ;
+- service absent dans Jaeger : appeler une route métier non exclue, attendre le prochain export par
+  lot et vérifier `signals.traces.enabled`, le sampling et l'endpoint ;
+- export `404` sur `/v1/metrics` : conserver `metrics=false` pour ce POC Jaeger, ou utiliser un
+  OpenTelemetry Collector configuré avec un backend de métriques ;
+- projet lui-même dans Docker : `127.0.0.1` désigne alors son propre container ; placer le service et
+  Jaeger sur le même réseau Docker et utiliser le nom du service Jaeger à la place.
+
+Le smoke Docker est volontairement manuel : la construction de la documentation ne suppose pas un
+daemon Docker disponible en CI. La commande a été vérifiée avec l'image épinglée, l'export OTLP HTTP,
+l'API Jaeger et une trace FastAPI portant le service `todo-list-service`.
 
 ## LangSmith ou OpenTelemetry ?
 
