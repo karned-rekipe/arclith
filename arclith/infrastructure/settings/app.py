@@ -22,6 +22,7 @@ from arclith.infrastructure.settings.repositories import (
     PostgreSQLSettings,
 )
 from arclith.infrastructure.settings.storage import StorageSettings
+from arclith.infrastructure.settings.vector_store import VectorStoreSettings
 
 _REPOSITORY_CONFIG_SECTIONS: dict[str, str] = {
     "mongodb": "mongodb",
@@ -57,6 +58,7 @@ class AdaptersSettings(SettingsModel):
     postgresql: PostgreSQLSettings | None = None
     storage: StorageSettings | None = None
     embedding: EmbeddingSettings | None = None
+    vector_store: VectorStoreSettings | None = None
     lm: LMSettings | None = None
     langsmith: LangSmithSettings | None = None
     opentelemetry: OpenTelemetrySettings | None = None

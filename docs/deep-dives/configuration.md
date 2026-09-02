@@ -30,6 +30,7 @@ Chaque capability possède son propre fichier quand c'est pertinent:
 | Agent | `config/adapters/inbound/langgraph.yaml` |
 | Repository | `config/adapters/outbound/mongodb.yaml` |
 | Storage | `config/adapters/outbound/storage.yaml` |
+| Vector store | `config/adapters/outbound/vector_store.yaml` |
 | LLM | `config/adapters/outbound/lm.yaml` |
 | Command Bus | `config/command_bus.yaml` |
 

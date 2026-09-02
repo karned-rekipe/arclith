@@ -12,6 +12,7 @@ from arclith.adapters.outbound.filesystem import (
 )
 from arclith.adapters.outbound.gcs import GCSFileStorage, GCSStorageConfig
 from arclith.adapters.outbound.memory.repository import InMemoryRepository
+from arclith.adapters.outbound.memory.vector_store import MemoryVectorStore
 from arclith.adapters.outbound.mongodb.config import MongoDBConfig
 from arclith.adapters.outbound.s3 import S3FileStorage, S3StorageConfig
 from arclith.application.command_bus import CommandDispatcher, CommandEnvelope
@@ -59,6 +60,18 @@ from arclith.domain.ports.outbound.observability import (
     TraceSpan,
 )
 from arclith.domain.ports.outbound.repository import Repository
+from arclith.domain.ports.outbound.vector_store import (
+    VectorPoint,
+    VectorSearchHit,
+    VectorSearchQuery,
+    VectorStoreCollectionNotFound,
+    VectorStoreDimensionMismatch,
+    VectorStoreError,
+    VectorStoreInvalidPayload,
+    VectorStorePermissionDenied,
+    VectorStorePort,
+    VectorStoreUnavailable,
+)
 from arclith.infrastructure.adapter_registry import AdapterRegistry
 from arclith.infrastructure.config import (
     AppConfig,
@@ -95,6 +108,11 @@ from arclith.infrastructure.repository_factory import (
     build_repository,
     default_repository_registry,
 )
+from arclith.infrastructure.vector_store_factory import (
+    VectorStoreRegistry,
+    build_vector_store,
+    default_vector_store_registry,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checkers only
     from arclith.adapters.outbound.console.logger import ConsoleLogger  # noqa: F401
@@ -115,6 +133,17 @@ __all__ = [
     "EmbeddingDimensionMismatch",
     "validate_embedding_inputs",
     "DeterministicEmbeddingAdapter",
+    "VectorStorePort",
+    "VectorPoint",
+    "VectorSearchQuery",
+    "VectorSearchHit",
+    "VectorStoreError",
+    "VectorStoreUnavailable",
+    "VectorStoreCollectionNotFound",
+    "VectorStoreDimensionMismatch",
+    "VectorStorePermissionDenied",
+    "VectorStoreInvalidPayload",
+    "MemoryVectorStore",
     "FileStoragePort",
     "StoredObject",
     "StoredObjectMetadata",
@@ -167,6 +196,9 @@ __all__ = [
     "EmbeddingRegistry",
     "build_embedding",
     "default_embedding_registry",
+    "VectorStoreRegistry",
+    "build_vector_store",
+    "default_vector_store_registry",
     "FileStorageRegistry",
     "build_file_storage",
     "default_file_storage_registry",

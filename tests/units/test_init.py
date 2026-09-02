@@ -52,6 +52,15 @@ def test_public_embedding_exports():
     assert arclith.DeterministicEmbeddingAdapter is not None
 
 
+def test_public_vector_store_exports():
+    registry = arclith.default_vector_store_registry()
+
+    assert registry is not None
+    assert arclith.build_vector_store is not None
+    assert arclith.VectorStorePort is not None
+    assert arclith.MemoryVectorStore is not None
+
+
 def test_import_arclith_does_not_require_embedding_extra():
     script = """
 import importlib.abc

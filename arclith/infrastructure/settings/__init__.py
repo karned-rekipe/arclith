@@ -71,6 +71,11 @@ from arclith.infrastructure.settings.storage import (
     StorageAdapter,
     StorageSettings,
 )
+from arclith.infrastructure.settings.vector_store import (
+    VectorDistance,
+    VectorStoreAdapter,
+    VectorStoreSettings,
+)
 
 __all__ = [
     "AdaptersSettings",
@@ -128,4 +133,7 @@ __all__ = [
     "StorageAdapter",
     "StorageSettings",
     "TenantSettings",
+    "VectorDistance",
+    "VectorStoreAdapter",
+    "VectorStoreSettings",
 ]

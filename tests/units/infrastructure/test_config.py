@@ -32,6 +32,7 @@ from arclith.infrastructure.config import (
 def test_default_config_uses_memory():
     assert AppConfig().adapters.repository == "memory"
     assert AppConfig().adapters.storage is None
+    assert AppConfig().adapters.vector_store is None
     assert AppConfig().adapters.observability.enabled == []
     assert AppConfig().command_bus.enabled == []
 
@@ -113,6 +114,10 @@ def test_resolve_output_adapter():
     assert _resolve_key_path(Path("adapters/outbound/storage.yaml")) == [
         "adapters",
         "storage",
+    ]
+    assert _resolve_key_path(Path("adapters/outbound/vector_store.yaml")) == [
+        "adapters",
+        "vector_store",
     ]
 
 
