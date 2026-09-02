@@ -46,3 +46,16 @@ def test_embedding_settings_require_positive_sizes(tmp_path: Path, field: str) -
 
     with pytest.raises(ValidationError, match=field):
         load_config_dir(config_dir)
+
+
+def test_embedding_settings_reject_empty_adapter_name(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    embedding_dir = config_dir / "adapters" / "outbound"
+    embedding_dir.mkdir(parents=True)
+    (embedding_dir / "embedding.yaml").write_text(
+        "adapter: '   '\nmodel_name: deterministic-local\ndimensions: 12\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError, match="adapters.embedding.adapter"):
+        load_config_dir(config_dir)

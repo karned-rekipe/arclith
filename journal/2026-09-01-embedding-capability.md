@@ -32,7 +32,7 @@ le contrat commun et vérifier explicitement la compatibilité des dimensions.
 
 ## Validation
 
-- `make quality` : 1 683 tests passés, 5 ignorés, couverture 91 % ;
+- `make quality` : 1 684 tests passés, 5 ignorés, couverture 91 % ;
 - `make precommit` : lint, mypy et Bandit passés ;
 - tests CLI : 140 passés, 1 ignoré ;
 - `make docs` : build MkDocs strict passé.

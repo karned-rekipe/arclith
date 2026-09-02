@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated
 
-from pydantic import PositiveInt, field_validator
+from pydantic import PositiveInt, StringConstraints, field_validator
 
 from arclith.infrastructure.settings._base import SettingsModel
 
-EmbeddingAdapter = Literal["deterministic"]
+EmbeddingAdapter = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1),
+]
 
 
 class EmbeddingSettings(SettingsModel):

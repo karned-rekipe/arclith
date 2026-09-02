@@ -108,6 +108,18 @@ assert len(response.results[0].vector) == 1536
 
 Une application peut fournir un `EmbeddingRegistry` à `app.embedding()` pour
 enregistrer un backend propre au projet sans importer son SDK dans le domaine.
+Dans ce cas, `adapter` accepte le nom non vide déclaré par l'application ; le
+registry valide ce nom à l'assemblage et retourne une erreur claire s'il n'est
+pas enregistré :
+
+```python
+from arclith import EmbeddingRegistry
+
+registry = EmbeddingRegistry().register("project", build_project_embedding)
+embedding = app.embedding(registry=registry)
+```
+
+La configuration scoped associée contient alors `adapter: project`.
 
 ## Dimension Et Normalisation
 

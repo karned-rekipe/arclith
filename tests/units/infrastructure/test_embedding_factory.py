@@ -16,7 +16,6 @@ from arclith.infrastructure.embedding_factory import (
     build_embedding,
     default_embedding_registry,
 )
-from arclith.infrastructure.settings.embedding import EmbeddingSettings
 
 
 class StubEmbedding(EmbeddingPort):
@@ -53,20 +52,17 @@ def test_build_embedding_requires_config(logger) -> None:
 
 def test_custom_embedding_registry_builds_registered_adapter(logger) -> None:
     expected = StubEmbedding()
-    config = AppConfig()
-    custom_settings = EmbeddingSettings.model_construct(
-        adapter="custom",
-        model_name="custom-model",
-        dimensions=3,
-        batch_size=1,
-        normalize=False,
-        multitenant=False,
-    )
-    config = config.model_copy(
-        update={
-            "adapters": config.adapters.model_copy(
-                update={"embedding": custom_settings}
-            )
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "embedding": {
+                    "adapter": "custom",
+                    "model_name": "custom-model",
+                    "dimensions": 3,
+                    "batch_size": 1,
+                    "normalize": False,
+                }
+            }
         }
     )
     registry = EmbeddingRegistry().register("custom", lambda _config, _logger: expected)
