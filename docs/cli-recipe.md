@@ -56,7 +56,7 @@ updated_at: "2026-09-01T10:04:00+00:00"
 steps:
   - id: "0001"
     at: "2026-09-01T10:00:00+00:00"
-    cli_version: "0.17.0"
+    cli_version: "0.18.0"
     command: init
     status: success
     args:
@@ -68,7 +68,7 @@ steps:
           action: created
   - id: "0002"
     at: "2026-09-01T10:04:00+00:00"
-    cli_version: "0.17.0"
+    cli_version: "0.18.0"
     command: add-entity
     status: success
     args:
