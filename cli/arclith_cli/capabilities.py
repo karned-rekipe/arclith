@@ -24,7 +24,11 @@ from arclith_cli.catalogs.core import (
     SECRETS_CAPABILITY,
 )
 from arclith_cli.catalogs.observability import OBSERVABILITY_CAPABILITY
-from arclith_cli.catalogs.persistence import REPOSITORY_CAPABILITY, STORAGE_CAPABILITY
+from arclith_cli.catalogs.persistence import (
+    REPOSITORY_CAPABILITY,
+    STORAGE_CAPABILITY,
+    VECTOR_STORE_CAPABILITY,
+)
 from arclith_cli.catalogs.security import (
     AUTH_CAPABILITY,
     LICENSE_CAPABILITY,
@@ -68,6 +72,7 @@ __all__ = [
     "STORAGE_CAPABILITY",
     "SecretMappingSpec",
     "TENANT_CAPABILITY",
+    "VECTOR_STORE_CAPABILITY",
     "capability_catalog_as_dict",
     "capability_names",
     "get_capability",
@@ -77,6 +82,7 @@ __all__ = [
 CAPABILITY_CATALOG = (
     REPOSITORY_CAPABILITY,
     STORAGE_CAPABILITY,
+    VECTOR_STORE_CAPABILITY,
     CACHE_CAPABILITY,
     LOGGER_CAPABILITY,
     SECRETS_CAPABILITY,

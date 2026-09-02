@@ -60,6 +60,9 @@ from arclith.infrastructure.settings import (  # noqa: F401
     StorageAdapter,
     StorageSettings,
     TenantSettings,
+    VectorDistance,
+    VectorStoreAdapter,
+    VectorStoreSettings,
 )
 
 _INBOUND_ALIAS: dict[str, str] = {"fastapi": "api", "fastmcp": "mcp"}

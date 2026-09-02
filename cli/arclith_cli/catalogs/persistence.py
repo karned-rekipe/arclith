@@ -444,3 +444,54 @@ multitenant: {multitenant}
         ),
     ),
 )
+
+VECTOR_STORE_CAPABILITY = CapabilitySpec(
+    name="vector-store",
+    layer="outbound",
+    description="Indexation et recherche dense derrière un port provider-neutral.",
+    activation_config_key=None,
+    adapters=(
+        AdapterSpec(
+            name="memory",
+            capability="vector-store",
+            layer="outbound",
+            description="Recherche exacte déterministe sans dépendance pour tests et POC.",
+            config_path="config/adapters/outbound/vector_store.yaml",
+            config_template="""\
+adapter: memory
+collection_name: "{collection_name}"
+vector_size: {vector_size}
+distance: {distance}
+multitenant: {multitenant}
+""",
+            parameters=(
+                ParameterSpec(
+                    name="collection_name",
+                    kind="string",
+                    prompt="Nom logique de la collection",
+                    default="default",
+                ),
+                ParameterSpec(
+                    name="vector_size",
+                    kind="string",
+                    prompt="Dimension obligatoire des vecteurs",
+                    default="1536",
+                ),
+                ParameterSpec(
+                    name="distance",
+                    kind="string",
+                    prompt="Métrique de similarité",
+                    default="cosine",
+                    choices=("cosine", "dot", "euclid"),
+                ),
+                ParameterSpec(
+                    name="multitenant",
+                    kind="boolean",
+                    prompt="Réserver la résolution de contexte par tenant",
+                    default=False,
+                ),
+            ),
+            entity_scoped=False,
+        ),
+    ),
+)

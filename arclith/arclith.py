@@ -21,6 +21,7 @@ from arclith.domain.ports.outbound.observability import (
     TracePort,
 )
 from arclith.domain.ports.outbound.repository import Repository
+from arclith.domain.ports.outbound.vector_store import VectorStorePort
 from arclith.infrastructure.config import (
     AppConfig,
     LangGraphStreamMode,
@@ -33,6 +34,7 @@ from arclith.infrastructure.langgraph_bootstrap import (
     LANGGRAPH_UNSET as _LANGGRAPH_UNSET,
 )
 from arclith.infrastructure.repository_factory import RepositoryRegistry
+from arclith.infrastructure.vector_store_factory import VectorStoreRegistry
 
 if TYPE_CHECKING:
     import fastmcp as _fastmcp
@@ -186,6 +188,15 @@ class Arclith:
         from arclith.infrastructure.embedding_factory import build_embedding
 
         return build_embedding(self.config, self.logger, registry=registry)
+
+    def vector_store(
+        self,
+        *,
+        registry: VectorStoreRegistry | None = None,
+    ) -> VectorStorePort:
+        from arclith.infrastructure.vector_store_factory import build_vector_store
+
+        return build_vector_store(self.config, self.logger, registry=registry)
 
     def rabbitmq_command_bus(self) -> "RabbitMQCommandBus":
         if not self.config.command_bus.is_enabled("rabbitmq"):
