@@ -59,3 +59,56 @@ def test_embedding_settings_reject_empty_adapter_name(tmp_path: Path) -> None:
 
     with pytest.raises(ValidationError, match="adapters.embedding.adapter"):
         load_config_dir(config_dir)
+
+
+def test_load_config_dir_loads_openai_compatible_settings(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    embedding_dir = config_dir / "adapters" / "outbound"
+    embedding_dir.mkdir(parents=True)
+    (embedding_dir / "embedding.yaml").write_text(
+        "adapter: openai-compatible\n"
+        "base_url: http://127.0.0.1:1234/v1/\n"
+        "api_key: local-dev\n"
+        "model_name: local-embedding-model\n"
+        "dimensions: 768\n"
+        "batch_size: 16\n"
+        "timeout: 12.5\n"
+        "normalize: false\n",
+        encoding="utf-8",
+    )
+
+    config = load_config_dir(config_dir)
+
+    assert config.adapters.embedding is not None
+    assert config.adapters.embedding.adapter == "openai-compatible"
+    assert config.adapters.embedding.base_url == "http://127.0.0.1:1234/v1"
+    assert config.adapters.embedding.api_key == "local-dev"
+    assert config.adapters.embedding.timeout == 12.5
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "http://127.0.0.1:1234",
+        "ftp://embedding.local/v1",
+        "http://user:password@embedding.local/v1",
+        "http://embedding.local/v1?token=secret",
+    ],
+)
+def test_openai_compatible_settings_reject_invalid_base_url(
+    tmp_path: Path,
+    base_url: str,
+) -> None:
+    config_dir = tmp_path / "config"
+    embedding_dir = config_dir / "adapters" / "outbound"
+    embedding_dir.mkdir(parents=True)
+    (embedding_dir / "embedding.yaml").write_text(
+        "adapter: openai-compatible\n"
+        f"base_url: {base_url}\n"
+        "model_name: local-embedding-model\n"
+        "dimensions: 2\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError, match="base_url"):
+        load_config_dir(config_dir)

@@ -5,6 +5,9 @@ import pytest
 
 from arclith import Arclith
 from arclith.adapters.outbound.deterministic import DeterministicEmbeddingAdapter
+from arclith.adapters.outbound.openai_compatible import (
+    OpenAICompatibleEmbeddingAdapter,
+)
 from arclith.domain.ports.outbound.embedding import (
     EmbeddingPort,
     EmbeddingResponse,
@@ -43,6 +46,26 @@ def test_build_embedding_returns_deterministic_adapter(logger) -> None:
     embedding = build_embedding(_config(), logger)
 
     assert isinstance(embedding, DeterministicEmbeddingAdapter)
+
+
+def test_build_embedding_returns_openai_compatible_adapter(logger) -> None:
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "embedding": {
+                    "adapter": "openai-compatible",
+                    "base_url": "http://embedding.local/v1",
+                    "api_key": "local-dev",
+                    "model_name": "local-embedding-model",
+                    "dimensions": 2,
+                }
+            }
+        }
+    )
+
+    embedding = build_embedding(config, logger)
+
+    assert isinstance(embedding, OpenAICompatibleEmbeddingAdapter)
 
 
 def test_build_embedding_requires_config(logger) -> None:

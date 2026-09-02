@@ -42,7 +42,11 @@ def build_embedding(
 
 
 def default_embedding_registry() -> EmbeddingRegistry:
-    return EmbeddingRegistry().register("deterministic", _build_deterministic)
+    return (
+        EmbeddingRegistry()
+        .register("deterministic", _build_deterministic)
+        .register("openai-compatible", _build_openai_compatible)
+    )
 
 
 def _build_deterministic(config: AppConfig, _logger: Logger) -> EmbeddingPort:
@@ -54,3 +58,14 @@ def _build_deterministic(config: AppConfig, _logger: Logger) -> EmbeddingPort:
     if settings is None:
         raise ValueError("Deterministic embedding settings are required")
     return DeterministicEmbeddingAdapter(settings)
+
+
+def _build_openai_compatible(config: AppConfig, _logger: Logger) -> EmbeddingPort:
+    from arclith.adapters.outbound.openai_compatible import (
+        OpenAICompatibleEmbeddingAdapter,
+    )
+
+    settings = config.adapters.embedding
+    if settings is None:
+        raise ValueError("OpenAI-compatible embedding settings are required")
+    return OpenAICompatibleEmbeddingAdapter(settings)
