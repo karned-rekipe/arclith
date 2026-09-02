@@ -318,6 +318,210 @@ db.todo.find().pretty()
 db.todo.countDocuments({ deleted_at: null })
 ```
 
+## Ajouter Vault localement
+
+Cette section remplace le fichier local `secrets.yaml` par un Vault de développement. Le mode dev
+conserve tout en mémoire, démarre déjà initialisé et non scellé, et utilise un token racine : il est
+adapté uniquement à ce POC local, jamais à la production.
+
+### Démarrer Vault en mode dev
+
+Choisir un token jetable dans le terminal courant. La valeur ci-dessous n'est pas un credential réel
+et ne doit pas être réutilisée ailleurs :
+
+```bash
+export VAULT_ADDR=http://127.0.0.1:8200
+export VAULT_TOKEN=arclith-dev-only
+
+docker run --rm --name arclith-vault \
+  -p 127.0.0.1:8200:8200 \
+  -e VAULT_DEV_ROOT_TOKEN_ID="$VAULT_TOKEN" \
+  -e VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200 \
+  -d hashicorp/vault:2.1.0 server -dev
+```
+
+Attendre au maximum 30 secondes que le serveur soit disponible :
+
+```bash
+for attempt in $(seq 1 30); do
+  curl -fsS "$VAULT_ADDR/v1/sys/health" >/dev/null && break
+  if [ "$attempt" -eq 30 ]; then
+    docker logs arclith-vault
+    exit 1
+  fi
+  sleep 1
+done
+```
+
+Le binding `127.0.0.1` évite d'exposer le port dev sur le réseau local. Le token est transmis au
+container uniquement pour ce lancement jetable ; ne pas le mettre dans Git, dans une image ou dans
+un environnement partagé.
+
+### Initialiser KV v2 et les données du POC
+
+Télécharger le [script de seed vérifié](scripts/seed-vault.sh), le placer dans le projet Todo sous
+`scripts/seed-vault.sh`, puis l'exécuter :
+
+```bash
+mkdir -p scripts
+export ARCLITH_REF="${ARCLITH_REF:-main}"
+curl -fsSLo scripts/seed-vault.sh \
+  "https://raw.githubusercontent.com/karned-rekipe/arclith/${ARCLITH_REF}/docs/tutorials/todo-list/scripts/seed-vault.sh"
+chmod +x scripts/seed-vault.sh
+./scripts/seed-vault.sh
+```
+
+`ARCLITH_REF` peut désigner le tag ou le SHA correspondant à la version de cette documentation afin
+de conserver un POC reproductible. Sa valeur par défaut, `main`, convient pour suivre la version de
+développement courante.
+
+Le script active le mount `kv` en KV v2 s'il n'existe pas. S'il existe déjà dans une autre version,
+le script échoue explicitement au lieu de poursuivre avec des routes incompatibles. Il écrit ensuite
+deux entrées de démonstration :
+
+| Chemin | Consommateur | Forme attendue |
+| --- | --- | --- |
+| `kv/apps/todo-list/mongodb` | `VaultSecretAdapter` | champ unique `value` |
+| `kv/rekipe/tenants/client-a` | `VaultTenantResolver` | champs `uri` et `db_name` |
+
+Il peut être rejoué : les mêmes valeurs sont réécrites dans une nouvelle version KV. Pour un POC
+strictement hors ligne, copier le contenu affiché ci-dessous au lieu de le télécharger :
+
+```bash
+--8<-- "docs/tutorials/todo-list/scripts/seed-vault.sh"
+```
+
+### Résoudre le secret applicatif
+
+Installer l'extra Vault, puis remplacer le resolver YAML de la section MongoDB par la capability CLI
+`secrets/vault` :
+
+```bash
+uv add "arclith[vault]"
+arclith-cli add-adapter \
+  --capability secrets \
+  --adapter vault \
+  --param field_path=adapters.mongodb.uri \
+  --param secret_key=apps/todo-list/mongodb \
+  --param addr=http://127.0.0.1:8200 \
+  --param mount=kv \
+  --yes
+```
+
+Le fichier versionné `config/secrets.yaml` ne contient que le resolver et le mapping :
+
+```yaml
+resolver: vault
+vault:
+  addr: http://127.0.0.1:8200
+  mount: kv
+mappings:
+  adapters.mongodb.uri: apps/todo-list/mongodb
+```
+
+Prouver que le service Arclith charge le secret sans afficher sa valeur :
+
+```bash
+uv run python - <<'PY'
+from arclith import Arclith
+
+runtime = Arclith("config")
+mongodb = runtime.config.adapters.mongodb
+assert mongodb is not None and mongodb.uri
+print("Secret applicatif MongoDB résolu par Vault")
+PY
+```
+
+Lancer ensuite le service avec la même configuration ; son bootstrap effectue la même résolution :
+
+```bash
+MODE=api uv run python main.py
+```
+
+Dans un autre terminal, `curl -fsS "http://127.0.0.1:8120/v1/todos/?page=1&per_page=20"`
+doit répondre sans erreur de secret. MongoDB doit toujours être démarré comme indiqué au début de
+cette page.
+
+`VaultSecretAdapter` intervient une fois au chargement de la configuration. Le chemin mappé doit
+exposer un champ `value`; il convient aux secrets partagés par l'instance du service.
+
+### Résoudre des coordonnées par tenant
+
+Cette sous-partie requiert elle aussi l'extra `arclith[vault]`. L'installer si la sous-partie
+précédente n'a pas été suivie, puis configurer séparément `tenant/vault` avec le catalogue CLI
+courant :
+
+```bash
+uv add "arclith[vault]"
+arclith-cli add-adapter \
+  --capability tenant \
+  --adapter vault \
+  --param addr=http://127.0.0.1:8200 \
+  --param mount=kv \
+  --param path_prefix=rekipe/tenants \
+  --param tenant_claim=tenant_id \
+  --param tenant_uri_ttl=300 \
+  --yes
+```
+
+Dans une API multitenant complète, le pipeline d'authentification extrait `tenant_id` d'un JWT signé
+et appelle le resolver. Pour vérifier ici le contrat Vault sans ajouter de logique métier ni simuler
+un JWT, appeler directement le port avec l'identifiant de démonstration :
+
+```bash
+uv run python - <<'PY'
+import asyncio
+import os
+
+from arclith.adapters.outbound.memory.cache_adapter import MemoryCacheAdapter
+from arclith.adapters.outbound.vault.tenant_adapter import VaultTenantResolver
+
+
+async def main() -> None:
+    resolver = VaultTenantResolver(
+        "mongodb",
+        addr=os.environ["VAULT_ADDR"],
+        mount="kv",
+        path_prefix="rekipe/tenants",
+        cache=MemoryCacheAdapter(),
+    )
+    context = await resolver.resolve("client-a")
+    coords = context.get("mongodb")
+    assert coords is not None and coords.require("uri")
+    print("Tenant résolu :", coords.require("db_name"))
+
+
+asyncio.run(main())
+PY
+```
+
+Le résultat attendu est `Tenant résolu : todo_client_a`. Contrairement au resolver de secrets
+applicatifs, `VaultTenantResolver` lit tous les champs du chemin tenant, les place dans une tranche
+`AdapterTenantCoords` et peut les mettre en cache. L'activation réelle du repository multitenant
+requiert aussi `multitenant=true` et le pipeline JWT décrit dans la capability
+[tenant](../../capabilities/tenant.md).
+
+### Réinitialiser et diagnostiquer
+
+```bash
+# Supprime le container et toutes les données en mémoire du POC.
+docker stop arclith-vault
+
+# Retire le token jetable du terminal courant.
+unset VAULT_TOKEN VAULT_ADDR
+```
+
+Erreurs fréquentes :
+
+- `permission denied` : vérifier que `VAULT_TOKEN` correspond au lancement dev courant ;
+- `no handler for route` : relancer `scripts/seed-vault.sh` pour activer le mount KV v2 ;
+- secret applicatif non résolu : vérifier le champ `value`, le mapping et l'extra `arclith[vault]` ;
+- tenant introuvable : vérifier le préfixe `rekipe/tenants` et l'identifiant `client-a` ;
+- container redémarré : le stockage dev est en mémoire, il faut donc rejouer le seed.
+
+Références : [serveur Vault en mode dev](https://developer.hashicorp.com/vault/docs/concepts/dev-server)
+et [configuration d'un mount KV v2](https://developer.hashicorp.com/vault/docs/secrets/kv/kv-v2/setup).
+
 ## Ajouter OpenTelemetry localement
 
 LangSmith observe surtout les runs LLM et LangGraph. OpenTelemetry sert à tracer le service comme un
