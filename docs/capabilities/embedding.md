@@ -170,6 +170,77 @@ communes. `normalize` vaut `false` quand le champ est omis. Avec
 `normalize: true`, l'adapter applique une normalisation L2 locale ; avec
 `false`, il conserve exactement les vecteurs du provider.
 
+## Adapter OpenAI Officiel
+
+`openai` appelle l'API Embeddings officielle sur `POST /v1/embeddings`. Il
+réutilise l'extra HTTP optionnel `arclith[embedding]` et n'ajoute pas le SDK
+OpenAI à l'installation minimale.
+
+La documentation OpenAI consultée lors de cette implémentation expose notamment
+`text-embedding-3-small` et `text-embedding-3-large`. Le catalogue CLI ne choisit
+cependant aucun modèle à la place du service : vérifier les [modèles
+d'embedding disponibles](https://developers.openai.com/api/docs/models/all) et
+les droits du projet OpenAI, puis passer l'identifiant voulu explicitement.
+
+```bash
+uv add 'arclith[embedding]>=0.21.0'
+arclith-cli add-adapter \
+  --capability embedding \
+  --adapter openai \
+  --param model_name=remplacer-par-model-id-openai-embedding \
+  --param dimensions=1536 \
+  --yes
+```
+
+La configuration générée garde le secret hors Git :
+
+```yaml
+# config/adapters/outbound/embedding.yaml
+adapter: openai
+base_url: https://api.openai.com/v1
+api_key: null
+model_name: remplacer-par-model-id-openai-embedding
+dimensions: null
+batch_size: 64
+timeout: 30.0
+encoding_format: float
+normalize: false
+multitenant: false
+```
+
+```yaml
+# config/secrets.yaml
+resolver: env
+mappings:
+  adapters.embedding.api_key: OPENAI_API_KEY
+```
+
+Définir `OPENAI_API_KEY` dans l'environnement du processus, un secret
+Kubernetes ou Vault. Ne jamais écrire la valeur dans le YAML versionné ni la
+passer dans une commande conservée par l'historique du shell. Une absence de
+clé résolue provoque une `EmbeddingAuthenticationError` actionnable avant tout
+appel réseau.
+
+Conformément à la [référence Create
+embeddings](https://developers.openai.com/api/reference/resources/embeddings/methods/create),
+l'adapter envoie `input`, `model`, `encoding_format: float` et `dimensions`
+uniquement quand cette dernière est configurée. Il réordonne les résultats par
+`index` et expose `prompt_tokens`/`total_tokens` quand l'API les retourne. Le
+champ provider `user` n'est pas alimenté automatiquement : un service ne doit
+pas transmettre d'identifiant utilisateur brut sans décision explicite de
+confidentialité.
+
+Quand `dimensions` vaut `null`, l'adapter conserve la dimension renvoyée par le
+modèle et vérifie qu'elle reste cohérente sur tous les sous-batches. Quand elle
+est renseignée, toute différence déclenche `EmbeddingDimensionMismatch`. La
+collection vectorielle cible doit être créée avec exactement la même dimension.
+
+Les réponses 401/403, 429, les timeouts et les erreurs provider sont traduits
+vers les exceptions communes sans reprendre la clé, le texte source ou le
+payload dans le message. Les tests automatisés utilisent exclusivement
+`httpx.MockTransport`; aucun appel à OpenAI n'est effectué par la suite de
+tests.
+
 ## Assemblage
 
 ```python
@@ -228,6 +299,7 @@ index.
 uv run pytest tests/units/domain/ports/test_embedding.py \
   tests/units/adapters/outbound/test_deterministic_embedding.py \
   tests/units/adapters/outbound/test_openai_compatible_embedding.py \
+  tests/units/adapters/outbound/test_openai_embedding.py \
   tests/units/infrastructure/test_embedding_factory.py
 uv run --project cli pytest cli/tests/test_embedding_capability.py
 make docs

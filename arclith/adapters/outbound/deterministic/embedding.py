@@ -20,7 +20,10 @@ class DeterministicEmbeddingAdapter(EmbeddingPort):
     """Dependency-free deterministic vectors for tests and local smoke runs."""
 
     def __init__(self, settings: EmbeddingSettings) -> None:
+        if settings.dimensions is None:
+            raise ValueError("Deterministic embedding dimensions are required")
         self._settings = settings
+        self._dimensions = settings.dimensions
 
     async def embed_texts(self, inputs: Sequence[EmbeddingText]) -> EmbeddingResponse:
         validated = validate_embedding_inputs(inputs)
@@ -33,7 +36,7 @@ class DeterministicEmbeddingAdapter(EmbeddingPort):
         return EmbeddingResponse(
             results=results,
             model_name=self._settings.model_name,
-            dimensions=self._settings.dimensions,
+            dimensions=self._dimensions,
         )
 
     def _embed_batch(
@@ -48,7 +51,7 @@ class DeterministicEmbeddingAdapter(EmbeddingPort):
                 index=offset + index,
                 vector=self._vector_for(item.text),
                 model_name=self._settings.model_name,
-                dimensions=self._settings.dimensions,
+                dimensions=self._dimensions,
             )
             for index, item in enumerate(inputs)
         ]
@@ -58,12 +61,12 @@ class DeterministicEmbeddingAdapter(EmbeddingPort):
         counter = 0
         seed = f"{self._settings.model_name}\0{text}".encode()
 
-        while len(vector) < self._settings.dimensions:
+        while len(vector) < self._dimensions:
             digest = hashlib.sha256(seed + counter.to_bytes(8, "big")).digest()
             for position in range(0, len(digest), 4):
                 integer = int.from_bytes(digest[position : position + 4], "big")
                 vector.append(((integer + 0.5) / _UINT32_RANGE) * 2.0 - 1.0)
-                if len(vector) == self._settings.dimensions:
+                if len(vector) == self._dimensions:
                     break
             counter += 1
 

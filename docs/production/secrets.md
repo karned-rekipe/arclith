@@ -39,6 +39,7 @@ chain:
 mappings:
   adapters.mongodb.uri: apps/my-service/mongodb
   cache.redis_url: apps/my-service/redis
+  adapters.embedding.api_key: OPENAI_API_KEY
 ```
 
 ## Règles
@@ -48,6 +49,9 @@ mappings:
 - Vault doit être la source de vérité en production.
 - Le fallback YAML sert au développement local, avec un fichier ignoré.
 - Chaque secret doit avoir un propriétaire, une rotation et un usage identifié.
+- Pour `embedding/openai`, laisser `api_key: null` dans la configuration et
+  résoudre `adapters.embedding.api_key` depuis `OPENAI_API_KEY` ou une entrée
+  Vault. L'adapter refuse de démarrer sans clé résolue.
 
 ## Vérifier
 

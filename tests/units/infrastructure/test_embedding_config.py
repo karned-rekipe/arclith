@@ -89,7 +89,11 @@ def test_load_config_dir_loads_openai_compatible_settings(tmp_path: Path) -> Non
 
 @pytest.mark.parametrize(
     ("adapter", "expected"),
-    [("deterministic", True), ("openai-compatible", False)],
+    [
+        ("deterministic", True),
+        ("openai-compatible", False),
+        ("openai", False),
+    ],
 )
 def test_embedding_settings_use_adapter_specific_normalization_defaults(
     adapter: str,
@@ -102,10 +106,84 @@ def test_embedding_settings_use_adapter_specific_normalization_defaults(
     }
     if adapter == "openai-compatible":
         values["base_url"] = "http://127.0.0.1:1234/v1"
+    if adapter == "openai":
+        values["dimensions"] = None
 
     settings = EmbeddingSettings.model_validate(values)
 
     assert settings.normalize is expected
+
+
+def test_openai_embedding_settings_apply_safe_official_defaults() -> None:
+    settings = EmbeddingSettings.model_validate(
+        {
+            "adapter": "openai",
+            "model_name": "configured-embedding-model",
+        }
+    )
+
+    assert settings.base_url == "https://api.openai.com/v1"
+    assert settings.dimensions is None
+    assert settings.encoding_format == "float"
+    assert settings.api_key is None
+
+
+def test_openai_embedding_settings_reject_base64_encoding() -> None:
+    with pytest.raises(ValidationError, match="encoding_format"):
+        EmbeddingSettings.model_validate(
+            {
+                "adapter": "openai",
+                "model_name": "configured-embedding-model",
+                "encoding_format": "base64",
+            }
+        )
+
+
+def test_load_openai_embedding_api_key_from_env_mapping(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    config_dir = tmp_path / "config"
+    embedding_dir = config_dir / "adapters" / "outbound"
+    embedding_dir.mkdir(parents=True)
+    (embedding_dir / "embedding.yaml").write_text(
+        "adapter: openai\n"
+        "base_url: https://api.openai.com/v1\n"
+        "api_key: null\n"
+        "model_name: configured-embedding-model\n"
+        "dimensions: null\n"
+        "batch_size: 64\n"
+        "timeout: 30.0\n"
+        "encoding_format: float\n"
+        "normalize: false\n"
+        "multitenant: false\n",
+        encoding="utf-8",
+    )
+    (config_dir / "secrets.yaml").write_text(
+        "resolver: env\nmappings:\n  adapters.embedding.api_key: OPENAI_API_KEY\n",
+        encoding="utf-8",
+    )
+
+    config = load_config_dir(config_dir)
+
+    assert config.adapters.embedding is not None
+    assert config.adapters.embedding.adapter == "openai"
+    assert config.adapters.embedding.api_key == "test-key"
+    assert config.adapters.embedding.dimensions is None
+
+
+@pytest.mark.parametrize("adapter", ["deterministic", "openai-compatible"])
+def test_existing_embedding_adapters_still_require_dimensions(adapter: str) -> None:
+    values = {
+        "adapter": adapter,
+        "model_name": "embedding-model",
+    }
+    if adapter == "openai-compatible":
+        values["base_url"] = "http://127.0.0.1:1234/v1"
+
+    with pytest.raises(ValidationError, match="requires dimensions"):
+        EmbeddingSettings.model_validate(values)
 
 
 @pytest.mark.parametrize(

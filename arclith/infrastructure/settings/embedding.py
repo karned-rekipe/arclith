@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
 from pydantic import (
@@ -22,23 +22,30 @@ EmbeddingAdapter = Annotated[
 class EmbeddingSettings(SettingsModel):
     adapter: EmbeddingAdapter
     model_name: str
-    dimensions: PositiveInt
+    dimensions: PositiveInt | None = None
     batch_size: PositiveInt = 64
     base_url: str | None = None
     api_key: str | None = None
     timeout: PositiveFloat = 30.0
+    encoding_format: Literal["float"] = "float"
     normalize: bool = True
     multitenant: bool = False
 
     @model_validator(mode="before")
     @classmethod
     def apply_adapter_defaults(cls, values: Any) -> Any:
-        if (
-            isinstance(values, dict)
-            and values.get("adapter") == "openai-compatible"
-            and "normalize" not in values
+        if not isinstance(values, dict):
+            return values
+        adapter = values.get("adapter")
+        defaults: dict[str, Any] = {}
+        if adapter in {"openai-compatible", "openai"} and "normalize" not in values:
+            defaults["normalize"] = False
+        if adapter == "openai" and (
+            "base_url" not in values or values.get("base_url") is None
         ):
-            return {**values, "normalize": False}
+            defaults["base_url"] = "https://api.openai.com/v1"
+        if defaults:
+            return {**values, **defaults}
         return values
 
     @field_validator("model_name")
@@ -81,4 +88,9 @@ class EmbeddingSettings(SettingsModel):
     def validate_selected_adapter(self) -> "EmbeddingSettings":
         if self.adapter == "openai-compatible" and self.base_url is None:
             raise ValueError("embedding adapter openai-compatible requires base_url")
+        if (
+            self.adapter in {"deterministic", "openai-compatible"}
+            and self.dimensions is None
+        ):
+            raise ValueError(f"embedding adapter {self.adapter} requires dimensions")
         return self
