@@ -7,7 +7,7 @@ serveur local, de seed KV v2 ni de preuve exécutable pour les deux modes de ré
 
 ## Décisions
 
-- utiliser Vault 2.1.0 en mode dev, lié à `127.0.0.1` et sans volume persistant ;
+- utiliser Vault 2.1.0 avec `server -dev` explicite, lié à `127.0.0.1` et sans volume persistant ;
 - conserver le token jetable hors Git et l'exiger par variable d'environnement dans le script ;
 - fournir un script `set -euo pipefail` qui active le mount KV v2 et écrit des valeurs locales
   idempotentes pour le service et le tenant, avec timeouts réseau bornés et rejet d'un mount

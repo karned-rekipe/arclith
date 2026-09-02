@@ -337,7 +337,7 @@ docker run --rm --name arclith-vault \
   -p 127.0.0.1:8200:8200 \
   -e VAULT_DEV_ROOT_TOKEN_ID="$VAULT_TOKEN" \
   -e VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200 \
-  -d hashicorp/vault:2.1.0
+  -d hashicorp/vault:2.1.0 server -dev
 ```
 
 Attendre au maximum 30 secondes que le serveur soit disponible :

@@ -18,7 +18,7 @@ vault_request() {
 if mount_details=$(
   vault_request "${VAULT_ADDR}/v1/sys/mounts/${VAULT_MOUNT}/tune" 2>/dev/null
 ); then
-  if ! grep -Fq '"version":"2"' <<<"${mount_details}"; then
+  if ! grep -Eq '"version"[[:space:]]*:[[:space:]]*"2"' <<<"${mount_details}"; then
     printf 'Erreur : le mount %s existe mais n\x27est pas un KV v2.\n' "${VAULT_MOUNT}" >&2
     exit 1
   fi
