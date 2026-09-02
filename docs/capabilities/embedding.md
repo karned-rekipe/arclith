@@ -91,6 +91,85 @@ multitenant: false
 Le fichier scoped contient son propre sélecteur `adapter`. Il n'ajoute aucune
 clé à `config/adapters/adapters.yaml`.
 
+## Adapter OpenAI-Compatible
+
+`openai-compatible` appelle `POST /embeddings` sur un endpoint qui expose le
+protocole OpenAI Embeddings. Il convient notamment à LM Studio, vLLM, LocalAI
+ou à un mode compatible d'Ollama, à condition que le runtime et le modèle
+choisis fournissent réellement cet endpoint.
+
+Installer l'extra HTTP et générer la configuration :
+
+```bash
+uv add 'arclith[embedding]>=0.20.0'
+arclith-cli add-adapter \
+  --capability embedding \
+  --adapter openai-compatible \
+  --param base_url=http://127.0.0.1:1234/v1 \
+  --param api_key=local-dev \
+  --param model_name=nomic-embed-text \
+  --param dimensions=768 \
+  --yes
+```
+
+Le nom `nomic-embed-text` n'est qu'un exemple. Copier l'identifiant exact
+affiché par le runtime local : Arclith ne choisit, ne télécharge et ne charge
+aucun modèle à la place de l'utilisateur.
+
+```yaml
+adapter: openai-compatible
+base_url: http://127.0.0.1:1234/v1
+api_key: local-dev
+model_name: nom-exact-du-modele-local
+dimensions: 768
+batch_size: 64
+timeout: 30.0
+normalize: false
+multitenant: false
+```
+
+`base_url` doit contenir le préfixe API, généralement `/v1`. Les URLs avec
+credentials, query string ou fragment sont refusées afin que les erreurs ne
+puissent pas exposer de secret. `api_key: local-dev` est une valeur locale non
+secrète destinée aux runtimes qui exigent un header. Pour un endpoint protégé,
+laisser la valeur hors Git et résoudre `adapters.embedding.api_key` avec la
+capability [secrets](secrets.md). Ne jamais passer une clé de production au
+scaffold pour l'écrire dans le YAML.
+
+### Hôte Et Conteneur
+
+- processus lancé sur l'hôte : `http://127.0.0.1:1234/v1` ;
+- conteneur Docker Desktop macOS/Windows vers l'hôte :
+  `http://host.docker.internal:1234/v1` ;
+- Linux ou Kubernetes : utiliser une route explicitement configurée, un service
+  DNS ou un endpoint réseau autorisé ; ne pas supposer que
+  `host.docker.internal` existe.
+
+Tous les runtimes locaux OpenAI-compatible pour le chat n'exposent pas
+forcément `/v1/embeddings`, et tous les modèles ne savent pas produire des
+embeddings. Vérifier les deux capacités dans l'interface ou la documentation du
+runtime avant le smoke.
+
+### Smoke Manuel Optionnel
+
+Ce smoke vérifie le protocole sans faire partie des tests automatisés :
+
+```bash
+curl --fail-with-body \
+  http://127.0.0.1:1234/v1/embeddings \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer local-dev' \
+  -d '{"input":["smoke local"],"model":"nom-exact-du-modele-local","dimensions":768}'
+```
+
+Les tests Arclith utilisent un transport HTTP simulé. Ils ne nécessitent ni
+réseau, ni LM Studio, ni Ollama. L'adapter découpe les sous-batches, réordonne
+les résultats selon l'index provider, agrège l'usage, vérifie chaque dimension
+et traduit auth, rate limit, timeout et indisponibilité vers les erreurs
+communes. `normalize` vaut `false` quand le champ est omis. Avec
+`normalize: true`, l'adapter applique une normalisation L2 locale ; avec
+`false`, il conserve exactement les vecteurs du provider.
+
 ## Assemblage
 
 ```python
@@ -128,11 +207,11 @@ vector-store. Cette vérification doit avoir lieu à l'assemblage ou avant la
 première écriture ; tronquer ou compléter silencieusement un vecteur rendrait
 l'index incohérent.
 
-Avec `normalize: true`, l'adapter déterministe applique une normalisation L2.
-Les futurs providers peuvent déjà retourner des vecteurs normalisés ou proposer
-leur propre option. Le service doit documenter la métrique de distance choisie
-avec le vector-store et ne pas supposer que tous les providers ont la même
-stratégie.
+Avec `normalize: true`, les adapters `deterministic` et `openai-compatible`
+appliquent une normalisation L2 locale. Les providers peuvent déjà retourner
+des vecteurs normalisés ou proposer leur propre option. Le service doit
+documenter la métrique de distance choisie avec le vector-store et ne pas
+supposer que tous les providers ont la même stratégie.
 
 ## Conversations Et Vie Privée
 
@@ -148,11 +227,12 @@ index.
 ```bash
 uv run pytest tests/units/domain/ports/test_embedding.py \
   tests/units/adapters/outbound/test_deterministic_embedding.py \
+  tests/units/adapters/outbound/test_openai_compatible_embedding.py \
   tests/units/infrastructure/test_embedding_factory.py
 uv run --project cli pytest cli/tests/test_embedding_capability.py
 make docs
 ```
 
-Le smoke doit vérifier la dimension, l'ordre des résultats et la stabilité du
-vecteur. Une recherche sémantique pertinente reste hors scope de l'adapter
-`deterministic`.
+Le smoke doit vérifier la dimension et l'ordre des résultats. La stabilité
+concerne uniquement `deterministic` ; la pertinence sémantique et la
+disponibilité du modèle appartiennent au runtime provider.

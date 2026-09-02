@@ -13,6 +13,11 @@ def _minimal_project(tmp_path: Path) -> Path:
         "logger: console\nrepository: memory\nobservability:\n  enabled: []\n",
         encoding="utf-8",
     )
+    (project_dir / "pyproject.toml").write_text(
+        '[project]\nname = "demo-service"\nversion = "0.1.0"\n'
+        'dependencies = ["arclith>=0.20.0"]\n',
+        encoding="utf-8",
+    )
     return project_dir
 
 
@@ -22,7 +27,7 @@ def test_embedding_capability_catalog_declares_deterministic_adapter() -> None:
     assert capability is not None
     assert capability.layer == "outbound"
     assert capability.activation_config_key is None
-    assert capability.adapter_names() == ("deterministic",)
+    assert capability.adapter_names() == ("deterministic", "openai-compatible")
     deterministic = capability.get_adapter("deterministic")
     assert deterministic is not None
     assert deterministic.entity_scoped is False
@@ -31,6 +36,20 @@ def test_embedding_capability_catalog_declares_deterministic_adapter() -> None:
         "model_name",
         "dimensions",
         "batch_size",
+        "normalize",
+        "multitenant",
+    ]
+    openai_compatible = capability.get_adapter("openai-compatible")
+    assert openai_compatible is not None
+    assert openai_compatible.entity_scoped is False
+    assert openai_compatible.dependency_extra == "embedding"
+    assert [parameter.name for parameter in openai_compatible.parameters] == [
+        "base_url",
+        "api_key",
+        "model_name",
+        "dimensions",
+        "batch_size",
+        "timeout",
         "normalize",
         "multitenant",
     ]
@@ -43,7 +62,10 @@ def test_embedding_capability_is_exposed_in_json_catalog() -> None:
 
     embedding = payload_by_name["embedding"]
     assert embedding["activation_config_key"] is None
-    assert [adapter["name"] for adapter in embedding["adapters"]] == ["deterministic"]
+    assert [adapter["name"] for adapter in embedding["adapters"]] == [
+        "deterministic",
+        "openai-compatible",
+    ]
 
 
 def test_add_deterministic_embedding_generates_loadable_config_idempotently(
@@ -86,3 +108,54 @@ def test_add_deterministic_embedding_generates_loadable_config_idempotently(
     assert "embedding:" not in (
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
+
+
+def test_add_openai_compatible_embedding_generates_loadable_config_idempotently(
+    tmp_path: Path,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    params = {
+        "base_url": "http://127.0.0.1:1234/v1",
+        "api_key": "local-dev",
+        "model_name": "nomic-embed-text",
+        "dimensions": "768",
+        "batch_size": "16",
+        "timeout": "12.5",
+        "normalize": "false",
+        "multitenant": "false",
+    }
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="embedding",
+            adapter="openai-compatible",
+            adapter_params=params,
+            yes=True,
+        )
+
+    from arclith import Arclith
+    from arclith.adapters.outbound.openai_compatible import (
+        OpenAICompatibleEmbeddingAdapter,
+    )
+
+    config_path = project_dir / "config/adapters/outbound/embedding.yaml"
+    app = Arclith(project_dir / "config")
+
+    assert config_path.read_text(encoding="utf-8") == (
+        "adapter: openai-compatible\n"
+        'base_url: "http://127.0.0.1:1234/v1"\n'
+        'api_key: "local-dev"\n'
+        'model_name: "nomic-embed-text"\n'
+        "dimensions: 768\n"
+        "batch_size: 16\n"
+        "timeout: 12.5\n"
+        "normalize: false\n"
+        "multitenant: false\n"
+    )
+    assert app.config.adapters.embedding is not None
+    assert app.config.adapters.embedding.model_name == "nomic-embed-text"
+    assert isinstance(app.embedding(), OpenAICompatibleEmbeddingAdapter)
+    assert "arclith[embedding]>=0.20.0" in (project_dir / "pyproject.toml").read_text(
+        encoding="utf-8"
+    )

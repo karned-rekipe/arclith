@@ -189,6 +189,77 @@ multitenant: {multitenant}
             ),
             entity_scoped=False,
         ),
+        AdapterSpec(
+            name="openai-compatible",
+            capability="embedding",
+            layer="outbound",
+            description="Endpoint local ou distant compatible OpenAI Embeddings.",
+            config_path="config/adapters/outbound/embedding.yaml",
+            config_template="""\
+adapter: openai-compatible
+base_url: "{base_url}"
+api_key: "{api_key}"
+model_name: "{model_name}"
+dimensions: {dimensions}
+batch_size: {batch_size}
+timeout: {timeout}
+normalize: {normalize}
+multitenant: {multitenant}
+""",
+            parameters=(
+                ParameterSpec(
+                    name="base_url",
+                    kind="string",
+                    prompt="Base URL OpenAI-compatible avec préfixe API",
+                    default="http://127.0.0.1:1234/v1",
+                ),
+                ParameterSpec(
+                    name="api_key",
+                    kind="string",
+                    prompt="API key locale ou résolue par secrets",
+                    default="local-dev",
+                    secret=True,
+                ),
+                ParameterSpec(
+                    name="model_name",
+                    kind="string",
+                    prompt="ID exact du modèle d'embedding exposé",
+                    default="remplacer-par-model-id-embedding-local",
+                ),
+                ParameterSpec(
+                    name="dimensions",
+                    kind="string",
+                    prompt="Dimension attendue des vecteurs",
+                    default="1536",
+                ),
+                ParameterSpec(
+                    name="batch_size",
+                    kind="string",
+                    prompt="Taille maximale des sous-batches",
+                    default="64",
+                ),
+                ParameterSpec(
+                    name="timeout",
+                    kind="string",
+                    prompt="Timeout HTTP en secondes",
+                    default="30.0",
+                ),
+                ParameterSpec(
+                    name="normalize",
+                    kind="boolean",
+                    prompt="Normaliser les vecteurs en norme L2",
+                    default=False,
+                ),
+                ParameterSpec(
+                    name="multitenant",
+                    kind="boolean",
+                    prompt="Réserver la résolution de contexte par tenant",
+                    default=False,
+                ),
+            ),
+            dependency_extra="embedding",
+            entity_scoped=False,
+        ),
     ),
 )
 

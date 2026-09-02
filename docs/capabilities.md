@@ -36,7 +36,7 @@ arclith-cli capabilities --json
 | [logger](capabilities/logger.md) | outbound | `console` | standardiser les logs |
 | [secrets](capabilities/secrets.md) | outbound | `env`, `yaml`, `vault`, `chain` | résoudre les secrets |
 | [llm](capabilities/llm.md) | outbound | `lmstudio`, `openai`, `anthropic` | configurer les modèles |
-| [embedding](capabilities/embedding.md) | outbound | `deterministic` | calculer des vecteurs texte sans les persister |
+| [embedding](capabilities/embedding.md) | outbound | `deterministic`, `openai-compatible` | calculer des vecteurs texte sans les persister |
 | [observability](capabilities/observability.md) ([OpenTelemetry](capabilities/opentelemetry.md)) | outbound | `langsmith`, `opentelemetry` | traces, métriques, logs et agents |
 | [command-bus](capabilities/command-bus.md) | bidirectional | `rabbitmq` | consommer et publier des commandes |
 | [runtime](capabilities/runtime.md) | runtime | `docker-image` | générer le runtime conteneur |

@@ -52,6 +52,37 @@ def test_public_embedding_exports():
     assert arclith.DeterministicEmbeddingAdapter is not None
 
 
+def test_import_arclith_does_not_require_embedding_extra():
+    script = """
+import importlib.abc
+import sys
+
+
+class BlockEmbeddingExtra(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        if fullname == "httpx" or fullname.startswith("httpx."):
+            raise ModuleNotFoundError(fullname)
+        return None
+
+
+sys.meta_path.insert(0, BlockEmbeddingExtra())
+
+import arclith
+
+arclith.default_embedding_registry()
+print(arclith.__name__)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "arclith"
+
+
 def test_import_arclith_does_not_require_s3_extra():
     script = """
 import importlib.abc

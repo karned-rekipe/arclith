@@ -167,6 +167,9 @@ duckdb = [
     { name = "duckdb" },
     { name = "pytz" },
 ]
+embedding = [
+    { name = "httpx" },
+]
 fastapi = [
     { name = "fastapi" },
     { name = "uvicorn" },
@@ -279,6 +282,7 @@ requires-dist = [
     { name = "google-cloud-storage", marker = "extra == 'gcs'", specifier = ">=3.3.0,<4.0.0" },
     { name = "httpx", marker = "extra == 'all'", specifier = ">=0.27.0" },
     { name = "httpx", marker = "extra == 'auth'", specifier = ">=0.27.0" },
+    { name = "httpx", marker = "extra == 'embedding'", specifier = ">=0.27.0" },
     { name = "hvac", marker = "extra == 'all'", specifier = "==2.3.0" },
     { name = "hvac", marker = "extra == 'vault'", specifier = "==2.3.0" },
     { name = "langgraph", marker = "extra == 'all'", specifier = ">=1.0.8" },
@@ -336,7 +340,7 @@ requires-dist = [
     { name = "uvicorn", marker = "extra == 'fastapi'", specifier = "==0.41.0" },
     { name = "uvicorn", marker = "extra == 'langgraph-runtime'", specifier = "==0.41.0" },
 ]
-provides-extras = ["mongodb", "duckdb", "mariadb", "postgresql", "fastapi", "mcp", "vault", "cache", "auth", "rabbitmq", "langgraph", "langgraph-runtime", "langgraph-persistence-sqlite", "langgraph-persistence-postgresql", "langgraph-persistence-mongodb", "langgraph-persistence-redis", "langsmith", "opentelemetry", "all", "azure-blob", "s3", "gcs"]
+provides-extras = ["mongodb", "duckdb", "mariadb", "postgresql", "fastapi", "mcp", "vault", "cache", "auth", "embedding", "rabbitmq", "langgraph", "langgraph-runtime", "langgraph-persistence-sqlite", "langgraph-persistence-postgresql", "langgraph-persistence-mongodb", "langgraph-persistence-redis", "langsmith", "opentelemetry", "all", "azure-blob", "s3", "gcs"]
 
 [package.metadata.requires-dev]
 dev = [
