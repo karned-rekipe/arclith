@@ -92,6 +92,7 @@ all     = [
     "azure-identity>=1.25.1,<2.0.0",
     "boto3>=1.43.70",
     "google-cloud-storage>=3.3.0,<4.0.0",
+    "qdrant-client==1.19.0",
 ]
 azure-blob = [
     "azure-storage-blob>=12.27.1,<13.0.0",
@@ -102,6 +103,9 @@ s3 = [
 ]
 gcs = [
     "google-cloud-storage>=3.3.0,<4.0.0",
+]
+qdrant = [
+    "qdrant-client==1.19.0",
 ]
 
 [tool.pytest.ini_options]

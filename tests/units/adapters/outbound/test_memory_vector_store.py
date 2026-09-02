@@ -28,6 +28,8 @@ async def test_memory_vector_store_requires_collection_initialization() -> None:
     with pytest.raises(VectorStoreCollectionNotFound, match="documents"):
         await store.search(VectorSearchQuery(vector=[1.0, 0.0]))
 
+    await store.close()
+
 
 @pytest.mark.asyncio
 async def test_memory_vector_store_upserts_searches_filters_and_projects() -> None:

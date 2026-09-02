@@ -27,7 +27,7 @@ def test_vector_store_capability_catalog_declares_memory_adapter() -> None:
     assert capability is not None
     assert capability.layer == "outbound"
     assert capability.activation_config_key is None
-    assert capability.adapter_names() == ("memory",)
+    assert capability.adapter_names() == ("memory", "qdrant")
     memory = capability.get_adapter("memory")
     assert memory is not None
     assert memory.entity_scoped is False
@@ -48,7 +48,27 @@ def test_vector_store_capability_is_exposed_in_json_catalog() -> None:
 
     vector_store = payload_by_name["vector-store"]
     assert vector_store["activation_config_key"] is None
-    assert [adapter["name"] for adapter in vector_store["adapters"]] == ["memory"]
+    assert [adapter["name"] for adapter in vector_store["adapters"]] == [
+        "memory",
+        "qdrant",
+    ]
+
+
+def test_vector_store_capability_declares_qdrant_adapter() -> None:
+    capability = get_capability("vector-store")
+
+    assert capability is not None
+    qdrant = capability.get_adapter("qdrant")
+    assert qdrant is not None
+    assert qdrant.entity_scoped is False
+    assert qdrant.dependency_extra == "qdrant"
+    assert qdrant.config_path == "config/adapters/outbound/vector_store.yaml"
+    assert [mapping.field_path for mapping in qdrant.secret_mappings] == [
+        "adapters.vector_store.api_key",
+    ]
+    assert [mapping.secret_key for mapping in qdrant.secret_mappings] == [
+        "QDRANT_API_KEY",
+    ]
 
 
 def test_add_memory_vector_store_generates_loadable_config_idempotently(
@@ -89,3 +109,58 @@ def test_add_memory_vector_store_generates_loadable_config_idempotently(
     assert "vector_store:" not in (
         project_dir / "config/adapters/adapters.yaml"
     ).read_text(encoding="utf-8")
+
+
+def test_add_qdrant_vector_store_generates_loadable_config_and_secrets(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    params = {
+        "url": "http://localhost:6333",
+        "collection_name": "documents",
+        "vector_size": "1536",
+        "distance": "cosine",
+        "prefer_grpc": "false",
+        "timeout": "5.0",
+        "create_collection": "true",
+        "multitenant": "false",
+    }
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="vector-store",
+            adapter="qdrant",
+            adapter_params=params,
+            yes=True,
+        )
+
+    config_text = (
+        project_dir / "config/adapters/outbound/vector_store.yaml"
+    ).read_text(encoding="utf-8")
+    secrets_text = (project_dir / "config/secrets.yaml").read_text(encoding="utf-8")
+
+    assert config_text == (
+        "adapter: qdrant\n"
+        'url: "http://localhost:6333"\n'
+        "api_key: null\n"
+        'collection_name: "documents"\n'
+        "vector_size: 1536\n"
+        "distance: cosine\n"
+        "prefer_grpc: false\n"
+        "timeout: 5.0\n"
+        "create_collection: true\n"
+        "multitenant: false\n"
+    )
+    assert secrets_text.count("adapters.vector_store.api_key") == 1
+    assert "adapters.vector_store.api_key: QDRANT_API_KEY" in secrets_text
+    assert "adapters.vector_store.url" not in secrets_text
+
+    from arclith import Arclith, QdrantVectorStore
+
+    monkeypatch.setenv("QDRANT_API_KEY", "test-key")
+    app = Arclith(project_dir / "config")
+    assert isinstance(app.vector_store(), QdrantVectorStore)
+    assert app.config.adapters.vector_store is not None
+    assert app.config.adapters.vector_store.api_key == "test-key"

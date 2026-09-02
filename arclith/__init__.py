@@ -14,6 +14,7 @@ from arclith.adapters.outbound.gcs import GCSFileStorage, GCSStorageConfig
 from arclith.adapters.outbound.memory.repository import InMemoryRepository
 from arclith.adapters.outbound.memory.vector_store import MemoryVectorStore
 from arclith.adapters.outbound.mongodb.config import MongoDBConfig
+from arclith.adapters.outbound.qdrant import QdrantVectorStore
 from arclith.adapters.outbound.s3 import S3FileStorage, S3StorageConfig
 from arclith.application.command_bus import CommandDispatcher, CommandEnvelope
 from arclith.application.services.base_service import BaseService
@@ -144,6 +145,7 @@ __all__ = [
     "VectorStorePermissionDenied",
     "VectorStoreInvalidPayload",
     "MemoryVectorStore",
+    "QdrantVectorStore",
     "FileStoragePort",
     "StoredObject",
     "StoredObjectMetadata",
