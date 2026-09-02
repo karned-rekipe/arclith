@@ -254,9 +254,7 @@ def _raise_for_status(status_code: int) -> None:
         raise EmbeddingRateLimitError("embedding provider rate limit exceeded")
     if 400 <= status_code < 500:
         raise EmbeddingInvalidInput("embedding provider rejected the request")
-    if status_code >= 500:
-        raise EmbeddingUnavailable("embedding provider is unavailable")
-    raise EmbeddingError("embedding provider request failed")
+    raise EmbeddingUnavailable("embedding provider is unavailable")
 
 
 def _require_httpx() -> Any:
