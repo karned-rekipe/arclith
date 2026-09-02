@@ -522,6 +522,233 @@ Erreurs fréquentes :
 Références : [serveur Vault en mode dev](https://developer.hashicorp.com/vault/docs/concepts/dev-server)
 et [configuration d'un mount KV v2](https://developer.hashicorp.com/vault/docs/secrets/kv/kv-v2/setup).
 
+## Ajouter Keycloak localement
+
+Ce POC ajoute une identité locale au service Todo sans dépendre du fournisseur de production. Le
+realm fourni crée un client public Swagger avec PKCE S256, un rôle licence, deux utilisateurs de
+test et un claim `tenant_id`. Tout est jetable : arrêter le container supprime le realm, les comptes
+et les clés de signature.
+
+### Télécharger le realm de développement
+
+Depuis la racine du projet Todo, télécharger la même révision que celle de la documentation. Un tag
+ou un SHA peut remplacer `main` pour figer le POC :
+
+```bash
+mkdir -p local/keycloak
+export ARCLITH_REF="${ARCLITH_REF:-main}"
+curl -fsSLo local/keycloak/arclith-local-realm.json \
+  "https://raw.githubusercontent.com/karned-rekipe/arclith/${ARCLITH_REF}/docs/tutorials/todo-list/keycloak/arclith-local-realm.json"
+jq empty local/keycloak/arclith-local-realm.json
+```
+
+Le fichier [`arclith-local-realm.json`](keycloak/arclith-local-realm.json) contient exclusivement
+des données de démonstration :
+
+| Élément | Valeur locale | But |
+| --- | --- | --- |
+| realm | `arclith-local` | issuer isolé de la production |
+| client public | `todo-swagger` | Authorization Code + PKCE S256 |
+| audience | `todo-api` | validation du token par `JWTDecoder` |
+| rôle realm | `rekipe:licensed` | validation par `RoleLicenseValidator` |
+| `alice` | mot de passe `arclith-dev-only` | rôle licence et `tenant_id=client-a` |
+| `bob` | mot de passe `arclith-dev-only` | utilisateur valide sans licence |
+
+Ces mots de passe sont publics, limités au container local et ne doivent être réutilisés nulle part.
+
+### Démarrer Keycloak avec l'import
+
+La commande lie Keycloak à l'interface loopback et monte le realm en lecture seule dans le
+répertoire d'import officiel :
+
+```bash
+realm_file="$(pwd)/local/keycloak/arclith-local-realm.json"
+
+docker run --rm --name arclith-keycloak \
+  -p 127.0.0.1:8080:8080 \
+  -e KC_BOOTSTRAP_ADMIN_USERNAME=admin \
+  -e KC_BOOTSTRAP_ADMIN_PASSWORD=arclith-dev-only \
+  -v "${realm_file}:/opt/keycloak/data/import/arclith-local-realm.json:ro" \
+  -d quay.io/keycloak/keycloak:26.7.3 \
+  start-dev --import-realm
+```
+
+Le compte `admin` sert uniquement à inspecter ce serveur jetable. Attendre que le document de
+découverte du realm soit disponible :
+
+```bash
+for attempt in $(seq 1 60); do
+  curl -fsS \
+    http://127.0.0.1:8080/realms/arclith-local/.well-known/openid-configuration \
+    >/dev/null && break
+  if [ "$attempt" -eq 60 ]; then
+    docker logs arclith-keycloak
+    exit 1
+  fi
+  sleep 1
+done
+```
+
+L'endpoint JWKS annoncé par ce document, et utilisé par Arclith, doit être :
+
+```text
+http://127.0.0.1:8080/realms/arclith-local/protocol/openid-connect/certs
+```
+
+### Configurer l'authentification et la licence
+
+Installer l'extra d'authentification, puis utiliser les capabilities CLI courantes :
+
+```bash
+uv add "arclith[auth]"
+arclith-cli add-adapter \
+  --capability auth \
+  --adapter keycloak \
+  --param url=http://127.0.0.1:8080 \
+  --param realm=arclith-local \
+  --param audience=todo-api \
+  --param client_id=todo-swagger \
+  --yes
+
+arclith-cli add-adapter \
+  --capability license \
+  --adapter role \
+  --param role=rekipe:licensed \
+  --yes
+```
+
+Le CLI génère les deux fichiers inbound attendus :
+
+```yaml
+# config/adapters/inbound/keycloak.yaml
+url: "http://127.0.0.1:8080"
+realm: "arclith-local"
+audience: todo-api
+client_id: todo-swagger
+```
+
+```yaml
+# config/adapters/inbound/license.yaml
+role: "rekipe:licensed"
+```
+
+Dans `src/todo_list_service/adapters/inbound/fastapi/register.py`, protéger toutes les routes du
+router Todo avec la dépendance construite par Arclith :
+
+```python
+from fastapi import Depends, FastAPI
+
+# ... imports et construction des handlers inchangés ...
+
+require_auth = arclith.auth_dependency()
+app.include_router(
+    build_todo_router(handlers),
+    dependencies=[Depends(require_auth)],
+)
+```
+
+Cette dépendance vérifie la signature RS256 via le JWKS local, l'audience `todo-api`, l'expiration et
+le rôle `rekipe:licensed`. Elle produit aussi le schéma OAuth2 utilisé par Swagger UI.
+
+### Relier le claim au POC Vault
+
+Si la section Vault précédente a été suivie, son entrée `kv/rekipe/tenants/client-a` correspond déjà
+au claim signé de `alice`. Configurer le resolver avec le même nom de claim :
+
+```bash
+arclith-cli add-adapter \
+  --capability tenant \
+  --adapter vault \
+  --param addr=http://127.0.0.1:8200 \
+  --param mount=kv \
+  --param path_prefix=rekipe/tenants \
+  --param tenant_claim=tenant_id \
+  --param tenant_uri_ttl=300 \
+  --yes
+```
+
+Le smoke ci-dessous vérifie que le token porte bien `tenant_id=client-a`. Pour un repository
+`multitenant: true`, remplacer la dépendance auth seule par le pipeline complet
+`make_inject_tenant_uri` décrit dans [la documentation multitenant](../../multitenant.md#cablage-dans-le-container) :
+le resolver utilisera alors ce claim signé pour lire l'entrée Vault, sans accepter de tenant libre
+depuis un header ou une URL.
+
+### Tester Swagger et la route protégée
+
+Démarrer l'API, puis ouvrir impérativement l'URL déclarée dans le client :
+
+```text
+http://127.0.0.1:8120/docs
+```
+
+Cliquer sur **Authorize**, conserver les scopes `openid profile`, puis se connecter avec `alice` et
+le mot de passe local. Swagger exécute le flux Authorization Code avec PKCE et injecte le Bearer
+token pour appeler `GET /v1/todos/`. `bob` peut s'authentifier mais reçoit `403`, car son token ne
+porte pas le rôle licence.
+
+Pour un smoke CLI déterministe, le realm active aussi le Direct Access Grant sur ce seul client de
+développement. Ce flux par mot de passe ne remplace pas PKCE et ne doit pas être repris en
+production :
+
+```bash
+TOKEN="$(curl -fsS \
+  -X POST \
+  http://127.0.0.1:8080/realms/arclith-local/protocol/openid-connect/token \
+  -d grant_type=password \
+  -d client_id=todo-swagger \
+  -d username=alice \
+  -d password=arclith-dev-only \
+  -d 'scope=openid profile' \
+  | jq -er .access_token)"
+
+curl -fsS \
+  -H "Authorization: Bearer ${TOKEN}" \
+  "http://127.0.0.1:8120/v1/todos/?page=1&per_page=20"
+unset TOKEN
+```
+
+Le script fourni vérifie sans afficher les tokens le document de découverte, le JWKS, l'audience,
+le rôle et le claim tenant. Avec `TODO_API_URL`, il vérifie aussi les statuts de la route réelle :
+
+```bash
+mkdir -p scripts
+curl -fsSLo scripts/smoke-keycloak.sh \
+  "https://raw.githubusercontent.com/karned-rekipe/arclith/${ARCLITH_REF}/docs/tutorials/todo-list/scripts/smoke-keycloak.sh"
+chmod +x scripts/smoke-keycloak.sh
+
+./scripts/smoke-keycloak.sh
+TODO_API_URL="http://127.0.0.1:8120/v1/todos/?page=1&per_page=20" \
+  ./scripts/smoke-keycloak.sh
+```
+
+Le second appel attend `401` sans token, `200` avec `alice` et `403` avec `bob`.
+
+### Tokens courts, rotation et nettoyage
+
+Le realm fixe la durée de vie des access tokens à cinq minutes. Un client interactif renouvelle son
+token via le flux OIDC ; un traitement asynchrone ne doit jamais persister ni transporter le JWT
+brut. Keycloak renouvelle ses clés au redémarrage de ce container éphémère : redémarrer aussi l'API
+du POC pour vider son cache JWKS. En production, conserver les anciennes clés jusqu'à l'expiration
+des tokens déjà émis et coordonner la rotation avec le TTL du cache JWKS.
+
+```bash
+docker stop arclith-keycloak
+unset TOKEN KEYCLOAK_URL KEYCLOAK_REALM KEYCLOAK_CLIENT_ID KEYCLOAK_PASSWORD
+```
+
+Erreurs fréquentes :
+
+- `invalid redirect_uri` : ouvrir Swagger via `http://127.0.0.1:8120`, pas via `localhost` ;
+- `Invalid audience` : conserver `audience=todo-api` et vérifier le mapper du client importé ;
+- `Clé JWKS introuvable` après relance : redémarrer l'API locale pour vider son cache en mémoire ;
+- `403 Licence invalide ou absente` avec `alice` : vérifier `license.role=rekipe:licensed` et le realm
+  effectivement importé ;
+- claim tenant absent : vérifier le mapper `tenant-id` et l'attribut de l'utilisateur dans le realm.
+
+Références : [container Keycloak et import au démarrage](https://www.keycloak.org/server/containers#importing-a-realm-on-startup),
+[endpoints OIDC Keycloak](https://www.keycloak.org/securing-apps/oidc-layers#_endpoints) et
+[authentification Arclith](../../auth.md).
+
 ## Ajouter OpenTelemetry localement
 
 LangSmith observe surtout les runs LLM et LangGraph. OpenTelemetry sert à tracer le service comme un

@@ -84,6 +84,10 @@ Tester au minimum:
 | `realm_access` absent | `403` |
 | config `license.yaml` absente | contrôle licence désactivé |
 
+Le [POC Keycloak du tutoriel Todo](../tutorials/todo-list/07-local-services.md#ajouter-keycloak-localement)
+fournit un utilisateur licencié et un utilisateur sans rôle pour vérifier les réponses `200` et
+`403` sur une route réelle.
+
 ## Suite
 
 Lire aussi:

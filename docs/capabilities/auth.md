@@ -68,6 +68,9 @@ uv run pytest
 curl -fsS http://keycloak:8080/realms/rekipe/.well-known/openid-configuration
 ```
 
+Le [POC Keycloak du tutoriel Todo](../tutorials/todo-list/07-local-services.md#ajouter-keycloak-localement)
+fournit un realm importable, un client public PKCE et un smoke réel du JWKS, des rôles et des claims.
+
 ## Suite
 
 Lire [Auth production](../production/auth.md), puis [Authentification & Autorisation](../auth.md).
