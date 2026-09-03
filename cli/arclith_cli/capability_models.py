@@ -5,6 +5,16 @@ from typing import Any, Literal
 
 ParameterKind = Literal["string", "boolean"]
 LayerKind = Literal["inbound", "outbound", "bidirectional", "runtime"]
+StorageModel = Literal[
+    "memory",
+    "document",
+    "relational_json",
+    "embedded_analytics",
+    "relational_structured",
+]
+RuntimeKind = Literal["in_process", "file", "server"]
+TransactionSupport = Literal["none", "limited", "strong"]
+SchemaStrategy = Literal["flexible", "json_table", "structured_tables"]
 
 
 @dataclass(frozen=True)
@@ -71,6 +81,30 @@ class AdapterProfileSpec:
 
 
 @dataclass(frozen=True)
+class AdapterFacets:
+    storage_model: StorageModel
+    runtime: RuntimeKind
+    production_ready: bool
+    multi_process: bool
+    transactions: TransactionSupport
+    schema_strategy: SchemaStrategy
+    recommended_for: tuple[str, ...]
+    limits: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "storage_model": self.storage_model,
+            "runtime": self.runtime,
+            "production_ready": self.production_ready,
+            "multi_process": self.multi_process,
+            "transactions": self.transactions,
+            "schema_strategy": self.schema_strategy,
+            "recommended_for": list(self.recommended_for),
+            "limits": list(self.limits),
+        }
+
+
+@dataclass(frozen=True)
 class AdapterSpec:
     name: str
     capability: str
@@ -90,6 +124,7 @@ class AdapterSpec:
     profiles: tuple[AdapterProfileSpec, ...] = ()
     dependency_extra: str | None = None
     entity_scoped: bool = True
+    facets: AdapterFacets | None = None
 
     def has_config(self) -> bool:
         return self.config_path is not None and bool(self.config_template)
@@ -137,6 +172,7 @@ class AdapterSpec:
             "profiles": [profile.to_dict() for profile in self.profiles],
             "dependency_extra": self.dependency_extra,
             "entity_scoped": self.entity_scoped,
+            "facets": self.facets.to_dict() if self.facets is not None else None,
         }
 
 
@@ -169,6 +205,7 @@ class CapabilitySpec:
 
 
 __all__ = [
+    "AdapterFacets",
     "AdapterProfileSpec",
     "AdapterSpec",
     "CapabilitySpec",
@@ -176,5 +213,9 @@ __all__ = [
     "LayerKind",
     "ParameterKind",
     "ParameterSpec",
+    "RuntimeKind",
+    "SchemaStrategy",
     "SecretMappingSpec",
+    "StorageModel",
+    "TransactionSupport",
 ]

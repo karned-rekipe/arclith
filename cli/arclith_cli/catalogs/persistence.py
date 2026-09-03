@@ -6,6 +6,13 @@ from arclith_cli.capability_models import (
     ParameterSpec,
     SecretMappingSpec,
 )
+from arclith_cli.catalogs.repository_facets import (
+    DUCKDB_FACETS,
+    MARIADB_FACETS,
+    MEMORY_FACETS,
+    MONGODB_FACETS,
+    POSTGRESQL_FACETS,
+)
 
 REPOSITORY_CAPABILITY = CapabilitySpec(
     name="repository",
@@ -18,6 +25,7 @@ REPOSITORY_CAPABILITY = CapabilitySpec(
             capability="repository",
             layer="outbound",
             description="Stockage volatile en mémoire pour dev, tests et smoke locaux.",
+            facets=MEMORY_FACETS,
         ),
         AdapterSpec(
             name="mongodb",
@@ -57,6 +65,7 @@ multitenant: {multitenant}   # true = uri/db_name résolus par requête via JWT 
                     default=False,
                 ),
             ),
+            facets=MONGODB_FACETS,
         ),
         AdapterSpec(
             name="duckdb",
@@ -76,6 +85,7 @@ path: {path}
                     default="data/",
                 ),
             ),
+            facets=DUCKDB_FACETS,
         ),
         AdapterSpec(
             name="mariadb",
@@ -142,6 +152,7 @@ multitenant: false
                     default="",
                 ),
             ),
+            facets=MARIADB_FACETS,
         ),
         AdapterSpec(
             name="postgresql",
@@ -221,6 +232,7 @@ multitenant: {multitenant}
                     default=False,
                 ),
             ),
+            facets=POSTGRESQL_FACETS,
         ),
     ),
 )

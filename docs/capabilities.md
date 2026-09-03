@@ -30,7 +30,7 @@ arclith-cli capabilities --json
 | [license](capabilities/license.md) | inbound | `role` | contrôler un droit d'accès |
 | [probe](capabilities/probe.md) | inbound | `server` | exposer `/health` et `/ready` |
 | [http](capabilities/http.md) | inbound | `idempotency`, `etag`, `cache-control` | durcir les conventions HTTP |
-| [repository](capabilities/repository.md) | outbound | `memory`, `mongodb`, `duckdb`, `mariadb`, `postgresql` | persister les entités |
+| [repository](capabilities/repository.md) | outbound | `memory`, `mongodb`, `duckdb`, `mariadb`, `postgresql` | choisir les garanties et persister les entités métier |
 | [storage](capabilities/storage.md) | outbound | `filesystem`, `s3`, `azure-blob`, `gcs` | stocker fichiers et blobs |
 | [cache](capabilities/cache.md) | outbound | `memory`, `redis` | partager JWKS, tenants et idempotence |
 | [logger](capabilities/logger.md) | outbound | `console` | standardiser les logs |
@@ -53,6 +53,7 @@ arclith-cli capabilities --json
 | Pipeline RAG local | [embedding](capabilities/embedding.md) pour calculer les vecteurs, puis [vector-store](capabilities/vector-store.md) pour les indexer |
 | Observabilité locale | [OpenTelemetry de bout en bout](capabilities/opentelemetry.md), puis [observabilité production](production/observability.md) |
 | Fichiers et blobs | [storage](capabilities/storage.md), [quickstart filesystem](capabilities/storage/quickstart.md), puis [secrets](capabilities/secrets.md) pour les credentials |
+| Persistance métier | [repository et sa matrice de choix](capabilities/repository.md), puis [storage](capabilities/storage.md) ou [vector-store](capabilities/vector-store.md) pour les responsabilités distinctes |
 | Service production | [Baseline production](production/baseline.md), puis les pages de la section Production |
 | Déploiement | [Runtime Docker](runtime-docker.md), puis [Docker Compose](runtime-docker/docker-compose.md) |
 

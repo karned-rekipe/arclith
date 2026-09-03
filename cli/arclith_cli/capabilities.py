@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from arclith_cli.capability_models import (
+    AdapterFacets,
     AdapterProfileSpec,
     AdapterSpec,
     CapabilitySpec,
@@ -48,6 +49,7 @@ __all__ = [
     "AGENT_PERSISTENCE_CAPABILITY",
     "API_CAPABILITY",
     "AUTH_CAPABILITY",
+    "AdapterFacets",
     "AdapterProfileSpec",
     "AdapterSpec",
     "CACHE_CAPABILITY",

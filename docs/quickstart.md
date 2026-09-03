@@ -156,8 +156,14 @@ Pour ajouter ou remplacer un adapter de repository:
 
 ```bash
 arclith-cli capabilities
+arclith-cli capabilities --json
 arclith-cli add-adapter
 ```
+
+La sortie JSON expose les garanties de chaque adapter repository. Utiliser la
+[matrice de choix repository](capabilities/repository.md) pour comparer runtime,
+multi-processus, transactions, stratégie de schéma, usages et limites avant de
+modifier l'adapter actif.
 
 Le wizard détecte les entités dans `src/<package>/domain/models/`, pose les questions nécessaires,
 génère les fichiers de l'adapter et met à jour la configuration.
