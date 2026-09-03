@@ -10,6 +10,13 @@ KEYCLOAK_PASSWORD="${KEYCLOAK_PASSWORD:-arclith-dev-only}"
 TODO_API_URL="${TODO_API_URL:-}"
 SWAGGER_REDIRECT_URI="${SWAGGER_REDIRECT_URI:-http://127.0.0.1:8120/docs/oauth2-redirect}"
 
+for required_command in curl jq; do
+  command -v "${required_command}" >/dev/null || {
+    printf 'Commande requise introuvable : %s\n' "${required_command}" >&2
+    exit 1
+  }
+done
+
 if [[ -n "${PYTHON_BIN:-}" ]]; then
   command -v "${PYTHON_BIN}" >/dev/null || {
     printf 'Interpréteur Python introuvable : %s\n' "${PYTHON_BIN}" >&2

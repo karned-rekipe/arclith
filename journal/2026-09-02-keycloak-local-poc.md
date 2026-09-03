@@ -20,7 +20,9 @@ local ne proposait ni realm importable ni preuve reproductible du flux PKCE/JWKS
   JWKS ;
 - permettre de télécharger le realm et le script depuis un tag ou SHA via `ARCLITH_REF` ;
 - sélectionner `python3`, puis `python` en fallback, tout en permettant une surcharge explicite par
-  `PYTHON_BIN` pour rendre le smoke portable.
+  `PYTHON_BIN` pour rendre le smoke portable ;
+- vérifier explicitement la présence de `curl` et `jq` pour produire une erreur exploitable avant
+  tout appel réseau.
 
 ## Validation
 
