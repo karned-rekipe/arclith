@@ -51,6 +51,7 @@ class SoftDeleteSettings(SettingsModel):
 class AdaptersSettings(SettingsModel):
     logger: str = "console"
     repository: str = "memory"
+    repository_bindings: dict[str, str] = Field(default_factory=dict)
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     mongodb: MongoDBSettings | None = None
     duckdb: DuckDBSettings | None = None
@@ -65,13 +66,23 @@ class AdaptersSettings(SettingsModel):
 
     @property
     def multitenant(self) -> bool:
-        settings = {
+        repository_settings = {
             "mongodb": self.mongodb,
             "duckdb": self.duckdb,
             "mariadb": self.mariadb,
             "postgresql": self.postgresql,
-        }.get(self.repository)
-        return bool(settings and settings.multitenant)
+        }
+        selected_adapters = {self.repository, *self.repository_bindings.values()}
+        return any(
+            settings is not None and settings.multitenant
+            for name in selected_adapters
+            if (settings := repository_settings.get(name)) is not None
+        )
+
+    def repository_adapter_for(self, entity_class: type[object]) -> str:
+        """Return the repository adapter selected for an entity class."""
+        entity_path = f"{entity_class.__module__}.{entity_class.__qualname__}"
+        return self.repository_bindings.get(entity_path, self.repository)
 
     @field_validator("logger")
     @classmethod
@@ -85,10 +96,10 @@ class AdaptersSettings(SettingsModel):
 
     @model_validator(mode="after")
     def validate_repository_config(self) -> "AdaptersSettings":
-        repository_section = _REPOSITORY_CONFIG_SECTIONS.get(self.repository)
-        if repository_section is not None and getattr(self, repository_section) is None:
-            raise ValueError(
-                f"repository={self.repository} mais aucune section [adapters.{repository_section}] dans config.yaml"
+        self._validate_repository_section("repository", self.repository)
+        for entity_path, adapter in self.repository_bindings.items():
+            self._validate_repository_section(
+                f"repository_bindings[{entity_path}]", adapter
             )
 
         for observability_adapter in self.observability.enabled:
@@ -102,6 +113,14 @@ class AdaptersSettings(SettingsModel):
                 )
         self._validate_observability_composition()
         return self
+
+    def _validate_repository_section(self, source: str, adapter: str) -> None:
+        repository_section = _REPOSITORY_CONFIG_SECTIONS.get(adapter)
+        if repository_section is not None and getattr(self, repository_section) is None:
+            raise ValueError(
+                f"{source}={adapter} mais aucune section "
+                f"[adapters.{repository_section}] dans config.yaml"
+            )
 
     def _validate_observability_composition(self) -> None:
         self._validate_langsmith_otel_mode()

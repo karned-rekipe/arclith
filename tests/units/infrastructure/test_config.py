@@ -5,6 +5,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from arclith.domain.models.entity import Entity
 from arclith.infrastructure.config import (
     AppConfig,
     CacheControlSettings,
@@ -26,11 +27,24 @@ from arclith.infrastructure.config import (
 )
 
 
+class BoundEntity(Entity):
+    pass
+
+
+class FallbackEntity(Entity):
+    pass
+
+
+def _entity_path(entity_class: type[Entity]) -> str:
+    return f"{entity_class.__module__}.{entity_class.__qualname__}"
+
+
 # ── AppConfig defaults ────────────────────────────────────────────────────────
 
 
 def test_default_config_uses_memory():
     assert AppConfig().adapters.repository == "memory"
+    assert AppConfig().adapters.repository_bindings == {}
     assert AppConfig().adapters.storage is None
     assert AppConfig().adapters.vector_store is None
     assert AppConfig().adapters.observability.enabled == []
@@ -42,6 +56,35 @@ def test_custom_repository_adapter_name_is_allowed():
 
     assert config.adapters.repository == "customdb"
     assert config.adapters.multitenant is False
+
+
+def test_repository_binding_selects_adapter_by_full_entity_path():
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "repository": "memory",
+                "repository_bindings": {_entity_path(BoundEntity): "customdb"},
+            }
+        }
+    )
+
+    assert config.adapters.repository_adapter_for(BoundEntity) == "customdb"
+    assert config.adapters.repository_adapter_for(FallbackEntity) == "memory"
+
+
+def test_repository_bindings_are_serialized_in_config():
+    entity_path = _entity_path(BoundEntity)
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "repository_bindings": {entity_path: "customdb"},
+            }
+        }
+    )
+
+    assert config.model_dump()["adapters"]["repository_bindings"] == {
+        entity_path: "customdb"
+    }
 
 
 def test_unknown_logger_adapter_is_rejected():
@@ -276,6 +319,26 @@ def test_load_config_dir_mongodb_scoped():
     assert config.adapters.repository == "mongodb"
     assert config.adapters.mongodb is not None
     assert config.adapters.mongodb.db_name == "mydb"
+
+
+def test_load_config_dir_repository_bindings():
+    entity_path = "my_service.domain.models.chat.ChatThread"
+    path = _make_config_dir(
+        {
+            "adapters/adapters.yaml": {
+                "repository": "memory",
+                "repository_bindings": {entity_path: "mongodb"},
+            },
+            "adapters/outbound/mongodb.yaml": {
+                "db_name": "chat_service",
+                "multitenant": False,
+            },
+        }
+    )
+
+    config = load_config_dir(path)
+
+    assert config.adapters.repository_bindings == {entity_path: "mongodb"}
 
 
 def test_load_config_dir_duckdb_scoped():
@@ -884,6 +947,33 @@ def test_mongodb_multitenant_no_uri_required():
     assert config.adapters.multitenant is True
 
 
+def test_bound_multitenant_repository_enables_tenant_pipeline():
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "repository": "memory",
+                "repository_bindings": {_entity_path(BoundEntity): "mongodb"},
+                "mongodb": {"db_name": "test", "multitenant": True},
+            }
+        }
+    )
+
+    assert config.adapters.multitenant is True
+
+
+def test_unselected_multitenant_repository_does_not_enable_tenant_pipeline():
+    config = AppConfig.model_validate(
+        {
+            "adapters": {
+                "repository": "memory",
+                "mongodb": {"db_name": "test", "multitenant": True},
+            }
+        }
+    )
+
+    assert config.adapters.multitenant is False
+
+
 def test_mariadb_settings_with_database():
     settings = MariaDBSettings(database="demo", port=3307, table_prefix="app_")
 
@@ -999,6 +1089,25 @@ def test_postgresql_requires_section():
         match=r"repository=postgresql mais aucune section \[adapters.postgresql\]",
     ):
         AppConfig.model_validate({"adapters": {"repository": "postgresql"}})
+
+
+@pytest.mark.parametrize("adapter", ["mongodb", "duckdb", "mariadb", "postgresql"])
+def test_repository_binding_requires_builtin_adapter_section(adapter: str):
+    entity_path = _entity_path(BoundEntity)
+
+    with pytest.raises(
+        ValidationError,
+        match=rf"repository_bindings\[{entity_path}\]={adapter}.*"
+        rf"\[adapters\.{adapter}\]",
+    ):
+        AppConfig.model_validate(
+            {
+                "adapters": {
+                    "repository": "memory",
+                    "repository_bindings": {entity_path: adapter},
+                }
+            }
+        )
 
 
 # ── load_config_file ──────────────────────────────────────────────────────────

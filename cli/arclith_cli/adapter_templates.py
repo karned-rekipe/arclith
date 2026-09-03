@@ -205,7 +205,8 @@ _repository_registry: RepositoryRegistry[{pascal}, {pascal}Repository] = (
 
 
 def build_{snake}_service(arclith: Arclith) -> tuple[{pascal}Service, Logger]:
-    arclith.logger.info("🗄️ Repository adapter selected", adapter=arclith.config.adapters.repository)
+    adapter = arclith.config.adapters.repository_adapter_for({pascal})
+    arclith.logger.info("🗄️ Repository adapter selected", adapter=adapter)
     repo: {pascal}Repository = arclith.repository({pascal}, registry=_repository_registry)
     return {pascal}Service(repo, arclith.logger, arclith.config.soft_delete.retention_days), arclith.logger
 """

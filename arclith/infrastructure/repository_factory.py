@@ -30,10 +30,12 @@ class RepositoryRegistry(Generic[T, R]):
         return self
 
     def build(self, config: AppConfig, entity_class: type[T], logger: Logger) -> R:
-        name = config.adapters.repository
+        name = config.adapters.repository_adapter_for(entity_class)
         if name not in self._factories:
+            entity_path = f"{entity_class.__module__}.{entity_class.__qualname__}"
             raise ValueError(
-                f"Repository adapter '{name}' not registered. "
+                f"Repository adapter '{name}' selected for '{entity_path}' "
+                "is not registered. "
                 f"Available: {sorted(self._factories)}."
             )
         return self._factories[name](config, entity_class, logger)
