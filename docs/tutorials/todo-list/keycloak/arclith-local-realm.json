@@ -1,0 +1,118 @@
+{
+  "realm": "arclith-local",
+  "enabled": true,
+  "displayName": "Arclith local POC",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "bruteForceProtected": false,
+  "accessTokenLifespan": 300,
+  "roles": {
+    "realm": [
+      {
+        "name": "rekipe:licensed",
+        "description": "Accès local au POC Todo Arclith"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "todo-swagger",
+      "name": "Todo Swagger local",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "clientAuthenticatorType": "client-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://127.0.0.1:8120/docs/oauth2-redirect"
+      ],
+      "webOrigins": [
+        "http://127.0.0.1:8120"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "todo-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "todo-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "tenant-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tenant_id",
+            "jsonType.label": "String",
+            "multivalued": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "alice",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "alice@arclith.local.test",
+      "firstName": "Alice",
+      "lastName": "POC",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "arclith-dev-only",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "rekipe:licensed"
+      ],
+      "attributes": {
+        "tenant_id": [
+          "client-a"
+        ]
+      }
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "bob@arclith.local.test",
+      "firstName": "Bob",
+      "lastName": "POC sans licence",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "arclith-dev-only",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "tenant_id": [
+          "client-b"
+        ]
+      }
+    }
+  ]
+}

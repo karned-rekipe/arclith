@@ -129,6 +129,9 @@ Le [POC Vault du tutoriel Todo](../tutorials/todo-list/07-local-services.md#ajou
 fournit un seed local reproductible et vérifie séparément `VaultSecretAdapter` et
 `VaultTenantResolver`.
 
+Le [POC Keycloak de la même annexe](../tutorials/todo-list/07-local-services.md#ajouter-keycloak-localement)
+émet le claim signé `tenant_id=client-a`, aligné sur l'entrée Vault créée par ce seed.
+
 ## Suite
 
 Lire aussi:
