@@ -60,12 +60,15 @@ arclith-cli add-adapter \
   --yes
 ```
 
-L'adapter actif reste choisi par la configuration existante :
+L'adapter global reste choisi par la configuration existante :
 
 ```yaml
 # config/adapters/adapters.yaml
 repository: mongodb
 ```
+
+Il sert aussi de fallback pour toute entité qui n'a pas de binding explicite.
+Un service mono-store n'a donc rien à modifier.
 
 Les facets sont uniquement des métadonnées de choix dans le catalogue CLI.
 Elles ne changent ni ce fichier, ni le contrat du port, ni le comportement des
@@ -98,6 +101,81 @@ Le projet Todo montre le chemin complet :
 
 Le choix de l'adapter passe par `build_repository()` et `Arclith.repository()`.
 Les adapters inbound ne doivent jamais instancier une implémentation concrète.
+
+### Router Des Entités Vers Plusieurs Stores
+
+Un même service peut conserver le fallback global tout en sélectionnant un
+adapter pour certaines classes d'entité. La clé recommandée est toujours le
+chemin Python complet `<module>.<qualname>` :
+
+```yaml
+# config/adapters/adapters.yaml
+repository: mongodb
+
+repository_bindings:
+  my_service.domain.models.chat.ChatThread: mongodb
+  my_service.domain.models.chat.ChatMessage: mongodb
+  my_service.domain.models.identity.UserAccount: mariadb
+```
+
+Les sections configurant ces deux adapters restent dans leurs fichiers scoped :
+
+```yaml
+# config/adapters/outbound/mongodb.yaml
+uri: null
+db_name: chat_service
+collection_name: null
+multitenant: false
+```
+
+```yaml
+# config/adapters/outbound/mariadb.yaml
+url: null
+host: 127.0.0.1
+port: 3306
+database: identity_service
+user: app
+password: null
+driver: asyncmy
+table_prefix: identity_
+multitenant: false
+```
+
+L'assemblage public ne change pas :
+
+```python
+chat_threads = arclith.repository(ChatThread)  # mongodb
+chat_messages = arclith.repository(ChatMessage)  # mongodb
+users = arclith.repository(UserAccount)  # mariadb
+```
+
+Le routing est exact et déterministe. Arclith construit la clé avec
+`f"{entity_class.__module__}.{entity_class.__qualname__}"`. Il n'interprète pas
+les noms courts, ce qui évite les collisions entre deux classes portant le même
+nom. Si la classe n'est pas bindée, `repository` reste le fallback. Si elle est
+bindée vers un adapter absent du registry utilisé, la construction échoue au
+lieu de revenir silencieusement au fallback.
+
+Les adapters intégrés `mongodb`, `duckdb`, `mariadb` et `postgresql` exigent
+leur section de configuration dès qu'ils sont référencés par le fallback ou un
+binding. Un nom custom reste possible avec un `RepositoryRegistry` applicatif ;
+sa présence dans ce registry est contrôlée lors de la construction.
+
+Les use cases continuent à dépendre uniquement des ports :
+
+```python
+class StartChatUseCase:
+    def __init__(
+        self,
+        user_repository: Repository[UserAccount],
+        thread_repository: Repository[ChatThread],
+    ) -> None:
+        self.user_repository = user_repository
+        self.thread_repository = thread_repository
+```
+
+Le container connaît les classes et assemble les repositories. Le use case
+sait qu'il coordonne deux ports, mais ne connaît ni MongoDB ni MariaDB.
 
 ### Contrat JSON Des Facets
 
@@ -265,13 +343,41 @@ Pour plusieurs réplicas API, MCP ou agent, sélectionner un adapter
 `multi_process: true`. Cette facet ne remplace pas la validation de la capacité
 du moteur, de son pool de connexions et de son déploiement à absorber la charge.
 
+### Limites Transactionnelles Cross-store
+
+Le routing ne crée aucune transaction atomique entre deux bases :
+
+- placer dans le même aggregate et le même store les entités qui doivent
+  respecter un invariant fort dans une mutation atomique ;
+- coordonner des aggregates distincts dans la couche applicative ;
+- utiliser outbox, command bus, idempotence et compensation quand une opération
+  distribuée doit tolérer les échecs partiels ;
+- construire un query service, une projection ou un read model pour une lecture
+  combinée, sans cacher un join cross-store derrière `Repository[T]`.
+
+Le routing reste limité au bounded context du service. Traverser le domaine
+d'un autre service passe par son API, son MCP, ses événements ou son command
+bus, jamais par l'accès direct à son repository ou à sa base.
+
+### Multitenant
+
+Les bindings ne remplacent pas l'isolation tenant. Si le fallback ou au moins
+un adapter bindé porte `multitenant: true`, le pipeline tenant est activé pour
+le service. Les adapters tenant-aware tels que MongoDB, MariaDB et PostgreSQL
+continuent à lire leurs coordonnées dans le contexte tenant existant. Les
+bindings eux-mêmes ne contiennent ni URI ni credential.
+
 ## Validation
 
-Vérifier le contrat des facets et la sortie CLI :
+Vérifier le routing, la configuration, le contrat des facets et la sortie CLI :
 
 ```bash
-uv run --directory cli pytest tests/test_capabilities.py -q
-uv run --directory cli arclith-cli capabilities --json
+uv run --frozen pytest -q \
+  tests/units/infrastructure/test_config.py \
+  tests/units/infrastructure/test_repository_factory.py \
+  tests/units/test_arclith_repository.py
+uv run --directory cli --frozen pytest tests/test_capabilities.py -q
+uv run --directory cli --frozen arclith-cli capabilities --json
 ```
 
 Avant contribution :
@@ -300,6 +406,14 @@ taxonomie adaptée à sa responsabilité.
 stockent un payload JSON ou JSONB générique. Une application qui exige des
 requêtes relationnelles typées, des contraintes métier ou des transactions
 multi-agrégats doit définir un port applicatif dédié dans son propre domaine.
+
+### Un Binding Est Refusé
+
+Vérifier d'abord que la clé correspond exactement au module et au `qualname` de
+la classe. Pour un adapter intégré, vérifier ensuite que son fichier scoped est
+présent. Pour un adapter custom, enregistrer le même nom dans le
+`RepositoryRegistry` passé à `arclith.repository(...)`. Le message d'erreur de
+construction indique l'entité, l'adapter sélectionné et les adapters disponibles.
 
 ## Projet
 

@@ -24,6 +24,18 @@ class Item(Entity):
     name: str = "item"
 
 
+class ChatThread(Entity):
+    pass
+
+
+class UserAccount(Entity):
+    pass
+
+
+def _entity_path(entity_class: type[Entity]) -> str:
+    return f"{entity_class.__module__}.{entity_class.__qualname__}"
+
+
 def test_memory_returns_in_memory_repository(logger):
     config = AppConfig(adapters=AdaptersSettings(repository="memory"))
     repo = build_repository(config, Item, logger)
@@ -48,6 +60,82 @@ def test_custom_repository_registry_builds_unknown_adapter(logger):
     repo = build_repository(config, Item, logger, registry=registry)
 
     assert repo is expected
+
+
+def test_repository_registry_routes_each_entity_to_its_binding(logger):
+    config = AppConfig(
+        adapters=AdaptersSettings(
+            repository="memory",
+            repository_bindings={
+                _entity_path(ChatThread): "mongodb",
+                _entity_path(UserAccount): "mariadb",
+            },
+            mongodb=MongoDBSettings(db_name="chat_service"),
+            mariadb=MariaDBSettings(database="identity_service"),
+        )
+    )
+    chat_repository = InMemoryRepository[ChatThread]()
+    user_repository = InMemoryRepository[UserAccount]()
+    selected: list[tuple[str, type[Entity]]] = []
+
+    def build_mongodb(config, entity_class, logger):
+        selected.append(("mongodb", entity_class))
+        return chat_repository
+
+    def build_mariadb(config, entity_class, logger):
+        selected.append(("mariadb", entity_class))
+        return user_repository
+
+    registry = (
+        RepositoryRegistry()
+        .register("mongodb", build_mongodb)
+        .register("mariadb", build_mariadb)
+    )
+
+    assert (
+        build_repository(config, ChatThread, logger, registry=registry)
+        is chat_repository
+    )
+    assert (
+        build_repository(config, UserAccount, logger, registry=registry)
+        is user_repository
+    )
+    assert selected == [("mongodb", ChatThread), ("mariadb", UserAccount)]
+
+
+def test_repository_registry_uses_global_fallback_for_unbound_entity(logger):
+    config = AppConfig(
+        adapters=AdaptersSettings(
+            repository="memory",
+            repository_bindings={_entity_path(ChatThread): "customdb"},
+        )
+    )
+    expected = InMemoryRepository[UserAccount]()
+    registry = RepositoryRegistry().register(
+        "memory", lambda config, entity_class, logger: expected
+    )
+
+    repository = build_repository(config, UserAccount, logger, registry=registry)
+
+    assert repository is expected
+
+
+def test_repository_registry_rejects_unknown_bound_adapter(logger):
+    config = AppConfig(
+        adapters=AdaptersSettings(
+            repository="memory",
+            repository_bindings={_entity_path(ChatThread): "missing"},
+        )
+    )
+    registry = RepositoryRegistry().register(
+        "memory", lambda config, entity_class, logger: InMemoryRepository()
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=rf"missing.*{_entity_path(ChatThread)}.*not registered",
+    ):
+        build_repository(config, ChatThread, logger, registry=registry)
 
 
 def test_mongodb_returns_mongodb_repository(logger):
