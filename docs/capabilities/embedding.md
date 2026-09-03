@@ -101,7 +101,7 @@ choisis fournissent réellement cet endpoint.
 Installer l'extra HTTP et générer la configuration :
 
 ```bash
-uv add 'arclith[embedding]>=0.21.0'
+uv add 'arclith[embedding]>=0.22.0'
 arclith-cli add-adapter \
   --capability embedding \
   --adapter openai-compatible \
@@ -183,7 +183,7 @@ d'embedding disponibles](https://developers.openai.com/api/docs/models/all) et
 les droits du projet OpenAI, puis passer l'identifiant voulu explicitement.
 
 ```bash
-uv add 'arclith[embedding]>=0.21.0'
+uv add 'arclith[embedding]>=0.22.0'
 arclith-cli add-adapter \
   --capability embedding \
   --adapter openai \

@@ -4,6 +4,29 @@
 
 ---
 
+## [0.22.0] — 2026-09-03
+
+### Added
+
+- **Adapter embedding OpenAI** — spécialisation de l'adapter OpenAI-compatible pour l'API
+  officielle, clé lue depuis `OPENAI_API_KEY`, configuration CLI dédiée et erreurs provider
+  normalisées sans exposer le secret.
+- **Vector stores provider-neutral** — port typé, filtres, scores, erreurs stables, factory et
+  adapter mémoire déterministe utilisable sans service externe.
+- **Adapter vector-store Qdrant** — extra optionnel, client injecté, création de collection,
+  recherche filtrée et catalogue CLI `vector-store/qdrant`.
+- **POC locaux exécutables** — Jaeger/OpenTelemetry, Vault KV v2 et Keycloak avec realm importé,
+  PKCE/JWKS, rôle licence et raccord du claim tenant à Vault.
+
+### Changed
+
+- **Catalogue CLI IA** — les configurations `embedding/openai`, `vector-store/memory` et
+  `vector-store/qdrant` sont découvrables, idempotentes et validées depuis les projets générés.
+- **Versions release** — `arclith` passe à `0.22.0`; `arclith-cli` passe à `0.19.0`
+  et dépend de `arclith>=0.22.0`.
+
+---
+
 ## [0.21.0] — 2026-09-02
 
 ### Added
