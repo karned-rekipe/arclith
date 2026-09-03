@@ -49,6 +49,80 @@ def test_repository_capability_catalog_declares_standard_adapters() -> None:
     ]
 
 
+def test_repository_adapter_facets_have_a_stable_serializable_shape() -> None:
+    capability = get_capability("repository")
+    assert capability is not None
+
+    expected_facets = {
+        "memory": (
+            "memory",
+            "in_process",
+            False,
+            False,
+            "none",
+            "flexible",
+        ),
+        "mongodb": (
+            "document",
+            "server",
+            True,
+            True,
+            "limited",
+            "flexible",
+        ),
+        "duckdb": (
+            "embedded_analytics",
+            "file",
+            False,
+            False,
+            "limited",
+            "structured_tables",
+        ),
+        "mariadb": (
+            "relational_json",
+            "server",
+            True,
+            True,
+            "strong",
+            "json_table",
+        ),
+        "postgresql": (
+            "relational_json",
+            "server",
+            True,
+            True,
+            "strong",
+            "json_table",
+        ),
+    }
+
+    for adapter in capability.adapters:
+        assert adapter.facets is not None
+        payload = adapter.facets.to_dict()
+        assert set(payload) == {
+            "storage_model",
+            "runtime",
+            "production_ready",
+            "multi_process",
+            "transactions",
+            "schema_strategy",
+            "recommended_for",
+            "limits",
+        }
+        assert (
+            payload["storage_model"],
+            payload["runtime"],
+            payload["production_ready"],
+            payload["multi_process"],
+            payload["transactions"],
+            payload["schema_strategy"],
+        ) == expected_facets[adapter.name]
+        assert payload["recommended_for"]
+        assert all(isinstance(value, str) for value in payload["recommended_for"])
+        assert payload["limits"]
+        assert all(isinstance(value, str) for value in payload["limits"])
+
+
 def test_cache_capability_catalog_declares_memory_adapter() -> None:
     capability = get_capability("cache")
 
@@ -704,6 +778,22 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "postgresql",
     ]
     assert repository["adapters"][0]["entity_scoped"] is True
+    assert repository["adapters"][0]["facets"] == {
+        "storage_model": "memory",
+        "runtime": "in_process",
+        "production_ready": False,
+        "multi_process": False,
+        "transactions": "none",
+        "schema_strategy": "flexible",
+        "recommended_for": [
+            "tests unitaires",
+            "développement et smoke dans un seul processus",
+        ],
+        "limits": [
+            "données perdues à l'arrêt",
+            "état non partagé entre processus",
+        ],
+    }
     duckdb = repository["adapters"][2]
     assert duckdb["name"] == "duckdb"
     assert duckdb["config_path"] == "config/adapters/outbound/duckdb.yaml"
@@ -730,6 +820,7 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     filesystem = storage["adapters"][0]
     assert filesystem["config_path"] == "config/adapters/outbound/storage.yaml"
     assert filesystem["entity_scoped"] is False
+    assert filesystem["facets"] is None
     assert [parameter["name"] for parameter in filesystem["parameters"]] == [
         "root_path",
         "prefix",
