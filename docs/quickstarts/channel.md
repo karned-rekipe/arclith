@@ -115,5 +115,5 @@ injecter un `ChannelEventStore` atomique partagé et suivre les exigences de la
 
 ## Suite
 
-Lire la [référence Channel](../capabilities/channel.md), puis le
-[webhook générique](https://github.com/karned-rekipe/arclith/issues/170).
+Lire la [référence Channel](../capabilities/channel.md), puis raccorder le
+[webhook générique signé](../capabilities/channel-webhook.md).

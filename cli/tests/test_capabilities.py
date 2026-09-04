@@ -391,13 +391,13 @@ def test_command_bus_capability_catalog_declares_rabbitmq() -> None:
     ]
 
 
-def test_channel_capability_catalog_declares_memory_adapter() -> None:
+def test_channel_capability_catalog_declares_memory_and_webhook_adapters() -> None:
     capability = get_capability("channel")
 
     assert capability is not None
     assert capability.layer == "bidirectional"
     assert capability.activation_config_key is None
-    assert capability.adapter_names() == ("memory",)
+    assert capability.adapter_names() == ("memory", "webhook")
     memory = capability.get_adapter("memory")
     assert memory is not None
     assert memory.layer == "bidirectional"
@@ -405,6 +405,31 @@ def test_channel_capability_catalog_declares_memory_adapter() -> None:
     assert memory.dependency_extra is None
     assert memory.entity_scoped is False
     assert memory.parameters == ()
+    webhook = capability.get_adapter("webhook")
+    assert webhook is not None
+    assert webhook.layer == "bidirectional"
+    assert webhook.config_path == "config/adapters/bidirectional/webhook.yaml"
+    assert webhook.dependency_extra == "channel"
+    assert webhook.entity_scoped is False
+    assert [parameter.name for parameter in webhook.parameters] == [
+        "path",
+        "signature_header",
+        "timestamp_header",
+        "signature_tolerance_seconds",
+        "idempotency_header",
+        "event_ttl_seconds",
+        "max_payload_bytes",
+        "response_mode",
+        "callback_url",
+        "callback_allowed_host",
+        "callback_timeout_seconds",
+    ]
+    assert [mapping.field_path for mapping in webhook.secret_mappings] == [
+        "adapters.channel.webhook.secret"
+    ]
+    assert [mapping.secret_key for mapping in webhook.secret_mappings] == [
+        "ARCLITH_WEBHOOK_SECRET"
+    ]
 
 
 def test_runtime_capability_catalog_declares_docker_image() -> None:
@@ -997,12 +1022,20 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     ]
     channel = payload_by_name["channel"]
     assert channel["layer"] == "bidirectional"
-    assert [adapter["name"] for adapter in channel["adapters"]] == ["memory"]
+    assert [adapter["name"] for adapter in channel["adapters"]] == [
+        "memory",
+        "webhook",
+    ]
     memory_channel = channel["adapters"][0]
     assert memory_channel["config_path"] == (
         "config/adapters/bidirectional/memory.yaml"
     )
     assert memory_channel["dependency_extra"] is None
+    webhook_channel = channel["adapters"][1]
+    assert webhook_channel["config_path"] == (
+        "config/adapters/bidirectional/webhook.yaml"
+    )
+    assert webhook_channel["dependency_extra"] == "channel"
     runtime = payload_by_name["runtime"]
     assert runtime["layer"] == "runtime"
     assert [adapter["name"] for adapter in runtime["adapters"]] == ["docker-image"]

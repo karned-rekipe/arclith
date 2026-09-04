@@ -4,6 +4,7 @@ import pytest
 
 from arclith import Arclith
 from arclith.adapters.bidirectional.memory import MemoryChannel
+from arclith.adapters.bidirectional.webhook import WebhookCallbackSender
 from arclith.domain.models.channel import ChannelDeliveryReceipt, ChannelOutgoingMessage
 from arclith.domain.ports.outbound.channel import ChannelSender
 from arclith.infrastructure.channel_factory import (
@@ -24,16 +25,52 @@ def _memory_config(*, enabled: bool = True) -> AppConfig:
     )
 
 
+def _webhook_config(
+    *,
+    enabled: bool = True,
+    response_mode: str = "callback",
+) -> AppConfig:
+    webhook: dict[str, object] = {
+        "enabled": enabled,
+        "response_mode": response_mode,
+    }
+    if response_mode == "callback":
+        webhook.update(
+            callback_url="https://hooks.example.test/arclith",
+            callback_allowed_host="hooks.example.test",
+        )
+    return AppConfig.model_validate({"adapters": {"channel": {"webhook": webhook}}})
+
+
 def test_build_channel_sender_returns_configured_memory_adapter(logger) -> None:
     sender = build_channel_sender(_memory_config(), logger, "memory")
 
     assert isinstance(sender, MemoryChannel)
 
 
+def test_build_channel_sender_returns_configured_webhook_callback(logger) -> None:
+    sender = build_channel_sender(_webhook_config(), logger, "webhook")
+
+    assert isinstance(sender, WebhookCallbackSender)
+
+
 @pytest.mark.parametrize("config", [AppConfig(), _memory_config(enabled=False)])
 def test_build_channel_sender_requires_enabled_memory_config(config, logger) -> None:
     with pytest.raises(ValueError, match="memory.enabled=true"):
         build_channel_sender(config, logger, "memory")
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        AppConfig(),
+        _webhook_config(enabled=False),
+        _webhook_config(response_mode="sync"),
+    ],
+)
+def test_build_channel_sender_requires_webhook_callback_config(config, logger) -> None:
+    with pytest.raises(ValueError, match="webhook"):
+        build_channel_sender(config, logger, "webhook")
 
 
 def test_channel_sender_registry_builds_custom_adapter(logger) -> None:

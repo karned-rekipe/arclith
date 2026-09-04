@@ -12,6 +12,21 @@ fournisseur de messagerie, appeler les use cases du service, puis renvoyer une
 ou plusieurs réponses. Le contrat ne remplace ni un bus de commandes entre
 services, ni une file de travaux durables.
 
+## Channel N'est Pas Chat
+
+`channel` est une frontière de transport : il authentifie un événement externe,
+le normalise, résout son identité, le déduplique et achemine une réponse. Il ne
+stocke ni transcript, ni historique de conversation, ni état d'agent.
+
+Un chat est un comportement applicatif : il décide comment regrouper les
+messages, conserver le contexte, appeler un LLM ou un agent et reprendre un
+thread. Ces responsabilités restent dans le service consommateur, par exemple
+derrière la capability `agent` et sa
+[persistance de threads](agent-persistence.md), ou dans des entités et
+repositories métier. `conversation_id` et `thread_id` sont seulement des
+coordonnées provider-neutral transmises par `channel` ; elles ne créent aucune
+persistance implicite.
+
 ## Position Hexagonale
 
 ```text
@@ -37,8 +52,9 @@ l'adapter mémoire, sans compte externe ni dépendance optionnelle.
 ## Formation
 
 Il n'existe pas encore de chapitre Channel dans le parcours Todo. Le quickstart
-montre le wiring minimal ; les adapters webhook et Slack documenteront ensuite
-leurs gestes de sécurité et de déploiement propres.
+montre le wiring minimal ; la page [Webhook](channel-webhook.md) documente le
+premier raccord HTTP réel. Slack conservera sa propre page de sécurité et de
+déploiement.
 
 ## Contrat
 
@@ -107,13 +123,24 @@ de secret ou URL contenant des credentials.
 | Adapter | Usage | Durable | Multi-processus | Production |
 |---|---|---:|---:|---:|
 | `memory` | tests, exemples et prototypes locaux | non | non | non |
-| `webhook` | HTTP signé générique | selon le store injecté | selon le store | prévu par #170 |
+| [`webhook`](channel-webhook.md) | HTTP générique, HMAC optionnel, réponse inline ou callback | selon le store injecté | selon le store | oui avec store partagé et secret |
 | `slack` | Slack Events API et réponses | selon le store injecté | selon le store | prévu par #171 |
 
-Le catalogue CLI ne propose actuellement que `memory`. Les lignes `webhook` et
-`slack` décrivent la trajectoire active ; elles ne sont pas encore installables
-tant que leurs issues ne sont pas livrées. Telegram, Email et Teams restent hors
-du périmètre actuel.
+Le catalogue CLI propose `memory` et `webhook`. Slack reste la prochaine étape
+de la trajectoire active. Telegram, Email et Teams restent hors du périmètre
+actuel.
+
+```bash
+uvx --from arclith-cli arclith-cli add-adapter \
+  --capability channel \
+  --adapter webhook \
+  --yes
+```
+
+La commande crée de façon idempotente
+`config/adapters/bidirectional/webhook.yaml`, ajoute l'extra
+`arclith[channel]` et déclare le mapping de secret
+`ARCLITH_WEBHOOK_SECRET`. Pour le fake local :
 
 ```bash
 uvx --from arclith-cli arclith-cli add-adapter \
@@ -122,14 +149,15 @@ uvx --from arclith-cli arclith-cli add-adapter \
   --yes
 ```
 
-La commande crée de façon idempotente :
+Cette seconde commande crée :
 
 ```yaml
 # config/adapters/bidirectional/memory.yaml
 enabled: true
 ```
 
-La configuration est chargée sous `adapters.channel.memory`. Le layout
+Les configurations sont chargées sous `adapters.channel.webhook` et
+`adapters.channel.memory`. Le layout
 canonique réserve `src/<package>/adapters/bidirectional/` aux adapters qui
 assurent à la fois réception et envoi.
 
@@ -179,6 +207,8 @@ Vérifier aussi `make coverage`, `make precommit` et `make docs` avant livraison
 | `ChannelIdentityNotResolved` | aucun mapping exact pour l'identité externe | enregistrer ou injecter le mapping applicatif attendu |
 | résultat `duplicate` au premier essai visible | l'ID fournisseur a déjà été claim, éventuellement par un autre replica | corréler avec `provider_event_id` et inspecter le store partagé |
 | `adapters.channel.memory.enabled=true is required` | fichier absent ou adapter désactivé | générer `channel/memory` ou corriger le YAML scoped |
+| réponse webhook `401` | secret absent côté appelant, timestamp périmé ou signature différente du corps brut | recalculer la signature avec le timestamp et les octets exacts envoyés |
+| réponse webhook `500 response_mode_error` | résultat du handler incompatible avec `sync` ou `accepted` | retourner `completed` en `sync`, ou persister/publier puis retourner `accepted` |
 | effets métier répétés | claim non atomique ou ID d'événement instable | corriger le `ChannelEventStore` et utiliser l'ID immuable du fournisseur |
 | réponse non rejouée après erreur d'envoi | le handler a déjà réussi et le claim est conservé | utiliser un outbox ou une file outbound dédiée |
 
@@ -190,5 +220,5 @@ dans des adapters outbound adaptés au déploiement, et le parsing HTTP/SDK dans
 `adapters/bidirectional/<provider>/`. Aucun appel HTTP fournisseur ne doit
 partir de `domain/`.
 
-La suite active est le [webhook générique](https://github.com/karned-rekipe/arclith/issues/170),
-puis [Slack Events API](https://github.com/karned-rekipe/arclith/issues/171).
+Le [webhook générique](channel-webhook.md) est disponible. La suite active est
+[Slack Events API](https://github.com/karned-rekipe/arclith/issues/171).

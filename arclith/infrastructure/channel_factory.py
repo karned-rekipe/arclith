@@ -57,7 +57,11 @@ def build_channel_sender(
 
 
 def default_channel_sender_registry() -> ChannelSenderRegistry:
-    return ChannelSenderRegistry().register("memory", _build_memory_channel)
+    return (
+        ChannelSenderRegistry()
+        .register("memory", _build_memory_channel)
+        .register("webhook", _build_webhook_callback_sender)
+    )
 
 
 def _build_memory_channel(config: AppConfig, _logger: Logger) -> ChannelSender:
@@ -70,3 +74,23 @@ def _build_memory_channel(config: AppConfig, _logger: Logger) -> ChannelSender:
     from arclith.adapters.bidirectional.memory import MemoryChannel
 
     return MemoryChannel()
+
+
+def _build_webhook_callback_sender(
+    config: AppConfig,
+    _logger: Logger,
+) -> ChannelSender:
+    settings = config.adapters.channel.webhook
+    if settings is None or not settings.enabled:
+        raise ValueError(
+            "adapters.channel.webhook.enabled=true is required to build "
+            "the webhook channel adapter"
+        )
+    if settings.response_mode != "callback":
+        raise ValueError(
+            "adapters.channel.webhook.response_mode=callback is required to build "
+            "a standalone webhook channel sender"
+        )
+    from arclith.adapters.bidirectional.webhook import WebhookCallbackSender
+
+    return WebhookCallbackSender(settings)
