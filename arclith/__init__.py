@@ -56,6 +56,13 @@ from arclith.adapters.outbound.memory.repository import InMemoryRepository
 from arclith.adapters.outbound.memory.vector_store import MemoryVectorStore
 from arclith.adapters.outbound.mongodb.config import MongoDBConfig
 from arclith.adapters.outbound.qdrant import QdrantVectorStore
+from arclith.adapters.outbound.relational import (
+    RelationalColumn,
+    RelationalColumnKind,
+    RelationalEntityMapper,
+    RelationalIndex,
+    RelationalMapperRegistry,
+)
 from arclith.adapters.outbound.s3 import S3FileStorage, S3StorageConfig
 from arclith.application.channel import ChannelDispatcher
 from arclith.application.command_bus import CommandDispatcher, CommandEnvelope
@@ -257,6 +264,11 @@ __all__ = [
     "sign_slack_payload",
     "Entity",
     "Repository",
+    "RelationalColumn",
+    "RelationalColumnKind",
+    "RelationalEntityMapper",
+    "RelationalIndex",
+    "RelationalMapperRegistry",
     "EmbeddingPort",
     "EmbeddingText",
     "EmbeddingResult",

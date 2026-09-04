@@ -1,9 +1,15 @@
 import subprocess
 import sys
+from collections.abc import Mapping
+from typing import Any
 
 import pytest
 
 from arclith.adapters.outbound.memory.repository import InMemoryRepository
+from arclith.adapters.outbound.relational import (
+    RelationalColumn,
+    RelationalMapperRegistry,
+)
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.outbound.repository import Repository
 from arclith.infrastructure.config import (
@@ -17,6 +23,7 @@ from arclith.infrastructure.config import (
 from arclith.infrastructure.repository_factory import (
     RepositoryRegistry,
     build_repository,
+    default_repository_registry,
 )
 
 
@@ -30,6 +37,33 @@ class ChatThread(Entity):
 
 class UserAccount(Entity):
     pass
+
+
+class ItemMapper:
+    entity_class = Item
+    table_name = "items"
+    columns = (
+        RelationalColumn("uuid", "uuid", primary_key=True),
+        RelationalColumn("name", "string", indexed=True),
+        RelationalColumn("created_at", "datetime", indexed=True),
+        RelationalColumn("updated_at", "datetime"),
+        RelationalColumn("deleted_at", "datetime", nullable=True, indexed=True),
+        RelationalColumn("version", "integer"),
+    )
+    indexes = ()
+
+    def to_record(self, entity: Item) -> Mapping[str, Any]:
+        return {
+            "uuid": entity.uuid,
+            "name": entity.name,
+            "created_at": entity.created_at,
+            "updated_at": entity.updated_at,
+            "deleted_at": entity.deleted_at,
+            "version": entity.version,
+        }
+
+    def from_record(self, record: Mapping[str, Any]) -> Item:
+        return Item(**dict(record))
 
 
 def _entity_path(entity_class: type[Entity]) -> str:
@@ -196,6 +230,93 @@ def test_postgresql_returns_postgresql_repository(logger):
     )
     repo = build_repository(config, Item, logger)
     assert isinstance(repo, PostgreSQLRepository)
+    assert repo._mapper is None
+    assert repo._config.mapping_strategy == "generic_json"
+
+
+def test_postgresql_structured_requires_registered_mapper(logger):
+    pytest.importorskip("sqlalchemy")
+    pytest.importorskip("asyncpg")
+    config = AppConfig(
+        adapters=AdaptersSettings(
+            repository="postgresql",
+            postgresql=PostgreSQLSettings(
+                database="test", mapping_strategy="structured"
+            ),
+        )
+    )
+
+    with pytest.raises(ValueError, match=r"registered mapper.*Item"):
+        build_repository(config, Item, logger)
+
+
+def test_postgresql_structured_uses_application_mapper_registry(logger):
+    pytest.importorskip("sqlalchemy")
+    pytest.importorskip("asyncpg")
+    from arclith.adapters.outbound.postgresql.repository import PostgreSQLRepository
+
+    config = AppConfig(
+        adapters=AdaptersSettings(
+            repository="postgresql",
+            postgresql=PostgreSQLSettings(
+                database="test",
+                mapping_strategy="structured",
+                auto_create_schema=False,
+            ),
+        )
+    )
+    mapper = ItemMapper()
+    mapper_registry = RelationalMapperRegistry().register(mapper)
+
+    repo = build_repository(
+        config,
+        Item,
+        logger,
+        mapper_registry=mapper_registry,
+    )
+
+    assert isinstance(repo, PostgreSQLRepository)
+    assert repo._mapper is mapper
+    assert repo._config.auto_create_schema is False
+
+
+def test_default_repository_registry_preserves_structured_mapper_wiring(logger):
+    pytest.importorskip("sqlalchemy")
+    pytest.importorskip("asyncpg")
+    config = AppConfig(
+        adapters=AdaptersSettings(
+            repository="postgresql",
+            postgresql=PostgreSQLSettings(
+                database="test", mapping_strategy="structured"
+            ),
+        )
+    )
+    mapper = ItemMapper()
+    mapper_registry = RelationalMapperRegistry().register(mapper)
+    repository_registry = default_repository_registry(
+        Item,
+        mapper_registry=mapper_registry,
+    )
+
+    repo = build_repository(config, Item, logger, registry=repository_registry)
+
+    assert repo._mapper is mapper
+
+
+def test_mapper_registry_cannot_be_combined_with_custom_repository_registry(logger):
+    config = AppConfig(adapters=AdaptersSettings(repository="memory"))
+    repository_registry = RepositoryRegistry().register(
+        "memory", lambda config, entity_class, logger: InMemoryRepository()
+    )
+
+    with pytest.raises(ValueError, match="cannot be combined"):
+        build_repository(
+            config,
+            Item,
+            logger,
+            registry=repository_registry,
+            mapper_registry=RelationalMapperRegistry(),
+        )
 
 
 def test_import_arclith_does_not_require_sql_repository_extras():

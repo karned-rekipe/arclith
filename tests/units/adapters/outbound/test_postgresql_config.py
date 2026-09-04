@@ -15,7 +15,11 @@ def test_connection_url_encodes_credentials() -> None:
 
 
 def test_with_tenant_params_accepts_aliases_and_schema() -> None:
-    config = PostgreSQLConfig(database="default").with_tenant_params(
+    config = PostgreSQLConfig(
+        database="default",
+        mapping_strategy="structured",
+        auto_create_schema=False,
+    ).with_tenant_params(
         {
             "db_name": "tenant",
             "username": "tenant_user",
@@ -30,6 +34,8 @@ def test_with_tenant_params_accepts_aliases_and_schema() -> None:
     assert config.password == "secret"
     assert config.schema == "tenant_schema"
     assert config.table_prefix == "tenant_"
+    assert config.mapping_strategy == "structured"
+    assert config.auto_create_schema is False
     assert (
         config.connection_url()
         == "postgresql+asyncpg://tenant_user:secret@127.0.0.1:5432/tenant"
@@ -81,3 +87,15 @@ def test_rejects_unsafe_identifiers(field_name: str, value: str) -> None:
 def test_connection_url_requires_database_when_url_is_missing() -> None:
     with pytest.raises(ValueError, match="database is required"):
         PostgreSQLConfig(database=None).connection_url()
+
+
+def test_mapping_defaults_preserve_generic_repository_behavior() -> None:
+    config = PostgreSQLConfig(database="demo")
+
+    assert config.mapping_strategy == "generic_json"
+    assert config.auto_create_schema is True
+
+
+def test_config_rejects_unknown_mapping_strategy() -> None:
+    with pytest.raises(ValueError, match="mapping_strategy"):
+        PostgreSQLConfig(database="demo", mapping_strategy="automatic")

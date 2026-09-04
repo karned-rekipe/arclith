@@ -232,7 +232,7 @@ de persistance aux adapters inbound ou runtime.
 | `mongodb` | document / serveur | état métier partagé, modèle document-first ou évolutif | pas de modèle relationnel riche via le port |
 | `duckdb` | analytique embarqué / fichier | démonstrations et traitements analytiques locaux | pas une base applicative serveur multi-processus |
 | `mariadb` | relationnel avec payload JSON / serveur | intégration à un SI MariaDB existant | entité stockée en JSON, sans mapping relationnel métier riche |
-| `postgresql` | relationnel avec payload JSONB / serveur | SQL serveur robuste et état partagé | entité stockée en JSONB, sans mapping relationnel métier riche |
+| `postgresql` | JSONB par défaut, colonnes typées opt-in / serveur | SQL serveur robuste, contraintes et index ciblés | mapper et migrations structurées restent à la charge de l'application |
 
 ### Matrice Des Garanties
 
@@ -242,12 +242,17 @@ de persistance aux adapters inbound ou runtime.
 | `mongodb` | oui | oui | `limited` | `flexible` |
 | `duckdb` | non | non | `limited` | `structured_tables` |
 | `mariadb` | oui | oui | `strong` | `json_table` |
-| `postgresql` | oui | oui | `strong` | `json_table` |
+| `postgresql` | oui | oui | `strong` | `json_table` par défaut, `structured_tables` opt-in |
 
 `production_ready` décrit la cible de l'adapter Arclith, pas une certification
 automatique du déploiement. La haute disponibilité, les sauvegardes, la
 réplication, le chiffrement et les tests de charge restent à valider dans
 l'infrastructure du service.
+
+La facet PostgreSQL décrit le chemin par défaut `generic_json`. Une application
+peut sélectionner `structured` pour une entité sans changer le port
+`Repository[T]` ; le catalogue ne prétend pas qu'un unique schéma physique
+s'applique à toutes les configurations possibles.
 
 ### Memory
 
@@ -315,13 +320,174 @@ password: null
 schema: public
 driver: asyncpg
 table_prefix: ""
+mapping_strategy: generic_json
+auto_create_schema: true
 multitenant: false
 ```
 
 PostgreSQL suit le même port avec une table générique par type et un payload
-JSONB. L'adapter cible un serveur SQL durable et multi-processus. Les colonnes
-métier typées, Alembic, les joins et les contraintes SQL métier restent hors du
-contrat actuel.
+JSONB par défaut. L'adapter cible un serveur SQL durable et multi-processus.
+Une application peut opter explicitement pour des colonnes typées avec le
+mécanisme décrit ci-dessous. Les relations automatiques, les joins, une query
+DSL et la gestion des migrations restent hors du contrat Arclith.
+
+## Mapping Relationnel Structuré Optionnel
+
+### Quand L'utiliser
+
+Conserver `mapping_strategy: generic_json` tant qu'une entité est naturellement
+document-first et que les champs techniques suffisent pour les opérations du
+repository. C'est le comportement backward-compatible et le chemin recommandé
+pour démarrer.
+
+Choisir `structured` seulement lorsqu'un besoin vérifié exige une représentation
+relationnelle : contrainte `UNIQUE`, index métier, reporting SQL sur des colonnes
+typées, compatibilité avec une table existante ou optimisation d'une requête
+ciblée. Le mapper appartient alors à l'application et à son assemblage
+d'infrastructure ; l'entité métier n'importe ni SQLAlchemy ni PostgreSQL.
+
+Cette première itération exécute le mapping structuré uniquement dans l'adapter
+`postgresql`. MariaDB conserve son stockage JSON générique. Sa configuration
+n'accepte pas `mapping_strategy: structured` tant qu'un support équivalent n'a
+pas été implémenté et testé.
+
+### Déclarer Un Mapper
+
+Le contrat public est pur Python et peut être importé directement depuis
+`arclith` :
+
+```python
+from collections.abc import Mapping
+from typing import Any
+
+from arclith import (
+    Entity,
+    RelationalColumn,
+    RelationalIndex,
+)
+
+
+class UserAccount(Entity):
+    email: str
+    display_name: str
+
+
+class UserAccountMapper:
+    entity_class = UserAccount
+    table_name = "user_accounts"
+    columns = (
+        RelationalColumn("uuid", "uuid", primary_key=True),
+        RelationalColumn("email", "string", unique=True, indexed=True),
+        RelationalColumn("display_name", "string"),
+        RelationalColumn("created_at", "datetime", indexed=True),
+        RelationalColumn("updated_at", "datetime"),
+        RelationalColumn("deleted_at", "datetime", nullable=True, indexed=True),
+        RelationalColumn("version", "integer"),
+    )
+    indexes = (
+        RelationalIndex(
+            "ix_user_accounts_display_created",
+            ("display_name", "created_at"),
+        ),
+    )
+
+    def to_record(self, entity: UserAccount) -> Mapping[str, Any]:
+        return {
+            "uuid": entity.uuid,
+            "email": entity.email,
+            "display_name": entity.display_name,
+            "created_at": entity.created_at,
+            "updated_at": entity.updated_at,
+            "deleted_at": entity.deleted_at,
+            "version": entity.version,
+        }
+
+    def from_record(self, record: Mapping[str, Any]) -> UserAccount:
+        return UserAccount(**dict(record))
+```
+
+Les kinds supportés sont `uuid`, `string`, `integer`, `float`, `boolean`,
+`date`, `datetime` et `json`. PostgreSQL matérialise `json` en `JSONB` et les
+dates/heures avec un type timezone-aware.
+
+Pour préserver les opérations de `Repository[T]`, chaque mapper déclare les
+colonnes `uuid`, `created_at`, `updated_at`, `deleted_at` et `version` avec les
+kinds correspondants. `uuid` est l'unique clé primaire et `deleted_at` est
+nullable. Les noms de table, colonne et index sont des identifiants SQL sûrs ;
+les doublons et les index pointant vers une colonne inconnue sont refusés dès
+l'enregistrement.
+
+`to_record()` doit retourner exactement les colonnes déclarées et le même UUID
+que l'entité. `from_record()` doit restituer la classe d'entité attendue. Le
+mapper doit inclure tous les champs applicatifs ou d'audit que le service veut
+préserver ; Arclith ne génère pas implicitement les colonnes métier depuis le
+modèle Pydantic.
+
+### Enregistrer Et Câbler Le Mapper
+
+Le registre utilise l'identité exacte de la classe, sans import magique ni nom
+court :
+
+```python
+from arclith import RelationalMapperRegistry
+
+mapper_registry = RelationalMapperRegistry()
+mapper_registry.register(UserAccountMapper())
+
+users = arclith.repository(
+    UserAccount,
+    mapper_registry=mapper_registry,
+)
+```
+
+La configuration PostgreSQL associée sélectionne la stratégie :
+
+```yaml
+# config/adapters/outbound/postgresql.yaml
+database: identity_service
+schema: public
+table_prefix: "identity_"
+mapping_strategy: structured
+auto_create_schema: false
+```
+
+Avec ce préfixe, le mapper ci-dessus cible la table
+`public.identity_user_accounts`. Si `structured` est sélectionné sans mapper
+enregistré pour `UserAccount`, la construction du repository échoue avec le
+chemin Python complet de la classe. Les autres entités peuvent continuer à
+utiliser le fallback ou un adapter distinct via `repository_bindings`.
+
+`mapper_registry` s'applique au registry repository intégré. Une application
+qui fournit déjà son propre `RepositoryRegistry` peut partir de
+`default_repository_registry(EntityClass, mapper_registry=...)`, y enregistrer
+ses factories supplémentaires, puis le passer comme `registry`. Cela garde une
+source de wiring unique et évite deux registries concurrents dans le même appel.
+
+### Création De Schéma Et Migrations
+
+`auto_create_schema: true` conserve le comportement PostgreSQL historique :
+SQLAlchemy exécute uniquement `CREATE SCHEMA IF NOT EXISTS` si nécessaire, puis
+`create_all()` pour les tables absentes. Ce mode est pratique en développement
+et dans les tests ; il ne modifie ni ne supprime une colonne existante.
+
+En production, utiliser `auto_create_schema: false` et appliquer les migrations
+avec l'outil choisi par l'application avant le démarrage. Dans ce mode, Arclith
+n'exécute aucune création implicite. Toute modification de `columns`,
+`indexes`, `unique`, `nullable`, `table_name`, `schema` ou `table_prefix` peut
+nécessiter une migration explicite.
+
+Arclith ne génère pas de révision Alembic, n'exécute pas d'`ALTER TABLE`, ne
+compare pas le mapper au schéma vivant et ne promet aucune migration destructive
+automatique. Le mapper décrit la forme attendue par l'adapter ; l'application
+reste propriétaire du cycle de vie du schéma.
+
+### Requêtes Métier Et Relations
+
+Le mapping structuré n'ajoute aucune méthode à `Repository[T]`. Un besoin tel
+que `find_by_email()` doit rester un port métier explicite implémenté par
+l'application. De même, les relations, le lazy loading et les joins automatiques
+ne font pas partie du mécanisme. Pour les agrégats et stores multiples, les
+limites transactionnelles décrites plus bas restent inchangées.
 
 ## Production
 
@@ -333,7 +499,9 @@ Choisir l'adapter à partir des garanties nécessaires :
    contraintes explicites ;
 3. choisir `mongodb` pour un modèle document-first partagé et évolutif ;
 4. choisir `mariadb` lorsqu'un SI MariaDB existe déjà ;
-5. choisir `postgresql` pour un backend SQL serveur général avec payload JSONB.
+5. choisir `postgresql` pour un backend SQL serveur général avec payload JSONB ;
+6. activer son mapping `structured` seulement si des colonnes, contraintes ou
+   index métier apportent une valeur mesurable.
 
 Les URI et mots de passe passent par la capability [`secrets`](secrets.md), par
 exemple `MONGODB_URI`, `MARIADB_URL`, `MARIADB_PASSWORD`, `POSTGRESQL_URL` ou
@@ -402,10 +570,21 @@ taxonomie adaptée à sa responsabilité.
 
 ### Un Backend SQL N'Expose Pas De Joins Métier
 
-`mariadb` et `postgresql` implémentent aujourd'hui le port CRUD entity-first et
-stockent un payload JSON ou JSONB générique. Une application qui exige des
+`mariadb` stocke un payload JSON générique ; `postgresql` utilise JSONB par
+défaut et accepte un mapper structuré explicite. Une application qui exige des
 requêtes relationnelles typées, des contraintes métier ou des transactions
 multi-agrégats doit définir un port applicatif dédié dans son propre domaine.
+Le mapping structuré PostgreSQL rend les colonnes disponibles à cet adapter
+applicatif, mais n'élargit pas le port générique.
+
+### Le Mapping Structuré Refuse De Démarrer
+
+Vérifier que la configuration PostgreSQL contient
+`mapping_strategy: structured`, que le `RelationalMapperRegistry` enregistre
+exactement la classe passée à `arclith.repository()`, et que ce registre est
+fourni via `mapper_registry`. Le message indique le chemin complet de l'entité
+sans mapper. Si la table n'existe pas et que `auto_create_schema` vaut `false`,
+appliquer la migration applicative avant de relancer le service.
 
 ### Un Binding Est Refusé
 

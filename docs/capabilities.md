@@ -30,7 +30,7 @@ arclith-cli capabilities --json
 | [license](capabilities/license.md) | inbound | `role` | contrôler un droit d'accès |
 | [probe](capabilities/probe.md) | inbound | `server` | exposer `/health` et `/ready` |
 | [http](capabilities/http.md) | inbound | `idempotency`, `etag`, `cache-control` | durcir les conventions HTTP |
-| [repository](capabilities/repository.md) | outbound | `memory`, `mongodb`, `duckdb`, `mariadb`, `postgresql` | choisir les garanties, router par entité et persister les entités métier |
+| [repository](capabilities/repository.md) | outbound | `memory`, `mongodb`, `duckdb`, `mariadb`, `postgresql` | choisir les garanties, router par entité et opter pour un mapping PostgreSQL structuré |
 | [storage](capabilities/storage.md) | outbound | `filesystem`, `s3`, `azure-blob`, `gcs` | stocker fichiers et blobs |
 | [cache](capabilities/cache.md) | outbound | `memory`, `redis` | partager JWKS, tenants et idempotence |
 | [logger](capabilities/logger.md) | outbound | `console` | standardiser les logs |

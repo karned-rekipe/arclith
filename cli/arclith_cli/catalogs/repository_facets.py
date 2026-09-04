@@ -77,11 +77,11 @@ POSTGRESQL_FACETS = AdapterFacets(
     schema_strategy="json_table",
     recommended_for=(
         "services nécessitant un SQL serveur robuste",
-        "état partagé multi-process avec payload JSONB",
+        "payload JSONB par défaut ou colonnes typées explicitement mappées",
     ),
     limits=(
-        "entité stockée comme payload JSONB générique",
-        "pas de relations, joins ou migrations métier via le port",
+        "le mapping structuré est opt-in et fourni par l'application",
+        "pas de relations, joins ou migrations automatiques via le port",
     ),
 )
 

@@ -1,6 +1,7 @@
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Literal
 from urllib.parse import quote_plus
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -17,12 +18,18 @@ class PostgreSQLConfig:
     schema: str = "public"
     driver: str = "asyncpg"
     table_prefix: str = ""
+    mapping_strategy: Literal["generic_json", "structured"] = "generic_json"
+    auto_create_schema: bool = True
 
     def __post_init__(self) -> None:
         _validate_port(self.port)
         _validate_identifier("schema", self.schema, allow_empty=False)
         _validate_identifier("table_prefix", self.table_prefix, allow_empty=True)
         _validate_driver(self.driver)
+        if self.mapping_strategy not in {"generic_json", "structured"}:
+            raise ValueError(
+                "PostgreSQL mapping_strategy must be 'generic_json' or 'structured'"
+            )
 
     def connection_url(self) -> str:
         if self.url:
@@ -51,6 +58,8 @@ class PostgreSQLConfig:
             table_prefix=_string_value(
                 params, "table_prefix", default=self.table_prefix
             ),
+            mapping_strategy=self.mapping_strategy,
+            auto_create_schema=self.auto_create_schema,
         )
 
 

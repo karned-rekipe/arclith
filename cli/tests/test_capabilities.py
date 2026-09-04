@@ -45,6 +45,8 @@ def test_repository_capability_catalog_declares_standard_adapters() -> None:
         "schema",
         "driver",
         "table_prefix",
+        "mapping_strategy",
+        "auto_create_schema",
         "multitenant",
     ]
 

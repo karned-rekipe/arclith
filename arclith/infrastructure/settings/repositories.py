@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
@@ -76,6 +76,8 @@ class PostgreSQLSettings(_SQLRepositorySettings):
     port: int = 5432
     schema_name: str = Field(default="public", alias="schema")
     driver: str = "asyncpg"
+    mapping_strategy: Literal["generic_json", "structured"] = "generic_json"
+    auto_create_schema: bool = True
 
     @field_validator("schema_name")
     @classmethod

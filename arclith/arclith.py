@@ -9,6 +9,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
 
+from arclith.adapters.outbound.relational.registry import RelationalMapperRegistry
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.outbound.channel import ChannelSender
 from arclith.domain.ports.outbound.embedding import EmbeddingPort
@@ -133,6 +134,7 @@ class Arclith:
         entity_class: type[T],
         *,
         registry: None = None,
+        mapper_registry: RelationalMapperRegistry | None = None,
     ) -> Repository[T]:
         pass
 
@@ -142,6 +144,7 @@ class Arclith:
         entity_class: type[T],
         *,
         registry: RepositoryRegistry[T, R],
+        mapper_registry: None = None,
     ) -> R:
         pass
 
@@ -150,12 +153,24 @@ class Arclith:
         entity_class: type[T],
         *,
         registry: RepositoryRegistry[T, R] | None = None,
+        mapper_registry: RelationalMapperRegistry | None = None,
     ) -> Repository[T] | R:
         from arclith.infrastructure.repository_factory import build_repository
 
-        repository = build_repository(
-            self.config, entity_class, self.logger, registry=registry
-        )
+        if registry is not None and mapper_registry is not None:
+            raise ValueError(
+                "mapper_registry cannot be combined with a custom RepositoryRegistry"
+            )
+        repository: Repository[T] | R
+        if registry is None:
+            repository = build_repository(
+                self.config,
+                entity_class,
+                self.logger,
+                mapper_registry=mapper_registry,
+            )
+        else:
+            repository = registry.build(self.config, entity_class, self.logger)
         settings = self.config.adapters.opentelemetry
         if (
             self.config.adapters.observability.is_enabled("opentelemetry")

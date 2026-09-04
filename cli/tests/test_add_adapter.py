@@ -234,6 +234,8 @@ def test_add_postgresql_adapter_uses_catalog_params(tmp_path: Path) -> None:
             "schema": "app",
             "driver": "asyncpg",
             "table_prefix": "todo_",
+            "mapping_strategy": "structured",
+            "auto_create_schema": "false",
             "multitenant": "false",
         },
         yes=True,
@@ -267,6 +269,8 @@ def test_add_postgresql_adapter_uses_catalog_params(tmp_path: Path) -> None:
     assert "url: null" in postgresql_config
     assert "password: null" in postgresql_config
     assert 'table_prefix: "todo_"' in postgresql_config
+    assert "mapping_strategy: structured" in postgresql_config
+    assert "auto_create_schema: false" in postgresql_config
     assert "multitenant: false" in postgresql_config
 
     secrets = (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
@@ -300,6 +304,8 @@ def test_add_postgresql_adapter_generates_loadable_single_tenant_config(
     assert arclith.config.adapters.postgresql.url is None
     assert arclith.config.adapters.postgresql.database == "demo_shared"
     assert arclith.config.adapters.postgresql.schema_name == "public"
+    assert arclith.config.adapters.postgresql.mapping_strategy == "generic_json"
+    assert arclith.config.adapters.postgresql.auto_create_schema is True
     assert arclith.config.adapters.postgresql.multitenant is False
 
 
