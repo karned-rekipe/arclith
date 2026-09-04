@@ -163,7 +163,10 @@ class ListTodosUseCase(ListTodosPort):
 
     async def execute(self, query: ListTodosQuery) -> ListTodosResult:
         offset = (query.page - 1) * query.per_page
-        items, total = await self._repository.find_page(offset, query.per_page)
+        items, total = await self._repository.find_page(
+            offset=offset,
+            limit=query.per_page,
+        )
         return ListTodosResult(items=items, total=total)
 ```
 
