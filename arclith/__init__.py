@@ -1,5 +1,9 @@
 from typing import TYPE_CHECKING
 
+from arclith.adapters.bidirectional.memory import (
+    MemoryChannel,
+    MemoryChannelIdentityResolver,
+)
 from arclith.adapters.inbound.schemas.base_schema import BaseSchema
 from arclith.adapters.outbound.azure_blob import (
     AzureBlobFileStorage,
@@ -16,11 +20,38 @@ from arclith.adapters.outbound.memory.vector_store import MemoryVectorStore
 from arclith.adapters.outbound.mongodb.config import MongoDBConfig
 from arclith.adapters.outbound.qdrant import QdrantVectorStore
 from arclith.adapters.outbound.s3 import S3FileStorage, S3StorageConfig
+from arclith.application.channel import ChannelDispatcher
 from arclith.application.command_bus import CommandDispatcher, CommandEnvelope
 from arclith.application.services.base_service import BaseService
 from arclith.arclith import Arclith
+from arclith.domain.errors.channel import (
+    ChannelDeliveryFailed,
+    ChannelError,
+    ChannelIdentityNotResolved,
+    ChannelRateLimited,
+    ChannelUnauthorized,
+    ChannelUnavailable,
+    InvalidChannelSignature,
+    UnsupportedChannelEvent,
+)
+from arclith.domain.models.channel import (
+    ChannelAttachment,
+    ChannelDeliveryReceipt,
+    ChannelDispatchResult,
+    ChannelHandlerResult,
+    ChannelIdentity,
+    ChannelIncomingMessage,
+    ChannelOutgoingMessage,
+    ResolvedChannelIdentity,
+)
 from arclith.domain.models.entity import Entity
+from arclith.domain.ports.inbound.channel import ChannelMessageHandler
 from arclith.domain.ports.inbound.command_bus import CommandHandler
+from arclith.domain.ports.outbound.channel import (
+    ChannelEventStore,
+    ChannelIdentityResolver,
+    ChannelSender,
+)
 from arclith.domain.ports.outbound.command_bus import CommandPublisher
 from arclith.domain.ports.outbound.embedding import (
     EmbeddingAuthenticationError,
@@ -83,6 +114,11 @@ from arclith.infrastructure.config import (
     load_config_dir,
     load_config_file,
 )
+from arclith.infrastructure.channel_factory import (
+    ChannelSenderRegistry,
+    build_channel_sender,
+    default_channel_sender_registry,
+)
 from arclith.infrastructure.embedding_factory import (
     EmbeddingRegistry,
     build_embedding,
@@ -119,6 +155,32 @@ if TYPE_CHECKING:  # pragma: no cover - for static type checkers only
     from arclith.adapters.outbound.console.logger import ConsoleLogger  # noqa: F401
 
 __all__ = [
+    "ChannelAttachment",
+    "ChannelDeliveryFailed",
+    "ChannelDeliveryReceipt",
+    "ChannelDispatcher",
+    "ChannelDispatchResult",
+    "ChannelError",
+    "ChannelEventStore",
+    "ChannelHandlerResult",
+    "ChannelIdentity",
+    "ChannelIdentityNotResolved",
+    "ChannelIdentityResolver",
+    "ChannelIncomingMessage",
+    "ChannelMessageHandler",
+    "ChannelOutgoingMessage",
+    "ChannelRateLimited",
+    "ChannelSender",
+    "ChannelSenderRegistry",
+    "ChannelUnauthorized",
+    "ChannelUnavailable",
+    "InvalidChannelSignature",
+    "MemoryChannel",
+    "MemoryChannelIdentityResolver",
+    "ResolvedChannelIdentity",
+    "UnsupportedChannelEvent",
+    "build_channel_sender",
+    "default_channel_sender_registry",
     "Entity",
     "Repository",
     "EmbeddingPort",

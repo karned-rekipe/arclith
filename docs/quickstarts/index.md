@@ -11,7 +11,7 @@ rapide en tutoriel complet.
       <h2 id="quickstarts-choose-title">Un flux, un objectif de validation</h2>
       <p>
         Commence par l'API pour voir le service tourner, puis ajoute les
-        surfaces dont ton projet a besoin : MCP, bus RabbitMQ ou agent LangGraph.
+        surfaces dont ton projet a besoin : MCP, bus RabbitMQ, canal conversationnel ou agent LangGraph.
       </p>
     </div>
 
@@ -43,6 +43,13 @@ rapide en tutoriel complet.
         <strong>Préparer LangGraph</strong>
         <p>Ajouter l'adapter agent, générer <code>langgraph.json</code> et tester l'Agent Server local.</p>
       </a>
+
+      <a class="academy-card" href="channel/">
+        <img src="../assets/academy/reference.png" alt="" decoding="async" loading="lazy" />
+        <span class="academy-card__kicker">Channel</span>
+        <strong>Tester une conversation</strong>
+        <p>Normaliser un message, résoudre son identité, répondre et vérifier la déduplication avec le fake mémoire.</p>
+      </a>
     </div>
   </section>
 
@@ -60,7 +67,8 @@ rapide en tutoriel complet.
       <a href="api/">1. API locale</a>
       <a href="mcp/">2. MCP HTTP</a>
       <a href="bus/">3. Bus RabbitMQ</a>
-      <a href="agent/">4. Agent LangGraph</a>
+      <a href="channel/">4. Channel mémoire</a>
+      <a href="agent/">5. Agent LangGraph</a>
       <a href="../learning/local-ai-validation/">Validation IA locale</a>
       <a href="../tutorials/todo-list/">Projet Todo complet</a>
     </div>

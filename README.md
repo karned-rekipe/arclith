@@ -1,7 +1,8 @@
 # Arclith
 
 Framework Python 3.13 pour construire des microservices hexagonaux avec domaine, ports, use cases,
-adapters, FastAPI, FastMCP, bus, agents, configuration, observabilité et runtime Docker.
+adapters, FastAPI, FastMCP, bus, canaux conversationnels, agents, configuration, observabilité et
+runtime Docker.
 
 ```bash
 uvx --from arclith-cli arclith-cli init my-service --dir .

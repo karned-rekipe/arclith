@@ -33,6 +33,10 @@ class ProjectPaths:
         return self.package_root / "adapters" / "inbound"
 
     @property
+    def adapters_bidirectional(self) -> Path:
+        return self.package_root / "adapters" / "bidirectional"
+
+    @property
     def containers(self) -> Path:
         return self.package_root / "infrastructure" / "containers"
 
@@ -52,7 +56,11 @@ def detect_project_paths(project_dir: Path) -> ProjectPaths:
         )
         if model_candidates:
             package_root = model_candidates[0]
-            return ProjectPaths(root=project_dir, package_root=package_root, package_name=package_root.name)
+            return ProjectPaths(
+                root=project_dir,
+                package_root=package_root,
+                package_name=package_root.name,
+            )
 
         package_candidates = sorted(
             child
@@ -61,7 +69,11 @@ def detect_project_paths(project_dir: Path) -> ProjectPaths:
         )
         if package_candidates:
             package_root = package_candidates[0]
-            return ProjectPaths(root=project_dir, package_root=package_root, package_name=package_root.name)
+            return ProjectPaths(
+                root=project_dir,
+                package_root=package_root,
+                package_name=package_root.name,
+            )
 
     return ProjectPaths(root=project_dir, package_root=project_dir, package_name=None)
 
@@ -70,4 +82,7 @@ def _looks_like_package_root(path: Path) -> bool:
     if (path / "__init__.py").exists():
         return True
 
-    return any((path / layer).is_dir() for layer in ("domain", "application", "adapters", "infrastructure"))
+    return any(
+        (path / layer).is_dir()
+        for layer in ("domain", "application", "adapters", "infrastructure")
+    )

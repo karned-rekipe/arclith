@@ -11,6 +11,7 @@ from arclith.infrastructure.settings import (  # noqa: F401
     AppSettings,
     CacheControlSettings,
     CacheSettings,
+    ChannelSettings,
     CommandBusAdapter,
     CommandBusSettings,
     DuckDBSettings,
@@ -36,6 +37,7 @@ from arclith.infrastructure.settings import (  # noqa: F401
     LicenseSettings,
     LMSettings,
     MariaDBSettings,
+    MemoryChannelSettings,
     McpSettings,
     MongoDBSettings,
     ObservabilityAdapter,
@@ -77,6 +79,7 @@ def _resolve_key_path(rel: Path) -> list[str]:
       config/adapters/adapters.yaml        → ["adapters"]
       config/adapters/outbound/<name>.yaml → ["adapters", "<name>"]
       config/adapters/inbound/<name>.yaml  → ["<alias>"] or ["<name>"]
+      config/adapters/bidirectional/<name>.yaml → ["adapters", "channel", "<name>"]
       config/<name>.yaml                   → ["<name>"]
     """
     parts = rel.with_suffix("").parts
@@ -91,12 +94,14 @@ def _resolve_key_path(rel: Path) -> list[str]:
             return ["adapters"]
         return []
 
-    # Three levels: config/adapters/{outbound|inbound}/<name>.yaml
+    # Three levels: config/adapters/{outbound|inbound|bidirectional}/<name>.yaml
     if len(parts) == 3 and parts[0] == "adapters":
         if parts[1] == "outbound":
             return ["adapters", parts[2]]
         if parts[1] == "inbound":
             return [_INBOUND_ALIAS.get(parts[2], parts[2])]
+        if parts[1] == "bidirectional":
+            return ["adapters", "channel", parts[2]]
 
     return []
 
