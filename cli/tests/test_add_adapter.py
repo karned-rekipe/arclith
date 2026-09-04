@@ -526,7 +526,7 @@ def test_add_langsmith_adds_dependency_extra_idempotently(tmp_path: Path) -> Non
     project_dir = _minimal_project(tmp_path)
     pyproject = project_dir / "pyproject.toml"
     pyproject.write_text(
-        '[project]\ndependencies = ["arclith[fastapi,mcp]>=0.23.0"]\n',
+        '[project]\ndependencies = ["arclith[fastapi,mcp]>=0.24.0"]\n',
         encoding="utf-8",
     )
 
@@ -539,7 +539,7 @@ def test_add_langsmith_adds_dependency_extra_idempotently(tmp_path: Path) -> Non
             yes=True,
         )
 
-    assert "arclith[fastapi,mcp,langsmith]>=0.23.0" in pyproject.read_text()
+    assert "arclith[fastapi,mcp,langsmith]>=0.24.0" in pyproject.read_text()
 
 
 def test_add_opentelemetry_adds_dependency_extra_idempotently(
@@ -548,7 +548,7 @@ def test_add_opentelemetry_adds_dependency_extra_idempotently(
     project_dir = _minimal_project(tmp_path)
     pyproject = project_dir / "pyproject.toml"
     pyproject.write_text(
-        '[project]\ndependencies = ["arclith[fastapi,mcp]>=0.23.0"]\n',
+        '[project]\ndependencies = ["arclith[fastapi,mcp]>=0.24.0"]\n',
         encoding="utf-8",
     )
 
@@ -561,7 +561,7 @@ def test_add_opentelemetry_adds_dependency_extra_idempotently(
             yes=True,
         )
 
-    assert "arclith[fastapi,mcp,opentelemetry]>=0.23.0" in pyproject.read_text()
+    assert "arclith[fastapi,mcp,opentelemetry]>=0.24.0" in pyproject.read_text()
 
 
 @pytest.mark.parametrize(
@@ -1070,7 +1070,7 @@ def test_add_webhook_channel_generates_safe_loadable_config(
     project_dir = _minimal_project(tmp_path)
     pyproject = project_dir / "pyproject.toml"
     pyproject.write_text(
-        '[project]\ndependencies = ["arclith[fastapi]>=0.23.0"]\n',
+        '[project]\ndependencies = ["arclith[fastapi]>=0.24.0"]\n',
         encoding="utf-8",
     )
 
@@ -1111,7 +1111,7 @@ def test_add_webhook_channel_generates_safe_loadable_config(
             "adapters.channel.webhook.secret": "ARCLITH_WEBHOOK_SECRET",
         },
     }
-    assert "arclith[fastapi,channel]>=0.23.0" in pyproject.read_text()
+    assert "arclith[fastapi,channel]>=0.24.0" in pyproject.read_text()
     assert "a-secure-webhook-secret" not in config_path.read_text()
 
 
@@ -1147,7 +1147,7 @@ def test_add_slack_channel_generates_safe_loadable_config(tmp_path: Path) -> Non
     project_dir = _minimal_project(tmp_path)
     pyproject = project_dir / "pyproject.toml"
     pyproject.write_text(
-        '[project]\ndependencies = ["arclith[fastapi]>=0.23.0"]\n',
+        '[project]\ndependencies = ["arclith[fastapi]>=0.24.0"]\n',
         encoding="utf-8",
     )
 
@@ -1193,7 +1193,7 @@ def test_add_slack_channel_generates_safe_loadable_config(tmp_path: Path) -> Non
             "adapters.channel.slack.bot_token": "ARCLITH_SLACK_BOT_TOKEN",
         },
     }
-    assert "arclith[fastapi,channel]>=0.23.0" in pyproject.read_text()
+    assert "arclith[fastapi,channel]>=0.24.0" in pyproject.read_text()
     assert "xoxb-" not in config_path.read_text()
 
 
@@ -1866,7 +1866,7 @@ def test_add_langgraph_persistence_enriches_config_and_dependency_without_overwr
     (project_dir / "pyproject.toml").write_text(
         """[project]
 name = "demo-service"
-dependencies = ["arclith[fastapi,mcp]>=0.23.0"]
+dependencies = ["arclith[fastapi,mcp]>=0.24.0"]
 """,
         encoding="utf-8",
     )
@@ -1918,7 +1918,7 @@ dependencies = ["arclith[fastapi,mcp]>=0.23.0"]
     )
     pyproject = (project_dir / "pyproject.toml").read_text(encoding="utf-8")
     assert (
-        "arclith[fastapi,mcp,langgraph,langgraph-persistence-mongodb]>=0.23.0"
+        "arclith[fastapi,mcp,langgraph,langgraph-persistence-mongodb]>=0.24.0"
         in pyproject
     )
 
@@ -1940,7 +1940,7 @@ def test_add_langgraph_persistence_requires_agent_capability(
 ) -> None:
     project_dir = _minimal_project(tmp_path)
     (project_dir / "pyproject.toml").write_text(
-        '[project]\ndependencies = ["arclith>=0.23.0"]\n', encoding="utf-8"
+        '[project]\ndependencies = ["arclith>=0.24.0"]\n', encoding="utf-8"
     )
 
     with pytest.raises(typer.Exit):

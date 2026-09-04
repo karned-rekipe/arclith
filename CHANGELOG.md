@@ -4,6 +4,27 @@
 
 ---
 
+## [0.24.0] — 2026-09-04
+
+### Added
+
+- **Mapping relationnel structuré PostgreSQL** — contrat `RelationalEntityMapper`, colonnes et
+  index déclaratifs, registre par classe exacte et stratégie `structured` opt-in sans ORM dans le
+  domaine ni migration automatique cachée.
+- **Scaffold CLI guidé** — `add-usecase` peut associer une entité existante, en créer une nouvelle
+  ou générer un cas d'usage transverse, via un assistant interactif ou les options non interactives
+  `--entity`, `--new-entity` et `--no-entity`.
+
+### Changed
+
+- **Templates métier et recettes CLI** — les squelettes générés explicitent les frontières
+  `Command`/`Query`, `UseCase`, `Entity`/`Result` et `Repository`; le choix d'entité est conservé
+  dans `arclith.recipe.yaml` tout en restant compatible avec les anciennes recettes.
+- **Versions release** — `arclith` passe à `0.24.0`; `arclith-cli` passe à `0.21.0`
+  et dépend de `arclith>=0.24.0`.
+
+---
+
 ## [0.23.0] — 2026-09-04
 
 ### Added

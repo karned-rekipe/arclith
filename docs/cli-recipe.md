@@ -51,12 +51,12 @@ version: 1
 project:
   name: todo-service
   package: todo_service
-created_at: "2026-09-01T10:00:00+00:00"
-updated_at: "2026-09-01T10:04:00+00:00"
+created_at: "2026-09-04T10:00:00+00:00"
+updated_at: "2026-09-04T10:04:00+00:00"
 steps:
   - id: "0001"
-    at: "2026-09-01T10:00:00+00:00"
-    cli_version: "0.20.0"
+    at: "2026-09-04T10:00:00+00:00"
+    cli_version: "0.21.0"
     command: init
     status: success
     args:
@@ -67,8 +67,8 @@ steps:
         - path: pyproject.toml
           action: created
   - id: "0002"
-    at: "2026-09-01T10:04:00+00:00"
-    cli_version: "0.20.0"
+    at: "2026-09-04T10:04:00+00:00"
+    cli_version: "0.21.0"
     command: add-entity
     status: success
     args:

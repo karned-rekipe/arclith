@@ -15,7 +15,7 @@ def _minimal_project(tmp_path: Path) -> Path:
     )
     (project_dir / "pyproject.toml").write_text(
         '[project]\nname = "demo-service"\nversion = "0.1.0"\n'
-        'dependencies = ["arclith>=0.23.0"]\n',
+        'dependencies = ["arclith>=0.24.0"]\n',
         encoding="utf-8",
     )
     return project_dir
@@ -197,7 +197,7 @@ def test_add_openai_compatible_embedding_generates_loadable_config_idempotently(
     assert app.config.adapters.embedding is not None
     assert app.config.adapters.embedding.model_name == "nomic-embed-text"
     assert isinstance(app.embedding(), OpenAICompatibleEmbeddingAdapter)
-    assert "arclith[embedding]>=0.23.0" in (project_dir / "pyproject.toml").read_text(
+    assert "arclith[embedding]>=0.24.0" in (project_dir / "pyproject.toml").read_text(
         encoding="utf-8"
     )
 
@@ -244,7 +244,7 @@ def test_add_openai_embedding_generates_safe_loadable_config_idempotently(
     assert env_text == "EXISTING=value\n"
     assert "sk-" not in config_text + secrets_text + env_text
     assert ".env" in (project_dir / ".gitignore").read_text(encoding="utf-8")
-    assert "arclith[embedding]>=0.23.0" in (project_dir / "pyproject.toml").read_text(
+    assert "arclith[embedding]>=0.24.0" in (project_dir / "pyproject.toml").read_text(
         encoding="utf-8"
     )
 
