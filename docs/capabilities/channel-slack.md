@@ -72,9 +72,12 @@ max_payload_bytes: 1048576
 request_timeout_seconds: 5.0
 ```
 
-Le montage du router exige `signing_secret`. La construction du sender exige
-`bot_token` et vérifie immédiatement la présence de l'extra `channel`. Un
-service mal configuré échoue donc au démarrage, pas lors du premier événement.
+Par défaut, le montage du router construit aussi le sender Slack : il exige donc
+`signing_secret` **et** `bot_token`, puis vérifie immédiatement la présence de
+l'extra `channel`. Si le service injecte explicitement un `sender` personnalisé,
+seul `signing_secret` est requis par l'adapter entrant. Dans les deux cas, une
+configuration requise manquante échoue au démarrage, pas lors du premier
+événement.
 
 ### Brancher Le Router
 
