@@ -6,6 +6,7 @@ from pydantic import Field, field_validator, model_validator
 
 from arclith.infrastructure.settings._base import SettingsModel
 
+from arclith.infrastructure.settings.channel import ChannelSettings
 from arclith.infrastructure.settings.embedding import EmbeddingSettings
 from arclith.infrastructure.settings.langgraph import LangGraphSettings
 from arclith.infrastructure.settings.langsmith import LangSmithSettings
@@ -60,6 +61,7 @@ class AdaptersSettings(SettingsModel):
     storage: StorageSettings | None = None
     embedding: EmbeddingSettings | None = None
     vector_store: VectorStoreSettings | None = None
+    channel: ChannelSettings = Field(default_factory=ChannelSettings)
     lm: LMSettings | None = None
     langsmith: LangSmithSettings | None = None
     opentelemetry: OpenTelemetrySettings | None = None

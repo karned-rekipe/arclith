@@ -98,20 +98,14 @@ def test_unknown_logger_adapter_is_rejected():
         {"unknown_section": {}},
         {"adapters": {"unknown_adapter": {}}},
         {"adapters": {"mongodb": {"db_name": "test", "database_name": "typo"}}},
-        {
-            "adapters": {
-                "postgresql": {"database": "test", "schema_nam": "typo"}
-            }
-        },
+        {"adapters": {"postgresql": {"database": "test", "schema_nam": "typo"}}},
     ],
     ids=["root", "adapters", "mongodb", "postgresql-alias"],
 )
 def test_unknown_configuration_keys_are_rejected(data):
     with pytest.raises(ValidationError) as exc_info:
         AppConfig.model_validate(data)
-    assert {error["type"] for error in exc_info.value.errors()} == {
-        "extra_forbidden"
-    }
+    assert {error["type"] for error in exc_info.value.errors()} == {"extra_forbidden"}
 
 
 def test_default_retention_is_none():
@@ -237,6 +231,23 @@ def test_load_config_dir_memory():
     path = _make_config_dir({"adapters/adapters.yaml": {"repository": "memory"}})
     config = load_config_dir(path)
     assert config.adapters.repository == "memory"
+
+
+def test_load_config_dir_bidirectional_memory_channel():
+    path = _make_config_dir({"adapters/bidirectional/memory.yaml": {"enabled": True}})
+
+    config = load_config_dir(path)
+
+    assert config.adapters.channel.memory is not None
+    assert config.adapters.channel.memory.enabled is True
+    assert config.adapters.channel.configured_adapters() == ("memory",)
+
+
+def test_channel_settings_are_disabled_by_default():
+    config = AppConfig()
+
+    assert config.adapters.channel.memory is None
+    assert config.adapters.channel.configured_adapters() == ()
 
 
 def test_load_config_dir_app_section():

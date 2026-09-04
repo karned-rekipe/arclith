@@ -1032,6 +1032,32 @@ def test_add_command_bus_rabbitmq_adapter_rejects_unbounded_prefetch(
     assert not command_bus_path.exists()
 
 
+def test_add_memory_channel_generates_loadable_bidirectional_config(
+    tmp_path: Path,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="channel",
+            adapter="memory",
+            yes=True,
+        )
+
+    from arclith import Arclith, MemoryChannel
+
+    config_path = project_dir / "config" / "adapters" / "bidirectional" / "memory.yaml"
+    app = Arclith(project_dir / "config")
+
+    assert config_path.read_text(encoding="utf-8") == "enabled: true\n"
+    assert app.config.adapters.channel.configured_adapters() == ("memory",)
+    assert isinstance(app.channel_sender("memory"), MemoryChannel)
+    assert not (
+        project_dir / "src" / "demo_service" / "adapters" / "bidirectional" / "memory"
+    ).exists()
+
+
 def test_add_keycloak_auth_adapter_generates_loadable_inbound_config(
     tmp_path: Path,
 ) -> None:

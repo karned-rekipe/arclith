@@ -13,6 +13,8 @@ from pydantic import (
     field_validator,
 )
 
+from arclith.domain.models.json import validate_finite_json
+
 
 class VectorStoreError(Exception):
     """Base error exposed by vector-store adapters."""
@@ -53,18 +55,6 @@ class _VectorModel(_VectorStoreModel):
         return value
 
 
-def _validate_finite_json(value: JsonValue) -> JsonValue:
-    if isinstance(value, float) and not math.isfinite(value):
-        raise ValueError("JSON numeric values must be finite")
-    if isinstance(value, list):
-        for item in value:
-            _validate_finite_json(item)
-    elif isinstance(value, dict):
-        for item in value.values():
-            _validate_finite_json(item)
-    return value
-
-
 class VectorPoint(_VectorModel):
     """Provider-neutral vector and its JSON search projection."""
 
@@ -84,7 +74,7 @@ class VectorPoint(_VectorModel):
     def payload_must_be_strict_json(
         cls, value: dict[str, JsonValue]
     ) -> dict[str, JsonValue]:
-        _validate_finite_json(value)
+        validate_finite_json(value)
         return value
 
 
@@ -102,7 +92,7 @@ class VectorSearchQuery(_VectorModel):
     def filters_must_be_strict_json(
         cls, value: dict[str, JsonValue]
     ) -> dict[str, JsonValue]:
-        _validate_finite_json(value)
+        validate_finite_json(value)
         return value
 
     @field_validator("score_threshold")
@@ -134,7 +124,7 @@ class VectorSearchHit(_VectorStoreModel):
     def payload_must_be_strict_json(
         cls, value: dict[str, JsonValue]
     ) -> dict[str, JsonValue]:
-        _validate_finite_json(value)
+        validate_finite_json(value)
         return value
 
     @field_validator("score")

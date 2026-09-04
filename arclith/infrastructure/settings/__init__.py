@@ -18,6 +18,10 @@ from arclith.infrastructure.settings.app import (
     SoftDeleteSettings,
     TenantSettings,
 )
+from arclith.infrastructure.settings.channel import (
+    ChannelSettings,
+    MemoryChannelSettings,
+)
 from arclith.infrastructure.settings.langgraph import (
     LangGraphCheckpointerSettings,
     LangGraphPersistenceSettings,
@@ -84,6 +88,7 @@ __all__ = [
     "AppSettings",
     "CacheControlSettings",
     "CacheSettings",
+    "ChannelSettings",
     "CommandBusAdapter",
     "CommandBusSettings",
     "DuckDBSettings",
@@ -109,6 +114,7 @@ __all__ = [
     "LangSmithTracingSettings",
     "LicenseSettings",
     "MariaDBSettings",
+    "MemoryChannelSettings",
     "McpSettings",
     "MongoDBSettings",
     "ObservabilityAdapter",

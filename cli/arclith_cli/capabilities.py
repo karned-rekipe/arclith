@@ -19,6 +19,7 @@ from arclith_cli.catalogs.ai import (
     EMBEDDING_CAPABILITY,
     LLM_CAPABILITY,
 )
+from arclith_cli.catalogs.channels import CHANNEL_CAPABILITY
 from arclith_cli.catalogs.core import (
     CACHE_CAPABILITY,
     LOGGER_CAPABILITY,
@@ -53,6 +54,7 @@ __all__ = [
     "AdapterProfileSpec",
     "AdapterSpec",
     "CACHE_CAPABILITY",
+    "CHANNEL_CAPABILITY",
     "CAPABILITY_CATALOG",
     "COMMAND_BUS_CAPABILITY",
     "CapabilitySpec",
@@ -93,6 +95,7 @@ CAPABILITY_CATALOG = (
     PROBE_CAPABILITY,
     HTTP_CAPABILITY,
     COMMAND_BUS_CAPABILITY,
+    CHANNEL_CAPABILITY,
     RUNTIME_CAPABILITY,
     AUTH_CAPABILITY,
     TENANT_CAPABILITY,

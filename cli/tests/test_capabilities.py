@@ -391,6 +391,22 @@ def test_command_bus_capability_catalog_declares_rabbitmq() -> None:
     ]
 
 
+def test_channel_capability_catalog_declares_memory_adapter() -> None:
+    capability = get_capability("channel")
+
+    assert capability is not None
+    assert capability.layer == "bidirectional"
+    assert capability.activation_config_key is None
+    assert capability.adapter_names() == ("memory",)
+    memory = capability.get_adapter("memory")
+    assert memory is not None
+    assert memory.layer == "bidirectional"
+    assert memory.config_path == "config/adapters/bidirectional/memory.yaml"
+    assert memory.dependency_extra is None
+    assert memory.entity_scoped is False
+    assert memory.parameters == ()
+
+
 def test_runtime_capability_catalog_declares_docker_image() -> None:
     capability = get_capability("runtime")
 
@@ -979,6 +995,14 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "dead_letter_exchange",
         "dead_letter_routing_key",
     ]
+    channel = payload_by_name["channel"]
+    assert channel["layer"] == "bidirectional"
+    assert [adapter["name"] for adapter in channel["adapters"]] == ["memory"]
+    memory_channel = channel["adapters"][0]
+    assert memory_channel["config_path"] == (
+        "config/adapters/bidirectional/memory.yaml"
+    )
+    assert memory_channel["dependency_extra"] is None
     runtime = payload_by_name["runtime"]
     assert runtime["layer"] == "runtime"
     assert [adapter["name"] for adapter in runtime["adapters"]] == ["docker-image"]

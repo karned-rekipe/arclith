@@ -35,6 +35,7 @@ class ProjectLayout:
     adapters: PurePosixPath = field(init=False)
     inbound_adapters: PurePosixPath = field(init=False)
     outbound_adapters: PurePosixPath = field(init=False)
+    bidirectional_adapters: PurePosixPath = field(init=False)
     infrastructure: PurePosixPath = field(init=False)
 
     def __post_init__(self) -> None:
@@ -51,8 +52,12 @@ class ProjectLayout:
         object.__setattr__(self, "domain", package_root / "domain")
         object.__setattr__(self, "domain_models", package_root / "domain" / "models")
         object.__setattr__(self, "domain_ports", package_root / "domain" / "ports")
-        object.__setattr__(self, "inbound_ports", package_root / "domain" / "ports" / "inbound")
-        object.__setattr__(self, "outbound_ports", package_root / "domain" / "ports" / "outbound")
+        object.__setattr__(
+            self, "inbound_ports", package_root / "domain" / "ports" / "inbound"
+        )
+        object.__setattr__(
+            self, "outbound_ports", package_root / "domain" / "ports" / "outbound"
+        )
         object.__setattr__(self, "application", package_root / "application")
         object.__setattr__(
             self,
@@ -65,8 +70,17 @@ class ProjectLayout:
             package_root / "application" / "services",
         )
         object.__setattr__(self, "adapters", package_root / "adapters")
-        object.__setattr__(self, "inbound_adapters", package_root / "adapters" / "inbound")
-        object.__setattr__(self, "outbound_adapters", package_root / "adapters" / "outbound")
+        object.__setattr__(
+            self, "inbound_adapters", package_root / "adapters" / "inbound"
+        )
+        object.__setattr__(
+            self, "outbound_adapters", package_root / "adapters" / "outbound"
+        )
+        object.__setattr__(
+            self,
+            "bidirectional_adapters",
+            package_root / "adapters" / "bidirectional",
+        )
         object.__setattr__(self, "infrastructure", package_root / "infrastructure")
 
     @classmethod
@@ -110,10 +124,11 @@ class ProjectLayout:
         }
 
     def adapter_paths(self) -> dict[str, PurePosixPath]:
-        """Return canonical inbound/outbound adapter folders."""
+        """Return canonical inbound/outbound/bidirectional adapter folders."""
         return {
             "inbound": self.inbound_adapters,
             "outbound": self.outbound_adapters,
+            "bidirectional": self.bidirectional_adapters,
         }
 
     def package_paths(self) -> tuple[PurePosixPath, ...]:

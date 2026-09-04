@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Contrat channel provider-neutral** — modèles stricts, ports d'identité/idempotence/envoi,
+  dispatcher applicatif et erreurs communes pour les canaux conversationnels bidirectionnels.
+- **Adapter channel memory** — fake déterministe sans dépendance, claim atomique en processus,
+  factory publique, configuration scoped et catalogue `arclith-cli channel/memory`.
+
+### Changed
+
+- **Layout bidirectionnel** — la configuration et le layout canoniques reconnaissent désormais
+  `adapters/bidirectional` pour les adapters assurant réception et envoi.
+
 ---
 
 ## [0.22.0] — 2026-09-03
