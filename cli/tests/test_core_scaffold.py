@@ -334,8 +334,25 @@ def test_add_usecase_existing_entity_reuses_ast_scanner(
 def test_add_usecase_rejects_missing_existing_entity(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     project_dir = _src_project(tmp_path)
+    calls: list[Path] = []
+
+    def fake_scan_entities(scanned_project: Path) -> list[EntityInfo]:
+        calls.append(scanned_project)
+        return [
+            EntityInfo(
+                pascal="Existing",
+                snake="existing",
+                file_path=project_dir / "src/demo_service/domain/models/existing.py",
+            )
+        ]
+
+    monkeypatch.setattr(
+        "arclith_cli.core_scaffold.scan_entities",
+        fake_scan_entities,
+    )
 
     with pytest.raises(typer.Exit):
         add_usecase_cmd(
@@ -346,7 +363,9 @@ def test_add_usecase_rejects_missing_existing_entity(
 
     output = capsys.readouterr().out
     assert "Entité introuvable" in output
+    assert "Entités détectées : Existing" in output
     assert "--new-entity Missing" in output
+    assert calls == [project_dir]
     assert not (
         project_dir / "src/demo_service/application/use_cases/create_todo.py"
     ).exists()

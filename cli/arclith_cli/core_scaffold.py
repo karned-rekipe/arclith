@@ -205,11 +205,15 @@ def _require_existing_entity(project_dir: Path, raw_name: str) -> EntityInfo:
     normalized_name = raw_name.strip()
     _assert_valid_name(normalized_name, label="entité")
     names = EntityNames.from_input(normalized_name)
-    entity = _find_entity(project_dir, names.pascal)
+    entities = scan_entities(project_dir)
+    entity = next(
+        (item for item in entities if item.pascal == names.pascal),
+        None,
+    )
     if entity is not None:
         return entity
 
-    detected = ", ".join(item.pascal for item in scan_entities(project_dir)) or "aucune"
+    detected = ", ".join(item.pascal for item in entities) or "aucune"
     console.print(
         f"[red]✗[/red] Entité introuvable : [bold]{names.pascal}[/bold]. "
         f"Entités détectées : {detected}. Utilisez [bold]--new-entity {names.pascal}[/bold] "
