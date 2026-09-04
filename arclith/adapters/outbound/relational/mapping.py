@@ -92,10 +92,10 @@ class RelationalEntityMapper(Protocol[T]):
     indexes: tuple[RelationalIndex, ...]
 
     def to_record(self, entity: T) -> Mapping[str, Any]:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
     def from_record(self, record: Mapping[str, Any]) -> T:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover - protocol contract
 
 
 def validate_relational_mapper(
