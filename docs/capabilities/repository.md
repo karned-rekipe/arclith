@@ -415,7 +415,9 @@ colonnes `uuid`, `created_at`, `updated_at`, `deleted_at` et `version` avec les
 kinds correspondants. `uuid` est l'unique clé primaire et `deleted_at` est
 nullable. Les noms de table, colonne et index sont des identifiants SQL sûrs ;
 les doublons et les index pointant vers une colonne inconnue sont refusés dès
-l'enregistrement.
+l'enregistrement. Le préfixe de colonne `_arclith_` est réservé aux valeurs
+internes de l'adapter, notamment au total de pagination, et ne peut pas être
+utilisé par un mapper applicatif.
 
 `to_record()` doit retourner exactement les colonnes déclarées et le même UUID
 que l'entité. `from_record()` doit restituer la classe d'entité attendue. Le

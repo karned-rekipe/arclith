@@ -209,6 +209,37 @@ async def test_structured_crud_uses_mapper_without_implicit_schema_creation(
     ]
 
 
+async def test_structured_find_page_uses_reserved_total_label(
+    logger, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    account = UserAccount(email="ada@example.net", display_name="Ada")
+    mapper = UserAccountMapper()
+    repository = PostgreSQLRepository(
+        PostgreSQLConfig(database="demo", mapping_strategy="structured"),
+        UserAccount,
+        logger,
+        mapper=mapper,
+    )
+    engine = FakeEngine()
+    engine.results = [
+        FakeResult(
+            rows=[
+                {
+                    **dict(mapper.to_record(account)),
+                    "_arclith_pagination_total": 7,
+                }
+            ]
+        )
+    ]
+    monkeypatch.setattr(repository, "_engine_for", lambda *args: engine)
+
+    entities, total = await repository.find_page(offset=2, limit=1)
+
+    assert entities == [account]
+    assert total == 7
+    assert "_arclith_pagination_total" in str(engine.executed_statements[0])
+
+
 def test_structured_record_must_match_declared_columns(logger) -> None:
     class IncompleteMapper(UserAccountMapper):
         def to_record(self, entity: UserAccount) -> Mapping[str, Any]:

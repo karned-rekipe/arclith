@@ -102,6 +102,11 @@ def test_column_declaration_rejects_unknown_kind() -> None:
         RelationalColumn("payload", cast(Any, "binary"))
 
 
+def test_column_declaration_rejects_internal_prefix() -> None:
+    with pytest.raises(ValueError, match=r"reserved '_arclith_' prefix"):
+        RelationalColumn("_arclith_pagination_total", "integer")
+
+
 def test_registry_rejects_unsafe_table_name() -> None:
     class UnsafeTableMapper(UserAccountMapper):
         table_name = "unsafe-name"

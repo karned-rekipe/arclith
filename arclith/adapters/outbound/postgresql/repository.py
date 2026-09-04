@@ -11,6 +11,7 @@ from uuid6 import UUID, uuid7
 from arclith.adapters.context import get_adapter_tenant_context
 from arclith.adapters.outbound.postgresql.config import PostgreSQLConfig
 from arclith.adapters.outbound.relational.mapping import (
+    _INTERNAL_COLUMN_PREFIX,
     RelationalColumn,
     RelationalEntityMapper,
     validate_relational_mapper,
@@ -22,6 +23,7 @@ from arclith.domain.ports.outbound.repository import Repository
 T = TypeVar("T", bound=Entity)
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_PAGINATION_TOTAL_LABEL = f"{_INTERNAL_COLUMN_PREFIX}pagination_total"
 _EXTRA_MESSAGE = (
     "PostgreSQL repository requires the optional extra: arclith[postgresql]"
 )
@@ -378,7 +380,7 @@ class PostgreSQLRepository(Repository[T], Generic[T]):
             _sqlalchemy_api()
             .select(
                 self._entity_selection(table),
-                _sqlalchemy_api().count().over().label("__total"),
+                _sqlalchemy_api().count().over().label(_PAGINATION_TOTAL_LABEL),
             )
             .where(table.c.deleted_at.is_(None))
             .order_by(table.c.created_at, table.c.uuid)
@@ -390,7 +392,7 @@ class PostgreSQLRepository(Repository[T], Generic[T]):
         async with engine.connect() as connection:
             rows = (await connection.execute(statement)).mappings().all()
 
-        total = int(rows[0]["__total"]) if rows else 0
+        total = int(rows[0][_PAGINATION_TOTAL_LABEL]) if rows else 0
         return [self._row_to_entity(row) for row in rows], total
 
     async def find_deleted(self) -> list[T]:

@@ -21,6 +21,7 @@ RelationalColumnKind = Literal[
 ]
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_INTERNAL_COLUMN_PREFIX = "_arclith_"
 _SUPPORTED_COLUMN_KINDS = {
     "boolean",
     "date",
@@ -53,6 +54,11 @@ class RelationalColumn:
 
     def __post_init__(self) -> None:
         _validate_identifier("column", self.name)
+        if self.name.startswith(_INTERNAL_COLUMN_PREFIX):
+            raise ValueError(
+                f"Relational column name '{self.name}' uses the reserved "
+                f"'{_INTERNAL_COLUMN_PREFIX}' prefix"
+            )
         if self.kind not in _SUPPORTED_COLUMN_KINDS:
             supported = ", ".join(sorted(_SUPPORTED_COLUMN_KINDS))
             raise ValueError(

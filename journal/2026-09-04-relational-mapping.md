@@ -21,7 +21,9 @@ le domaine ne doit dépendre ni de SQLAlchemy ni d'un schéma physique.
   confie la création et l'évolution du schéma à ses migrations applicatives ;
 - exiger les colonnes techniques nécessaires au contrat `Repository[T]` et
   valider les identifiants, collisions et références d'index avant accès à la
-  base.
+  base ;
+- réserver le préfixe de colonne `_arclith_` aux labels internes de l'adapter
+  pour empêcher toute collision avec les colonnes applicatives.
 
 ## Conséquences
 
@@ -41,6 +43,7 @@ par défaut, et documentent l'opt-in structuré.
 - construction SQLAlchemy des colonnes, contraintes et index PostgreSQL ;
 - CRUD sur engine fake sans création implicite lorsque
   `auto_create_schema=false` ;
+- pagination structurée avec un label de total interne réservé ;
 - compatibilité de `build_repository()` et `Arclith.repository()` avec et sans
   registre de mappers ;
 - génération CLI et chargement de la configuration PostgreSQL ;
