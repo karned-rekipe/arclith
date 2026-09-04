@@ -11,7 +11,6 @@ from uuid6 import UUID, uuid7
 from arclith.adapters.context import get_adapter_tenant_context
 from arclith.adapters.outbound.postgresql.config import PostgreSQLConfig
 from arclith.adapters.outbound.relational.mapping import (
-    _INTERNAL_COLUMN_PREFIX,
     RelationalColumn,
     RelationalEntityMapper,
     validate_relational_mapper,
@@ -23,7 +22,7 @@ from arclith.domain.ports.outbound.repository import Repository
 T = TypeVar("T", bound=Entity)
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_PAGINATION_TOTAL_LABEL = f"{_INTERNAL_COLUMN_PREFIX}pagination_total"
+_PAGINATION_TOTAL_LABEL = "_arclith_pagination_total"
 _EXTRA_MESSAGE = (
     "PostgreSQL repository requires the optional extra: arclith[postgresql]"
 )

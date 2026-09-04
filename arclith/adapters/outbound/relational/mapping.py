@@ -187,7 +187,7 @@ def _validate_indexes(
 
 
 def _validate_identifier(kind: str, value: str) -> None:
-    if not _IDENTIFIER_RE.fullmatch(value):
+    if not isinstance(value, str) or not _IDENTIFIER_RE.fullmatch(value):
         raise ValueError(
             f"Relational {kind} name '{value}' must be a safe SQL identifier"
         )

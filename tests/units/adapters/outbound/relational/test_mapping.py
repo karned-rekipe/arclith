@@ -85,9 +85,12 @@ def test_registry_rejects_mapper_collision() -> None:
     "declaration",
     [
         lambda: RelationalColumn("unsafe-name", "string"),
+        lambda: RelationalColumn(cast(Any, 42), "string"),
         lambda: RelationalIndex("unsafe-name", ("email",)),
+        lambda: RelationalIndex(cast(Any, 42), ("email",)),
         lambda: RelationalIndex("safe_name", ()),
         lambda: RelationalIndex("safe_name", ("email", "email")),
+        lambda: RelationalIndex("safe_name", (cast(Any, 42),)),
     ],
 )
 def test_column_and_index_declarations_reject_invalid_names_or_columns(
