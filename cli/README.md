@@ -58,7 +58,10 @@ template est régénéré côté CLI pour appliquer le contrat `runtime/docker-i
 
 ### `add-entity` — Ajouter une entité métier
 
-Crée uniquement le fichier minimal d'une entité dans `src/<package>/domain/models/`.
+Crée un squelette minimal et guidé dans `src/<package>/domain/models/`. Le fichier
+signale où déclarer les champs et invariants, rappelle les champs déjà fournis par
+`Entity` et renvoie vers les guides Arclith et Pydantic. L'exemple `Field(...)`
+reste commenté, donc aucun import inutilisé n'est ajouté.
 
 ```bash
 cd my-recipe-service
@@ -71,20 +74,40 @@ Fichier généré :
 src/<package>/domain/models/shopping_item.py
 ```
 
-La commande ne génère aucun CRUD, aucun port repository, aucun adapter et aucun endpoint. Elle pose seulement le point d'ancrage du modèle métier ; le développeur complète ensuite les champs et invariants de l'entité.
+La commande ne génère aucun CRUD, aucun port repository, aucun adapter et aucun
+endpoint. Elle pose seulement le point d'ancrage du modèle métier ; le
+développeur complète ensuite les champs et invariants de l'entité.
 
 ---
 
 ### `add-usecase` — Ajouter un cas d'usage
 
-Crée le port inbound minimal dans `src/<package>/domain/ports/inbound/`, puis le fichier minimal du
-cas d'usage dans `src/<package>/application/use_cases/`.
+Crée un port inbound guidé dans `src/<package>/domain/ports/inbound/`, puis le
+cas d'usage dans `src/<package>/application/use_cases/`. Sans option de liaison,
+la commande interactive propose les entités détectées par analyse AST, la
+création d'une nouvelle entité ou un cas d'usage transverse.
 
 ```bash
 cd my-recipe-service
+
+# Mode interactif : choisir une entité détectée, en créer une ou rester transverse
 arclith-cli add-usecase PlanShoppingList
-arclith-cli add-usecase find-by-name
+
+# Modes directs, complets pour les agents et la CI
+arclith-cli add-usecase CreateTodo --entity Todo
+arclith-cli add-usecase CreateRecipe --new-entity Recipe
+arclith-cli add-usecase RunMaintenance --no-entity
 ```
+
+| Option | Effet |
+|---|---|
+| `--entity Todo` | lie le use case à une entité détectée et échoue si elle est absente |
+| `--new-entity Todo` | crée l'entité si nécessaire, puis génère le use case lié |
+| `--no-entity` | génère un `Command`, un `Result` et un use case transverse sans repository |
+
+Ces options sont mutuellement exclusives. `--new-entity` réutilise une entité
+valide déjà présente, mais refuse un fichier homonyme qui ne déclare pas la
+classe `Entity` attendue.
 
 Fichier généré :
 
@@ -93,9 +116,17 @@ src/<package>/domain/ports/inbound/plan_shopping_list.py
 src/<package>/application/use_cases/plan_shopping_list.py
 ```
 
-Le nom peut être fourni en PascalCase, snake_case ou kebab-case. Le suffixe `UseCase` est normalisé : `PlanShoppingListUseCase` et `plan-shopping-list-use-case` génèrent tous les deux `PlanShoppingListUseCase`.
+Le nom peut être fourni en PascalCase, snake_case ou kebab-case. Le suffixe
+`UseCase` est normalisé : `PlanShoppingListUseCase` et
+`plan-shopping-list-use-case` génèrent tous les deux
+`PlanShoppingListUseCase`.
 
-Comme `add-entity`, cette commande ne câble pas FastAPI, FastMCP, LangGraph, un repository ou un service. Les adapters se branchent ensuite explicitement avec `add-adapter` et devraient dépendre du port inbound généré.
+Pour une entité principale, le squelette injecte explicitement
+`Repository[Entity]` et type `execute` avec un `Command` Pydantic et l'entité en
+retour. Le mode transverse génère plutôt un `Command` et un `Result` Pydantic,
+sans repository implicite. Aucun mode ne câble FastAPI, FastMCP ou LangGraph.
+Les exemples complets et les règles de séparation sont dans le
+[deep dive du scaffold CLI](https://karned-rekipe.github.io/arclith/deep-dives/cli-scaffold/).
 
 ---
 

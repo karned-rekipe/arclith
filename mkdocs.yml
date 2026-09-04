@@ -106,6 +106,7 @@ nav:
               - 6. Docker Compose: runtime-docker/docker-compose.md
               - 7. Kubernetes: runtime-docker/kubernetes.md
       - Deep dives:
+          - Scaffold CLI: deep-dives/cli-scaffold.md
           - API: deep-dives/api.md
           - MCP: deep-dives/mcp.md
           - Bus: deep-dives/bus.md

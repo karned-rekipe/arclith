@@ -265,6 +265,10 @@ def step_summary(step: RecipeStep) -> str:
         entities = args.get("entities") or []
         suffix = f" ({', '.join(map(str, entities))})" if entities else ""
         return f"{capability}/{adapter}{suffix}"
+    if step.command == "add-usecase":
+        usecase = str(args.get("usecase") or "usecase")
+        entity = args.get("entity") or args.get("new_entity")
+        return f"{usecase} ({entity})" if entity else f"{usecase} (transverse)"
     for key in ("entity", "usecase", "intent"):
         if key in args:
             return str(args[key])
@@ -325,7 +329,16 @@ def _execute_step(
     if step.command == "add-usecase":
         from arclith_cli.core_scaffold import add_usecase_cmd
 
-        add_usecase_cmd(project_dir=target_dir, usecase_name=str(args["usecase"]))
+        raw_entity = args.get("entity")
+        raw_new_entity = args.get("new_entity")
+        add_usecase_cmd(
+            project_dir=target_dir,
+            usecase_name=str(args["usecase"]),
+            entity_name=str(raw_entity) if raw_entity is not None else None,
+            new_entity_name=(
+                str(raw_new_entity) if raw_new_entity is not None else None
+            ),
+        )
         return
     if step.command == "add-intent-interpreter":
         from arclith_cli.core_scaffold import add_intent_interpreter_cmd
