@@ -1,6 +1,8 @@
 from collections.abc import Mapping
 from typing import Any
 
+import pytest
+
 from arclith import (
     Arclith,
     Entity,
@@ -82,3 +84,25 @@ def test_arclith_repository_wires_relational_mapper_registry(tmp_path):
 
     assert repository._mapper is mapper
     assert repository._config.auto_create_schema is False
+
+
+def test_arclith_repository_exposes_factory_registry_guidance(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "adapters:\n  repository: memory\n",
+        encoding="utf-8",
+    )
+    registry = RepositoryRegistry[BoundEntity, Repository[BoundEntity]]().register(
+        "memory", lambda config, entity_class, logger: InMemoryRepository()
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"capture it in the custom factory or extend "
+        r"default_repository_registry\(\)",
+    ):
+        Arclith(config_path).repository(
+            BoundEntity,
+            registry=registry,
+            mapper_registry=RelationalMapperRegistry(),
+        )

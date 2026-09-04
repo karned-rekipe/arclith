@@ -159,7 +159,9 @@ class Arclith:
 
         if registry is not None and mapper_registry is not None:
             raise ValueError(
-                "mapper_registry cannot be combined with a custom RepositoryRegistry"
+                "mapper_registry cannot be combined with a custom RepositoryRegistry; "
+                "capture it in the custom factory or extend "
+                "default_repository_registry()"
             )
         repository: Repository[T] | R
         if registry is None:
