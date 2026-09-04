@@ -55,13 +55,16 @@ class WebhookCallbackSender(ChannelSender):
         self._settings = settings
         self._callback_url = settings.callback_url
         self._client = client
+        self._httpx = _require_httpx() if client is None else None
 
     async def send(self, message: ChannelOutgoingMessage) -> ChannelDeliveryReceipt:
         _require_webhook_channel(message)
         if self._client is not None:
             return await self._send_with_client(self._client, message)
 
-        httpx = _require_httpx()
+        httpx = self._httpx
+        if httpx is None:  # pragma: no cover - guarded by constructor
+            raise RuntimeError("webhook callback HTTP client is not initialized")
         async with httpx.AsyncClient(
             timeout=self._settings.callback_timeout_seconds,
             follow_redirects=False,
@@ -73,7 +76,7 @@ class WebhookCallbackSender(ChannelSender):
         client: httpx.AsyncClient,
         message: ChannelOutgoingMessage,
     ) -> ChannelDeliveryReceipt:
-        httpx = _require_httpx()
+        httpx = self._httpx or _require_httpx()
         try:
             response = await client.post(
                 self._callback_url,

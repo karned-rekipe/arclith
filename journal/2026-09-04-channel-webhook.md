@@ -23,7 +23,7 @@ custom sans déplacer FastAPI, HMAC ou `httpx` dans le domaine.
 - conserver le claim après une réussite métier même si le callback échoue, et
   documenter l'outbox comme mécanisme de reprise outbound ;
 - exposer `httpx` seulement via l'extra `channel` et garder le parsing HTTP hors
-  du domaine ;
+  du domaine, avec un contrôle fail-fast au montage du sender callback ;
 - injecter le secret via la capability `secrets`, sans valeur claire dans le
   template CLI.
 
@@ -44,8 +44,8 @@ quickstart.
 
 ## Validation
 
-- `make quality` : Ruff, Bandit, complexité et mypy passent ; 2 028 tests
-  passent, 5 intégrations sont ignorées et la couverture atteint 91,07 % ;
+- `make quality` : Ruff, Bandit, complexité et mypy passent ; 2 030 tests
+  passent, 5 intégrations sont ignorées et la couverture atteint 91,08 % ;
 - `make precommit` : passé sur l'état final ;
 - `cd cli && uv run --frozen pytest -q` : 154 tests passent et 1 est ignoré ;
 - Ruff CLI, les deux lockfiles et `make docs` strict passent ;

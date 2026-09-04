@@ -3,6 +3,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
+import arclith.adapters.bidirectional.webhook.sender as webhook_sender
 from arclith.adapters.bidirectional.webhook import (
     WebhookCallbackSender,
     WebhookResponseCollector,
@@ -130,3 +131,15 @@ async def test_webhook_senders_reject_other_channels() -> None:
 def test_callback_sender_requires_callback_mode() -> None:
     with pytest.raises(ValueError, match="callback mode"):
         WebhookCallbackSender(WebhookChannelSettings())
+
+
+def test_callback_sender_fails_fast_when_httpx_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing_httpx() -> None:
+        raise RuntimeError("install arclith[channel]")
+
+    monkeypatch.setattr(webhook_sender, "_require_httpx", missing_httpx)
+
+    with pytest.raises(RuntimeError, match=r"arclith\[channel\]"):
+        WebhookCallbackSender(_settings())

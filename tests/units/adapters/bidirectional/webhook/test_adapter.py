@@ -269,3 +269,14 @@ async def test_webhook_adapter_delivers_completed_callback_server_side() -> None
     assert result.responses == ()
     assert result.receipts[0].status == "delivered"
     assert sender.messages == [_response()]
+
+
+def test_webhook_adapter_rejects_callback_sender_outside_callback_mode() -> None:
+    with pytest.raises(ValueError, match="response_mode=callback"):
+        WebhookChannelAdapter(
+            WebhookChannelSettings(),
+            RecordingHandler(ChannelHandlerResult()),
+            _resolver(),
+            MemoryChannel(),
+            callback_sender=RecordingSender(),
+        )

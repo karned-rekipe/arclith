@@ -51,7 +51,13 @@ class WebhookChannelAdapter:
         self._handler = handler
         self._identity_resolver = identity_resolver
         self._event_store = event_store
-        self._callback_sender = callback_sender
+        self._callback_sender: ChannelSender | None
+        if settings.response_mode == "callback":
+            self._callback_sender = callback_sender or WebhookCallbackSender(settings)
+        elif callback_sender is not None:
+            raise ValueError("callback_sender requires webhook response_mode=callback")
+        else:
+            self._callback_sender = None
         verifier_options = {} if clock is None else {"clock": clock}
         self._signature_verifier = WebhookSignatureVerifier(
             settings,
@@ -137,8 +143,9 @@ class WebhookChannelAdapter:
         if self._settings.response_mode != "callback":
             collector = WebhookResponseCollector()
             return collector, collector
-        sender = self._callback_sender or WebhookCallbackSender(self._settings)
-        return None, sender
+        if self._callback_sender is None:  # pragma: no cover - guarded by constructor
+            raise RuntimeError("webhook callback sender is not initialized")
+        return None, self._callback_sender
 
     def _validate_result_mode(self, status: str) -> None:
         if status == "duplicate":

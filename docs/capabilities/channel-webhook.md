@@ -261,7 +261,9 @@ arclith-cli add-adapter \
 
 `Arclith.channel_sender("webhook")` construit un `WebhookCallbackSender`
 uniquement lorsque ce mode est complètement configuré. Le même sender peut être
-injecté dans un worker durable.
+injecté dans un worker durable. Sans client injecté, sa construction vérifie
+immédiatement la présence de `httpx` : une installation sans extra `channel`
+échoue donc au montage du router ou du sender, avant la première requête.
 
 ## Idempotence Et Échecs Sortants
 
