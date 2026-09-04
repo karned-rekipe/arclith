@@ -6,6 +6,7 @@ from typing import Generic
 from typing import TypeVar
 from typing import overload
 
+from arclith.adapters.outbound.relational.registry import RelationalMapperRegistry
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.outbound.logger import Logger
 from arclith.domain.ports.outbound.repository import Repository
@@ -48,6 +49,7 @@ def build_repository(
     logger: Logger,
     *,
     registry: None = None,
+    mapper_registry: RelationalMapperRegistry | None = None,
 ) -> Repository[T]:
     pass
 
@@ -59,6 +61,7 @@ def build_repository(
     logger: Logger,
     *,
     registry: RepositoryRegistry[T, R],
+    mapper_registry: None = None,
 ) -> R:
     pass
 
@@ -69,16 +72,26 @@ def build_repository(
     logger: Logger,
     *,
     registry: RepositoryRegistry[T, R] | None = None,
+    mapper_registry: RelationalMapperRegistry | None = None,
 ) -> Repository[T] | R:
     if registry is None:
-        return default_repository_registry(entity_class).build(
+        return default_repository_registry(
+            entity_class, mapper_registry=mapper_registry
+        ).build(
             config, entity_class, logger
+        )
+    if mapper_registry is not None:
+        raise ValueError(
+            "mapper_registry cannot be combined with a custom RepositoryRegistry; "
+            "capture it in the custom factory or extend default_repository_registry()"
         )
     return registry.build(config, entity_class, logger)
 
 
 def default_repository_registry(
     _entity_class: type[T],
+    *,
+    mapper_registry: RelationalMapperRegistry | None = None,
 ) -> RepositoryRegistry[T, Repository[T]]:
     return (
         RepositoryRegistry[T, Repository[T]]()
@@ -86,7 +99,15 @@ def default_repository_registry(
         .register("mongodb", _build_mongodb_repository)
         .register("duckdb", _build_duckdb_repository)
         .register("mariadb", _build_mariadb_repository)
-        .register("postgresql", _build_postgresql_repository)
+        .register(
+            "postgresql",
+            lambda config, entity_class, logger: _build_postgresql_repository(
+                config,
+                entity_class,
+                logger,
+                mapper_registry=mapper_registry,
+            ),
+        )
     )
 
 
@@ -169,6 +190,8 @@ def _build_postgresql_repository(
     config: AppConfig,
     entity_class: type[T],
     logger: Logger,
+    *,
+    mapper_registry: RelationalMapperRegistry | None = None,
 ) -> Repository[T]:
     from arclith.adapters.outbound.postgresql.config import PostgreSQLConfig
     from arclith.adapters.outbound.postgresql.repository import PostgreSQLRepository
@@ -176,6 +199,12 @@ def _build_postgresql_repository(
     postgresql = config.adapters.postgresql
     if postgresql is None:
         raise ValueError("PostgreSQL settings are required when repository=postgresql")
+
+    mapper = None
+    if postgresql.mapping_strategy == "structured":
+        if mapper_registry is None:
+            mapper_registry = RelationalMapperRegistry()
+        mapper = mapper_registry.require(entity_class)
 
     return PostgreSQLRepository(
         PostgreSQLConfig(
@@ -188,7 +217,10 @@ def _build_postgresql_repository(
             schema=postgresql.schema_name,
             driver=postgresql.driver,
             table_prefix=postgresql.table_prefix,
+            mapping_strategy=postgresql.mapping_strategy,
+            auto_create_schema=postgresql.auto_create_schema,
         ),
         entity_class,
         logger,
+        mapper=mapper,
     )

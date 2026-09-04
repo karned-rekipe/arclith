@@ -1065,6 +1065,24 @@ def test_postgresql_settings_with_database():
     assert settings.port == 5433
     assert settings.schema_name == "app"
     assert settings.table_prefix == "svc_"
+    assert settings.mapping_strategy == "generic_json"
+    assert settings.auto_create_schema is True
+
+
+def test_postgresql_settings_accepts_structured_mapping_without_auto_create():
+    settings = PostgreSQLSettings(
+        database="demo",
+        mapping_strategy="structured",
+        auto_create_schema=False,
+    )
+
+    assert settings.mapping_strategy == "structured"
+    assert settings.auto_create_schema is False
+
+
+def test_postgresql_settings_rejects_unknown_mapping_strategy():
+    with pytest.raises(ValidationError, match="mapping_strategy"):
+        PostgreSQLSettings(database="demo", mapping_strategy="automatic")
 
 
 def test_postgresql_settings_serializes_schema_alias():
