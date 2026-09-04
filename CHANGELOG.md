@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+---
+
+## [0.23.0] — 2026-09-04
+
 ### Added
 
 - **Contrat channel provider-neutral** — modèles stricts, ports d'identité/idempotence/envoi,
@@ -20,6 +24,8 @@
   `adapters/bidirectional` pour les adapters assurant réception et envoi.
 - **Frontière channel/chat** — la documentation distingue le transport conversationnel de
   l'historique, de l'état d'agent et de la persistance des threads applicatifs.
+- **Versions release** — `arclith` passe à `0.23.0`; `arclith-cli` passe à `0.20.0`
+  et dépend de `arclith>=0.23.0`.
 
 ---
 

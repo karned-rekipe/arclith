@@ -15,7 +15,7 @@ def _minimal_project(tmp_path: Path) -> Path:
     )
     (project_dir / "pyproject.toml").write_text(
         '[project]\nname = "demo-service"\nversion = "0.1.0"\n'
-        'dependencies = ["arclith>=0.22.0"]\n',
+        'dependencies = ["arclith>=0.23.0"]\n',
         encoding="utf-8",
     )
     return project_dir
