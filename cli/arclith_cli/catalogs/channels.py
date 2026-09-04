@@ -122,6 +122,75 @@ callback_timeout_seconds: {callback_timeout_seconds}
             dependency_extra="channel",
             entity_scoped=False,
         ),
+        AdapterSpec(
+            name="slack",
+            capability="channel",
+            layer="bidirectional",
+            description="Slack Events API signé avec réponses chat.postMessage.",
+            config_path="config/adapters/bidirectional/slack.yaml",
+            config_template="""\
+enabled: true
+path: "{path}"
+signing_secret: null
+bot_token: null
+workspace_id: {workspace_id}
+allowed_channel_ids: []
+signature_tolerance_seconds: {signature_tolerance_seconds}
+event_ttl_seconds: {event_ttl_seconds}
+max_payload_bytes: {max_payload_bytes}
+request_timeout_seconds: {request_timeout_seconds}
+""",
+            secret_mappings=(
+                SecretMappingSpec(
+                    field_path="adapters.channel.slack.signing_secret",
+                    secret_key="ARCLITH_SLACK_SIGNING_SECRET",
+                ),
+                SecretMappingSpec(
+                    field_path="adapters.channel.slack.bot_token",
+                    secret_key="ARCLITH_SLACK_BOT_TOKEN",
+                ),
+            ),
+            parameters=(
+                ParameterSpec(
+                    name="path",
+                    kind="string",
+                    prompt="Route HTTP statique des événements Slack",
+                    default="/channels/slack/events",
+                ),
+                ParameterSpec(
+                    name="workspace_id",
+                    kind="string",
+                    prompt="Workspace Slack exact autorisé (null pour tout accepter)",
+                    default="null",
+                ),
+                ParameterSpec(
+                    name="signature_tolerance_seconds",
+                    kind="string",
+                    prompt="Tolérance de fraîcheur de signature en secondes",
+                    default="300",
+                ),
+                ParameterSpec(
+                    name="event_ttl_seconds",
+                    kind="string",
+                    prompt="Durée de déduplication des event_id en secondes",
+                    default="86400",
+                ),
+                ParameterSpec(
+                    name="max_payload_bytes",
+                    kind="string",
+                    prompt="Taille maximale du payload en octets",
+                    default="1048576",
+                ),
+                ParameterSpec(
+                    name="request_timeout_seconds",
+                    kind="string",
+                    prompt="Timeout de chat.postMessage en secondes",
+                    default="5.0",
+                ),
+            ),
+            dependency_extra="channel",
+            entity_scoped=False,
+        ),
     ),
 )
 

@@ -10,6 +10,9 @@
   factory publique, configuration scoped et catalogue `arclith-cli channel/memory`.
 - **Adapter channel webhook** — router FastAPI générique, HMAC horodaté sur corps brut,
   payload borné, idempotence, réponses `sync`/`accepted`/`callback`, sender HTTP et catalogue CLI.
+- **Adapter channel Slack** — Events API HTTP signé, challenge, normalisation des messages
+  et mentions, filtrage anti-boucle, déduplication par `event_id`, réponses threadées via
+  `chat.postMessage`, catalogue CLI et guide de production.
 
 ### Changed
 

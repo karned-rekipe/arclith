@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from arclith.infrastructure.settings.channel import (
     ChannelSettings,
+    SlackChannelSettings,
     WebhookChannelSettings,
 )
 
@@ -105,12 +106,71 @@ def test_channel_settings_list_only_enabled_adapters() -> None:
         {
             "memory": {"enabled": False},
             "webhook": {"enabled": True},
+            "slack": {"enabled": True},
         }
     )
 
-    assert settings.configured_adapters() == ("webhook",)
+    assert settings.configured_adapters() == ("webhook", "slack")
 
 
 def test_callback_fields_are_forbidden_outside_callback_mode() -> None:
     with pytest.raises(ValidationError, match="require response_mode=callback"):
         WebhookChannelSettings(callback_allowed_host="hooks.example.test")
+
+
+def test_slack_settings_have_secure_bounded_defaults() -> None:
+    settings = SlackChannelSettings()
+
+    assert settings.path == "/channels/slack/events"
+    assert settings.signing_secret is None
+    assert settings.bot_token is None
+    assert settings.signature_tolerance_seconds == 300
+    assert settings.event_ttl_seconds == 86_400
+    assert settings.max_payload_bytes == 1_048_576
+    assert settings.request_timeout_seconds == 5.0
+
+
+def test_slack_settings_redact_secrets_and_normalize_allowlists() -> None:
+    signing_secret = "1234567890abcdef1234567890abcdef"
+    bot_token = "xoxb-secret-token"
+    settings = SlackChannelSettings(
+        signing_secret=signing_secret,
+        bot_token=bot_token,
+        workspace_id="t123abc456",
+        allowed_channel_ids=["c123abc456", "d123abc456"],
+    )
+
+    rendered = repr(settings)
+    dumped = settings.model_dump(mode="json")
+    assert signing_secret not in rendered
+    assert bot_token not in rendered
+    assert dumped["signing_secret"] == "**********"
+    assert dumped["bot_token"] == "**********"
+    assert settings.workspace_id == "T123ABC456"
+    assert settings.allowed_channel_ids == ("C123ABC456", "D123ABC456")
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("path", "channels/slack"),
+        ("path", "/channels/{provider}"),
+        ("signing_secret", "too-short"),
+        ("signing_secret", "  1234567890abcdef1234567890abcdef"),
+        ("bot_token", "  "),
+        ("bot_token", "secret-token"),
+        ("workspace_id", "workspace"),
+        ("allowed_channel_ids", ["invalid"]),
+        ("allowed_channel_ids", ["C123ABC456", "c123abc456"]),
+        ("signature_tolerance_seconds", 0),
+        ("event_ttl_seconds", 0),
+        ("max_payload_bytes", 0),
+        ("request_timeout_seconds", 0),
+    ],
+)
+def test_slack_settings_reject_invalid_security_boundaries(
+    field: str,
+    value: object,
+) -> None:
+    with pytest.raises(ValidationError):
+        SlackChannelSettings.model_validate({field: value})

@@ -391,13 +391,13 @@ def test_command_bus_capability_catalog_declares_rabbitmq() -> None:
     ]
 
 
-def test_channel_capability_catalog_declares_memory_and_webhook_adapters() -> None:
+def test_channel_capability_catalog_declares_supported_adapters() -> None:
     capability = get_capability("channel")
 
     assert capability is not None
     assert capability.layer == "bidirectional"
     assert capability.activation_config_key is None
-    assert capability.adapter_names() == ("memory", "webhook")
+    assert capability.adapter_names() == ("memory", "webhook", "slack")
     memory = capability.get_adapter("memory")
     assert memory is not None
     assert memory.layer == "bidirectional"
@@ -429,6 +429,28 @@ def test_channel_capability_catalog_declares_memory_and_webhook_adapters() -> No
     ]
     assert [mapping.secret_key for mapping in webhook.secret_mappings] == [
         "ARCLITH_WEBHOOK_SECRET"
+    ]
+    slack = capability.get_adapter("slack")
+    assert slack is not None
+    assert slack.layer == "bidirectional"
+    assert slack.config_path == "config/adapters/bidirectional/slack.yaml"
+    assert slack.dependency_extra == "channel"
+    assert slack.entity_scoped is False
+    assert [parameter.name for parameter in slack.parameters] == [
+        "path",
+        "workspace_id",
+        "signature_tolerance_seconds",
+        "event_ttl_seconds",
+        "max_payload_bytes",
+        "request_timeout_seconds",
+    ]
+    assert [mapping.field_path for mapping in slack.secret_mappings] == [
+        "adapters.channel.slack.signing_secret",
+        "adapters.channel.slack.bot_token",
+    ]
+    assert [mapping.secret_key for mapping in slack.secret_mappings] == [
+        "ARCLITH_SLACK_SIGNING_SECRET",
+        "ARCLITH_SLACK_BOT_TOKEN",
     ]
 
 
@@ -1025,6 +1047,7 @@ def test_capabilities_command_outputs_json_catalog() -> None:
     assert [adapter["name"] for adapter in channel["adapters"]] == [
         "memory",
         "webhook",
+        "slack",
     ]
     memory_channel = channel["adapters"][0]
     assert memory_channel["config_path"] == (
@@ -1036,6 +1059,9 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "config/adapters/bidirectional/webhook.yaml"
     )
     assert webhook_channel["dependency_extra"] == "channel"
+    slack_channel = channel["adapters"][2]
+    assert slack_channel["config_path"] == ("config/adapters/bidirectional/slack.yaml")
+    assert slack_channel["dependency_extra"] == "channel"
     runtime = payload_by_name["runtime"]
     assert runtime["layer"] == "runtime"
     assert [adapter["name"] for adapter in runtime["adapters"]] == ["docker-image"]

@@ -59,6 +59,7 @@ from arclith.infrastructure.settings import (  # noqa: F401
     ProbeSettings,
     RabbitMQCommandBusSettings,
     SoftDeleteSettings,
+    SlackChannelSettings,
     StorageAdapter,
     StorageSettings,
     TenantSettings,

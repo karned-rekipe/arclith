@@ -60,6 +60,7 @@ nav:
       - Channel:
           - Contrat commun: capabilities/channel.md
           - Webhook: capabilities/channel-webhook.md
+          - Slack: capabilities/channel-slack.md
       - Probe: capabilities/probe.md
       - Runtime: capabilities/runtime.md
       - Repository: capabilities/repository.md
