@@ -91,9 +91,11 @@ class RelationalEntityMapper(Protocol[T]):
     columns: tuple[RelationalColumn, ...]
     indexes: tuple[RelationalIndex, ...]
 
-    def to_record(self, entity: T) -> Mapping[str, Any]: ...
+    def to_record(self, entity: T) -> Mapping[str, Any]:
+        raise NotImplementedError
 
-    def from_record(self, record: Mapping[str, Any]) -> T: ...
+    def from_record(self, record: Mapping[str, Any]) -> T:
+        raise NotImplementedError
 
 
 def validate_relational_mapper(

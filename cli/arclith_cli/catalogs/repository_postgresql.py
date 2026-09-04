@@ -10,8 +10,8 @@ POSTGRESQL_REPOSITORY_ADAPTER = AdapterSpec(
     capability="repository",
     layer="outbound",
     description=(
-        "Repository PostgreSQL async optionnel avec JSONB par defaut ou "
-        "mapping structure explicite."
+        "Repository PostgreSQL async optionnel avec JSONB par défaut ou "
+        "mapping structuré explicite."
     ),
     config_path="config/adapters/outbound/postgresql.yaml",
     config_template="""\
