@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 import typer
 
-import arclith_cli.core_scaffold as core_scaffold
 from arclith_cli.core_scaffold import (
     add_entity_cmd,
     add_intent_interpreter_cmd,
@@ -318,7 +317,10 @@ def test_add_usecase_existing_entity_reuses_ast_scanner(
         calls.append(scanned_project)
         return [EntityInfo(pascal="Todo", snake="todo", file_path=entity_file)]
 
-    monkeypatch.setattr(core_scaffold, "scan_entities", fake_scan_entities)
+    monkeypatch.setattr(
+        "arclith_cli.core_scaffold.scan_entities",
+        fake_scan_entities,
+    )
 
     add_usecase_cmd(
         project_dir=project_dir,
