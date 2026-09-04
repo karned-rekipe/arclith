@@ -5,6 +5,7 @@ from typing import Any, cast
 
 import pytest
 
+import arclith.domain as domain_package
 from arclith.adapters.outbound.relational import (
     RelationalColumn,
     RelationalEntityMapper,
@@ -133,7 +134,8 @@ def test_mapper_protocol_is_satisfied_statically() -> None:
 
 def test_domain_does_not_import_sqlalchemy() -> None:
     imported_modules: set[str] = set()
-    for source_path in Path("arclith/domain").rglob("*.py"):
+    domain_path = Path(domain_package.__file__).resolve().parent
+    for source_path in domain_path.rglob("*.py"):
         tree = ast.parse(source_path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
