@@ -1058,6 +1058,85 @@ def test_add_memory_channel_generates_loadable_bidirectional_config(
     ).exists()
 
 
+def test_add_webhook_channel_generates_safe_loadable_config(
+    tmp_path: Path,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    pyproject = project_dir / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\ndependencies = ["arclith[fastapi]>=0.22.0"]\n',
+        encoding="utf-8",
+    )
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="channel",
+            adapter="webhook",
+            adapter_params={
+                "path": "/integrations/arclith",
+                "signature_tolerance_seconds": "120",
+                "event_ttl_seconds": "7200",
+                "max_payload_bytes": "65536",
+            },
+            yes=True,
+        )
+
+    from arclith import Arclith
+
+    config_path = project_dir / "config" / "adapters" / "bidirectional" / "webhook.yaml"
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    app = Arclith(project_dir / "config")
+    secrets = yaml.safe_load(
+        (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
+    )
+
+    assert config["path"] == "/integrations/arclith"
+    assert config["secret"] is None
+    assert config["signature_tolerance_seconds"] == 120
+    assert config["event_ttl_seconds"] == 7200
+    assert config["max_payload_bytes"] == 65536
+    assert config["response_mode"] == "sync"
+    assert app.config.adapters.channel.configured_adapters() == ("webhook",)
+    assert app.config.adapters.channel.webhook is not None
+    assert secrets == {
+        "resolver": "env",
+        "mappings": {
+            "adapters.channel.webhook.secret": "ARCLITH_WEBHOOK_SECRET",
+        },
+    }
+    assert "arclith[fastapi,channel]>=0.22.0" in pyproject.read_text()
+    assert "a-secure-webhook-secret" not in config_path.read_text()
+
+
+def test_add_webhook_channel_generates_loadable_callback_config(
+    tmp_path: Path,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+
+    add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name="channel",
+        adapter="webhook",
+        adapter_params={
+            "response_mode": "callback",
+            "callback_url": "https://hooks.example.test/arclith",
+            "callback_allowed_host": "hooks.example.test",
+        },
+        yes=True,
+    )
+
+    from arclith import Arclith, WebhookCallbackSender
+
+    app = Arclith(project_dir / "config")
+    settings = app.config.adapters.channel.webhook
+
+    assert settings is not None
+    assert settings.response_mode == "callback"
+    assert settings.callback_url == "https://hooks.example.test/arclith"
+    assert isinstance(app.channel_sender("webhook"), WebhookCallbackSender)
+
+
 def test_add_keycloak_auth_adapter_generates_loadable_inbound_config(
     tmp_path: Path,
 ) -> None:

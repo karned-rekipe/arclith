@@ -57,7 +57,9 @@ nav:
       - Agent: capabilities/agent.md
       - Persistance Agent: capabilities/agent-persistence.md
       - Command Bus: capabilities/command-bus.md
-      - Channel: capabilities/channel.md
+      - Channel:
+          - Contrat commun: capabilities/channel.md
+          - Webhook: capabilities/channel-webhook.md
       - Probe: capabilities/probe.md
       - Runtime: capabilities/runtime.md
       - Repository: capabilities/repository.md

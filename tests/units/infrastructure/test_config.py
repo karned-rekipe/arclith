@@ -243,6 +243,23 @@ def test_load_config_dir_bidirectional_memory_channel():
     assert config.adapters.channel.configured_adapters() == ("memory",)
 
 
+def test_load_config_dir_bidirectional_webhook_channel():
+    path = _make_config_dir(
+        {
+            "adapters/bidirectional/webhook.yaml": {
+                "enabled": True,
+                "path": "/integrations/webhook",
+            }
+        }
+    )
+
+    config = load_config_dir(path)
+
+    assert config.adapters.channel.webhook is not None
+    assert config.adapters.channel.webhook.path == "/integrations/webhook"
+    assert config.adapters.channel.configured_adapters() == ("webhook",)
+
+
 def test_channel_settings_are_disabled_by_default():
     config = AppConfig()
 

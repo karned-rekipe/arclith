@@ -21,6 +21,8 @@ from arclith.infrastructure.settings.app import (
 from arclith.infrastructure.settings.channel import (
     ChannelSettings,
     MemoryChannelSettings,
+    WebhookChannelSettings,
+    WebhookResponseMode,
 )
 from arclith.infrastructure.settings.langgraph import (
     LangGraphCheckpointerSettings,
@@ -142,4 +144,6 @@ __all__ = [
     "VectorDistance",
     "VectorStoreAdapter",
     "VectorStoreSettings",
+    "WebhookChannelSettings",
+    "WebhookResponseMode",
 ]

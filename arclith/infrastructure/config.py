@@ -65,6 +65,8 @@ from arclith.infrastructure.settings import (  # noqa: F401
     VectorDistance,
     VectorStoreAdapter,
     VectorStoreSettings,
+    WebhookChannelSettings,
+    WebhookResponseMode,
 )
 
 _INBOUND_ALIAS: dict[str, str] = {"fastapi": "api", "fastmcp": "mcp"}

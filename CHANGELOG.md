@@ -8,11 +8,15 @@
   dispatcher applicatif et erreurs communes pour les canaux conversationnels bidirectionnels.
 - **Adapter channel memory** — fake déterministe sans dépendance, claim atomique en processus,
   factory publique, configuration scoped et catalogue `arclith-cli channel/memory`.
+- **Adapter channel webhook** — router FastAPI générique, HMAC horodaté sur corps brut,
+  payload borné, idempotence, réponses `sync`/`accepted`/`callback`, sender HTTP et catalogue CLI.
 
 ### Changed
 
 - **Layout bidirectionnel** — la configuration et le layout canoniques reconnaissent désormais
   `adapters/bidirectional` pour les adapters assurant réception et envoi.
+- **Frontière channel/chat** — la documentation distingue le transport conversationnel de
+  l'historique, de l'état d'agent et de la persistance des threads applicatifs.
 
 ---
 
