@@ -106,7 +106,7 @@ def test_core_commands_append_only_after_success(
 
     for arguments in (
         ["add-entity", "ShoppingItem"],
-        ["add-usecase", "PlanShoppingList"],
+        ["add-usecase", "PlanShoppingList", "--entity", "ShoppingItem"],
         ["add-intent-interpreter", "ShoppingIntent"],
     ):
         result = _invoke_in_project(monkeypatch, project_dir, arguments)
@@ -438,7 +438,7 @@ def test_replay_rebuilds_minimal_project_without_duplicate_steps(
     project_dir = _init_project(tmp_path, "source-service")
     for arguments in (
         ["add-entity", "Widget"],
-        ["add-usecase", "CreateWidget"],
+        ["add-usecase", "CreateWidget", "--entity", "Widget"],
         [
             "add-adapter",
             "--capability",

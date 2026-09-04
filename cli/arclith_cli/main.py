@@ -25,6 +25,7 @@ from .recipe import (
     snapshot_project_files,
 )
 from .recipe_cli import history_command, replay_command
+from .scaffold_interactive import resolve_usecase_entity_choice
 from .updater import run_update
 
 app = typer.Typer(
@@ -306,21 +307,58 @@ def add_usecase(
             help="Nom du cas d'usage. Exemple : PlanShoppingList, find_by_name, import-catalog",
         ),
     ] = None,
+    entity: Annotated[
+        str | None,
+        typer.Option(
+            "--entity",
+            help="Lier le cas d'usage à une entité existante.",
+        ),
+    ] = None,
+    new_entity: Annotated[
+        str | None,
+        typer.Option(
+            "--new-entity",
+            help="Créer l'entité si nécessaire, puis lier le cas d'usage.",
+        ),
+    ] = None,
+    no_entity: Annotated[
+        bool,
+        typer.Option(
+            "--no-entity",
+            help="Générer un cas d'usage transverse sans repository.",
+        ),
+    ] = False,
     no_record: Annotated[
         bool,
         typer.Option("--no-record", hidden=True),
     ] = False,
 ) -> None:
-    """Créer uniquement le fichier minimal d'un cas d'usage dans application/use_cases."""
+    """Créer un port inbound et un cas d'usage guidés, liés ou transverses."""
     resolved_name = usecase or _prompt_usecase()
     project_dir = Path.cwd()
+    entity_choice = resolve_usecase_entity_choice(
+        project_dir=project_dir,
+        entity_name=entity,
+        new_entity_name=new_entity,
+        no_entity=no_entity,
+    )
     before = snapshot_project_files(project_dir) if not no_record else {}
-    add_usecase_cmd(project_dir=project_dir, usecase_name=resolved_name)
+    add_usecase_cmd(
+        project_dir=project_dir,
+        usecase_name=resolved_name,
+        entity_name=entity_choice.entity_name,
+        new_entity_name=entity_choice.new_entity_name,
+    )
     if not no_record:
         _record_success(
             project_dir,
             command="add-usecase",
-            args={"usecase": resolved_name},
+            args={
+                "usecase": resolved_name,
+                "entity": entity_choice.entity_name,
+                "new_entity": entity_choice.new_entity_name,
+                "no_entity": entity_choice.no_entity,
+            },
             before=before,
         )
 

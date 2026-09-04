@@ -30,7 +30,7 @@ du cœur:
 arclith-cli init todo-list-service
 cd todo-list-service
 arclith-cli add-entity Todo
-arclith-cli add-usecase CreateTodo
+arclith-cli add-usecase CreateTodo --entity Todo
 ```
 
 Chaque commande mutante réussie enrichit `arclith.recipe.yaml`. Ce fichier
@@ -130,14 +130,18 @@ Pour ajouter seulement du cœur métier, sans CRUD ni adapter automatique :
 
 ```bash
 arclith-cli add-entity ShoppingItem
-arclith-cli add-usecase PlanShoppingList
+arclith-cli add-usecase PlanShoppingList --entity ShoppingItem
+arclith-cli add-usecase RunMaintenance --no-entity
 arclith-cli add-intent-interpreter ShoppingIntent
 ```
 
-Ces commandes créent des fichiers minimaux dans `src/<package>/domain/models/` et
-`src/<package>/domain/ports/inbound/`, `src/<package>/application/use_cases/` ou
-`src/<package>/application/intent_interpreters/`. Les champs, invariants et appels aux adapters
-restent du code métier à écrire dans le projet.
+`add-entity` ajoute un squelette guidé sans import inutilisé. `add-usecase`
+propose les entités détectées en interactif ; en mode direct, `--entity`,
+`--new-entity` et `--no-entity` rendent le choix explicite et sont mutuellement
+exclusifs. Les fichiers générés montrent le pattern
+`Command/Query -> UseCase -> Entity/Result`, mais les champs, invariants et
+appels aux ports restent du code métier à écrire dans le projet. Lire le
+[deep dive scaffold CLI](deep-dives/cli-scaffold.md) pour les exemples complets.
 
 L'adapter actif est déclaré dans:
 

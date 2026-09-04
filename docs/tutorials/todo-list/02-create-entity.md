@@ -23,6 +23,36 @@ La CLI crée:
 src/todo_list_service/domain/models/todo.py
 ```
 
+Le fichier initial est volontairement exécutable sans import inutilisé :
+
+```python
+from __future__ import annotations
+
+from arclith.domain.models.entity import Entity
+
+# Guides:
+# - Arclith entity tutorial: https://github.com/karned-rekipe/arclith/blob/main/docs/tutorials/todo-list/02-create-entity.md
+# - Arclith architecture: https://github.com/karned-rekipe/arclith/blob/main/arclith/docs/architecture.md
+# - Pydantic models: https://docs.pydantic.dev/latest/concepts/models/
+# - Pydantic fields: https://docs.pydantic.dev/latest/concepts/fields/
+# - Pydantic validators: https://docs.pydantic.dev/latest/concepts/validators/
+
+
+class Todo(Entity):
+    """TODO: define the business fields and invariants for this entity.
+
+    Arclith Entity already provides uuid, audit fields, soft-delete fields,
+    and optimistic versioning.
+    """
+
+    # Example:
+    # title: str = Field(min_length=1, max_length=140)
+    pass
+```
+
+`Field` n'est pas importé tant que l'exemple reste commenté. L'ajouter depuis
+`pydantic` au moment de déclarer les vrais champs.
+
 Modifier `src/todo_list_service/domain/models/todo.py`:
 
 ```python

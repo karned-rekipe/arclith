@@ -16,6 +16,11 @@ Répondre au prompt:
 ```text
 Cas d'usage (ex : PlanShoppingList, find_by_name)
   Nom du cas d'usage: CreateTodo
+Entité principale du cas d'usage
+  1. Todo
+  2. Créer une nouvelle entité
+  3. Aucune entité / cas d'usage transverse
+  Choix [1]: 1
 ```
 
 Relancer le wizard pour le listing:
@@ -29,9 +34,28 @@ Répondre au prompt:
 ```text
 Cas d'usage (ex : PlanShoppingList, find_by_name)
   Nom du cas d'usage: ListTodos
+Entité principale du cas d'usage
+  1. Todo
+  2. Créer une nouvelle entité
+  3. Aucune entité / cas d'usage transverse
+  Choix [1]: 1
 ```
 
-La CLI crée:
+Le même résultat est reproductible sans prompt, notamment en CI ou depuis un
+agent de coding :
+
+```bash
+arclith-cli add-usecase CreateTodo --entity Todo
+arclith-cli add-usecase ListTodos --entity Todo
+```
+
+`--new-entity Todo` crée l'entité si nécessaire. `--no-entity` produit un
+`Command` et un `Result` Pydantic sans injecter de repository. Les trois options
+`--entity`, `--new-entity` et `--no-entity` sont mutuellement exclusives. Si
+aucune entité n'est détectée, le wizard permet d'en créer une, de continuer en
+transverse ou d'annuler sans écrire de fichier.
+
+La CLI crée des squelettes déjà typés :
 
 ```text
 src/todo_list_service/domain/ports/inbound/create_todo.py
@@ -40,12 +64,6 @@ src/todo_list_service/application/use_cases/create_todo.py
 src/todo_list_service/application/use_cases/list_todos.py
 ```
 
-
-Créer les packages applicatifs:
-
-```bash
-touch src/todo_list_service/application/use_cases/__init__.py
-```
 
 Modifier `src/todo_list_service/domain/ports/inbound/create_todo.py`:
 
@@ -293,8 +311,11 @@ uv run python -m pytest tests/test_todo_entity.py tests/test_todo_usecases.py
 ## Voie rapide
 
 ```bash
-arclith-cli add-usecase CreateTodo
-arclith-cli add-usecase ListTodos
+arclith-cli add-usecase CreateTodo --entity Todo
+arclith-cli add-usecase ListTodos --entity Todo
 ```
+
+Pour comparer les patterns `Command`, `Query`, `Result`, mutation et port
+outbound spécialisé, lire le [deep dive scaffold CLI](../../deep-dives/cli-scaffold.md).
 
 Étape suivante: [exposer une API](04-api.md).

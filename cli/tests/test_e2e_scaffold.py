@@ -89,7 +89,7 @@ def test_init_scaffold_creates_blank_project_then_core_files(temp_workspace: Pat
     assert result.returncode == 0, f"add-entity failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
 
     result = subprocess.run(
-        ["arclith-cli", "add-usecase", "CreateTodo"],
+        ["arclith-cli", "add-usecase", "CreateTodo", "--entity", "Todo"],
         cwd=project_dir,
         capture_output=True,
         text=True,
@@ -247,6 +247,8 @@ def test_scaffold_and_run(temp_workspace: Path):
             "arclith-cli",
             "add-usecase",
             "PlanShoppingList",
+            "--entity",
+            "ShoppingItem",
         ],
         cwd=project_dir,
         capture_output=True,

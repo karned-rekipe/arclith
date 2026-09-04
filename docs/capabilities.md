@@ -47,6 +47,7 @@ arclith-cli capabilities --json
 
 | Besoin | Lire |
 |---|---|
+| Concevoir le cœur métier | [Scaffold CLI guidé](deep-dives/cli-scaffold.md), puis [formation Todo](tutorials/todo-list/02-create-entity.md) |
 | API minimale | [Quickstart API](quickstarts/api.md), [formation API](tutorials/todo-list/04-api.md), puis [api/fastapi](capabilities/api.md) |
 | MCP minimal | [Quickstart MCP](quickstarts/mcp.md), [formation MCP](tutorials/todo-list/05-mcp.md), puis [mcp/fastmcp](capabilities/mcp.md) |
 | Bus RabbitMQ | [Quickstart Bus](quickstarts/bus.md), puis [command-bus/rabbitmq](capabilities/command-bus.md) |
