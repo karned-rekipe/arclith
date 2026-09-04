@@ -1,0 +1,25 @@
+{
+  "team_id": "T123ABC456",
+  "api_app_id": "A123ABC456",
+  "type": "event_callback",
+  "event_id": "Ev123ABC456",
+  "event_time": 1700000000,
+  "event": {
+    "type": "message",
+    "user": "U123ABC456",
+    "text": "bonjour",
+    "ts": "1700000000.000100",
+    "thread_ts": "1699999999.000001",
+    "channel": "C123ABC456",
+    "event_ts": "1700000000.000100",
+    "files": [
+      {
+        "id": "F123ABC456",
+        "name": "brief.pdf",
+        "mimetype": "application/pdf",
+        "size": 2048,
+        "url_private_download": "https://files.slack.com/files-pri/T123-F123/download/brief.pdf"
+      }
+    ]
+  }
+}

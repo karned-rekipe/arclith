@@ -260,6 +260,24 @@ def test_load_config_dir_bidirectional_webhook_channel():
     assert config.adapters.channel.configured_adapters() == ("webhook",)
 
 
+def test_load_config_dir_bidirectional_slack_channel():
+    path = _make_config_dir(
+        {
+            "adapters/bidirectional/slack.yaml": {
+                "enabled": True,
+                "path": "/integrations/slack/events",
+                "workspace_id": "T123ABC456",
+            }
+        }
+    )
+
+    config = load_config_dir(path)
+
+    assert config.adapters.channel.slack is not None
+    assert config.adapters.channel.slack.path == "/integrations/slack/events"
+    assert config.adapters.channel.configured_adapters() == ("slack",)
+
+
 def test_channel_settings_are_disabled_by_default():
     config = AppConfig()
 

@@ -18,6 +18,7 @@ from arclith.infrastructure.settings._base import SettingsModel
 WebhookResponseMode = Literal["sync", "accepted", "callback"]
 _HTTP_HEADER_PATTERN = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
 _HOST_LABEL_PATTERN = re.compile(r"^[0-9A-Za-z](?:[0-9A-Za-z-]{0,61}[0-9A-Za-z])?$")
+_SLACK_ID_PATTERN = re.compile(r"^[A-Z][A-Z0-9]{8,}$")
 
 
 def _validate_callback_port(parsed: SplitResult) -> None:
@@ -187,15 +188,104 @@ class WebhookChannelSettings(SettingsModel):
         return self
 
 
+class SlackChannelSettings(SettingsModel):
+    """Slack Events API and ``chat.postMessage`` settings."""
+
+    enabled: bool = True
+    path: str = "/channels/slack/events"
+    signing_secret: SecretStr | None = None
+    bot_token: SecretStr | None = None
+    workspace_id: str | None = None
+    allowed_channel_ids: tuple[str, ...] = ()
+    signature_tolerance_seconds: PositiveInt = 300
+    event_ttl_seconds: PositiveInt = 86_400
+    max_payload_bytes: PositiveInt = 1_048_576
+    request_timeout_seconds: PositiveFloat = 5.0
+
+    @field_validator("path")
+    @classmethod
+    def path_must_be_static_and_absolute(cls, value: str) -> str:
+        if (
+            not value.startswith("/")
+            or value == "/"
+            or value.endswith("/")
+            or "//" in value
+            or any(character in value for character in "{}?#")
+            or any(character.isspace() for character in value)
+        ):
+            raise ValueError("slack path must be a static absolute route")
+        return value
+
+    @field_validator("signing_secret")
+    @classmethod
+    def signing_secret_must_be_strong_when_configured(
+        cls,
+        value: SecretStr | None,
+    ) -> SecretStr | None:
+        if value is None:
+            return None
+        secret = value.get_secret_value()
+        if len(secret.encode()) < 32 or secret != secret.strip():
+            raise ValueError("slack signing_secret must contain at least 32 bytes")
+        return value
+
+    @field_validator("bot_token")
+    @classmethod
+    def bot_token_must_not_be_blank(
+        cls,
+        value: SecretStr | None,
+    ) -> SecretStr | None:
+        if value is None:
+            return None
+        token = value.get_secret_value()
+        if (
+            not token.startswith("xoxb-")
+            or token != token.strip()
+            or any(character.isspace() for character in token)
+        ):
+            raise ValueError("slack bot_token must be a valid xoxb token")
+        return value
+
+    @field_validator("workspace_id")
+    @classmethod
+    def workspace_id_must_be_valid(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().upper()
+        if not normalized.startswith("T") or not _SLACK_ID_PATTERN.fullmatch(
+            normalized
+        ):
+            raise ValueError("slack workspace_id must be a valid team ID")
+        return normalized
+
+    @field_validator("allowed_channel_ids")
+    @classmethod
+    def allowed_channels_must_be_unique(
+        cls,
+        value: tuple[str, ...],
+    ) -> tuple[str, ...]:
+        normalized = tuple(item.strip().upper() for item in value)
+        if any(
+            not item.startswith(("C", "D", "G"))
+            or not _SLACK_ID_PATTERN.fullmatch(item)
+            for item in normalized
+        ) or len(set(normalized)) != len(normalized):
+            raise ValueError(
+                "slack allowed_channel_ids must contain unique valid channel IDs"
+            )
+        return normalized
+
+
 class ChannelSettings(SettingsModel):
     """Configuration sections for provider-neutral channel adapters."""
 
     memory: MemoryChannelSettings | None = None
     webhook: WebhookChannelSettings | None = None
+    slack: SlackChannelSettings | None = None
 
     def configured_adapters(self) -> tuple[str, ...]:
         return tuple(
             name
-            for name in ("memory", "webhook")
+            for name in ("memory", "webhook", "slack")
             if (settings := getattr(self, name)) is not None and settings.enabled
         )

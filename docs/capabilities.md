@@ -40,7 +40,7 @@ arclith-cli capabilities --json
 | [vector-store](capabilities/vector-store.md) | outbound | `memory` | indexer et rechercher des projections vectorielles |
 | [observability](capabilities/observability.md) ([OpenTelemetry](capabilities/opentelemetry.md)) | outbound | `langsmith`, `opentelemetry` | traces, métriques, logs et agents |
 | [command-bus](capabilities/command-bus.md) | bidirectional | `rabbitmq` | consommer et publier des commandes |
-| [channel](capabilities/channel.md) | bidirectional | `memory`, [`webhook`](capabilities/channel-webhook.md) | normaliser une conversation, résoudre son identité et dédupliquer les événements |
+| [channel](capabilities/channel.md) | bidirectional | `memory`, [`webhook`](capabilities/channel-webhook.md), [`slack`](capabilities/channel-slack.md) | normaliser une conversation, résoudre son identité et dédupliquer les événements |
 | [runtime](capabilities/runtime.md) | runtime | `docker-image` | générer le runtime conteneur |
 
 ## Parcours Fréquents
@@ -50,7 +50,7 @@ arclith-cli capabilities --json
 | API minimale | [Quickstart API](quickstarts/api.md), [formation API](tutorials/todo-list/04-api.md), puis [api/fastapi](capabilities/api.md) |
 | MCP minimal | [Quickstart MCP](quickstarts/mcp.md), [formation MCP](tutorials/todo-list/05-mcp.md), puis [mcp/fastmcp](capabilities/mcp.md) |
 | Bus RabbitMQ | [Quickstart Bus](quickstarts/bus.md), puis [command-bus/rabbitmq](capabilities/command-bus.md) |
-| Canal conversationnel | [Quickstart Channel](quickstarts/channel.md), [contrat channel](capabilities/channel.md), puis [webhook signé](capabilities/channel-webhook.md) |
+| Canal conversationnel | [Quickstart Channel](quickstarts/channel.md), [contrat channel](capabilities/channel.md), puis [webhook signé](capabilities/channel-webhook.md) ou [Slack](capabilities/channel-slack.md) |
 | Agent local | [Quickstart Agent](quickstarts/agent.md), [formation agent](tutorials/todo-list/06-agent.md), puis [agent/langgraph](capabilities/agent.md) et [persistance](capabilities/agent-persistence.md) |
 | Pipeline RAG local | [embedding](capabilities/embedding.md) pour calculer les vecteurs, puis [vector-store](capabilities/vector-store.md) pour les indexer |
 | Observabilité locale | [OpenTelemetry de bout en bout](capabilities/opentelemetry.md), puis [observabilité production](production/observability.md) |

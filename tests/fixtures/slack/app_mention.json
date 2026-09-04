@@ -1,0 +1,16 @@
+{
+  "team_id": "T123ABC456",
+  "enterprise_id": "E123ABC456",
+  "api_app_id": "A123ABC456",
+  "type": "event_callback",
+  "event_id": "EvMENTION01",
+  "event_time": 1700000001,
+  "event": {
+    "type": "app_mention",
+    "user": "U123ABC456",
+    "text": "<@U0BOT1234> donne-moi le statut",
+    "ts": "1700000001.000200",
+    "channel": "C123ABC456",
+    "event_ts": "1700000001.000200"
+  }
+}

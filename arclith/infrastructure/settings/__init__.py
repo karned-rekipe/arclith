@@ -21,6 +21,7 @@ from arclith.infrastructure.settings.app import (
 from arclith.infrastructure.settings.channel import (
     ChannelSettings,
     MemoryChannelSettings,
+    SlackChannelSettings,
     WebhookChannelSettings,
     WebhookResponseMode,
 )
@@ -138,6 +139,7 @@ __all__ = [
     "ProbeSettings",
     "RabbitMQCommandBusSettings",
     "SoftDeleteSettings",
+    "SlackChannelSettings",
     "StorageAdapter",
     "StorageSettings",
     "TenantSettings",

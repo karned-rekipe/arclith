@@ -1137,6 +1137,60 @@ def test_add_webhook_channel_generates_loadable_callback_config(
     assert isinstance(app.channel_sender("webhook"), WebhookCallbackSender)
 
 
+def test_add_slack_channel_generates_safe_loadable_config(tmp_path: Path) -> None:
+    project_dir = _minimal_project(tmp_path)
+    pyproject = project_dir / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\ndependencies = ["arclith[fastapi]>=0.22.0"]\n',
+        encoding="utf-8",
+    )
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name="channel",
+            adapter="slack",
+            adapter_params={
+                "path": "/integrations/slack/events",
+                "workspace_id": "T123ABC456",
+                "signature_tolerance_seconds": "120",
+                "event_ttl_seconds": "7200",
+                "max_payload_bytes": "65536",
+                "request_timeout_seconds": "2.5",
+            },
+            yes=True,
+        )
+
+    from arclith import Arclith
+
+    config_path = project_dir / "config" / "adapters" / "bidirectional" / "slack.yaml"
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    app = Arclith(project_dir / "config")
+    secrets = yaml.safe_load(
+        (project_dir / "config" / "secrets.yaml").read_text(encoding="utf-8")
+    )
+
+    assert config["path"] == "/integrations/slack/events"
+    assert config["signing_secret"] is None
+    assert config["bot_token"] is None
+    assert config["workspace_id"] == "T123ABC456"
+    assert config["allowed_channel_ids"] == []
+    assert config["signature_tolerance_seconds"] == 120
+    assert config["event_ttl_seconds"] == 7200
+    assert config["max_payload_bytes"] == 65536
+    assert config["request_timeout_seconds"] == 2.5
+    assert app.config.adapters.channel.configured_adapters() == ("slack",)
+    assert secrets == {
+        "resolver": "env",
+        "mappings": {
+            "adapters.channel.slack.signing_secret": ("ARCLITH_SLACK_SIGNING_SECRET"),
+            "adapters.channel.slack.bot_token": "ARCLITH_SLACK_BOT_TOKEN",
+        },
+    }
+    assert "arclith[fastapi,channel]>=0.22.0" in pyproject.read_text()
+    assert "xoxb-" not in config_path.read_text()
+
+
 def test_add_keycloak_auth_adapter_generates_loadable_inbound_config(
     tmp_path: Path,
 ) -> None:

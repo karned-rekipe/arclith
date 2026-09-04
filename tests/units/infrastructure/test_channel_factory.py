@@ -4,6 +4,7 @@ import pytest
 
 from arclith import Arclith
 from arclith.adapters.bidirectional.memory import MemoryChannel
+from arclith.adapters.bidirectional.slack import SlackChannelSender
 from arclith.adapters.bidirectional.webhook import WebhookCallbackSender
 from arclith.domain.models.channel import ChannelDeliveryReceipt, ChannelOutgoingMessage
 from arclith.domain.ports.outbound.channel import ChannelSender
@@ -42,6 +43,25 @@ def _webhook_config(
     return AppConfig.model_validate({"adapters": {"channel": {"webhook": webhook}}})
 
 
+def _slack_config(
+    *,
+    enabled: bool = True,
+    bot_token: str | None = "xoxb-test",
+) -> AppConfig:
+    return AppConfig.model_validate(
+        {
+            "adapters": {
+                "channel": {
+                    "slack": {
+                        "enabled": enabled,
+                        "bot_token": bot_token,
+                    }
+                }
+            }
+        }
+    )
+
+
 def test_build_channel_sender_returns_configured_memory_adapter(logger) -> None:
     sender = build_channel_sender(_memory_config(), logger, "memory")
 
@@ -52,6 +72,12 @@ def test_build_channel_sender_returns_configured_webhook_callback(logger) -> Non
     sender = build_channel_sender(_webhook_config(), logger, "webhook")
 
     assert isinstance(sender, WebhookCallbackSender)
+
+
+def test_build_channel_sender_returns_configured_slack_adapter(logger) -> None:
+    sender = build_channel_sender(_slack_config(), logger, "slack")
+
+    assert isinstance(sender, SlackChannelSender)
 
 
 @pytest.mark.parametrize("config", [AppConfig(), _memory_config(enabled=False)])
@@ -71,6 +97,15 @@ def test_build_channel_sender_requires_enabled_memory_config(config, logger) -> 
 def test_build_channel_sender_requires_webhook_callback_config(config, logger) -> None:
     with pytest.raises(ValueError, match="webhook"):
         build_channel_sender(config, logger, "webhook")
+
+
+@pytest.mark.parametrize(
+    "config",
+    [AppConfig(), _slack_config(enabled=False), _slack_config(bot_token=None)],
+)
+def test_build_channel_sender_requires_enabled_slack_config(config, logger) -> None:
+    with pytest.raises(ValueError, match="slack"):
+        build_channel_sender(config, logger, "slack")
 
 
 def test_channel_sender_registry_builds_custom_adapter(logger) -> None:

@@ -61,6 +61,7 @@ def default_channel_sender_registry() -> ChannelSenderRegistry:
         ChannelSenderRegistry()
         .register("memory", _build_memory_channel)
         .register("webhook", _build_webhook_callback_sender)
+        .register("slack", _build_slack_channel_sender)
     )
 
 
@@ -94,3 +95,18 @@ def _build_webhook_callback_sender(
     from arclith.adapters.bidirectional.webhook import WebhookCallbackSender
 
     return WebhookCallbackSender(settings)
+
+
+def _build_slack_channel_sender(
+    config: AppConfig,
+    _logger: Logger,
+) -> ChannelSender:
+    settings = config.adapters.channel.slack
+    if settings is None or not settings.enabled:
+        raise ValueError(
+            "adapters.channel.slack.enabled=true is required to build "
+            "the Slack channel adapter"
+        )
+    from arclith.adapters.bidirectional.slack import SlackChannelSender
+
+    return SlackChannelSender(settings)
