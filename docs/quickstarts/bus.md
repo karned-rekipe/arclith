@@ -52,8 +52,17 @@ La configuration bus est chargée et RabbitMQ est actif côté Arclith.
 
 ## Runner Projet
 
-Pour consommer réellement des messages, le projet doit ajouter un `CommandHandler`, un
-`CommandDispatcher`, puis appeler `arclith.run_command_bus(dispatcher)`.
+Le scaffold crée `adapters/bidirectional/rabbitmq/` avec `bindings/`, `contracts/`,
+`schemas/`, `policies/` et les modules register, codec, topology, consumer et publisher.
+Le `main.py` issu d'`init` prend en charge `MODE=bus`. Ajouter un `CommandHandler`
+dans les bindings et l'enregistrer explicitement dans `register.py`, puis lancer :
+
+```bash
+MODE=bus uv run python main.py
+```
+
+Le handler traduit le payload en commande applicative et appelle le même port
+inbound que les autres transports. Voir le [blueprint complet](../deep-dives/adapter-blueprints.md).
 
 ## Nettoyage
 

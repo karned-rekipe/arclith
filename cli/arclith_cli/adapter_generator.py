@@ -18,6 +18,11 @@ from arclith_cli.adapter_config import (
     _parse_env_template,
     read_yaml_mapping,
 )
+from arclith_cli.adapter_blueprints import (
+    assert_no_module_shadowing,
+    get_adapter_blueprint,
+    scaffold_adapter_blueprint,
+)
 from arclith_cli.adapter_rendering import (
     _configured_agent_persistence_extras,
     _ensure_arclith_extras,
@@ -26,7 +31,6 @@ from arclith_cli.adapter_rendering import (
 )
 from arclith_cli.adapter_templates import (
     REPO_PYTHON,
-    REPO_REEXPORT,
     render,
     render_container,
 )
@@ -64,6 +68,10 @@ def _generate(request: GenerationRequest) -> None:
         installed = sorted([*installed, request.adapter.name])
 
     paths = detect_project_paths(request.project_dir)
+    blueprint = get_adapter_blueprint(request.adapter)
+    assert_no_module_shadowing(
+        paths.package_root.joinpath(*blueprint.root_parts), blueprint
+    )
     request = replace(
         request,
         params={
@@ -83,6 +91,13 @@ def _generate(request: GenerationRequest) -> None:
     _write_environment(request)
     _write_secrets(request)
     _write_gitignore(request)
+    for generated in scaffold_adapter_blueprint(
+        request.project_dir,
+        paths,
+        request.adapter,
+        graph_name=str(request.params.get("graph_name", "agent")),
+    ):
+        console.print(f"[green]✓[/green] {generated.relative_to(request.project_dir)}")
     _write_static_templates(request)
     _write_entity_adapters(request, paths, installed)
     _activate_adapter(request)
@@ -187,6 +202,11 @@ def _write_gitignore(request: GenerationRequest) -> None:
 def _write_static_templates(request: GenerationRequest) -> None:
     for template in request.adapter.file_templates:
         generated_path = request.project_dir / render(template.path, request.params)
+        if generated_path.exists():
+            console.print(
+                f"[cyan]préservé[/cyan] {generated_path.relative_to(request.project_dir)}"
+            )
+            continue
         generated_path.parent.mkdir(parents=True, exist_ok=True)
         generated_path.write_text(
             render(template.template, request.params),
@@ -206,7 +226,66 @@ def _write_entity_adapters(
 ) -> None:
     import_vars = _import_vars(paths)
     for entity in request.entities:
-        _write_entity_adapter(request, paths, installed, import_vars, entity)
+        _ensure_entity_dependencies(request, paths, import_vars, entity)
+        entity_adapters = [
+            name
+            for name in installed
+            if name == request.adapter.name
+            or (
+                paths.adapters_outbound
+                / name
+                / "repositories"
+                / f"{entity.snake}_repository.py"
+            ).exists()
+        ]
+        _write_entity_adapter(request, paths, entity_adapters, import_vars, entity)
+
+
+def _ensure_entity_dependencies(
+    request: GenerationRequest,
+    paths: ProjectPaths,
+    import_vars: dict[str, str],
+    entity: EntityInfo,
+) -> None:
+    """Make the incremental repository path importable without a starter sample."""
+    variables = {"pascal": entity.pascal, "snake": entity.snake, **import_vars}
+    defaults = {
+        paths.package_root
+        / "domain"
+        / "ports"
+        / "outbound"
+        / f"{entity.snake}_repository.py": (
+            "from arclith.domain.ports.outbound.repository import Repository\n"
+            f"from {import_vars['domain_import']}.models.{entity.snake} import {entity.pascal}\n\n\n"
+            f"class {entity.pascal}Repository(Repository[{entity.pascal}]):\n"
+            '    """Application persistence contract; declare domain queries here."""\n'
+        ),
+        paths.package_root
+        / "application"
+        / "services"
+        / f"{entity.snake}_service.py": (
+            "from arclith.application.services.base_service import BaseService\n"
+            f"from {import_vars['domain_import']}.models.{entity.snake} import {entity.pascal}\n\n\n"
+            f"class {entity.pascal}Service(BaseService[{entity.pascal}]):\n"
+            '    """Standard entity operations; custom workflows belong to use cases."""\n'
+        ),
+        paths.adapters_outbound
+        / "memory"
+        / "repositories"
+        / f"{entity.snake}_repository.py": render(REPO_PYTHON["memory"], variables),
+    }
+    for destination, content in defaults.items():
+        if destination.exists():
+            continue
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        ancestor = destination.parent
+        while ancestor != paths.package_root:
+            _ensure_package_file(ancestor / "__init__.py")
+            ancestor = ancestor.parent
+        destination.write_text(content, encoding="utf-8")
+        console.print(
+            f"[green]✓[/green] {destination.relative_to(request.project_dir)}"
+        )
 
 
 def _write_entity_adapter(
@@ -236,30 +315,32 @@ def _write_entity_adapter(
         )
 
     repository_file = repositories / f"{entity.snake}_repository.py"
-    repository_file.write_text(
-        render(REPO_PYTHON[adapter.name], variables),
-        encoding="utf-8",
-    )
+    if not repository_file.exists():
+        repository_file.write_text(
+            render(REPO_PYTHON[adapter.name], variables), encoding="utf-8"
+        )
     console.print(
         f"[green]✓[/green] {repository_file.relative_to(request.project_dir)}"
     )
 
-    reexport = base / "repository.py"
-    reexport.write_text(
-        render(REPO_REEXPORT[adapter.name], variables),
+    generated = paths.containers / f"{entity.snake}_registrations_generated.py"
+    generated.parent.mkdir(parents=True, exist_ok=True)
+    generated.write_text(
+        "# Generated by Arclith. Edit the developer-owned container instead.\n"
+        + render_container(entity.pascal, entity.snake, installed, import_vars),
         encoding="utf-8",
     )
-    console.print(f"[green]✓[/green] {reexport.relative_to(request.project_dir)}")
-
     container = paths.containers / f"{entity.snake}_container.py"
-    existed = container.exists()
-    container.parent.mkdir(parents=True, exist_ok=True)
-    container.write_text(
-        render_container(entity.pascal, entity.snake, installed, import_vars),
-        encoding="utf-8",
-    )
-    action = "[yellow]remplacé ⚠[/yellow]" if existed else "[green]créé[/green]"
-    console.print(f"{action} {container.relative_to(request.project_dir)}")
+    if not container.exists():
+        module = paths.import_path(
+            "infrastructure", "containers", f"{entity.snake}_registrations_generated"
+        )
+        container.write_text(
+            '"""Developer-owned composition hook; customize this boundary when needed."""\n\n'
+            f"from {module} import build_{entity.snake}_service as build_{entity.snake}_service\n",
+            encoding="utf-8",
+        )
+    console.print(f"[green]✓[/green] {generated.relative_to(request.project_dir)}")
 
 
 def _ensure_package_file(path: Path) -> None:

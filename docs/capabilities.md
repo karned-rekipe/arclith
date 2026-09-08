@@ -2,6 +2,9 @@
 
 Une capability est une brique activable par `arclith-cli add-adapter`.
 
+Chaque installation crée son [blueprint complet](deep-dives/adapter-blueprints.md) :
+packages, fichiers de rôle et documentation développeur/IA sont présents dès le départ.
+
 La section Capabilities est le niveau deep dive de la documentation. Elle
 détaille les contrats, les adapters, les contraintes de production et les
 validations. Le format attendu est décrit dans

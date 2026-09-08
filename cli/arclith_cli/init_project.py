@@ -9,7 +9,16 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.tree import Tree
 
-from .runtime_templates import DOCKERIGNORE_TEMPLATE, render_arclith_run, render_dockerfile
+from arclith.infrastructure.project_layout import canonical_project_layout
+from arclith_cli.adapter_blueprints import scaffold_adapter_blueprint
+from arclith_cli.capabilities import API_CAPABILITY, MCP_CAPABILITY
+from arclith_cli.project_paths import detect_project_paths
+
+from .runtime_templates import (
+    DOCKERIGNORE_TEMPLATE,
+    render_arclith_run,
+    render_dockerfile,
+)
 
 console = Console()
 
@@ -31,7 +40,9 @@ def init_project_cmd(
         target_path.resolve() if target_path is not None else parent_dir / project_name
     )
     if target_dir.exists():
-        console.print(f"[red]✗[/red] Le répertoire existe déjà : [bold]{target_dir}[/bold]")
+        console.print(
+            f"[red]✗[/red] Le répertoire existe déjà : [bold]{target_dir}[/bold]"
+        )
         raise typer.Exit(1)
 
     package_name = _to_package(project_name)
@@ -41,6 +52,9 @@ def init_project_cmd(
     _write_project_files(target_dir, project_name, package_name)
     _write_config(target_dir, project_name)
     _write_tests(target_dir, package_name)
+    paths = detect_project_paths(target_dir)
+    for capability in (API_CAPABILITY, MCP_CAPABILITY):
+        scaffold_adapter_blueprint(target_dir, paths, capability.adapters[0])
 
     console.print(
         Panel.fit(
@@ -72,7 +86,9 @@ def _to_package(raw: str) -> str:
     package = re.sub(r"[^a-z0-9_]", "_", package)
     package = re.sub(r"_+", "_", package).strip("_")
     if not package or not package[0].isalpha():
-        console.print(f"[red]✗[/red] Nom de package Python invalide pour : [bold]{raw}[/bold].")
+        console.print(
+            f"[red]✗[/red] Nom de package Python invalide pour : [bold]{raw}[/bold]."
+        )
         raise typer.Exit(1)
     return package
 
@@ -85,29 +101,19 @@ def _framework_version() -> str:
 
 
 def _create_package_layout(package_root: Path) -> None:
-    dirs = (
-        package_root,
-        package_root / "domain",
-        package_root / "domain" / "models",
-        package_root / "domain" / "ports",
-        package_root / "domain" / "ports" / "inbound",
-        package_root / "domain" / "ports" / "outbound",
-        package_root / "application",
-        package_root / "application" / "use_cases",
-        package_root / "application" / "intent_interpreters",
-        package_root / "adapters",
-        package_root / "adapters" / "inbound",
-        package_root / "adapters" / "outbound",
-        package_root / "infrastructure",
-        package_root / "infrastructure" / "containers",
-    )
-    for directory in dirs:
+    layout = canonical_project_layout(_to_package(package_root.name))
+    for relative in layout.scaffold_directories():
+        directory = package_root / relative.relative_to(layout.package_root)
         directory.mkdir(parents=True, exist_ok=True)
-        (directory / "__init__.py").write_text("", encoding="utf-8")
-    (package_root / "py.typed").write_text("", encoding="utf-8")
+        if not (directory / "__init__.py").exists():
+            (directory / "__init__.py").write_text("", encoding="utf-8")
+    if not (package_root / "py.typed").exists():
+        (package_root / "py.typed").write_text("", encoding="utf-8")
 
 
-def _write_project_files(target_dir: Path, project_name: str, package_name: str) -> None:
+def _write_project_files(
+    target_dir: Path, project_name: str, package_name: str
+) -> None:
     framework_version = _framework_version()
     (target_dir / "pyproject.toml").write_text(
         f"""[build-system]
@@ -151,6 +157,30 @@ uv run python -m pytest
 """,
         encoding="utf-8",
     )
+    (target_dir / "AGENTS.md").write_text(
+        f"""# {project_name}: architecture contract
+
+Canonical source: `src/{package_name}/{{domain,application,adapters,infrastructure}}`.
+All adapter extension points are created at installation, including unused roles.
+Keep their names and locations. Consult the adapter README before adding a component.
+
+- Domain imports no adapter or infrastructure module.
+- Application depends on domain models and inbound/outbound ports.
+- Inbound adapters map transport DTOs to typed application Command/Query and present Result.
+- Use the same application port for FastAPI, MCP, LangGraph and messaging.
+- Concrete outbound dependencies are assembled once in infrastructure/containers or bootstrap.
+- Keep FastAPI by version/feature, MCP by feature/tools/resources/prompts, LangGraph by capability.
+- `__init__.py` has no registration or client side effects.
+- Developer-owned files are never overwritten by scaffold replay.
+- Only `*_generated.py` files are CLI-owned and may be regenerated.
+- Test mapping, application contracts and runtime registration with fake ports before delivery.
+- LangGraph state is serializable and versioned; test checkpoint resume when persisted keys change.
+
+Start with `arclith-cli add-entity`, `add-usecase` and `add-adapter`.
+Use `uv run python -m pytest` to validate this service.
+""",
+        encoding="utf-8",
+    )
     (target_dir / ".gitignore").write_text(
         """__pycache__/
 *.pyc
@@ -175,10 +205,12 @@ import sys
 from pathlib import Path
 
 from arclith import Arclith
+from {package_name}.adapters.inbound.fastapi.register import register_routes
+from {package_name}.adapters.inbound.fastmcp.register import register_components
 
 _CONFIG = Path(__file__).parent / "config"
 _MODE = os.getenv("MODE", "api")
-_VALID_MODES = {{"api", "mcp_http", "mcp_sse", "all"}}
+_VALID_MODES = {{"api", "mcp_http", "mcp_sse", "all", "bus"}}
 
 if _MODE not in _VALID_MODES:
     print(
@@ -189,10 +221,23 @@ if _MODE not in _VALID_MODES:
 
 arclith = Arclith(_CONFIG)
 app = arclith.fastapi()
+register_routes(app)
 
 
 def build_mcp():
-    return arclith.fastmcp("{project_name} MCP")
+    server = arclith.fastmcp("{project_name} MCP")
+    register_components(server)
+    return server
+
+
+def _run_bus() -> None:
+    # Optional adapter: installed with add-adapter --capability command-bus.
+    from arclith.application.command_bus import CommandDispatcher
+    from {package_name}.adapters.bidirectional.rabbitmq.register import register_bindings
+
+    dispatcher = CommandDispatcher()
+    register_bindings(dispatcher)
+    arclith.run_command_bus(dispatcher)
 
 
 def _run_api() -> None:
@@ -217,6 +262,8 @@ if __name__ == "__main__":
             arclith.run_with_probes(_run_mcp_sse, transports=["mcp_sse"])
         case "all":
             arclith.run_with_probes(_run_api, _run_mcp_http, transports=["api", "mcp_http"])
+        case "bus":
+            arclith.run_with_probes(_run_bus, transports=["bus"])
 ''',
         encoding="utf-8",
     )
@@ -233,6 +280,7 @@ def _write_config(target_dir: Path, project_name: str) -> None:
     inbound_dir = adapters_dir / "inbound"
     inbound_dir.mkdir(parents=True, exist_ok=True)
     (adapters_dir / "outbound").mkdir(parents=True, exist_ok=True)
+    (adapters_dir / "bidirectional").mkdir(parents=True, exist_ok=True)
 
     (config_dir / "app.yaml").write_text(
         f'''name: {project_name}
@@ -264,7 +312,9 @@ cache_control:
 """,
         encoding="utf-8",
     )
-    (config_dir / "soft_delete.yaml").write_text("retention_days: 30\n", encoding="utf-8")
+    (config_dir / "soft_delete.yaml").write_text(
+        "retention_days: 30\n", encoding="utf-8"
+    )
     (inbound_dir / "probe.yaml").write_text(
         """host: 0.0.0.0
 port: 9000

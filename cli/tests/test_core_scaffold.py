@@ -109,7 +109,7 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
     assert "langgraph dev" in entrypoint
     assert '"${ARCLITH_AGENT_RUNTIME:-development}" = "durable"' in entrypoint
     assert "exec arclith-agent-runtime" in entrypoint
-    assert '_VALID_MODES = {"api", "mcp_http", "mcp_sse", "all"}' in main
+    assert '_VALID_MODES = {"api", "mcp_http", "mcp_sse", "all", "bus"}' in main
     assert (
         'arclith.run_with_probes(_run_api, _run_mcp_http, transports=["api", "mcp_http"])'
         in main
@@ -123,6 +123,41 @@ def test_init_project_refuses_existing_directory(tmp_path: Path) -> None:
 
     with pytest.raises(typer.Exit):
         init_project_cmd(project_name="todo-list-service", directory=tmp_path)
+
+
+def test_new_entity_prepares_complete_installed_transport_features(
+    tmp_path: Path,
+) -> None:
+    project = init_project_cmd(project_name="feature-service", directory=tmp_path)
+    root = project / "src/feature_service/adapters/inbound"
+    customized = root / "fastapi/routers/v1/shopping_item/schemas.py"
+    customized.parent.mkdir(parents=True)
+    customized.write_text("# Developer-owned contract\n")
+
+    add_entity_cmd(project_dir=project, entity_name="ShoppingItem")
+
+    for module in ("router", "schemas", "mappers", "presenters", "openapi"):
+        assert (root / f"fastapi/routers/v1/shopping_item/{module}.py").is_file()
+    assert (root / "fastapi/routers/v1/shopping_item/routes/README.md").is_file()
+    for role in ("tools", "resources", "prompts"):
+        assert (root / f"fastmcp/features/shopping_item/{role}/__init__.py").is_file()
+        assert (root / f"fastmcp/features/shopping_item/{role}/README.md").is_file()
+    assert customized.read_text() == "# Developer-owned contract\n"
+    assert "shopping_item" not in (root / "fastapi/routers/v1/router.py").read_text()
+
+
+def test_entity_feature_collision_fails_before_creating_entity(tmp_path: Path) -> None:
+    project = init_project_cmd(project_name="collision-service", directory=tmp_path)
+    root = project / "src/collision_service"
+    conflict = root / "adapters/inbound/fastapi/routers/v1/todo.py"
+    conflict.write_text("# Existing developer module\n")
+
+    with pytest.raises(typer.Exit):
+        add_entity_cmd(project_dir=project, entity_name="Todo")
+
+    assert not (root / "domain/models/todo.py").exists()
+    assert not (root / "adapters/inbound/fastmcp/features/todo").exists()
+    assert conflict.read_text() == "# Existing developer module\n"
 
 
 def test_add_usecase_defaults_to_guided_transverse_usecase_for_python_callers(

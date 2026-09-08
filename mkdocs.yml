@@ -107,6 +107,8 @@ nav:
               - 7. Kubernetes: runtime-docker/kubernetes.md
       - Deep dives:
           - Scaffold CLI: deep-dives/cli-scaffold.md
+          - Blueprints des adapters: deep-dives/adapter-blueprints.md
+          - Bindings des use cases: deep-dives/use-case-bindings.md
           - API: deep-dives/api.md
           - MCP: deep-dives/mcp.md
           - Bus: deep-dives/bus.md

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from arclith_cli.adapter_blueprints import blueprint_digest, get_adapter_blueprint
+
 from arclith_cli.capability_models import (
     AdapterFacets,
     AdapterProfileSpec,
@@ -125,4 +127,20 @@ def repository_adapter_names() -> tuple[str, ...]:
 
 
 def capability_catalog_as_dict() -> list[dict[str, Any]]:
-    return [capability.to_dict() for capability in CAPABILITY_CATALOG]
+    result = []
+    for capability in CAPABILITY_CATALOG:
+        data = capability.to_dict()
+        for adapter, serialized in zip(
+            capability.adapters, data["adapters"], strict=True
+        ):
+            blueprint = get_adapter_blueprint(adapter)
+            serialized["blueprint"] = {
+                "version": blueprint.version,
+                "template_digest": blueprint_digest(blueprint),
+                "root": "/".join(blueprint.root_parts),
+                "roles": list(blueprint.roles),
+                "modules": list(blueprint.modules),
+                "ownership": "developer",
+            }
+        result.append(data)
+    return result

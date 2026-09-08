@@ -2,6 +2,11 @@
 
 Créer un service et vérifier l'API locale.
 
+`init` crée immédiatement `middleware/`, `contracts/` et
+`routers/v1/example/{routes/,router.py,schemas.py,mappers.py,presenters.py,openapi.py}`.
+Le [contrat complet](../deep-dives/adapter-blueprints.md#fastapi) guide le rangement ;
+l'exemple n'expose aucune route métier tant qu'un use case n'a pas été lié.
+
 ## Prérequis
 
 - Python 3.13

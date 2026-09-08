@@ -1,5 +1,9 @@
 # Capability Storage
 
+Le CLI crée dès l'installation tous les fichiers et packages du [blueprint complet
+de cette capability](../deep-dives/adapter-blueprints.md), avec des repères pour les
+développeurs et les IA. Les fichiers existants sont préservés lors d'une relance.
+
 `storage` ajoute un port outbound pour stocker des fichiers et des blobs sans
 coupler les use cases a un SDK cloud ou au filesystem local.
 

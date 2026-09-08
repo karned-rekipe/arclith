@@ -51,7 +51,7 @@ commande. Il ne doit pas connaître le handler consommateur.
 
 ```python
 dispatcher = CommandDispatcher()
-dispatcher.register("todo.create", CreateTodoCommandHandler(create_todo_use_case))
+dispatcher.register(CreateTodoCommandHandler(create_todo_use_case))
 
 app.run_command_bus(dispatcher)
 ```

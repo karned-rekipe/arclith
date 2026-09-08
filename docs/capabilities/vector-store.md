@@ -1,5 +1,9 @@
 # Vector Store
 
+Le CLI crée dès l'installation tous les fichiers et packages du [blueprint complet
+de cette capability](../deep-dives/adapter-blueprints.md), avec des repères pour les
+développeurs et les IA. Les fichiers existants sont préservés lors d'une relance.
+
 La capability outbound `vector-store` indexe des projections vectorielles et
 retrouve leurs voisins derrière `VectorStorePort`. Elle reste indépendante des
 SDK fournisseurs et n'est pas la source de vérité métier par défaut.

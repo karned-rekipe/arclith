@@ -1,0 +1,10 @@
+"""Invocation context, supplied at invoke time and not persisted as graph state."""
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class AgentContext:
+    actor_id: str | None = None
+    tenant_id: str | None = None
+    correlation_id: str | None = None

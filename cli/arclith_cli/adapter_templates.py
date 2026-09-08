@@ -82,36 +82,6 @@ class PostgreSQL{pascal}Repository(PostgreSQLRepository[{pascal}], {pascal}Repos
 """,
 }
 
-# ── repository.py re-export template ─────────────────────────────────────────
-
-REPO_REEXPORT: dict[str, str] = {
-    "memory": """\
-from {adapters_import}.outbound.memory.repositories.{snake}_repository import InMemory{pascal}Repository
-
-__all__ = ["InMemory{pascal}Repository"]
-""",
-    "mongodb": """\
-from {adapters_import}.outbound.mongodb.repositories.{snake}_repository import MongoDB{pascal}Repository
-
-__all__ = ["MongoDB{pascal}Repository"]
-""",
-    "duckdb": """\
-from {adapters_import}.outbound.duckdb.repositories.{snake}_repository import DuckDB{pascal}Repository
-
-__all__ = ["DuckDB{pascal}Repository"]
-""",
-    "mariadb": """\
-from {adapters_import}.outbound.mariadb.repositories.{snake}_repository import MariaDB{pascal}Repository
-
-__all__ = ["MariaDB{pascal}Repository"]
-""",
-    "postgresql": """\
-from {adapters_import}.outbound.postgresql.repositories.{snake}_repository import PostgreSQL{pascal}Repository
-
-__all__ = ["PostgreSQL{pascal}Repository"]
-""",
-}
-
 # ── Container template (full file, regenerated with all installed adapters) ───
 
 _CONTAINER_HEADER = """\
@@ -127,13 +97,13 @@ from {domain_import}.ports.outbound.{snake}_repository import {pascal}Repository
 _CONTAINER_FACTORY: dict[str, str] = {
     "memory": """\
 def _build_memory(_cfg: AppConfig, _entity_class: type[{pascal}], _log: Logger) -> {pascal}Repository:
-    from {adapters_import}.outbound.memory.repository import InMemory{pascal}Repository
+    from {adapters_import}.outbound.memory.repositories.{snake}_repository import InMemory{pascal}Repository
     return InMemory{pascal}Repository()
 
 """,
     "mongodb": """\
 def _build_mongodb(cfg: AppConfig, _entity_class: type[{pascal}], log: Logger) -> {pascal}Repository:
-    from {adapters_import}.outbound.mongodb.repository import MongoDB{pascal}Repository
+    from {adapters_import}.outbound.mongodb.repositories.{snake}_repository import MongoDB{pascal}Repository
     from arclith.adapters.outbound.mongodb.config import MongoDBConfig
     mongo = cfg.adapters.mongodb
     if mongo is None:
@@ -143,7 +113,7 @@ def _build_mongodb(cfg: AppConfig, _entity_class: type[{pascal}], log: Logger) -
 """,
     "duckdb": """\
 def _build_duckdb(cfg: AppConfig, _entity_class: type[{pascal}], _log: Logger) -> {pascal}Repository:
-    from {adapters_import}.outbound.duckdb.repository import DuckDB{pascal}Repository
+    from {adapters_import}.outbound.duckdb.repositories.{snake}_repository import DuckDB{pascal}Repository
     duckdb = cfg.adapters.duckdb
     if duckdb is None:
         raise ValueError("DuckDB settings are required when repository=duckdb")
@@ -152,7 +122,7 @@ def _build_duckdb(cfg: AppConfig, _entity_class: type[{pascal}], _log: Logger) -
 """,
     "mariadb": """\
 def _build_mariadb(cfg: AppConfig, _entity_class: type[{pascal}], log: Logger) -> {pascal}Repository:
-    from {adapters_import}.outbound.mariadb.repository import MariaDB{pascal}Repository
+    from {adapters_import}.outbound.mariadb.repositories.{snake}_repository import MariaDB{pascal}Repository
     from arclith.adapters.outbound.mariadb.config import MariaDBConfig
     mariadb = cfg.adapters.mariadb
     if mariadb is None:
@@ -174,7 +144,7 @@ def _build_mariadb(cfg: AppConfig, _entity_class: type[{pascal}], log: Logger) -
 """,
     "postgresql": """\
 def _build_postgresql(cfg: AppConfig, _entity_class: type[{pascal}], log: Logger) -> {pascal}Repository:
-    from {adapters_import}.outbound.postgresql.repository import PostgreSQL{pascal}Repository
+    from {adapters_import}.outbound.postgresql.repositories.{snake}_repository import PostgreSQL{pascal}Repository
     from arclith.adapters.outbound.postgresql.config import PostgreSQLConfig
     postgresql = cfg.adapters.postgresql
     if postgresql is None:

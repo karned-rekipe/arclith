@@ -95,8 +95,13 @@ sur `http://127.0.0.1:2024/docs`.
 LangGraph Studio détecte aussi le graphe généré depuis `langgraph.json`, mais son UI hébergée
 nécessite un accès internet. Hors ligne, la validation se fait par API ou SDK.
 
-Le graphe généré est volontairement minimal. Le projet remplace ensuite l'état, les nœuds et les
-transitions pour appeler ses use cases.
+Le graphe initial exécute un node inerte, conserve les messages et renseigne
+`state_version=1` ; aucun LLM n'est appelé. Son organisation complète existe déjà :
+`agent.py` expose l'entrypoint, `graph.py` montre la topologie, `state.py` et
+`context.py` définissent les contrats, et les packages nodes/capabilities/subgraphs/
+tools/prompts/parsers/presenters/policies/persistence/shared sont documentés.
+Le projet implémente ses fonctionnalités dans ces emplacements ; voir le
+[blueprint LangGraph](../deep-dives/adapter-blueprints.md#langgraph).
 
 ## Média
 

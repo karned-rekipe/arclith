@@ -12,8 +12,14 @@ import pytest
 import typer
 import yaml
 
-from arclith_cli.add_adapter import _resolve_parameter, add_adapter_cmd
-from arclith_cli.capabilities import ParameterSpec
+from arclith_cli.add_adapter import (
+    _list_generated_files,
+    _resolve_parameter,
+    add_adapter_cmd,
+)
+from arclith_cli.capabilities import REPOSITORY_CAPABILITY, ParameterSpec
+from arclith_cli.entity_scanner import scan_entities
+from arclith_cli.project_paths import detect_project_paths
 
 
 def _write_model(
@@ -46,6 +52,35 @@ def _minimal_project(tmp_path: Path) -> Path:
     return project_dir
 
 
+@pytest.mark.parametrize(
+    "adapter", REPOSITORY_CAPABILITY.adapters, ids=lambda adapter: adapter.name
+)
+def test_repository_scaffold_uses_direct_modules_without_compatibility_wrapper(
+    tmp_path: Path, adapter
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    paths = detect_project_paths(project_dir)
+    planned = _list_generated_files(
+        project_dir, paths, adapter, scan_entities(project_dir)
+    )
+    wrapper = paths.adapters_outbound / adapter.name / "repository.py"
+    assert wrapper not in {path for path, _status in planned}
+
+    add_adapter_cmd(project_dir=project_dir, adapter=adapter.name, yes=True)
+
+    assert not wrapper.exists()
+    assert (
+        paths.adapters_outbound
+        / adapter.name
+        / "repositories/widget_repository.py"
+    ).is_file()
+    generated = (
+        paths.containers / "widget_registrations_generated.py"
+    ).read_text(encoding="utf-8")
+    assert f".outbound.{adapter.name}.repositories.widget_repository import" in generated
+    assert f".outbound.{adapter.name}.repository import" not in generated
+
+
 def test_add_duckdb_adapter_non_interactive(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
 
@@ -65,11 +100,11 @@ def test_add_duckdb_adapter_non_interactive(tmp_path: Path) -> None:
         / "repositories"
         / "widget_repository.py"
     ).exists()
-    assert (
+    assert not (
         package_root / "adapters" / "outbound" / "duckdb" / "repository.py"
     ).exists()
     assert 'register("duckdb", _build_duckdb)' in (
-        package_root / "infrastructure" / "containers" / "widget_container.py"
+        package_root / "infrastructure" / "containers" / "widget_registrations_generated.py"
     ).read_text(encoding="utf-8")
     assert "repository: duckdb" in (
         project_dir / "config" / "adapters" / "adapters.yaml"
@@ -104,7 +139,7 @@ def test_add_duckdb_adapter_generates_loadable_directory_config_idempotently(
         / "demo_service"
         / "infrastructure"
         / "containers"
-        / "widget_container.py"
+        / "widget_registrations_generated.py"
     ).read_text(encoding="utf-8")
 
     assert app.config.adapters.repository == "duckdb"
@@ -200,7 +235,7 @@ def test_add_mariadb_adapter_uses_catalog_params(tmp_path: Path) -> None:
         encoding="utf-8"
     )
     assert 'register("mariadb", _build_mariadb)' in (
-        package_root / "infrastructure" / "containers" / "widget_container.py"
+        package_root / "infrastructure" / "containers" / "widget_registrations_generated.py"
     ).read_text(encoding="utf-8")
     mariadb_config = (
         project_dir / "config" / "adapters" / "outbound" / "mariadb.yaml"
@@ -255,7 +290,7 @@ def test_add_postgresql_adapter_uses_catalog_params(tmp_path: Path) -> None:
         encoding="utf-8"
     )
     assert 'register("postgresql", _build_postgresql)' in (
-        package_root / "infrastructure" / "containers" / "widget_container.py"
+        package_root / "infrastructure" / "containers" / "widget_registrations_generated.py"
     ).read_text(encoding="utf-8")
     postgresql_config = (
         project_dir / "config" / "adapters" / "outbound" / "postgresql.yaml"
@@ -429,7 +464,7 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(
     assert "LANGSMITH_API_KEY" not in load_output.out
     assert "LANGSMITH_API_KEY" not in load_output.err
     package_root = project_dir / "src" / "demo_service"
-    assert not (package_root / "adapters" / "outbound" / "langsmith").exists()
+    assert (package_root / "adapters" / "outbound" / "langsmith" / "instrumentation").is_dir()
 
 
 def test_add_langsmith_never_rewrites_existing_dotenv(tmp_path: Path) -> None:
@@ -690,7 +725,7 @@ def test_add_fastapi_api_adapter_generates_inbound_config_only(tmp_path: Path) -
     ).read_text(encoding="utf-8")
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "outbound" / "fastapi").exists()
-    assert not (package_root / "adapters" / "inbound" / "fastapi").exists()
+    assert (package_root / "adapters" / "inbound" / "fastapi" / "routers" / "v1" / "widget" / "routes").is_dir()
 
     from arclith import Arclith
 
@@ -739,7 +774,7 @@ def test_add_fastmcp_mcp_adapter_generates_inbound_config_only(tmp_path: Path) -
     ).read_text(encoding="utf-8")
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "outbound" / "fastmcp").exists()
-    assert not (package_root / "adapters" / "inbound" / "fastmcp").exists()
+    assert (package_root / "adapters" / "inbound" / "fastmcp" / "features" / "widget" / "resources").is_dir()
 
     from arclith import Arclith
 
@@ -797,7 +832,7 @@ def test_add_probe_server_adapter_generates_loadable_inbound_config(
     assert "probe:" not in (
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
-    assert not (package_root / "adapters" / "inbound" / "server").exists()
+    assert (package_root / "adapters" / "inbound" / "server" / "checks").is_dir()
     assert not (package_root / "adapters" / "outbound" / "server").exists()
 
 
@@ -843,7 +878,7 @@ def test_add_http_idempotency_adapter_merges_http_config(tmp_path: Path) -> None
     assert "http:" not in (
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
-    assert not (package_root / "adapters" / "inbound" / "idempotency").exists()
+    assert (package_root / "adapters" / "inbound" / "idempotency" / "policies").is_dir()
 
 
 def test_add_http_etag_adapter_merges_http_config(tmp_path: Path) -> None:
@@ -883,7 +918,7 @@ def test_add_http_etag_adapter_merges_http_config(tmp_path: Path) -> None:
     assert "http:" not in (
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
-    assert not (package_root / "adapters" / "inbound" / "etag").exists()
+    assert (package_root / "adapters" / "inbound" / "etag" / "policies").is_dir()
 
 
 def test_add_http_cache_control_adapter_merges_http_config(tmp_path: Path) -> None:
@@ -929,7 +964,7 @@ def test_add_http_cache_control_adapter_merges_http_config(tmp_path: Path) -> No
     assert "http:" not in (
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
-    assert not (package_root / "adapters" / "inbound" / "cache-control").exists()
+    assert (package_root / "adapters" / "inbound" / "cache_control" / "policies").is_dir()
 
 
 def test_add_http_cache_control_adapter_rejects_negative_max_age(
@@ -1017,7 +1052,7 @@ def test_add_command_bus_rabbitmq_adapter_merges_command_bus_config(
     assert "command-bus:" not in (
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
-    assert not (package_root / "adapters" / "bidirectional" / "rabbitmq").exists()
+    assert (package_root / "adapters" / "bidirectional" / "rabbitmq" / "bindings").is_dir()
 
 
 def test_add_command_bus_rabbitmq_adapter_rejects_unbounded_prefetch(
@@ -1059,9 +1094,10 @@ def test_add_memory_channel_generates_loadable_bidirectional_config(
     assert config_path.read_text(encoding="utf-8") == "enabled: true\n"
     assert app.config.adapters.channel.configured_adapters() == ("memory",)
     assert isinstance(app.channel_sender("memory"), MemoryChannel)
-    assert not (
+    assert (
         project_dir / "src" / "demo_service" / "adapters" / "bidirectional" / "memory"
-    ).exists()
+        / "inbound" / "README.md"
+    ).is_file()
 
 
 def test_add_webhook_channel_generates_safe_loadable_config(
@@ -1228,7 +1264,7 @@ def test_add_keycloak_auth_adapter_generates_loadable_inbound_config(
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
     package_root = project_dir / "src" / "demo_service"
-    assert not (package_root / "adapters" / "inbound" / "keycloak").exists()
+    assert (package_root / "adapters" / "inbound" / "keycloak" / "principals").is_dir()
 
     from arclith import Arclith
 
@@ -1317,7 +1353,7 @@ def test_add_role_license_adapter_generates_loadable_config(tmp_path: Path) -> N
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
     package_root = project_dir / "src" / "demo_service"
-    assert not (package_root / "adapters" / "inbound" / "role").exists()
+    assert (package_root / "adapters" / "inbound" / "role" / "policies").is_dir()
     assert not (package_root / "adapters" / "outbound" / "role").exists()
 
     from arclith import Arclith
@@ -1356,7 +1392,7 @@ def test_add_lmstudio_llm_adapter_generates_lm_config_only(tmp_path: Path) -> No
     assert not (project_dir / "config" / "secrets.yaml").exists()
 
     package_root = project_dir / "src" / "demo_service"
-    assert not (package_root / "adapters" / "outbound" / "lmstudio").exists()
+    assert (package_root / "adapters" / "outbound" / "lmstudio" / "models").is_dir()
 
     from arclith import Arclith
 
@@ -1489,7 +1525,7 @@ def test_add_storage_adapter_generates_loadable_config_only(
             "adapters.storage.sas_token": "AZURE_STORAGE_SAS_TOKEN",
         }
     package_root = project_dir / "src" / "demo_service"
-    assert not (package_root / "adapters" / "outbound" / adapter).exists()
+    assert (package_root / "adapters" / "outbound" / adapter.replace("-", "_") / "transfers").is_dir()
 
     from arclith import Arclith
 
@@ -1850,10 +1886,10 @@ def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(
     )
     assert "stream_mode: [updates, custom]" in langgraph_config
     generated_agent = agent_file.read_text(encoding="utf-8")
-    assert "Template minimal volontaire" in generated_agent
-    assert "get_stream_writer" in generated_agent
+    assert "Stable LangGraph deployment entrypoint" in generated_agent
+    assert "from demo_service.adapters.inbound.langgraph.graph import register_agent" in generated_agent
     assert (
-        'agent = arclith.langgraph(AgentState, register_agent, name="todo_agent")'
+        'agent = arclith.langgraph(AgentState, register_agent, name="todo_agent", context_schema=AgentContext)'
         in generated_agent
     )
     assert not (package_root / "adapters" / "outbound" / "langgraph").exists()
@@ -1959,7 +1995,6 @@ async def test_add_langgraph_agent_adapter_generates_compilable_minimal_agent(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pytest.importorskip("langgraph.graph")
     project_dir = _minimal_project(tmp_path)
 
     add_adapter_cmd(
@@ -1991,7 +2026,7 @@ async def test_add_langgraph_agent_adapter_generates_compilable_minimal_agent(
     sys.modules[spec.name] = module
     try:
         spec.loader.exec_module(module)
-        assert await module.agent.ainvoke({"messages": []}) == {"messages": []}
+        assert await module.agent.ainvoke({"messages": []}) == {"messages": [], "state_version": 1}
         events = [
             event
             async for event in module.agent.astream(
@@ -2134,7 +2169,7 @@ def test_add_memory_adapter_direct_cli_keeps_memory_and_loads_config(
         / "repositories"
         / "widget_repository.py"
     ).exists()
-    assert (
+    assert not (
         package_root / "adapters" / "outbound" / "memory" / "repository.py"
     ).exists()
     assert not (
@@ -2311,7 +2346,7 @@ def test_add_console_logger_adapter_generates_explicit_default_selector(
     assert "logger: console" in adapters_path.read_text(encoding="utf-8")
     assert arclith.config.adapters.logger == "console"
     assert isinstance(arclith.logger, ConsoleLogger)
-    assert not (package_root / "adapters" / "outbound" / "console").exists()
+    assert (package_root / "adapters" / "outbound" / "console" / "formatters").is_dir()
 
 
 def test_add_env_secrets_adapter_preserves_existing_mappings_and_uses_explicit_key(

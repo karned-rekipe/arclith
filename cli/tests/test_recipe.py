@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -158,6 +159,8 @@ def test_add_adapter_records_resolved_params_and_generated_files(
     assert result.exit_code == 0, result.output
     step = load_recipe(project_dir / RECIPE_FILENAME).steps[-1]
     assert step.command == "add-adapter"
+    assert step.args["blueprint_version"] == "1"
+    assert re.fullmatch(r"sha256:[a-f0-9]{64}", step.args["template_digest"])
     assert step.args == {
         "capability": "repository",
         "adapter": "memory",
@@ -165,6 +168,8 @@ def test_add_adapter_records_resolved_params_and_generated_files(
         "activate": True,
         "profile": None,
         "params": {},
+        "blueprint_version": "1",
+        "template_digest": step.args["template_digest"],
     }
     changed_paths = {change.path for change in step.result.generated_files}
     assert (

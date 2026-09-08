@@ -1,0 +1,10 @@
+"""Explicit MCP composition: register tools, resources and prompts by feature."""
+
+from fastmcp import FastMCP
+
+
+def register_components(server: FastMCP) -> None:
+    """Register project components here, injecting their application dependencies.
+
+    The initial skeleton deliberately exposes no business tool or resource.
+    """

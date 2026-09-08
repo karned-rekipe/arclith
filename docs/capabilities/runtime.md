@@ -1,5 +1,9 @@
 # Capability Runtime
 
+Le CLI crée dès l'installation tous les fichiers et packages du [blueprint complet
+de cette capability](../deep-dives/adapter-blueprints.md), avec des repères pour les
+développeurs et les IA. Les fichiers existants sont préservés lors d'une relance.
+
 Runtime de déploiement standardisé.
 
 ## Objectif

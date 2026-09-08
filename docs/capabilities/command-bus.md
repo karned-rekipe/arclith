@@ -1,5 +1,9 @@
 # Capability Command Bus
 
+Le CLI crée dès l'installation tous les fichiers et packages du [blueprint complet
+de cette capability](../deep-dives/adapter-blueprints.md), avec des repères pour les
+développeurs et les IA. Les fichiers existants sont préservés lors d'une relance.
+
 Bus de commandes applicatives use-case first.
 
 ## Objectif
@@ -69,7 +73,7 @@ Le publisher ajoute `command_type`, `correlation_id` et, si disponible,
 from arclith.application.command_bus import CommandDispatcher
 
 dispatcher = CommandDispatcher()
-dispatcher.register("todo.create", CreateTodoCommandHandler(create_todo_use_case))
+dispatcher.register(CreateTodoCommandHandler(create_todo_use_case))
 
 app.run_command_bus(dispatcher)
 ```

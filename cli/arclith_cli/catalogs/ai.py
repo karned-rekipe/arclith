@@ -385,44 +385,6 @@ stream_mode: {stream_mode_yaml}
 }}
 """,
                 ),
-                FileTemplateSpec(
-                    path="{package_path}/adapters/inbound/langgraph/__init__.py",
-                    template="",
-                ),
-                FileTemplateSpec(
-                    path="{package_path}/adapters/inbound/langgraph/agent.py",
-                    template="""\
-from typing import Any, TypedDict
-
-from arclith import Arclith
-from langgraph.config import get_stream_writer
-from langgraph.graph import END, START
-
-
-class AgentState(TypedDict, total=False):
-    messages: list[dict[str, Any]]
-
-
-arclith = Arclith("config")
-
-
-# Template minimal volontaire: remplacer AgentState, run_agent et les edges par
-# l'état, les noeuds et les transitions propres au projet.
-async def run_agent(state: AgentState) -> AgentState:
-    writer = get_stream_writer()
-    writer({{"kind": "progress", "stage": "agent.started", "message": "Agent node started."}})
-    return state
-
-
-def register_agent(builder: Any, app: Arclith) -> None:
-    builder.add_node("agent", run_agent)
-    builder.add_edge(START, "agent")
-    builder.add_edge("agent", END)
-
-
-agent = arclith.langgraph(AgentState, register_agent, name="{graph_name}")
-""",
-                ),
             ),
             parameters=(
                 ParameterSpec(

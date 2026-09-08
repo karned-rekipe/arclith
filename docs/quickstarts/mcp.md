@@ -2,6 +2,11 @@
 
 Créer un service et vérifier le serveur MCP HTTP.
 
+`init` crée immédiatement `middleware/`, `contracts/` et
+`features/example/{tools/,resources/,prompts/,register.py,schemas.py,mappers.py,presenters.py}`.
+Les trois primitives MCP possèdent ainsi leur emplacement dès le scaffold ;
+consulter le [contrat complet](../deep-dives/adapter-blueprints.md#fastmcp).
+
 ## Prérequis
 
 - Python 3.13
