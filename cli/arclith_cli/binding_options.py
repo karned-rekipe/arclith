@@ -50,6 +50,13 @@ def _validate_http(path: str, method: str, status: int) -> None:
         )
     if any(char.isspace() or ord(char) < 32 for char in path):
         raise ValueError("HTTP path must not contain whitespace or control characters")
+    validate_response_status(status)
+
+
+def validate_response_status(status: int) -> None:
+    """Use the same strict response-body contract for CLI options and saved manifests."""
+    if isinstance(status, bool) or not isinstance(status, int):
+        raise ValueError("Response status must be an integer")
     if not 200 <= status <= 299 or status in {204, 205}:
         raise ValueError("Select a 2xx status that supports the use case result body")
 

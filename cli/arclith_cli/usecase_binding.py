@@ -7,7 +7,10 @@ from pathlib import Path
 
 from arclith_cli.adapter_blueprints import BLUEPRINT_VERSION, render_feature_blueprint
 from arclith_cli.binding_contract import UseCaseContract, inspect_usecase
-from arclith_cli.binding_options import resolve_binding_options
+from arclith_cli.binding_options import (
+    resolve_binding_options,
+    validate_response_status,
+)
 from arclith_cli.binding_rendering import (
     BindingOptions,
     native_module,
@@ -331,6 +334,10 @@ def _validate_manifest_options(options: dict, via: str) -> None:
         raise ValueError("Invalid binding manifest options")
     if options["via"] != via:
         raise ValueError("Invalid binding manifest transport")
+    try:
+        validate_response_status(options["status_code"])
+    except ValueError as exc:
+        raise ValueError(f"Invalid binding manifest status_code: {exc}") from exc
     if any(
         not isinstance(value, str)
         for name, value in options.items()

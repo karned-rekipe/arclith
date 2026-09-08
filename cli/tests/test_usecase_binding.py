@@ -409,6 +409,41 @@ def test_malformed_manifest_is_rejected_without_writes(project, manifest):
     assert sorted(project.rglob("*")) == before
 
 
+@pytest.mark.parametrize(
+    "status_code", [None, True, "201", 200.0, {}, 199, 300, 500, 204, 205]
+)
+@pytest.mark.parametrize("source", ["options", "manifest"])
+def test_invalid_response_status_fails_closed_without_writes(
+    project, status_code, source
+):
+    options = {}
+    usecase = "create-todo"
+    if source == "manifest":
+        apply_binding(plan_binding(project, "create-todo", via="fastapi"))
+        path = project / ".arclith/bindings/fastapi.json"
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        manifest["bindings"][0]["options"]["status_code"] = status_code
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        usecase = "other"
+        (project / "src/binding_app/domain/ports/inbound/other.py").write_text(
+            PORT_SOURCE.replace("CreateTodo", "Other"), encoding="utf-8"
+        )
+    else:
+        options["status_code"] = status_code
+    before = {
+        path.relative_to(project): path.read_bytes()
+        for path in project.rglob("*")
+        if path.is_file()
+    }
+    with pytest.raises(ValueError, match="status"):
+        plan_binding(project, usecase, via="fastapi", **options)
+    assert {
+        path.relative_to(project): path.read_bytes()
+        for path in project.rglob("*")
+        if path.is_file()
+    } == before
+
+
 def test_binding_plan_does_not_overwrite_a_concurrent_developer_edit(project):
     plan = plan_binding(project, "create-todo", via="fastapi")
     path = project / "src/binding_app/adapters/inbound/fastapi/contracts/create_todo.py"
