@@ -12,8 +12,14 @@ import pytest
 import typer
 import yaml
 
-from arclith_cli.add_adapter import _resolve_parameter, add_adapter_cmd
-from arclith_cli.capabilities import ParameterSpec
+from arclith_cli.add_adapter import (
+    _list_generated_files,
+    _resolve_parameter,
+    add_adapter_cmd,
+)
+from arclith_cli.capabilities import REPOSITORY_CAPABILITY, ParameterSpec
+from arclith_cli.entity_scanner import scan_entities
+from arclith_cli.project_paths import detect_project_paths
 
 
 def _write_model(
@@ -46,6 +52,35 @@ def _minimal_project(tmp_path: Path) -> Path:
     return project_dir
 
 
+@pytest.mark.parametrize(
+    "adapter", REPOSITORY_CAPABILITY.adapters, ids=lambda adapter: adapter.name
+)
+def test_repository_scaffold_uses_direct_modules_without_compatibility_wrapper(
+    tmp_path: Path, adapter
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    paths = detect_project_paths(project_dir)
+    planned = _list_generated_files(
+        project_dir, paths, adapter, scan_entities(project_dir)
+    )
+    wrapper = paths.adapters_outbound / adapter.name / "repository.py"
+    assert wrapper not in {path for path, _status in planned}
+
+    add_adapter_cmd(project_dir=project_dir, adapter=adapter.name, yes=True)
+
+    assert not wrapper.exists()
+    assert (
+        paths.adapters_outbound
+        / adapter.name
+        / "repositories/widget_repository.py"
+    ).is_file()
+    generated = (
+        paths.containers / "widget_registrations_generated.py"
+    ).read_text(encoding="utf-8")
+    assert f".outbound.{adapter.name}.repositories.widget_repository import" in generated
+    assert f".outbound.{adapter.name}.repository import" not in generated
+
+
 def test_add_duckdb_adapter_non_interactive(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
 
@@ -65,7 +100,7 @@ def test_add_duckdb_adapter_non_interactive(tmp_path: Path) -> None:
         / "repositories"
         / "widget_repository.py"
     ).exists()
-    assert (
+    assert not (
         package_root / "adapters" / "outbound" / "duckdb" / "repository.py"
     ).exists()
     assert 'register("duckdb", _build_duckdb)' in (
@@ -2134,7 +2169,7 @@ def test_add_memory_adapter_direct_cli_keeps_memory_and_loads_config(
         / "repositories"
         / "widget_repository.py"
     ).exists()
-    assert (
+    assert not (
         package_root / "adapters" / "outbound" / "memory" / "repository.py"
     ).exists()
     assert not (

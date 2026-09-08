@@ -82,36 +82,6 @@ class PostgreSQL{pascal}Repository(PostgreSQLRepository[{pascal}], {pascal}Repos
 """,
 }
 
-# ── repository.py re-export template ─────────────────────────────────────────
-
-REPO_REEXPORT: dict[str, str] = {
-    "memory": """\
-from {adapters_import}.outbound.memory.repositories.{snake}_repository import InMemory{pascal}Repository
-
-__all__ = ["InMemory{pascal}Repository"]
-""",
-    "mongodb": """\
-from {adapters_import}.outbound.mongodb.repositories.{snake}_repository import MongoDB{pascal}Repository
-
-__all__ = ["MongoDB{pascal}Repository"]
-""",
-    "duckdb": """\
-from {adapters_import}.outbound.duckdb.repositories.{snake}_repository import DuckDB{pascal}Repository
-
-__all__ = ["DuckDB{pascal}Repository"]
-""",
-    "mariadb": """\
-from {adapters_import}.outbound.mariadb.repositories.{snake}_repository import MariaDB{pascal}Repository
-
-__all__ = ["MariaDB{pascal}Repository"]
-""",
-    "postgresql": """\
-from {adapters_import}.outbound.postgresql.repositories.{snake}_repository import PostgreSQL{pascal}Repository
-
-__all__ = ["PostgreSQL{pascal}Repository"]
-""",
-}
-
 # ── Container template (full file, regenerated with all installed adapters) ───
 
 _CONTAINER_HEADER = """\

@@ -31,7 +31,6 @@ from arclith_cli.adapter_rendering import (
 )
 from arclith_cli.adapter_templates import (
     REPO_PYTHON,
-    REPO_REEXPORT,
     render,
     render_container,
 )
@@ -323,19 +322,6 @@ def _write_entity_adapter(
     console.print(
         f"[green]✓[/green] {repository_file.relative_to(request.project_dir)}"
     )
-
-    reexport = base / "repository.py"
-    # Public compatibility module remains additive for multiple entities.
-    reexport_text = render(REPO_REEXPORT[adapter.name], variables).split(
-        "\n__all__", 1
-    )[0]
-    existing = reexport.read_text(encoding="utf-8") if reexport.exists() else ""
-    import_line = reexport_text.strip()
-    if import_line not in existing:
-        reexport.write_text(
-            existing.rstrip() + "\n" + import_line + "\n", encoding="utf-8"
-        )
-    console.print(f"[green]✓[/green] {reexport.relative_to(request.project_dir)}")
 
     generated = paths.containers / f"{entity.snake}_registrations_generated.py"
     generated.parent.mkdir(parents=True, exist_ok=True)

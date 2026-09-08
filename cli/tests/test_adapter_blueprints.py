@@ -150,12 +150,15 @@ def test_incremental_multi_entity_repositories_import_and_preserve_customization
     add_adapter_cmd(project_dir=root, adapter="memory", all_entities=True, yes=True)
     assert repository.read_text(encoding="utf-8") == original
     assert container.read_text(encoding="utf-8") == customized
+    assert not (package / "adapters/outbound/memory/repository.py").exists()
     source = """
 from arclith import Arclith
-from repository_service.adapters.outbound.memory.repository import InMemoryTodoRepository, InMemoryLabelRepository
+from repository_service.adapters.outbound.memory.repositories.todo_repository import InMemoryTodoRepository
+from repository_service.adapters.outbound.memory.repositories.label_repository import InMemoryLabelRepository
 from repository_service.infrastructure.containers.todo_container import build_todo_service
 from repository_service.infrastructure.containers.label_container import build_label_service
 app = Arclith("config")
+assert InMemoryTodoRepository is not InMemoryLabelRepository
 assert build_todo_service(app)[0] is not None
 assert build_label_service(app)[0] is not None
 """

@@ -173,9 +173,9 @@ dans `infrastructure/runtime/docker_image` et conserve ses fichiers Docker à la
 
 Les repositories créés de façon incrémentale obtiennent aussi leur port outbound,
 service standard et fallback memory s'ils manquent. Chaque entité possède son
-module de repository. Le fichier historique `repository.py` conserve les imports
-des différentes entités. Le registre `*_registrations_generated.py` est séparé
-du container personnalisable.
+module `repositories/<entity>_repository.py`, importé directement par les
+containers. Aucun wrapper `repository.py` de rétrocompatibilité n'est généré.
+Le registre `*_registrations_generated.py` est séparé du container personnalisable.
 
 ## Validation
 

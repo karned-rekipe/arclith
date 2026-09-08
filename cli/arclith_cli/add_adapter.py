@@ -224,13 +224,11 @@ def _list_generated_files(
         base = paths.adapters_outbound / adapter.name
         repo_dir = base / "repositories"
         repo_file = repo_dir / f"{entity.snake}_repository.py"
-        reexport = base / "repository.py"
         init = base / "__init__.py"
         container = paths.containers / f"{entity.snake}_container.py"
 
         files.append((init, "préservé" if init.exists() else "créé"))
         files.append((repo_file, "préservé" if repo_file.exists() else "créé"))
-        files.append((reexport, "complété" if reexport.exists() else "créé"))
         files.append((container, "préservé" if container.exists() else "créé"))
 
     return files
