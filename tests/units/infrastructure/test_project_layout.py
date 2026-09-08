@@ -81,6 +81,20 @@ def test_project_layout_builds_import_paths():
     )
 
 
+def test_scaffold_directories_cover_all_layers_and_extension_roots():
+    layout = ProjectLayout.src("example_service")
+    directories = layout.scaffold_directories()
+
+    assert len(directories) == len(set(directories))
+    assert all(path.is_relative_to(layout.package_root) for path in directories)
+    assert set(layout.layer_paths().values()) <= set(directories)
+    assert set(layout.port_paths().values()) <= set(directories)
+    assert set(layout.adapter_paths().values()) <= set(directories)
+    assert layout.application_services in directories
+    assert layout.infrastructure / "containers" in directories
+    assert layout.infrastructure / "bootstrap" in directories
+
+
 @pytest.mark.parametrize(
     "package_name", ["ArclithSample", "arclith-sample", "1service", ""]
 )

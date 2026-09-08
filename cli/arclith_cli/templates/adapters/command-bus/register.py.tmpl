@@ -1,0 +1,7 @@
+"""Register typed wire-to-application bindings explicitly in this module."""
+
+from arclith.application.command_bus import CommandDispatcher
+
+
+def register_bindings(dispatcher: CommandDispatcher) -> None:
+    """Call dispatcher.register(handler) for each project binding."""

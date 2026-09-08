@@ -1,0 +1,10 @@
+"""Explicit FastAPI composition; add business features to the version router."""
+
+from fastapi import FastAPI
+
+from $adapter_import.routers.v1.router import router
+
+
+def register_routes(app: FastAPI) -> None:
+    """Install the API once from the process composition root."""
+    app.include_router(router)

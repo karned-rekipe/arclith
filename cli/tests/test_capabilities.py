@@ -634,8 +634,6 @@ def test_agent_capability_catalog_declares_langgraph() -> None:
     assert langgraph.entity_scoped is False
     assert [file_template.path for file_template in langgraph.file_templates] == [
         "langgraph.json",
-        "{package_path}/adapters/inbound/langgraph/__init__.py",
-        "{package_path}/adapters/inbound/langgraph/agent.py",
     ]
     assert [parameter.name for parameter in langgraph.parameters] == [
         "graph_name",

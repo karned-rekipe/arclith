@@ -11,6 +11,10 @@ from rich.prompt import Confirm
 from rich.table import Table
 
 from arclith_cli.adapter_generator import GenerationRequest, _generate
+from arclith_cli.adapter_blueprints import (
+    get_adapter_blueprint,
+    render_adapter_blueprint,
+)
 from arclith_cli.adapter_parameters import (  # noqa: F401
     _resolve_adapter_params,
     _resolve_parameter,
@@ -26,7 +30,7 @@ from arclith_cli.adapter_selection import (
 )
 from arclith_cli.adapter_templates import render
 from arclith_cli.capabilities import AdapterSpec, CapabilitySpec
-from arclith_cli.entity_scanner import EntityInfo
+from arclith_cli.entity_scanner import EntityInfo, scan_entities
 from arclith_cli.project_paths import ProjectPaths, detect_project_paths
 
 console = Console()
@@ -59,6 +63,7 @@ def add_adapter_cmd(
     adapter_params: dict[str, str] | None = None,
     profile: str | None = None,
     yes: bool = False,
+    dry_run: bool = False,
 ) -> AdapterCommandResult:
     """Wizard interactif pour scaffolder un adapter du catalogue."""
     project_dir = project_dir or Path.cwd()
@@ -92,24 +97,29 @@ def add_adapter_cmd(
 
     _show_recap(project_dir, capability, adapter_spec, entities, params, activate)
 
-    if not yes and not Confirm.ask(
-        "\n  [bold]Confirmer la génération ?[/bold]", default=True
+    if (
+        not dry_run
+        and not yes
+        and not Confirm.ask("\n  [bold]Confirmer la génération ?[/bold]", default=True)
     ):
         console.print("[yellow]Annulé.[/yellow]")
         raise typer.Exit(0)
 
     explicit_params = {*profile_values, *(adapter_params or {})}
-    _generate(
-        GenerationRequest(
-            project_dir=project_dir,
-            capability=capability,
-            adapter=adapter_spec,
-            entities=entities,
-            params=params,
-            activate=activate,
-            explicit_params=explicit_params,
+    if not dry_run:
+        _generate(
+            GenerationRequest(
+                project_dir=project_dir,
+                capability=capability,
+                adapter=adapter_spec,
+                entities=entities,
+                params=params,
+                activate=activate,
+                explicit_params=explicit_params,
+            )
         )
-    )
+    else:
+        console.print("[cyan]Dry run: aucun fichier modifié.[/cyan]")
     recorded_params = {
         parameter.name: params.get(parameter.name)
         for parameter in adapter_spec.parameters
@@ -198,7 +208,17 @@ def _list_generated_files(
     template_vars = _file_template_vars(project_dir, paths, adapter, params={})
     for file_template in adapter.file_templates:
         path = project_dir / render(file_template.path, template_vars)
-        files.append((path, "remplacé ⚠" if path.exists() else "créé"))
+        files.append((path, "préservé" if path.exists() else "créé"))
+
+    blueprint = get_adapter_blueprint(adapter)
+    adapter_root = paths.package_root.joinpath(*blueprint.root_parts)
+    # Match the generation contract, including reference features on an empty project.
+    features = tuple(entity.snake for entity in scan_entities(project_dir))
+    for relative in render_adapter_blueprint(
+        blueprint, paths.package_name or "", features
+    ):
+        path = adapter_root / relative
+        files.append((path, "préservé" if path.exists() else "créé"))
 
     for entity in entities:
         base = paths.adapters_outbound / adapter.name
@@ -208,10 +228,10 @@ def _list_generated_files(
         init = base / "__init__.py"
         container = paths.containers / f"{entity.snake}_container.py"
 
-        files.append((init, "remplacé ⚠" if init.exists() else "créé"))
-        files.append((repo_file, "remplacé ⚠" if repo_file.exists() else "créé"))
-        files.append((reexport, "remplacé ⚠" if reexport.exists() else "créé"))
-        files.append((container, "remplacé ⚠" if container.exists() else "créé"))
+        files.append((init, "préservé" if init.exists() else "créé"))
+        files.append((repo_file, "préservé" if repo_file.exists() else "créé"))
+        files.append((reexport, "complété" if reexport.exists() else "créé"))
+        files.append((container, "préservé" if container.exists() else "créé"))
 
     return files
 

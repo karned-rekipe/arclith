@@ -437,8 +437,6 @@ def test_scaffold_runs_tests(temp_workspace: Path):
         timeout=60,
     )
     
-    # Allow failure if tests are present (template may have placeholders)
-    # But validate pytest ran without import errors
-    assert "ImportError" not in result.stdout + result.stderr, (
-        f"Import errors detected:\n{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"Generated project tests failed:\n{result.stdout}\n{result.stderr}"
     )

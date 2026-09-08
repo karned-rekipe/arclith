@@ -11,9 +11,10 @@ inventer le métier. Les fichiers générés sont de courts repères modifiables
 - ils renvoient vers des exemples complets au lieu de les recopier dans chaque
   projet.
 
-Le scaffold ne génère ni endpoint FastAPI, ni tool FastMCP, ni graphe
-LangGraph, ni mapping de base de données. Ces éléments viennent après le port
-inbound et le use case.
+Le cœur métier et les adapters ont des commandes distinctes. `init` et `add-adapter`
+créent les [blueprints complets des adapters](adapter-blueprints.md), avec tous les
+dossiers, fichiers de rôle et exemples inertes dès l'installation. Les bindings
+métier viennent après le port inbound et le use case.
 
 ## Commandes
 

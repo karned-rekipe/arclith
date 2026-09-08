@@ -8,6 +8,15 @@ from rich.panel import Panel
 from rich.tree import Tree
 
 from arclith_cli import __version__
+from arclith_cli.adapter_blueprints import scaffold_adapter_blueprint
+from arclith_cli.capabilities import (
+    API_CAPABILITY,
+    MCP_CAPABILITY,
+    REPOSITORY_CAPABILITY,
+    AGENT_CAPABILITY,
+)
+from arclith_cli.init_project import _create_package_layout
+from arclith_cli.project_paths import detect_project_paths
 from arclith_cli.rename import EntityNames, apply_rename
 from arclith_cli.runtime_templates import (
     DOCKERIGNORE_TEMPLATE,
@@ -70,10 +79,40 @@ def new_project_cmd(
     with console.status("[bold]Renommage de l'entité…[/bold]"):
         apply_rename(target_dir, names, project_name=project_name, port=port)
         _write_runtime_files(target_dir, api_port=port, mcp_port=port + 1)
+        _complete_adapter_layouts(target_dir)
 
     console.print("[green]✓[/green] Renommage terminé")
     _print_summary(target_dir, project_name, port)
     return target_dir
+
+
+def _complete_adapter_layouts(target_dir: Path) -> None:
+    """Keep the official sample's behavior and apply the shared role contract."""
+    paths = detect_project_paths(target_dir)
+    _create_package_layout(paths.package_root)
+    for capability in (
+        API_CAPABILITY,
+        MCP_CAPABILITY,
+        REPOSITORY_CAPABILITY,
+        AGENT_CAPABILITY,
+    ):
+        for adapter in capability.adapters:
+            installed = paths.package_root / "adapters" / adapter.layer / adapter.name
+            if capability.name in {"api", "mcp"} or installed.is_dir():
+                scaffold_adapter_blueprint(target_dir, paths, adapter)
+    guide = target_dir / "AGENTS.md"
+    if not guide.exists():
+        guide.write_text(
+            "# Generated service architecture\n\n"
+            "Keep domain/application/adapters/infrastructure boundaries and the complete "
+            "adapter layout. Read each adapter README before adding a component.\n\n"
+            "Map transport DTOs to typed application Command/Query, invoke the inbound port, "
+            "then present its Result. Compose concrete dependencies only in infrastructure.\n\n"
+            "All extension folders are present upfront. Existing files are developer-owned; "
+            "only *_generated.py files are CLI-owned. Test transport contracts and graph "
+            "branches/checkpoint compatibility when changing behavior.\n",
+            encoding="utf-8",
+        )
 
 
 def _write_runtime_files(target_dir: Path, *, api_port: int, mcp_port: int) -> None:

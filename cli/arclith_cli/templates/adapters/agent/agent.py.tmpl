@@ -1,0 +1,10 @@
+"""Stable LangGraph deployment entrypoint. Graph composition lives in graph.py."""
+
+from arclith import Arclith
+
+from $adapter_import.context import AgentContext
+from $adapter_import.graph import register_agent
+from $adapter_import.state import AgentState
+
+arclith = Arclith("config")
+agent = arclith.langgraph(AgentState, register_agent, name="$graph_name", context_schema=AgentContext)

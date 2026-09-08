@@ -1,0 +1,12 @@
+"""Inert runnable example. Replace it with a thin application port invocation."""
+
+from langgraph.config import get_stream_writer
+
+from $adapter_import.state import AgentState
+
+
+async def run_example(state: AgentState) -> AgentState:
+    """Return a patch; unchanged messages are not emitted a second time."""
+    writer = get_stream_writer()
+    writer({"kind": "progress", "stage": "agent.started", "message": "Agent node started."})
+    return {"state_version": state.get("state_version", 1)}

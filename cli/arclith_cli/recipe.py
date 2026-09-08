@@ -36,6 +36,7 @@ _SUPPORTED_COMMANDS = {
     "add-entity",
     "add-usecase",
     "add-intent-interpreter",
+    "expose-usecase",
 }
 _SENSITIVE_NAME_RE = re.compile(
     r"(?:^|_)(?:password|passwd|secret|token|api_key|apikey|credential)(?:$|_)",
@@ -347,6 +348,11 @@ def _execute_step(
             project_dir=target_dir,
             intent_name=str(args["intent"]),
         )
+        return
+    if step.command == "expose-usecase":
+        from arclith_cli.usecase_binding import apply_binding, plan_binding
+
+        apply_binding(plan_binding(target_dir, **args))
         return
     if step.command == "add-adapter":
         from arclith_cli.add_adapter import add_adapter_cmd

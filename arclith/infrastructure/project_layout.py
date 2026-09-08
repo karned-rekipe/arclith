@@ -135,6 +135,31 @@ class ProjectLayout:
         """Return importable package paths expected in the built wheel."""
         return (self.package_root,)
 
+    def scaffold_directories(self) -> tuple[PurePosixPath, ...]:
+        """Complete importable project shell shared by CLI and layout validation."""
+        return (
+            self.package_root,
+            self.domain,
+            self.domain_models,
+            self.domain / "events",
+            self.domain / "value_objects",
+            self.domain_ports,
+            self.inbound_ports,
+            self.outbound_ports,
+            self.application,
+            self.application_use_cases,
+            self.application_services,
+            self.application / "workflows",
+            self.application / "intent_interpreters",
+            self.adapters,
+            self.inbound_adapters,
+            self.outbound_adapters,
+            self.bidirectional_adapters,
+            self.infrastructure,
+            self.infrastructure / "containers",
+            self.infrastructure / "bootstrap",
+        )
+
     def import_path(self, *parts: str) -> str:
         """Return a dotted import path inside the application package."""
         return ".".join((self.package_name, *parts))

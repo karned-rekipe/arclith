@@ -1,0 +1,19 @@
+"""Graph topology only: explicit nodes, edges, routing and runtime policies."""
+
+from arclith import Arclith
+from langgraph.graph import END, START, StateGraph
+
+from $adapter_import.context import AgentContext
+from $adapter_import.nodes.example import run_example
+from $adapter_import.state import AgentState
+
+
+def register_agent(builder: StateGraph[AgentState, AgentContext], app: Arclith) -> None:
+    """Replace the inert example with application-backed nodes.
+
+    Construct process dependencies from app here; per-invocation values belong
+    to AgentContext. Do not construct a second global Arclith in node modules.
+    """
+    builder.add_node("example", run_example)
+    builder.add_edge(START, "example")
+    builder.add_edge("example", END)

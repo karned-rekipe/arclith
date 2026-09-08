@@ -7,6 +7,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from .adapter_blueprints import render_feature_blueprint, write_missing_files
 from .entity_scanner import EntityInfo, scan_entities
 from .project_paths import ProjectPaths, detect_project_paths
 from .rename import EntityNames
@@ -74,16 +75,43 @@ def add_entity_cmd(*, project_dir: Path | None = None, entity_name: str) -> Path
     names = EntityNames.from_input(entity_name)
     entity_file = paths.domain_models / f"{names.snake}.py"
     _assert_missing(entity_file, project_dir)
+    features = _plan_entity_features(paths, names.snake)
 
     _ensure_package_dirs(paths, "domain", "models")
     entity_file.write_text(
         render_entity_template(class_name=names.pascal), encoding="utf-8"
     )
+    for root, rendered in features:
+        write_missing_files(root, rendered)
     console.print(
         f"[green]✓[/green] Entité {names.pascal} créée : "
         f"[bold]{entity_file.relative_to(project_dir)}[/bold]"
     )
     return entity_file
+
+
+def _plan_entity_features(
+    paths: ProjectPaths, feature: str
+) -> list[tuple[Path, dict[str, str]]]:
+    """Prepare all native roles before an installed transport needs an operation."""
+    planned: list[tuple[Path, dict[str, str]]] = []
+    for kind in ("fastapi", "fastmcp"):
+        root = paths.package_root / "adapters" / "inbound" / kind
+        if not root.is_dir():
+            continue
+        rendered = render_feature_blueprint(kind, feature, paths.package_name or "")
+        for relative in rendered:
+            destination = root / relative
+            for parent in (destination.parent, *destination.parent.parents):
+                if parent == root:
+                    break
+                if parent.is_file() or parent.with_suffix(".py").is_file():
+                    console.print(
+                        f"[red]✗[/red] Feature package conflicts with existing module: {parent}"
+                    )
+                    raise typer.Exit(1)
+        planned.append((root, rendered))
+    return planned
 
 
 def add_usecase_cmd(

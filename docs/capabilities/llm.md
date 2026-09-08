@@ -1,5 +1,9 @@
 # Capability LLM
 
+Le CLI crée dès l'installation tous les fichiers et packages du [blueprint complet
+de cette capability](../deep-dives/adapter-blueprints.md), avec des repères pour les
+développeurs et les IA. Les fichiers existants sont préservés lors d'une relance.
+
 Configuration du modèle utilisé par les interpréteurs d'intention et agents.
 
 ## Objectif

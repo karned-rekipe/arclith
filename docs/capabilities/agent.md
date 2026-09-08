@@ -1,5 +1,9 @@
 # Capability Agent
 
+Le CLI crée dès l'installation tous les fichiers et packages du [blueprint complet
+de cette capability](../deep-dives/adapter-blueprints.md), avec des repères pour les
+développeurs et les IA. Les fichiers existants sont préservés lors d'une relance.
+
 Runtime agent basé sur LangGraph.
 
 ## Objectif
@@ -26,6 +30,13 @@ arclith-cli add-adapter --capability agent --adapter langgraph --yes
 langgraph.json
 config/adapters/inbound/langgraph.yaml
 src/<package>/adapters/inbound/langgraph/agent.py
+src/<package>/adapters/inbound/langgraph/graph.py
+src/<package>/adapters/inbound/langgraph/state.py
+src/<package>/adapters/inbound/langgraph/context.py
+src/<package>/adapters/inbound/langgraph/dependencies.py
+src/<package>/adapters/inbound/langgraph/routing.py
+src/<package>/adapters/inbound/langgraph/{nodes,contracts,capabilities,subgraphs,tools,prompts}/
+src/<package>/adapters/inbound/langgraph/{parsers,presenters,policies,persistence,shared}/
 ```
 
 ## Configuration Générée
@@ -52,37 +63,23 @@ stream_mode: "updates"
 ## Créer Un Graphe
 
 ```python
-from typing import Any, TypedDict
-
+# agent.py : façade de déploiement stable
 from arclith import Arclith
-from langgraph.config import get_stream_writer
-from langgraph.graph import END, START
-
-
-class AgentState(TypedDict, total=False):
-    messages: list[dict[str, Any]]
-
+from my_service.adapters.inbound.langgraph.context import AgentContext
+from my_service.adapters.inbound.langgraph.graph import register_agent
+from my_service.adapters.inbound.langgraph.state import AgentState
 
 arclith = Arclith("config")
-
-
-async def run_agent(state: AgentState) -> AgentState:
-    writer = get_stream_writer()
-    writer({"kind": "progress", "stage": "agent.started", "message": "Agent node started."})
-    return state
-
-
-def register_agent(builder: Any, app: Arclith) -> None:
-    builder.add_node("agent", run_agent)
-    builder.add_edge(START, "agent")
-    builder.add_edge("agent", END)
-
-
-agent = arclith.langgraph(AgentState, register_agent, name="agent")
+agent = arclith.langgraph(
+    AgentState, register_agent, name="agent", context_schema=AgentContext
+)
 ```
 
-Le template généré est volontairement minimal. Le projet remplace ensuite
-`AgentState`, les nodes et les edges par son propre parcours.
+La topologie vit dans `graph.py`, les fonctions de nodes dans `nodes/`, et les
+comportements conversationnels dans `capabilities/`. Tous ces packages existent
+dès le scaffold. Le node `example` initial est inerte et retourne uniquement un
+patch de version d'état. Les messages utilisent le reducer `add_messages` : ne
+pas réémettre systématiquement toute la conversation.
 
 ## Threads Et Mémoire Durable
 

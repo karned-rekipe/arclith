@@ -12,6 +12,8 @@ from rich.table import Table
 
 from . import __version__
 from .add_adapter import add_adapter_cmd
+from .adapter_blueprints import blueprint_digest, get_adapter_blueprint
+from .binding_cli import expose_usecase_command
 from .capabilities import CAPABILITY_CATALOG, capability_catalog_as_dict
 from .core_scaffold import add_entity_cmd, add_intent_interpreter_cmd, add_usecase_cmd
 from .export_config import export_config_cmd
@@ -37,6 +39,7 @@ app = typer.Typer(
 console = Console()
 app.command(name="history")(history_command)
 app.command(name="replay")(replay_command)
+app.command(name="expose-usecase")(expose_usecase_command)
 
 _ENTITY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
 _PROJECT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
@@ -164,9 +167,7 @@ def add_adapter(
         typer.Option(
             "--capability",
             help=(
-                "Capacité cible: repository, cache, logger, secrets, api, mcp, probe, http, "
-                "command-bus, runtime, auth, tenant, license, llm, embedding, vector-store, agent, "
-                "agent-persistence ou observability"
+                "Capacité cible: " + ", ".join(item.name for item in CAPABILITY_CATALOG)
             ),
         ),
     ] = "repository",
@@ -227,6 +228,13 @@ def add_adapter(
             help="Utiliser les valeurs fournies ou par défaut sans confirmation",
         ),
     ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Afficher le scaffold sans modifier les fichiers ou la recette.",
+        ),
+    ] = False,
     no_record: Annotated[
         bool,
         typer.Option(
@@ -238,7 +246,9 @@ def add_adapter(
 ) -> None:
     """Wizard ou mode direct pour scaffolder un nouvel [bold]adapter[/bold] dans le projet courant."""
     project_dir = Path.cwd()
-    before = snapshot_project_files(project_dir) if not no_record else {}
+    before = (
+        snapshot_project_files(project_dir) if not no_record and not dry_run else {}
+    )
     result = add_adapter_cmd(
         project_dir=project_dir,
         capability_name=capability,
@@ -252,8 +262,10 @@ def add_adapter(
         adapter_params=_parse_param_options(param),
         profile=profile,
         yes=yes,
+        dry_run=dry_run,
     )
-    if not no_record:
+    if not no_record and not dry_run:
+        blueprint = get_adapter_blueprint(result.adapter)
         secret_fields, secret_references = adapter_secret_metadata(result.adapter)
         _record_success(
             project_dir,
@@ -265,6 +277,8 @@ def add_adapter(
                 "activate": result.activate,
                 "profile": result.profile,
                 "params": result.params,
+                "blueprint_version": blueprint.version,
+                "template_digest": blueprint_digest(blueprint),
             },
             before=before,
             secret_fields=secret_fields,
