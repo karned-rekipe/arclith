@@ -52,7 +52,7 @@ class AdapterCommandResult:
 def add_adapter_cmd(
     *,
     project_dir: Path | None = None,
-    capability_name: str = "repository",
+    capability_name: str | None = "repository",
     adapter: str | None = None,
     entity_names: list[str] | None = None,
     all_entities: bool = False,
@@ -70,7 +70,7 @@ def add_adapter_cmd(
 
     _assert_arclith_project(project_dir)
 
-    capability = _resolve_capability(capability_name)
+    capability = _resolve_capability(capability_name, adapter_name=adapter)
     adapter_spec = _resolve_adapter_type(capability, adapter)
     _assert_capability_prerequisites(project_dir, adapter_spec)
     adapter = adapter_spec.name

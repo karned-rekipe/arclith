@@ -31,7 +31,14 @@ arclith-cli init todo-list-service
 cd todo-list-service
 arclith-cli add-entity Todo
 arclith-cli add-usecase CreateTodo --entity Todo
+arclith-cli add-adapter --capability api --adapter fastapi --yes
+arclith-cli expose-usecase create-todo --via fastapi --feature todos \
+  --path /v1/todos --method POST --status-code 201
 ```
+
+`init` n'installe aucun transport. La commande `add-adapter` ci-dessus ajoute le
+blueprint et l'extra FastAPI à la demande ; utiliser `mcp/fastmcp` de la même
+manière uniquement si le service expose aussi MCP.
 
 Chaque commande mutante réussie enrichit `arclith.recipe.yaml`. Ce fichier
 versionné conserve les décisions de scaffolding sans remplacer Git et sans

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import typer
 
+from arclith_cli.add_adapter import add_adapter_cmd
 from arclith_cli.core_scaffold import (
     add_entity_cmd,
     add_intent_interpreter_cmd,
@@ -67,9 +68,10 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
     assert (generated / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     ) == ("logger: console\nrepository: memory\nobservability:\n  enabled: []\n")
-    assert "arclith[fastapi,mcp]>=0.24.0" in (generated / "pyproject.toml").read_text(
-        encoding="utf-8"
-    )
+    pyproject = (generated / "pyproject.toml").read_text(encoding="utf-8")
+    assert '"arclith>=0.24.0"' in pyproject
+    assert "arclith[fastapi" not in pyproject
+    assert "arclith[mcp" not in pyproject
     assert (package_root / "domain" / "models" / "__init__.py").exists()
     assert (package_root / "domain" / "ports" / "inbound" / "__init__.py").exists()
     assert (package_root / "domain" / "ports" / "outbound" / "__init__.py").exists()
@@ -79,6 +81,9 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
     assert sorted(
         path.name for path in (package_root / "domain" / "models").glob("*.py")
     ) == ["__init__.py"]
+    assert not (package_root / "adapters" / "inbound" / "fastapi").exists()
+    assert not (package_root / "adapters" / "inbound" / "fastmcp").exists()
+    assert not (generated / ".arclith" / "blueprints").exists()
 
     dockerfile = (generated / "Dockerfile").read_text(encoding="utf-8")
     dockerignore = (generated / ".dockerignore").read_text(encoding="utf-8")
@@ -125,11 +130,17 @@ def test_init_project_refuses_existing_directory(tmp_path: Path) -> None:
         init_project_cmd(project_name="todo-list-service", directory=tmp_path)
 
 
-def test_new_entity_prepares_complete_installed_transport_features(
+def test_new_entity_prepares_only_installed_transport_features(
     tmp_path: Path,
 ) -> None:
     project = init_project_cmd(project_name="feature-service", directory=tmp_path)
     root = project / "src/feature_service/adapters/inbound"
+    add_adapter_cmd(
+        project_dir=project,
+        capability_name="api",
+        adapter="fastapi",
+        yes=True,
+    )
     customized = root / "fastapi/routers/v1/shopping_item/schemas.py"
     customized.parent.mkdir(parents=True)
     customized.write_text("# Developer-owned contract\n")
@@ -139,15 +150,19 @@ def test_new_entity_prepares_complete_installed_transport_features(
     for module in ("router", "schemas", "mappers", "presenters", "openapi"):
         assert (root / f"fastapi/routers/v1/shopping_item/{module}.py").is_file()
     assert (root / "fastapi/routers/v1/shopping_item/routes/README.md").is_file()
-    for role in ("tools", "resources", "prompts"):
-        assert (root / f"fastmcp/features/shopping_item/{role}/__init__.py").is_file()
-        assert (root / f"fastmcp/features/shopping_item/{role}/README.md").is_file()
+    assert not (root / "fastmcp").exists()
     assert customized.read_text() == "# Developer-owned contract\n"
     assert "shopping_item" not in (root / "fastapi/routers/v1/router.py").read_text()
 
 
 def test_entity_feature_collision_fails_before_creating_entity(tmp_path: Path) -> None:
     project = init_project_cmd(project_name="collision-service", directory=tmp_path)
+    add_adapter_cmd(
+        project_dir=project,
+        capability_name="api",
+        adapter="fastapi",
+        yes=True,
+    )
     root = project / "src/collision_service"
     conflict = root / "adapters/inbound/fastapi/routers/v1/todo.py"
     conflict.write_text("# Existing developer module\n")

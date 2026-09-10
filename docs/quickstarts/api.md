@@ -1,11 +1,10 @@
 # Quickstart API
 
-Créer un service et vérifier l'API locale.
+Créer un service, ajouter explicitement FastAPI, puis exposer un cas d'usage.
 
-`init` crée immédiatement `middleware/`, `contracts/` et
-`routers/v1/example/{routes/,router.py,schemas.py,mappers.py,presenters.py,openapi.py}`.
-Le [contrat complet](../deep-dives/adapter-blueprints.md#fastapi) guide le rangement ;
-l'exemple n'expose aucune route métier tant qu'un use case n'a pas été lié.
+`init` ne crée aucun transport. `add-adapter` installe l'extra `arclith[fastapi]` et le
+[blueprint FastAPI complet](../deep-dives/adapter-blueprints.md#fastapi) uniquement lorsque l'API
+est choisie.
 
 ## Prérequis
 
@@ -17,7 +16,23 @@ l'exemple n'expose aucune route métier tant qu'un use case n'a pas été lié.
 ```bash
 uvx --from arclith-cli arclith-cli init todo-api --dir .
 cd todo-api
+arclith-cli add-entity Todo
+arclith-cli add-usecase CreateTodo --entity Todo
+arclith-cli add-adapter --capability repository --adapter memory --entity Todo --yes
+arclith-cli add-adapter --capability api --adapter fastapi --yes
+arclith-cli expose-usecase create-todo --via fastapi --feature todos \
+  --path /v1/todos --method POST --status-code 201
 uv sync
+```
+
+Compléter ensuite les champs de `Todo` et `CreateTodoCommand`, implémenter
+`CreateTodoUseCase.execute`, puis fournir cette instance au registre
+`adapters.inbound.fastapi.bindings_generated.register` depuis le composition root. Cette liaison
+reste explicite afin que le CLI n'invente ni repository ni politique transactionnelle.
+
+Lancer l'API :
+
+```bash
 MODE=api uv run python main.py
 ```
 
@@ -31,7 +46,7 @@ curl -fsS http://127.0.0.1:8000/docs
 ## Résultat
 
 - `/health` retourne `{"status":"ok"}`.
-- Swagger UI s'ouvre sur `/docs`.
+- Swagger UI s'ouvre sur `/docs` et la route liée apparaît après composition du use case.
 
 ## Erreur Fréquente
 

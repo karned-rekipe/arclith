@@ -43,6 +43,13 @@ def project(tmp_path, monkeypatch):
     (package / "domain/ports/inbound/create_todo.py").write_text(
         PORT_SOURCE, encoding="utf-8"
     )
+    for capability, adapter in (("api", "fastapi"), ("mcp", "fastmcp")):
+        add_adapter_cmd(
+            project_dir=root,
+            capability_name=capability,
+            adapter=adapter,
+            yes=True,
+        )
     monkeypatch.syspath_prepend(str(root / "src"))
     monkeypatch.chdir(root)
     yield root

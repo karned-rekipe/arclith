@@ -11,10 +11,12 @@ cd todo-service
 arclith-cli add-entity Todo
 arclith-cli add-usecase CreateTodo --entity Todo
 # Définir les champs de CreateTodoCommand et implémenter le use case.
+arclith-cli add-adapter --capability api --adapter fastapi --yes
 arclith-cli expose-usecase create-todo --via fastapi --feature todos \
   --path /v1/todos --method POST --status-code 201 --dry-run
 arclith-cli expose-usecase create-todo --via fastapi --feature todos \
   --path /v1/todos --method POST --status-code 201
+arclith-cli add-adapter --capability mcp --adapter fastmcp --yes
 arclith-cli expose-usecase create-todo --via fastmcp --feature todos
 arclith-cli add-adapter --capability agent --adapter langgraph --yes
 arclith-cli expose-usecase create-todo --via langgraph --feature todos

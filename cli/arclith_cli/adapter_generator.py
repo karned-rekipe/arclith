@@ -247,8 +247,7 @@ def _ensure_entity_dependencies(
     import_vars: dict[str, str],
     entity: EntityInfo,
 ) -> None:
-    """Make the incremental repository path importable without a starter sample."""
-    variables = {"pascal": entity.pascal, "snake": entity.snake, **import_vars}
+    """Create shared repository ports and services without adding another adapter."""
     defaults = {
         paths.package_root
         / "domain"
@@ -269,10 +268,6 @@ def _ensure_entity_dependencies(
             f"class {entity.pascal}Service(BaseService[{entity.pascal}]):\n"
             '    """Standard entity operations; custom workflows belong to use cases."""\n'
         ),
-        paths.adapters_outbound
-        / "memory"
-        / "repositories"
-        / f"{entity.snake}_repository.py": render(REPO_PYTHON["memory"], variables),
     }
     for destination, content in defaults.items():
         if destination.exists():

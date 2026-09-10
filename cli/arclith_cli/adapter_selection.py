@@ -8,6 +8,7 @@ from rich.prompt import Prompt
 
 from arclith_cli.adapter_config import ARCLITH_DEPENDENCY_RE, read_yaml_mapping
 from arclith_cli.capabilities import (
+    CAPABILITY_CATALOG,
     AdapterSpec,
     CapabilitySpec,
     capability_names,
@@ -65,7 +66,71 @@ def _assert_capability_prerequisites(
 # ── Step 1 : adapter type ─────────────────────────────────────────────────────
 
 
-def _resolve_capability(capability_name: str) -> CapabilitySpec:
+def _prompt_capability() -> CapabilitySpec:
+    console.print("\n[bold]Catalogue des capabilities[/bold]")
+    for index, capability in enumerate(CAPABILITY_CATALOG, 1):
+        adapters = ", ".join(capability.adapter_names())
+        console.print(
+            f"   [bold cyan]{index}[/bold cyan]  {capability.name} "
+            f"[dim]({adapters}) — {capability.description}[/dim]"
+        )
+
+    while True:
+        raw = Prompt.ask(
+            "\n  Capability [dim](numéro ou nom, ex : api, mcp, repository)[/dim]"
+        ).strip()
+        if raw.isdigit():
+            index = int(raw) - 1
+            if 0 <= index < len(CAPABILITY_CATALOG):
+                return CAPABILITY_CATALOG[index]
+        else:
+            selected = get_capability(raw)
+            if selected is not None:
+                return selected
+        console.print(
+            f"  [red]Choix invalide.[/red] Entrez 1-{len(CAPABILITY_CATALOG)} ou le nom."
+        )
+
+
+def _resolve_capability(
+    capability_name: str | None,
+    *,
+    adapter_name: str | None = None,
+) -> CapabilitySpec:
+    if capability_name is None and adapter_name is None:
+        return _prompt_capability()
+
+    if capability_name is None:
+        matches = [
+            capability
+            for capability in CAPABILITY_CATALOG
+            if capability.get_adapter(adapter_name or "") is not None
+        ]
+        if not matches:
+            adapters = sorted(
+                {
+                    adapter.name
+                    for capability in CAPABILITY_CATALOG
+                    for adapter in capability.adapters
+                }
+            )
+            console.print(
+                f"[red]✗[/red] Adapter inconnu: [bold]{adapter_name}[/bold]. "
+                f"Valeurs: {', '.join(adapters)}."
+            )
+            raise typer.Exit(1)
+        if len(matches) == 1:
+            return matches[0]
+        repository = get_capability("repository")
+        if repository is not None and repository in matches:
+            return repository
+        supported = ", ".join(capability.name for capability in matches)
+        console.print(
+            f"[red]✗[/red] L'adapter [bold]{adapter_name}[/bold] est ambigu. "
+            f"Précisez [bold]--capability[/bold] parmi : {supported}."
+        )
+        raise typer.Exit(1)
+
     capability = get_capability(capability_name)
     if capability is not None:
         return capability

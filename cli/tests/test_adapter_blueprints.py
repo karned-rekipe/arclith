@@ -71,7 +71,9 @@ def test_complete_feature_names_cannot_escape_the_adapter(tmp_path: Path) -> Non
         write_missing_files(tmp_path, {"../outside.py": ""})
 
 
-def test_init_obeys_layout_and_creates_all_native_roles(tmp_path: Path) -> None:
+def test_init_obeys_layout_and_adapters_create_only_their_native_roles(
+    tmp_path: Path,
+) -> None:
     root = init_project_cmd(project_name="blueprint-service", directory=tmp_path)
     layout = canonical_project_layout("blueprint_service")
     assert all(
@@ -81,8 +83,25 @@ def test_init_obeys_layout_and_creates_all_native_roles(tmp_path: Path) -> None:
     assert (root / "AGENTS.md").is_file()
     fastapi = root / layout.inbound_adapters / "fastapi"
     fastmcp = root / layout.inbound_adapters / "fastmcp"
+    assert not fastapi.exists()
+    assert not fastmcp.exists()
+
+    add_adapter_cmd(
+        project_dir=root,
+        capability_name="api",
+        adapter="fastapi",
+        yes=True,
+    )
     assert (fastapi / "routers/v1/example/openapi.py").is_file()
     assert (fastapi / "routers/v1/example/routes/README.md").is_file()
+    assert not fastmcp.exists()
+
+    add_adapter_cmd(
+        project_dir=root,
+        capability_name="mcp",
+        adapter="fastmcp",
+        yes=True,
+    )
     assert (fastmcp / "features/example/prompts/README.md").is_file()
     assert (fastmcp / "features/example/resources/README.md").is_file()
     assert (fastmcp / "features/example/tools/README.md").is_file()

@@ -1,8 +1,9 @@
 # Capability API
 
-Le CLI crée dès l'installation tous les fichiers et packages du [blueprint complet
-de cette capability](../deep-dives/adapter-blueprints.md), avec des repères pour les
-développeurs et les IA. Les fichiers existants sont préservés lors d'une relance.
+Le CLI crée les fichiers et packages du [blueprint complet de cette
+capability](../deep-dives/adapter-blueprints.md) uniquement lorsque `api/fastapi` est ajouté.
+Il ajoute alors l'extra `arclith[fastapi]`. Les fichiers existants sont préservés lors d'une
+relance.
 
 Transport HTTP REST exposé via FastAPI.
 

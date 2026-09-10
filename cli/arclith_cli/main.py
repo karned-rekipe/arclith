@@ -33,6 +33,7 @@ from .updater import run_update
 app = typer.Typer(
     name="arclith-cli",
     help="Scaffold [bold]arclith[/bold] hexagonal projects from the official template.",
+    invoke_without_command=True,
     no_args_is_help=False,
     rich_markup_mode="rich",
 )
@@ -43,6 +44,13 @@ app.command(name="expose-usecase")(expose_usecase_command)
 
 _ENTITY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
 _PROJECT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
+
+
+@app.callback()
+def main(ctx: typer.Context) -> None:
+    """Afficher l'aide quand aucune commande n'est fournie."""
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
 
 
 @app.command()
@@ -163,14 +171,14 @@ def version() -> None:
 @app.command(name="add-adapter")
 def add_adapter(
     capability: Annotated[
-        str,
+        str | None,
         typer.Option(
             "--capability",
             help=(
                 "Capacité cible: " + ", ".join(item.name for item in CAPABILITY_CATALOG)
             ),
         ),
-    ] = "repository",
+    ] = None,
     adapter: Annotated[
         str | None,
         typer.Option("--adapter", "-a", help="Adapter à générer depuis le catalogue"),
