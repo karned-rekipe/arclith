@@ -414,7 +414,7 @@ def _render_contract_test(
             "        if field not in path_parameters\n"
             "    ]\n"
             '    if not application["required"]:\n'
-            '        application.pop("required")\n'
+            '        application.pop("required", None)\n'
         )
     return (
         '"""Detect application input drift after the initial transport snapshot.\n\n'

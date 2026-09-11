@@ -73,12 +73,14 @@ def render_contract(
         f"type {aliases[parameter]} = {path_annotations[parameter].render()}\n"
         for parameter in path_parameters
     )
-    application_payload = "request.model_dump()"
+    application_payload = "request.model_dump(exclude_unset=True)"
     if path_parameters:
         overrides = ", ".join(
             f"{json.dumps(parameter)}: {parameter}" for parameter in path_parameters
         )
-        application_payload = f"{{**request.model_dump(), {overrides}}}"
+        application_payload = (
+            f"{{**request.model_dump(exclude_unset=True), {overrides}}}"
+        )
     mapper_parameters = "".join(
         f", {parameter}: {aliases[parameter]}" for parameter in path_parameters
     )

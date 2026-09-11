@@ -294,7 +294,7 @@ def _implementation_dependency(
     imported_entity = _imported_symbol(tree, module, entity_alias)
     if imported_entity is None:
         raise ValueError(f"Cannot resolve repository entity {entity_alias!r}")
-    return (None, True) if dependency == "BaseService" else (imported_entity, False)
+    return imported_entity, dependency == "BaseService"
 
 
 def _module_for_path(paths: ProjectPaths, path: Path) -> str:

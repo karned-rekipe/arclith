@@ -480,6 +480,45 @@ def test_nullable_scalar_path_annotations_are_supported_consistently(
     assert plan.options.http_path == "/v1/todos/{uuid}"
 
 
+def test_optional_path_field_without_required_schema_passes_generated_drift_guard(
+    project,
+):
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        "from uuid import UUID\nfrom pydantic import BaseModel, Field",
+    ).replace(
+        "title: str = Field(min_length=1)",
+        "uuid: UUID | None = None",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+    apply_binding(
+        plan_binding(
+            project,
+            "create-todo",
+            via="fastapi",
+            http_path="/v1/todos/{uuid}",
+        )
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/adapters/fastapi/test_create_todo_contract.py",
+            "-q",
+        ],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(project / "src")},
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_aliased_path_field_uses_its_python_name_in_the_drift_guard(project):
     source = PORT_SOURCE.replace(
         "from pydantic import BaseModel, Field",

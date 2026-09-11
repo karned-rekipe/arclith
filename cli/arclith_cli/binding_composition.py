@@ -138,6 +138,7 @@ def _feature_module(entries: list[dict], feature: str) -> str:
 
 def render_composition(entries: list[dict]) -> str:
     """Render one process composition shared by every installed transport."""
+    _validate_repository_ownership(entries)
     repositories = _repository_bindings(entries)
     containers = _container_bindings(entries)
     lines = [
@@ -271,6 +272,8 @@ def _repository_bindings(
     bindings: dict[tuple[str, str], tuple[str, str]] = {}
     for entry in entries:
         factory = entry["factory"]
+        if factory.get("container") is not None:
+            continue
         entity = factory["repository_entity"]
         module = factory["repository_entity_module"]
         if entity is None or module is None:
@@ -284,6 +287,32 @@ def _repository_bindings(
             ),
         )
     return bindings
+
+
+def _validate_repository_ownership(entries: list[dict]) -> None:
+    owners: dict[tuple[str, str], set[tuple[str, str] | None]] = {}
+    for entry in entries:
+        factory = entry["factory"]
+        module = factory["repository_entity_module"]
+        entity = factory["repository_entity"]
+        if module is None or entity is None:
+            continue
+        container = factory.get("container")
+        owner = (
+            (container["module"], container["builder"])
+            if container is not None
+            else None
+        )
+        owners.setdefault((module, entity), set()).add(owner)
+    ambiguous = sorted(
+        key for key, entity_owners in owners.items() if len(entity_owners) > 1
+    )
+    if ambiguous:
+        labels = ", ".join(f"{module}.{entity}" for module, entity in ambiguous)
+        raise ValueError(
+            "Repository ownership cannot mix feature containers and isolated use "
+            f"cases for the same entity: {labels}"
+        )
 
 
 def _container_bindings(

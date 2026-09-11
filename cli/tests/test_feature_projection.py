@@ -16,7 +16,7 @@ from typer.testing import CliRunner
 from arclith import Arclith
 from arclith_cli.add_adapter import add_adapter_cmd
 from arclith_cli.blueprint_generation import add_application_blueprint_cmd
-from arclith_cli.core_scaffold import add_entity_cmd
+from arclith_cli.core_scaffold import add_entity_cmd, add_usecase_cmd
 from arclith_cli.feature_projection import (
     apply_feature_projection,
     plan_feature_projection,
@@ -24,6 +24,7 @@ from arclith_cli.feature_projection import (
 from arclith_cli.init_project import init_project_cmd
 from arclith_cli.main import app
 from arclith_cli.recipe import load_recipe, replay_recipe
+from arclith_cli.usecase_binding import apply_binding, plan_binding
 
 runner = CliRunner()
 
@@ -151,6 +152,34 @@ def test_crud_feature_projection_executes_all_routes_and_error_mappings(
 ) -> None:
     project = _project(tmp_path, "runtime-feature-api")
     _install_fastapi(project)
+    entity = project / "src/runtime_feature_api/domain/models/todo.py"
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            "    pass\n",
+            "    title: str | None = None\n",
+        ),
+        encoding="utf-8",
+    )
+    create_port = (
+        project / "src/runtime_feature_api/domain/ports/inbound/create_todo.py"
+    )
+    create_port.write_text(
+        create_port.read_text(encoding="utf-8").replace(
+            "    pass\n",
+            "    title: str | None = None\n",
+        ),
+        encoding="utf-8",
+    )
+    update_port = (
+        project / "src/runtime_feature_api/domain/ports/inbound/update_todo.py"
+    )
+    update_port.write_text(
+        update_port.read_text(encoding="utf-8").replace(
+            "    version: int = Field(ge=1)\n",
+            "    version: int = Field(ge=1)\n    title: str | None = None\n",
+        ),
+        encoding="utf-8",
+    )
     apply_feature_projection(
         plan_feature_projection(
             project,
@@ -173,7 +202,7 @@ def test_crud_feature_projection_executes_all_routes_and_error_mappings(
     )
     client = TestClient(application)
 
-    created = client.post("/v1/todos", json={})
+    created = client.post("/v1/todos", json={"title": "Preserved"})
     assert created.status_code == 201
     item = created.json()["item"]
     assert item["version"] == 1
@@ -191,6 +220,7 @@ def test_crud_feature_projection_executes_all_routes_and_error_mappings(
     updated = client.patch(f"/v1/todos/{uuid}", json={"version": 1})
     assert updated.status_code == 200
     assert updated.json()["item"]["version"] == 2
+    assert updated.json()["item"]["title"] == "Preserved"
 
     conflict = client.patch(f"/v1/todos/{uuid}", json={"version": 1})
     assert conflict.status_code == 409
@@ -349,6 +379,45 @@ def test_feature_projection_rejects_incompatible_builder_signatures_before_write
 
     assert _snapshot(project) == before
     assert not (project / ".arclith/bindings/fastapi.json").exists()
+
+
+@pytest.mark.parametrize("feature_first", [False, True])
+def test_feature_and_isolated_usecase_cannot_own_separate_entity_repositories(
+    tmp_path: Path,
+    feature_first: bool,
+) -> None:
+    project = _project(tmp_path)
+    _install_fastapi(project)
+    add_usecase_cmd(
+        project_dir=project,
+        usecase_name="ArchiveTodo",
+        entity_name="Todo",
+    )
+
+    def isolated():
+        return plan_binding(
+            project,
+            "archive-todo",
+            via="fastapi",
+            feature="admin",
+            http_path="/v1/admin/archive",
+        )
+
+    def feature():
+        return plan_feature_projection(
+            project,
+            feature_name="todo",
+            via="fastapi",
+            http_path="/v1/todos",
+        )
+
+    apply_binding(feature().binding_plan if feature_first else isolated())
+    before = _snapshot(project)
+
+    with pytest.raises(ValueError, match="Repository ownership"):
+        feature() if not feature_first else isolated()
+
+    assert _snapshot(project) == before
 
 
 @pytest.mark.parametrize(
