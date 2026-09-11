@@ -64,7 +64,7 @@ wheels = [
 
 [[package]]
 name = "arclith"
-version = "0.24.0"
+version = "0.25.0"
 source = { editable = "../" }
 dependencies = [
     { name = "fastapi" },
@@ -199,7 +199,7 @@ docs = [
 
 [[package]]
 name = "arclith-cli"
-version = "0.21.0"
+version = "0.22.0"
 source = { editable = "." }
 dependencies = [
     { name = "arclith" },
