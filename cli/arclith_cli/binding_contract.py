@@ -453,7 +453,7 @@ def _path_annotation(node: ast.expr) -> bool:
     if isinstance(node, ast.Constant):
         return False
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
-        return _path_annotation(node.left) and _path_annotation(node.right)
+        return _path_union((node.left, node.right))
     if not isinstance(node, ast.Subscript):
         return False
     name = node.value.id if isinstance(node.value, ast.Name) else ""
@@ -467,8 +467,20 @@ def _path_annotation(node: ast.expr) -> bool:
             for value in args
         )
     if name in {"Optional", "Union"}:
-        return all(_path_annotation(value) for value in args)
+        return _path_union(tuple(args))
     return False
+
+
+def _path_union(nodes: tuple[ast.expr, ...]) -> bool:
+    members = [
+        node
+        for node in nodes
+        if not (
+            isinstance(normalized := _annotation(node), ast.Constant)
+            and normalized.value is None
+        )
+    ]
+    return bool(members) and all(_path_annotation(node) for node in members)
 
 
 def _query_generic(node: ast.Subscript) -> bool:

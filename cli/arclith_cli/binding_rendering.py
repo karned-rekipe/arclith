@@ -62,8 +62,9 @@ def render_contract(
     if len(declaration.body) == 2 and isinstance(declaration.body[-1], ast.Pass):
         model = model.replace("\n    pass", "\n\n    pass")
     field_types = dict(contract.request_fields)
+    aliases = _path_aliases(contract, path_parameters)
     path_aliases = "".join(
-        f"type {_path_alias(parameter)} = {field_types[parameter]}\n"
+        f"type {aliases[parameter]} = {field_types[parameter]}\n"
         for parameter in path_parameters
     )
     application_payload = "request.model_dump()"
@@ -73,7 +74,7 @@ def render_contract(
         )
         application_payload = f"{{**request.model_dump(), {overrides}}}"
     mapper_parameters = "".join(
-        f", {parameter}: {_path_alias(parameter)}" for parameter in path_parameters
+        f", {parameter}: {aliases[parameter]}" for parameter in path_parameters
     )
     return (
         '"""Developer-owned transport contract snapshot and pure application mapping."""\n\n'
@@ -119,17 +120,14 @@ def render_binding(
     # Result names are exported by their owning application port, not re-exported
     # through the transport contract module.
     port_names = (contract.port,)
+    path_parameters = (
+        http_path_parameters(options.http_path) if options.via == "fastapi" else ()
+    )
+    path_aliases = _path_aliases(contract, path_parameters)
     contract_names = (
         contract.transport_request,
         "to_application",
-        *(
-            _path_alias(parameter)
-            for parameter in (
-                http_path_parameters(options.http_path)
-                if options.via == "fastapi"
-                else ()
-            )
-        ),
+        *(path_aliases[parameter] for parameter in path_parameters),
         *(
             (contract.transport_response, "present_result")
             if options.via != "rabbitmq"
@@ -180,8 +178,9 @@ def _fastapi(
     )
     definition = "async def" if contract.asynchronous else "def"
     route_path = options.http_path.removeprefix("/v1")
+    path_aliases = _path_aliases(contract, path_parameters)
     parameters = [
-        f"{parameter}: {_path_alias(parameter)}" for parameter in path_parameters
+        f"{parameter}: {path_aliases[parameter]}" for parameter in path_parameters
     ]
     if payload_fields:
         parameters.append(f"payload: {annotation}")
@@ -258,8 +257,41 @@ def _error_boundary(
     return lines
 
 
-def _path_alias(parameter: str) -> str:
-    return f"PathParam_{parameter}"
+def _path_aliases(
+    contract: UseCaseContract,
+    parameters: tuple[str, ...],
+) -> dict[str, str]:
+    occupied = _contract_symbols(contract)
+    aliases: dict[str, str] = {}
+    for parameter in parameters:
+        base = f"PathParam_{parameter}"
+        candidate = base
+        suffix = 2
+        while candidate in occupied:
+            candidate = f"{base}_{suffix}"
+            suffix += 1
+        aliases[parameter] = candidate
+        occupied.add(candidate)
+    return aliases
+
+
+def _contract_symbols(contract: UseCaseContract) -> set[str]:
+    sources = (contract.request_source, *contract.response_fields)
+    symbols = {
+        node.id
+        for source in sources
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Name)
+    }
+    symbols.update(
+        {
+            contract.request,
+            contract.transport_request,
+            contract.transport_response,
+            *contract.result_names,
+        }
+    )
+    return symbols
 
 
 def _execute(contract: UseCaseContract, request: str) -> str:

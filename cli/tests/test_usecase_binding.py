@@ -393,6 +393,37 @@ def test_list_fields_cannot_be_mapped_to_one_path_segment(project):
         )
 
 
+@pytest.mark.parametrize(
+    ("annotation", "typing_import"),
+    [("UUID | None", ""), ("Optional[UUID]", "from typing import Optional\n")],
+)
+def test_nullable_scalar_path_annotations_are_supported_consistently(
+    project,
+    annotation,
+    typing_import,
+):
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        f"{typing_import}from uuid import UUID\nfrom pydantic import BaseModel, Field",
+    ).replace(
+        "title: str = Field(min_length=1)",
+        f"uuid: {annotation}",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+
+    plan = plan_binding(
+        project,
+        "create-todo",
+        via="fastapi",
+        http_path="/v1/todos/{uuid}",
+    )
+
+    assert plan.options.http_path == "/v1/todos/{uuid}"
+
+
 def test_aliased_path_field_uses_its_python_name_in_the_drift_guard(project):
     source = PORT_SOURCE.replace(
         "from pydantic import BaseModel, Field",
@@ -502,6 +533,47 @@ def test_path_type_aliases_preserve_the_exact_field_identifier(project):
     assert "type PathParam_foo__bar = UUID" in contract
     compile(contract, str(contract_path), "exec")
     compile(route, str(route_path), "exec")
+
+
+def test_path_type_alias_avoids_imported_application_symbols(project):
+    inbound = project / "src/binding_app/domain/ports/inbound"
+    (inbound / "types.py").write_text(
+        "type PathParam_uuid = str\n",
+        encoding="utf-8",
+    )
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        "from uuid import UUID\n"
+        "from pydantic import BaseModel, Field\n"
+        "from .types import PathParam_uuid",
+    ).replace(
+        "title: str = Field(min_length=1)",
+        "uuid: UUID\n    marker: PathParam_uuid\n    title: str = Field(min_length=1)",
+    )
+    (inbound / "create_todo.py").write_text(source, encoding="utf-8")
+
+    apply_binding(
+        plan_binding(
+            project,
+            "create-todo",
+            via="fastapi",
+            feature="todos",
+            http_path="/v1/todos/{uuid}",
+        )
+    )
+
+    contract = (
+        project / "src/binding_app/adapters/inbound/fastapi/contracts/create_todo.py"
+    ).read_text(encoding="utf-8")
+    route = (
+        project
+        / "src/binding_app/adapters/inbound/fastapi/routers/v1/todos/routes/create_todo.py"
+    ).read_text(encoding="utf-8")
+    assert (
+        "from binding_app.domain.ports.inbound.types import PathParam_uuid" in contract
+    )
+    assert "type PathParam_uuid_2 = UUID" in contract
+    assert "PathParam_uuid_2" in route
 
 
 def test_pydantic_aliases_and_literal_constants_are_preserved(project):
