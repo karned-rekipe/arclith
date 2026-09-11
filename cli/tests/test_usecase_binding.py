@@ -3,9 +3,10 @@
 import importlib
 import json
 import os
+import subprocess
 import sys
 import threading
-import subprocess
+from uuid import uuid4
 
 import pytest
 from fastapi import APIRouter, FastAPI
@@ -260,6 +261,28 @@ def test_invalid_options_are_rejected_before_writes(project, options):
     assert sorted(project.rglob("*")) == before
 
 
+@pytest.mark.parametrize("via", ["fastmcp", "langgraph", "rabbitmq"])
+def test_path_parameters_are_rejected_outside_fastapi(project, via):
+    if via in {"langgraph", "rabbitmq"}:
+        add_adapter_cmd(
+            project_dir=project,
+            capability_name="agent" if via == "langgraph" else "command-bus",
+            adapter=via,
+            yes=True,
+        )
+    before = sorted(project.rglob("*"))
+
+    with pytest.raises(ValueError, match="only by FastAPI"):
+        plan_binding(
+            project,
+            "create-todo",
+            via=via,
+            http_path="/v1/todos/{title}",
+        )
+
+    assert sorted(project.rglob("*")) == before
+
+
 def test_public_route_collision_is_rejected(project):
     apply_binding(
         plan_binding(project, "create-todo", via="fastapi", http_path="/v1/todos")
@@ -303,6 +326,70 @@ def test_real_get_query_maps_lists_and_validation(project):
         }
         assert client.get("/v1/todos?title=").status_code == 422
     assert recorded[0].tags == ["a", "b"]
+
+
+def test_list_fields_cannot_be_mapped_to_one_path_segment(project):
+    path = project / "src/binding_app/domain/ports/inbound/create_todo.py"
+    path.write_text(
+        PORT_SOURCE.replace(
+            "title: str = Field(min_length=1)",
+            "tags: list[str] = []",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="scalar request fields"):
+        plan_binding(
+            project,
+            "create-todo",
+            via="fastapi",
+            http_path="/v1/todos/{tags}",
+        )
+
+
+def test_aliased_path_field_uses_its_python_name_in_the_drift_guard(project):
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        "from uuid import UUID\nfrom pydantic import BaseModel, Field",
+    ).replace(
+        "title: str = Field(min_length=1)",
+        'uuid: UUID = Field(alias="id")\n    title: str = Field(min_length=1)',
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+    registry = _bind(
+        project,
+        "fastapi",
+        http_path="/v1/todos/{uuid}",
+    )
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+    identifier = uuid4()
+
+    with TestClient(api) as client:
+        response = client.post(
+            f"/v1/todos/{identifier}",
+            json={"title": "Aliased path"},
+        )
+
+    assert response.status_code == 200
+    assert use_case.commands[0].uuid == identifier
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/adapters/fastapi/test_create_todo_contract.py",
+            "-q",
+        ],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(project / "src")},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_pydantic_aliases_and_literal_constants_are_preserved(project):

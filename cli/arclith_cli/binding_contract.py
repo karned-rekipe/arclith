@@ -9,6 +9,22 @@ from pathlib import Path
 from arclith_cli.project_paths import ProjectPaths
 from arclith_cli.rename import EntityNames
 
+_SCALAR_ANNOTATIONS = frozenset(
+    {
+        "str",
+        "int",
+        "float",
+        "bool",
+        "bytes",
+        "UUID",
+        "date",
+        "datetime",
+        "time",
+        "timedelta",
+        "Decimal",
+    }
+)
+
 
 @dataclass(frozen=True)
 class UseCaseContract:
@@ -99,8 +115,7 @@ def inspect_usecase(paths: ProjectPaths, raw_name: str) -> UseCaseContract:
         path_compatible_fields=tuple(
             field.target.id
             for field in fields
-            if isinstance(field.target, ast.Name)
-            and _query_annotation(field.annotation)
+            if isinstance(field.target, ast.Name) and _path_annotation(field.annotation)
         ),
         result=ast.unparse(result),
         result_names=tuple(sorted(_loaded_names(result) - set(dir(builtins)))),
@@ -420,25 +435,39 @@ def _validate_declarative_request(request: ast.ClassDef) -> None:
 def _query_annotation(node: ast.expr) -> bool:
     node = _annotation(node)
     if isinstance(node, ast.Name):
-        return node.id in {
-            "str",
-            "int",
-            "float",
-            "bool",
-            "bytes",
-            "UUID",
-            "date",
-            "datetime",
-            "time",
-            "timedelta",
-            "Decimal",
-        }
+        return node.id in _SCALAR_ANNOTATIONS
     if isinstance(node, ast.Constant):
         return node.value is None
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
         return _query_annotation(node.left) and _query_annotation(node.right)
     if isinstance(node, ast.Subscript):
         return _query_generic(node)
+    return False
+
+
+def _path_annotation(node: ast.expr) -> bool:
+    """Accept values FastAPI can decode from one path segment."""
+    node = _annotation(node)
+    if isinstance(node, ast.Name):
+        return node.id in _SCALAR_ANNOTATIONS
+    if isinstance(node, ast.Constant):
+        return False
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        return _path_annotation(node.left) and _path_annotation(node.right)
+    if not isinstance(node, ast.Subscript):
+        return False
+    name = node.value.id if isinstance(node.value, ast.Name) else ""
+    args = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
+    if name == "Annotated":
+        return _path_annotation(args[0])
+    if name == "Literal":
+        return all(
+            isinstance(value, ast.Constant)
+            and isinstance(value.value, (str, int, float, bool))
+            for value in args
+        )
+    if name in {"Optional", "Union"}:
+        return all(_path_annotation(value) for value in args)
     return False
 
 

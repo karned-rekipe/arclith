@@ -124,7 +124,11 @@ def render_binding(
         "to_application",
         *(
             _path_alias(parameter)
-            for parameter in http_path_parameters(options.http_path)
+            for parameter in (
+                http_path_parameters(options.http_path)
+                if options.via == "fastapi"
+                else ()
+            )
         ),
         *(
             (contract.transport_response, "present_result")

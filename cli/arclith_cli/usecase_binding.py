@@ -280,7 +280,7 @@ def _developer_files(
             "contracts/__init__.py": '"""Transport contracts snapshotted from typed application requests."""\n',
             f"contracts/{contract.name}.py": render_contract(
                 contract,
-                http_path_parameters(options.http_path),
+                _binding_path_parameters(options),
             ),
             native_module(contract, options) + ".py": render_binding(
                 contract,
@@ -386,7 +386,7 @@ def _contract_test_files(
                 contract.module,
                 contract.request,
                 contract.transport_request,
-                http_path_parameters(options.http_path),
+                _binding_path_parameters(options),
             )
         }
         _ensure_packages(project_dir, project_dir / "tests", test_files)
@@ -423,13 +423,17 @@ def _render_contract_test(
         f"from {module} import (\n    {request},\n)\n"
         f"from {adapter_import}.contracts.{name} import (\n    {transport},\n)\n\n\n"
         f"def test_{name}_input_contract_has_not_drifted() -> None:\n"
-        f"    application = {request}.model_json_schema()\n"
-        f"    transport = {transport}.model_json_schema()\n"
+        f"    application = {request}.model_json_schema(by_alias=False)\n"
+        f"    transport = {transport}.model_json_schema(by_alias=False)\n"
         + path_parameter_assertions
         + '    application.pop("title", None)\n'
         '    transport.pop("title", None)\n'
         "    assert transport == application\n"
     )
+
+
+def _binding_path_parameters(options: BindingOptions) -> tuple[str, ...]:
+    return http_path_parameters(options.http_path) if options.via == "fastapi" else ()
 
 
 def apply_binding(plan: BindingPlan | BindingBatchPlan) -> tuple[Path, ...]:

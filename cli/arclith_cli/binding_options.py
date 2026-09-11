@@ -83,7 +83,10 @@ def _validate_transport_request(
     method: str,
     path: str,
 ) -> None:
-    path_parameters = http_path_parameters(path) if via == "fastapi" else ()
+    declared_path_parameters = http_path_parameters(path)
+    if via != "fastapi" and declared_path_parameters:
+        raise ValueError("HTTP path parameters are supported only by FastAPI bindings")
+    path_parameters = declared_path_parameters if via == "fastapi" else ()
     unknown = tuple(
         parameter
         for parameter in path_parameters
