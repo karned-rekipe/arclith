@@ -23,7 +23,7 @@ from arclith_cli.binding_rendering import (
     render_binding,
     render_contract,
 )
-from arclith_cli.http_paths import http_path_parameters
+from arclith_cli.http_paths import http_path_parameters, http_route_shape
 from arclith_cli.project_paths import ProjectPaths, detect_project_paths
 
 TRANSPORTS = ("fastapi", "fastmcp", "langgraph", "rabbitmq")
@@ -470,10 +470,10 @@ def _check_collisions(entries: list[dict], entry: dict) -> None:
                 "A binding already owns this public component name or command type"
             )
         if options["via"] == "fastapi" and (
-            options["http_path"],
+            http_route_shape(options["http_path"]),
             options["method"],
-        ) == (previous["http_path"], previous["method"]):
-            raise ValueError("A binding already owns this HTTP method and path")
+        ) == (http_route_shape(previous["http_path"]), previous["method"]):
+            raise ValueError("A binding already owns this HTTP method and path shape")
 
 
 def _ensure_packages(project_dir: Path, root: Path, planned: dict[Path, str]) -> None:

@@ -283,6 +283,26 @@ def test_path_parameters_are_rejected_outside_fastapi(project, via):
     assert sorted(project.rglob("*")) == before
 
 
+@pytest.mark.parametrize(
+    "field",
+    ["payload", "present_result", "request", "to_application", "use_case"],
+)
+def test_path_parameters_cannot_shadow_generated_binding_names(project, field):
+    path = project / "src/binding_app/domain/ports/inbound/create_todo.py"
+    path.write_text(
+        PORT_SOURCE.replace("title: str", f"{field}: str"),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="generated binding names"):
+        plan_binding(
+            project,
+            "create-todo",
+            via="fastapi",
+            http_path=f"/v1/todos/{{{field}}}",
+        )
+
+
 def test_public_route_collision_is_rejected(project):
     apply_binding(
         plan_binding(project, "create-todo", via="fastapi", http_path="/v1/todos")
@@ -291,6 +311,32 @@ def test_public_route_collision_is_rejected(project):
     path.write_text(PORT_SOURCE.replace("CreateTodo", "Other"), encoding="utf-8")
     with pytest.raises(ValueError, match="method and path"):
         plan_binding(project, "other", via="fastapi", http_path="/v1/todos")
+
+
+def test_public_route_collision_normalizes_path_parameter_names(project):
+    apply_binding(
+        plan_binding(
+            project,
+            "create-todo",
+            via="fastapi",
+            http_path="/v1/todos/{title}",
+            method="GET",
+        )
+    )
+    path = project / "src/binding_app/domain/ports/inbound/other.py"
+    path.write_text(
+        PORT_SOURCE.replace("CreateTodo", "Other").replace("title", "slug"),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="method and path shape"):
+        plan_binding(
+            project,
+            "other",
+            via="fastapi",
+            http_path="/v1/todos/{slug}",
+            method="GET",
+        )
 
 
 def test_real_get_query_maps_lists_and_validation(project):
@@ -390,6 +436,72 @@ def test_aliased_path_field_uses_its_python_name_in_the_drift_guard(project):
         env={**os.environ, "PYTHONPATH": str(project / "src")},
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_path_constraints_are_reported_as_request_validation(project):
+    source = PORT_SOURCE.replace(
+        "title: str = Field(min_length=1)",
+        "item_id: int = Field(gt=0)\n    title: str = Field(min_length=1)",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+    registry = _bind(
+        project,
+        "fastapi",
+        http_path="/v1/todos/{item_id}",
+    )
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+
+    with TestClient(api) as client:
+        invalid = client.post("/v1/todos/-1", json={"title": "Invalid"})
+        valid = client.post("/v1/todos/1", json={"title": "Valid"})
+
+    assert invalid.status_code == 422
+    assert valid.status_code == 200
+    assert len(use_case.commands) == 1
+    assert use_case.commands[0].item_id == 1
+
+
+def test_path_type_aliases_preserve_the_exact_field_identifier(project):
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        "from uuid import UUID\nfrom pydantic import BaseModel, Field",
+    ).replace(
+        "title: str = Field(min_length=1)",
+        "foo_bar: int\n    foo__bar: UUID",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+
+    apply_binding(
+        plan_binding(
+            project,
+            "create-todo",
+            via="fastapi",
+            feature="todos",
+            http_path="/v1/todos/{foo_bar}/{foo__bar}",
+        )
+    )
+
+    contract_path = (
+        project / "src/binding_app/adapters/inbound/fastapi/contracts/create_todo.py"
+    )
+    route_path = (
+        project
+        / "src/binding_app/adapters/inbound/fastapi/routers/v1/todos/routes/create_todo.py"
+    )
+    contract = contract_path.read_text(encoding="utf-8")
+    route = route_path.read_text(encoding="utf-8")
+    assert "type PathParam_foo_bar = int" in contract
+    assert "type PathParam_foo__bar = UUID" in contract
+    compile(contract, str(contract_path), "exec")
+    compile(route, str(route_path), "exec")
 
 
 def test_pydantic_aliases_and_literal_constants_are_preserved(project):

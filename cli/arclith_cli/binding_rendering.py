@@ -154,8 +154,7 @@ def render_binding(
 
 
 def _call(contract: UseCaseContract, request: str = "payload") -> str:
-    prefix = "await " if contract.asynchronous else ""
-    return f"{prefix}use_case.execute(to_application({request}))"
+    return _execute(contract, f"to_application({request})")
 
 
 def _fastapi(
@@ -191,11 +190,13 @@ def _fastapi(
     mapper_arguments = "".join(
         f", {parameter}={parameter}" for parameter in path_parameters
     )
-    application_call = _call(contract, f"{request}{mapper_arguments}")
+    mapper_call = f"to_application({request}{mapper_arguments})"
+    application_call = _execute(contract, "application_request")
+    function_lines = _mapper_boundary(mapper_call)
     if error_mappings:
-        function_lines = _error_boundary(application_call, error_mappings)
+        function_lines.extend(_error_boundary(application_call, error_mappings))
     else:
-        function_lines = [f"        return present_result({application_call})"]
+        function_lines.append(f"        return present_result({application_call})")
     fastapi_imports = "APIRouter, HTTPException" if error_mappings else "APIRouter"
     error_imports = "".join(
         _parenthesized_import(mapping.module, (mapping.error,))
@@ -209,6 +210,8 @@ def _fastapi(
         }
     )
     lines = [
+        "from fastapi.exceptions import RequestValidationError",
+        "from pydantic import ValidationError",
         f"from fastapi import {fastapi_imports}",
         "",
         "",
@@ -229,6 +232,15 @@ def _fastapi(
     return extra + error_imports + "\n".join(lines) + "\n"
 
 
+def _mapper_boundary(call: str) -> list[str]:
+    return [
+        "        try:",
+        f"            application_request = {call}",
+        "        except ValidationError as exc:",
+        "            raise RequestValidationError(exc.errors()) from exc",
+    ]
+
+
 def _error_boundary(
     call: str,
     error_mappings: tuple[ApplicationErrorMapping, ...],
@@ -247,7 +259,12 @@ def _error_boundary(
 
 
 def _path_alias(parameter: str) -> str:
-    return "".join(part.title() for part in parameter.split("_")) + "Path"
+    return f"PathParam_{parameter}"
+
+
+def _execute(contract: UseCaseContract, request: str) -> str:
+    prefix = "await " if contract.asynchronous else ""
+    return f"{prefix}use_case.execute({request})"
 
 
 def _fastmcp(contract: UseCaseContract, options: BindingOptions) -> str:

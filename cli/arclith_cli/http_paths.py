@@ -17,3 +17,9 @@ def http_path_parameters(path: str) -> tuple[str, ...]:
     if len(parameters) != len(set(parameters)):
         raise ValueError("HTTP path parameters must be unique")
     return parameters
+
+
+def http_route_shape(path: str) -> str:
+    """Normalize parameter names for routing-collision comparisons."""
+    http_path_parameters(path)
+    return _PATH_PARAMETER_RE.sub("{}", path)

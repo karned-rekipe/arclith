@@ -91,7 +91,7 @@ def _validate_factory(factory: object, package: str) -> None:
         "repository_entity_module",
         "repository_entity",
     }
-    if not isinstance(factory, dict) or set(factory) not in {
+    if not isinstance(factory, dict) or frozenset(factory) not in {
         frozenset(required_keys),
         frozenset((*required_keys, "container")),
     }:

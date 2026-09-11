@@ -7,6 +7,9 @@ from arclith_cli.binding_rendering import BindingOptions
 from arclith_cli.http_paths import http_path_parameters
 
 SUPPORTED_TRANSPORTS = frozenset({"fastapi", "fastmcp", "langgraph", "rabbitmq"})
+_RESERVED_PATH_FIELDS = frozenset(
+    {"payload", "present_result", "request", "to_application", "use_case"}
+)
 
 
 def resolve_binding_options(
@@ -105,6 +108,14 @@ def _validate_transport_request(
         raise ValueError(
             "HTTP path parameters require scalar request fields: "
             + ", ".join(incompatible)
+        )
+    reserved = tuple(
+        parameter for parameter in path_parameters if parameter in _RESERVED_PATH_FIELDS
+    )
+    if reserved:
+        raise ValueError(
+            "HTTP path parameters collide with generated binding names: "
+            + ", ".join(reserved)
         )
     if (
         via == "fastapi"
