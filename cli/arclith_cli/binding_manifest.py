@@ -85,13 +85,16 @@ def _validate_manifest_entry(
 
 
 def _validate_factory(factory: object, package: str) -> None:
-    keys = {
+    required_keys = {
         "module",
         "class",
         "repository_entity_module",
         "repository_entity",
     }
-    if not isinstance(factory, dict) or set(factory) != keys:
+    if not isinstance(factory, dict) or set(factory) not in {
+        frozenset(required_keys),
+        frozenset((*required_keys, "container")),
+    }:
         raise ValueError("Invalid binding manifest factory")
     module = factory["module"]
     implementation = factory["class"]
@@ -112,6 +115,24 @@ def _validate_factory(factory: object, package: str) -> None:
         _validate_python_name(entity, module=False)
         if not entity_module.startswith(prefix + "domain.models."):
             raise ValueError("Binding entity belongs outside domain models")
+    _validate_container(factory.get("container"), package)
+
+
+def _validate_container(container: object, package: str) -> None:
+    if container is None:
+        return
+    if not isinstance(container, dict) or set(container) != {
+        "module",
+        "builder",
+        "attribute",
+    }:
+        raise ValueError("Invalid binding manifest container factory")
+    _validate_python_name(container["module"], module=True)
+    _validate_python_name(container["builder"], module=False)
+    _validate_python_name(container["attribute"], module=False)
+    prefix = f"{package}." if package else ""
+    if not container["module"].startswith(prefix + "infrastructure.containers."):
+        raise ValueError("Binding container belongs outside infrastructure containers")
 
 
 def _validate_manifest_options(options: dict, via: str) -> None:

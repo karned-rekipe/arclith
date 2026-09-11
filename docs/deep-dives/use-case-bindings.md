@@ -1,9 +1,13 @@
-# Exposer un cas d'usage sur plusieurs transports
+# Exposer Des Cas D'usage Et Des Features
 
 `arclith-cli expose-usecase` prépare un contrat de transport, un mapper et un
 enregistrement typé à partir d'un port inbound existant. FastAPI, FastMCP,
 LangGraph et RabbitMQ exécutent ainsi le même `execute`, sans enveloppe JSON
 intermédiaire pour les appels locaux.
+
+`arclith-cli expose-feature` est le niveau supérieur pour prévalider puis
+projeter en lot un blueprint applicatif complet. Il réutilise le même pipeline
+de contrats et de bindings, sans déplacer la notion de CRUD dans l'adapter.
 
 ```bash
 arclith-cli init todo-service
@@ -24,6 +28,19 @@ arclith-cli add-adapter --capability command-bus --adapter rabbitmq --yes
 arclith-cli expose-usecase create-todo --via rabbitmq --feature todos \
   --command-type todo.create.v1
 ```
+
+Pour une feature CRUD déclarée :
+
+```bash
+arclith-cli add-entity Todo --profile crud
+arclith-cli add-adapter --capability api --adapter fastapi --yes
+arclith-cli expose-feature todo --via fastapi --path /v1/todos
+```
+
+Les cinq routes sont prévalidées contre un unique manifeste de bindings avant
+toute écriture. Les use cases générés autour d'un `BaseService[Entity]` sont
+composés depuis le container de la feature ; `expose-usecase` les refuse seuls,
+car reconstruire cinq services indépendants casserait le partage du repository.
 
 Chaque adapter dispose de son arborescence fermée dès son installation, dont
 `contracts/`. Une exposition ajoute uniquement la feature et les fichiers nommés
@@ -54,9 +71,10 @@ def build_use_cases(arclith: Arclith) -> ApplicationUseCases:
     )
 ```
 
-Cette composition automatique est limitée au cas sûr généré par le CLI : un use
-case sans dépendance ou avec une unique dépendance `Repository[Entity]`. Une
-composition plus riche reste un bootstrap développeur explicite. Les autres
+Cette composition automatique est limitée aux cas sûrs générés par la CLI : un
+use case sans dépendance, avec une unique dépendance `Repository[Entity]`, ou
+les ports `BaseService[Entity]` réunis par le container déclaré d'une feature.
+Une composition plus riche reste un bootstrap développeur explicite. Les autres
 transports reçoivent le même port applicatif. Les lectures
 `Query` utilisent GET par défaut dans FastAPI. Les commandes utilisent POST.
 Les opérations FastMCP sont des tools ; resources et prompts restent des
@@ -77,7 +95,7 @@ edges et sa politique de reprise. La sortie reste typée. Une query ne peut pas
 - Rejouer une exposition identique préserve les modifications manuelles.
 - Un même nom public, type de commande ou couple méthode/chemin ne peut appartenir à deux bindings.
 - `--dry-run` affiche les créations, mises à jour et fichiers préservés sans écrire de recette.
-- La recette existante enregistre `expose-usecase` et permet son replay.
+- La recette enregistre `expose-usecase` ou `expose-feature` et permet leur replay.
 - Un test de contrat généré détecte la dérive du modèle applicatif depuis sa copie initiale.
 
 Le scan est AST et n'exécute aucun module projet. Il prend en charge un port
@@ -88,7 +106,9 @@ mapper explicite ; la commande refuse ces cas avant toute écriture. Les imports
 relatifs, annotations différées et constantes littérales de module sont pris en
 charge. Les dépendances locales non résolues ne sont pas copiées silencieusement.
 Les paramètres HTTP GET/DELETE doivent être scalaires ou des listes de scalaires ;
-les objets imbriqués et les paramètres de chemin nécessitent une route explicite.
+les objets imbriqués nécessitent une route explicite. Un paramètre de chemin
+FastAPI peut cibler un champ scalaire de la Command ou Query : il est retiré du
+DTO body/query et réinjecté par le mapper pur avant l'appel du port.
 
 Les use cases synchrones conservent une fonction de transport synchrone pour
 permettre l'exécution hors de la boucle événementielle par le framework. Le

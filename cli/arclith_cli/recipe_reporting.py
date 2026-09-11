@@ -18,6 +18,8 @@ def step_summary(step: RecipeStep) -> str:
         return f"{usecase} ({entity})" if entity else f"{usecase} (transverse)"
     if step.command == "add-blueprint":
         return f"{args.get('blueprint', '?')} ({args.get('entity', '?')})"
+    if step.command == "expose-feature":
+        return f"{args.get('feature', '?')} -> {args.get('via', '?')}"
     for key in ("entity", "usecase", "intent"):
         if key in args:
             return str(args[key])

@@ -32,7 +32,8 @@ La version 1 enregistre :
 - `add-blueprint` ;
 - `add-usecase` ;
 - `add-intent-interpreter` ;
-- `add-adapter`.
+- `add-adapter` ;
+- `expose-usecase` et `expose-feature`.
 
 Une étape est ajoutée uniquement après le succès complet de la commande. Une
 confirmation refusée, une erreur de validation ou une génération échouée ne
@@ -140,10 +141,13 @@ arclith-cli replay arclith.recipe.yaml --dir ../todo-service-rebuilt
 ```
 
 Le replay appelle directement les opérations Python de `init`, `add-entity`,
-`add-blueprint`, `add-usecase`, `add-intent-interpreter` et `add-adapter`. Il ne
-construit pas une ligne de commande shell, ce qui évite les différences de
-quoting et garde les erreurs testables. Les anciennes étapes `add-entity` qui
-n'ont pas de `profile` restent compatibles et rejouent le profil `minimal`.
+`add-blueprint`, `add-usecase`, `add-intent-interpreter`, `add-adapter`,
+`expose-usecase` et `expose-feature`. Il ne construit pas une ligne de commande
+shell, ce qui évite les différences de quoting et garde les erreurs testables.
+Les anciennes étapes `add-entity` qui n'ont pas de `profile` restent compatibles
+et rejouent le profil `minimal`. Les chemins HTTP absolus tels que `/v1/todos`
+sont des contrats publics portables ; seuls les chemins absolus de fichiers sont
+remplacés par `<external-path>`.
 
 Les étapes rejouées ne sont pas enregistrées une seconde fois. Pour une cible
 nouvelle, la recette sélectionnée est copiée une seule fois après le succès du

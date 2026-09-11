@@ -4,6 +4,7 @@ import re
 
 from arclith_cli.binding_contract import UseCaseContract, public_identifier
 from arclith_cli.binding_rendering import BindingOptions
+from arclith_cli.http_paths import http_path_parameters
 
 SUPPORTED_TRANSPORTS = frozenset({"fastapi", "fastmcp", "langgraph", "rabbitmq"})
 
@@ -30,7 +31,7 @@ def resolve_binding_options(
         via, feature_name, name, path, http_method, status_code, wire_type
     )
     validate_binding_options(options)
-    _validate_transport_request(contract, via, http_method)
+    _validate_transport_request(contract, via, http_method, path)
     return options
 
 
@@ -56,16 +57,15 @@ def _validate_command_type(value: str) -> None:
 def _validate_http(path: str, method: str, status: int) -> None:
     if method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
         raise ValueError("Unsupported HTTP method")
-    if not path.startswith("/") or any(char in path for char in "{}?#\\"):
-        raise ValueError(
-            "Use a fixed absolute HTTP path; path-parameter mapping requires a hand-written route"
-        )
+    if not path.startswith("/") or any(char in path for char in "?#\\"):
+        raise ValueError("Use an absolute HTTP path without a query or fragment")
     if any(char.isspace() or ord(char) < 32 for char in path):
         raise ValueError("HTTP path must not contain whitespace or control characters")
     if path == "/v1":
         raise ValueError("Automatic FastAPI bindings require a path below /v1")
     if not path.startswith("/v1/"):
         raise ValueError("Automatic FastAPI bindings must live below the /v1 router")
+    http_path_parameters(path)
     validate_response_status(status)
 
 
@@ -78,8 +78,31 @@ def validate_response_status(status: int) -> None:
 
 
 def _validate_transport_request(
-    contract: UseCaseContract, via: str, method: str
+    contract: UseCaseContract,
+    via: str,
+    method: str,
+    path: str,
 ) -> None:
+    path_parameters = http_path_parameters(path) if via == "fastapi" else ()
+    unknown = tuple(
+        parameter
+        for parameter in path_parameters
+        if parameter not in dict(contract.request_fields)
+    )
+    if unknown:
+        raise ValueError(
+            "HTTP path parameters must name request fields: " + ", ".join(unknown)
+        )
+    incompatible = tuple(
+        parameter
+        for parameter in path_parameters
+        if parameter not in contract.path_compatible_fields
+    )
+    if incompatible:
+        raise ValueError(
+            "HTTP path parameters require scalar request fields: "
+            + ", ".join(incompatible)
+        )
     if (
         via == "fastapi"
         and method in {"GET", "DELETE"}

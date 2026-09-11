@@ -203,6 +203,23 @@ def test_dry_run_and_repeat_preserve_developer_files_and_recipe(project):
     assert replay_recipe(recipe, recipe.steps, target_dir=project, strict=True)
 
 
+def test_repeat_accepts_a_legacy_manifest_without_container_metadata(project):
+    first = plan_binding(project, "create-todo", via="fastapi", feature="todos")
+    apply_binding(first)
+    manifest_path = project / ".arclith/bindings/fastapi.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert "container" not in manifest["bindings"][0]["factory"]
+
+    repeated = plan_binding(
+        project,
+        "create-todo",
+        via="fastapi",
+        feature="todos",
+    )
+
+    assert repeated.files == {}
+
+
 def test_second_binding_keeps_first_registration(project):
     first = plan_binding(project, "create-todo", via="fastapi", feature="todos")
     apply_binding(first)
@@ -229,6 +246,8 @@ def test_second_binding_keeps_first_registration(project):
         {"feature": "../escape"},
         {"public_name": 'x""";evil'},
         {"http_path": "/todos/{uuid}"},
+        {"http_path": "/v1/todos/{uuid}"},
+        {"http_path": "/v1/todos/{uuid}/{uuid}"},
         {"http_path": "/v1"},
         {"status_code": 204},
         {"method": "TRACE"},

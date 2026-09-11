@@ -26,6 +26,7 @@ from .capabilities import CAPABILITY_CATALOG, capability_catalog_as_dict
 from .command_recording import record_success as _record_success
 from .core_scaffold import add_intent_interpreter_cmd, add_usecase_cmd
 from .export_config import export_config_cmd
+from .feature_projection_cli import expose_feature_command
 from .init_project import init_project_cmd
 from .new_project import new_project_cmd as _new_project_cmd
 from .recipe import (
@@ -47,6 +48,7 @@ console = Console()
 app.command(name="history")(history_command)
 app.command(name="replay")(replay_command)
 app.command(name="expose-usecase")(expose_usecase_command)
+app.command(name="expose-feature")(expose_feature_command)
 app.command(name="add-entity")(add_entity_command)
 app.command(name="blueprints")(blueprints_command)
 app.command(name="add-blueprint")(add_blueprint_command)

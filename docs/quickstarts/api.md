@@ -65,6 +65,27 @@ curl -fsS -X POST http://127.0.0.1:8765/v1/todos \
 - La création retourne `201` avec `uuid`, dates d'audit, `version` et
   `is_deleted`, même sans champ métier supplémentaire.
 
+## Variante CRUD Complète
+
+Pour exposer le cycle complet plutôt qu'un seul use case :
+
+```bash
+arclith-cli init todo-api
+cd todo-api
+arclith-cli add-entity Todo --profile crud
+arclith-cli add-adapter --capability api --adapter fastapi \
+  --param port=8765 --yes
+arclith-cli expose-feature todo --via fastapi --path /v1/todos
+uv sync
+MODE=api uv run python main.py
+```
+
+OpenAPI contient alors les cinq opérations CRUD. Les réponses de création,
+mise à jour et suppression restent typées (`201`, `200`, `200`) ; les erreurs
+d'item absent et de version obsolète sont déclarées en `404` et `409`.
+L'adapter FastAPI doit précéder la projection et aucun repository durable n'est
+choisi implicitement.
+
 ## Erreur Fréquente
 
 Si l'API ne répond pas, vérifier que le port choisi est libre et que

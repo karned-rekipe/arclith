@@ -76,9 +76,8 @@ modèle, reporter uniquement les champs modifiables dans `CreateTodoCommand` et
 `UpdateTodoCommand`, puis placer les invariants dans le domaine.
 
 Les erreurs `TodoNotFoundError` et `TodoVersionConflictError` sont des erreurs
-applicatives. Une future projection FastAPI pourra les traduire en `404` et
-`409`; une projection MCP pourra produire son propre résultat d'erreur. Cette
-traduction n'appartient pas aux use cases.
+applicatives. La projection FastAPI les traduit respectivement en `404` et
+`409`; cette traduction reste dans l'adapter et n'appartient pas aux use cases.
 
 Le contrôle de version généré évite une mise à jour manifestement obsolète dans
 le processus courant. Le port `Repository[T]` générique ne garantit pas à lui
@@ -97,10 +96,41 @@ arclith-cli add-adapter --capability repository --adapter mongodb --yes
 
 # Transport, si nécessaire
 arclith-cli add-adapter --capability api --adapter fastapi --yes
-arclith-cli add-adapter --capability mcp --adapter fastmcp --yes
+
+# Projection explicite des cinq opérations
+arclith-cli expose-feature todo --via fastapi --path /v1/todos
 ```
 
-Cette première version ne projette pas encore automatiquement les cinq opérations
-vers un transport. Le manifeste `.arclith/features/todo.yaml` constitue le
-contrat d'entrée prévu pour cette évolution, sans coupler le blueprint à un
-adapter particulier.
+`expose-feature` exige que l'adapter FastAPI soit déjà installé. La commande ne
+crée ni adapter ni persistence et consomme le manifeste canonique
+`.arclith/features/todo.yaml` sans déduire le CRUD depuis les noms de fichiers.
+Elle planifie les cinq bindings ensemble avant la première écriture : une
+collision sur une seule opération rejette donc toute la projection.
+
+Sans `--path`, le chemin déterministe est `/v1/todo`. La CLI ne pluralise pas un
+nom métier ; fournir `--path /v1/todos` rend le contrat public explicite.
+
+## Contrat FastAPI Généré
+
+| Méthode | Chemin | Succès | Erreurs applicatives |
+|---|---|---:|---|
+| `POST` | `/v1/todos` | `201` + `CreateTodoResponse` | validation `422` |
+| `GET` | `/v1/todos/{uuid}` | `200` + `GetTodoResponse` | `404`, validation `422` |
+| `GET` | `/v1/todos?offset=0&limit=100` | `200` + `ListTodoResponse` | validation `422` |
+| `PATCH` | `/v1/todos/{uuid}` | `200` + `UpdateTodoResponse` | `404`, `409`, validation `422` |
+| `DELETE` | `/v1/todos/{uuid}` | `200` + `DeleteTodoResponse` | `404`, validation `422` |
+
+Le paramètre `uuid` est extrait du chemin et réinjecté par le mapper dans la
+Command ou Query applicative ; il n'est pas dupliqué dans le body ou la query
+string. `PATCH` et `DELETE` répondent avec un body typé, donc utilisent `200`
+plutôt que `204`. Changer cette convention exige de versionner explicitement le
+contrat et son presenter.
+
+Les contrats et routes sont créés une fois puis deviennent propriété du projet.
+Les registres, le composition root et le manifeste de bindings restent générés.
+Une relance préserve les personnalisations et n'ajoute pas une seconde étape de
+recette. Utiliser `--dry-run` pour revoir tout le plan sans écriture.
+
+FastAPI est la seule projection de feature fournie dans cette version. Les
+projections MCP, RabbitMQ ou LangGraph restent des décisions séparées à concevoir
+selon leur sémantique propre ; elles ne doivent pas recopier mécaniquement REST.
