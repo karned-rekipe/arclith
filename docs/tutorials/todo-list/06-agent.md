@@ -27,7 +27,7 @@ message utilisateur
 
 ## Générer les briques agent
 
-`add-adapter agent/langgraph` ajoute lui-même l'extra `arclith[langgraph]`.
+La commande explicite ci-dessous ajoute elle-même l'extra `arclith[langgraph]` :
 
 Créer les intent-interpreters:
 
@@ -49,18 +49,8 @@ Interpréteur d'intention (ex : IngredientIntent, todo_intent)
 Créer la configuration LangGraph:
 
 ```bash
-arclith-cli add-adapter --capability agent
-```
-
-Répondre:
-
-```text
-① Type d'adapter
-   1  langgraph
-
-  Votre choix (numéro ou nom): 1
-  Nom du graphe LangGraph (agent): todo_agent
-  Confirmer la génération ? [y/n] (y): y
+arclith-cli add-adapter --capability agent --adapter langgraph \
+  --param graph_name=todo_agent --yes
 ```
 
 Configurer aussi LM Studio et LangSmith avec les sous-étapes ci-dessous.

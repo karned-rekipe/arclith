@@ -118,6 +118,7 @@ jobs:
               "deleted_at",
               "deleted_by",
               "version",
+              "is_deleted",
           }
           assert importlib.util.find_spec("fastmcp") is None
           assert importlib.util.find_spec("aio_pika") is None

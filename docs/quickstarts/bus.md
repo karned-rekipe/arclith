@@ -8,12 +8,13 @@ qu'un vrai message atteint le port applicatif.
 - Python 3.13 ;
 - [`uv`](https://docs.astral.sh/uv/) ;
 - Docker ;
-- `uv tool install arclith-cli` ou `uvx`.
+- `uv tool install arclith-cli` ;
+- `arclith-cli version` pour vérifier que la commande est disponible.
 
 ## Étapes
 
 ```bash
-uvx --from arclith-cli arclith-cli init todo-bus --dir .
+arclith-cli init todo-bus --dir .
 cd todo-bus
 arclith-cli add-entity Todo
 arclith-cli add-usecase CreateTodo --entity Todo

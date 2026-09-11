@@ -287,6 +287,11 @@ def render_adapter_blueprint(
     variables = {
         "adapter_import": prefix,
         "package_name": package_name,
+        "composition_import": (
+            f"{package_name}.infrastructure.use_cases_generated"
+            if package_name
+            else "infrastructure.use_cases_generated"
+        ),
         "graph_name": graph_name,
     }
     templates: dict[str, tuple[str, ...]] = {

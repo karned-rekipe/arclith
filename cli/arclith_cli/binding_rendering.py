@@ -117,6 +117,7 @@ def _fastapi(contract: UseCaseContract, options: BindingOptions) -> str:
     )
     extra = "from typing import Annotated\nfrom fastapi import Query\n" if query else ""
     definition = "async def" if contract.asynchronous else "def"
+    route_path = options.http_path.removeprefix("/v1")
     return extra + dedent(f"""
         from fastapi import APIRouter
 
@@ -126,7 +127,7 @@ def _fastapi(contract: UseCaseContract, options: BindingOptions) -> str:
                 return present_result({_call(contract)})
 
             router.add_api_route(
-                {json.dumps(options.http_path.removeprefix("/v1"))},
+                {json.dumps(route_path)},
                 {contract.name},
                 methods=[{json.dumps(options.method)}],
                 response_model={contract.transport_response},

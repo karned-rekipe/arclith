@@ -5,6 +5,8 @@ import re
 from arclith_cli.binding_contract import UseCaseContract, public_identifier
 from arclith_cli.binding_rendering import BindingOptions
 
+SUPPORTED_TRANSPORTS = frozenset({"fastapi", "fastmcp", "langgraph", "rabbitmq"})
+
 
 def resolve_binding_options(
     contract: UseCaseContract,
@@ -19,21 +21,31 @@ def resolve_binding_options(
 ) -> BindingOptions:
     feature_name = public_identifier(feature or contract.name)
     name = public_name or contract.name
-    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_.:-]*", name):
-        raise ValueError(
-            "Public component name must start with a letter and contain letters, digits, _, ., : or -"
-        )
     http_method = (
         method or ("GET" if contract.request.endswith("Query") else "POST")
     ).upper()
     path = http_path or f"/v1/{feature_name}/{contract.name}"
-    _validate_http(path, http_method, status_code)
-    _validate_transport_request(contract, via, http_method)
     wire_type = command_type or f"{feature_name}.{contract.name}.v1"
-    _validate_command_type(wire_type)
-    return BindingOptions(
+    options = BindingOptions(
         via, feature_name, name, path, http_method, status_code, wire_type
     )
+    validate_binding_options(options)
+    _validate_transport_request(contract, via, http_method)
+    return options
+
+
+def validate_binding_options(options: BindingOptions) -> None:
+    """Reapply the complete saved-option contract before rendering a manifest."""
+    if options.via not in SUPPORTED_TRANSPORTS:
+        raise ValueError("Unsupported binding transport")
+    if public_identifier(options.feature) != options.feature:
+        raise ValueError("Binding feature must use its normalized Python identifier")
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_.:-]*", options.public_name):
+        raise ValueError(
+            "Public component name must start with a letter and contain letters, digits, _, ., : or -"
+        )
+    _validate_http(options.http_path, options.method, options.status_code)
+    _validate_command_type(options.command_type)
 
 
 def _validate_command_type(value: str) -> None:
@@ -50,7 +62,9 @@ def _validate_http(path: str, method: str, status: int) -> None:
         )
     if any(char.isspace() or ord(char) < 32 for char in path):
         raise ValueError("HTTP path must not contain whitespace or control characters")
-    if path != "/v1" and not path.startswith("/v1/"):
+    if path == "/v1":
+        raise ValueError("Automatic FastAPI bindings require a path below /v1")
+    if not path.startswith("/v1/"):
         raise ValueError("Automatic FastAPI bindings must live below the /v1 router")
     validate_response_status(status)
 

@@ -11,12 +11,13 @@ fictive. `expose-usecase` crée ensuite uniquement la feature demandée.
 
 - Python 3.13 ;
 - [`uv`](https://docs.astral.sh/uv/) ;
-- `uv tool install arclith-cli` ou l'usage ponctuel de `uvx` ci-dessous.
+- `uv tool install arclith-cli` ;
+- `arclith-cli version` pour vérifier que la commande est disponible.
 
 ## Étapes
 
 ```bash
-uvx --from arclith-cli arclith-cli init todo-mcp --dir .
+arclith-cli init todo-mcp --dir .
 cd todo-mcp
 arclith-cli add-entity Todo
 arclith-cli add-usecase CreateTodo --entity Todo
@@ -57,8 +58,8 @@ PY
 ## Résultat
 
 Le tool `create_todo` est présent une seule fois et retourne le DTO contenant
-`uuid`, les champs d'audit et `version`. Aucun code FastAPI n'existe tant que
-l'adapter API n'a pas été ajouté.
+`uuid`, les champs d'audit, `version` et l'indicateur dérivé `is_deleted`. Aucun
+code FastAPI n'existe tant que l'adapter API n'a pas été ajouté.
 
 ## Suite
 

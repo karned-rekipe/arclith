@@ -108,6 +108,7 @@ _ENTITY_RESPONSE_FIELDS = (
     "deleted_at: datetime | None",
     "deleted_by: str | None",
     "version: int",
+    "is_deleted: bool",
 )
 
 
@@ -157,13 +158,19 @@ def _resolve_model(
     ]
     if len(local) == 1:
         return tree, local[0], module
-    imported_module = _imported_symbol_module(tree, module, symbol)
-    if imported_module is None:
+    imported = _imported_symbol(tree, module, symbol)
+    if imported is None:
         raise ValueError(f"Cannot resolve result model {symbol!r}")
+    imported_module, imported_symbol = imported
     package_name = paths.package_name
-    if package_name is None or not imported_module.startswith(package_name + "."):
-        raise ValueError("Automatic result snapshots require a project-owned model")
-    relative = imported_module.removeprefix(package_name + ".").replace(".", "/")
+    if package_name is None:
+        if not imported_module.startswith(("domain.", "application.")):
+            raise ValueError("Automatic result snapshots require a project-owned model")
+        relative = imported_module.replace(".", "/")
+    else:
+        if not imported_module.startswith(package_name + "."):
+            raise ValueError("Automatic result snapshots require a project-owned model")
+        relative = imported_module.removeprefix(package_name + ".").replace(".", "/")
     path = paths.package_root / f"{relative}.py"
     if not path.is_file():
         raise ValueError(f"Cannot resolve result model module {imported_module!r}")
@@ -171,10 +178,10 @@ def _resolve_model(
     matches = [
         node
         for node in model_tree.body
-        if isinstance(node, ast.ClassDef) and node.name == symbol
+        if isinstance(node, ast.ClassDef) and node.name == imported_symbol
     ]
     if len(matches) != 1:
-        raise ValueError(f"Expected one result model named {symbol!r}")
+        raise ValueError(f"Expected one result model named {imported_symbol!r}")
     return model_tree, matches[0], imported_module
 
 
@@ -204,12 +211,28 @@ def _implementation_contract(
     ]
     repository: tuple[str, str] | None = None
     if constructors:
+        if len(constructors) != 1 or isinstance(constructors[0], ast.AsyncFunctionDef):
+            raise ValueError("Automatic composition requires one synchronous __init__")
         constructor = constructors[0]
+        arguments = constructor.args
+        if (
+            arguments.posonlyargs
+            or arguments.kwonlyargs
+            or arguments.vararg is not None
+            or arguments.kwarg is not None
+            or not arguments.args
+            or arguments.args[0].arg != "self"
+        ):
+            raise ValueError(
+                "Automatic composition supports only self and at most one positional Repository[Entity] dependency"
+            )
         parameters = constructor.args.args[1:]
-        if len(parameters) != 1:
+        if len(parameters) > 1:
             raise ValueError(
                 "Automatic composition supports a no-argument use case or one Repository[Entity] dependency"
             )
+        if not parameters:
+            return _module_for_path(paths, path), implementation.name, None
         annotation = _annotation(parameters[0].annotation)
         if not (
             isinstance(annotation, ast.Subscript)
@@ -219,13 +242,13 @@ def _implementation_contract(
             raise ValueError(
                 "Automatic composition requires the constructor dependency Repository[Entity]"
             )
-        entity = annotation.slice.id
-        entity_module = _imported_symbol_module(
-            tree, _module_for_path(paths, path), entity
+        entity_alias = annotation.slice.id
+        imported_entity = _imported_symbol(
+            tree, _module_for_path(paths, path), entity_alias
         )
-        if entity_module is None:
-            raise ValueError(f"Cannot resolve repository entity {entity!r}")
-        repository = (entity_module, entity)
+        if imported_entity is None:
+            raise ValueError(f"Cannot resolve repository entity {entity_alias!r}")
+        repository = imported_entity
     return _module_for_path(paths, path), implementation.name, repository
 
 
@@ -239,12 +262,21 @@ def _imported_symbol_module(
     module: str,
     symbol: str,
 ) -> str | None:
+    imported = _imported_symbol(tree, module, symbol)
+    return imported[0] if imported is not None else None
+
+
+def _imported_symbol(
+    tree: ast.Module,
+    module: str,
+    symbol: str,
+) -> tuple[str, str] | None:
     for node in tree.body:
         if not isinstance(node, ast.ImportFrom):
             continue
         for alias in node.names:
             if (alias.asname or alias.name) == symbol:
-                return _absolute_import(node, module)
+                return _absolute_import(node, module), alias.name
     return None
 
 
@@ -396,8 +428,10 @@ def _query_generic(node: ast.Subscript) -> bool:
     return False
 
 
-def _absolute_import(node: ast.ImportFrom, module: str) -> str | None:
+def _absolute_import(node: ast.ImportFrom, module: str) -> str:
     if not node.level:
+        if node.module is None:
+            raise ValueError("Imported symbol has no module")
         return node.module
     prefix = module.split(".")[: -node.level]
     if not prefix:

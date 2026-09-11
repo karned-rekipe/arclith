@@ -44,6 +44,14 @@ def test_every_catalog_adapter_has_a_complete_compilable_blueprint(
         if capability.name == "mcp":
             assert "features/README.md" in rendered
             assert not any(path.startswith("features/example/") for path in rendered)
+        if adapter.name in {"fastapi", "fastmcp", "rabbitmq"}:
+            typed_entrypoints = "\n".join(
+                content
+                for path, content in rendered.items()
+                if path.endswith("register.py") or path.endswith("router.py")
+            )
+            assert "ApplicationUseCases" in typed_entrypoints
+            assert "use_cases: object" not in typed_entrypoints
 
 
 def test_blueprint_replay_preserves_code_and_restores_missing_files(

@@ -5,9 +5,12 @@ from fastapi import APIRouter
 from $adapter_import.bindings_generated import (
     register as register_bindings,
 )
+from $composition_import import (
+    ApplicationUseCases,
+)
 
 
-def build_router(use_cases: object) -> APIRouter:
+def build_router(use_cases: ApplicationUseCases) -> APIRouter:
     """Create a new router so application factories never duplicate routes."""
     router = APIRouter(prefix="/v1")
     register_bindings(router, use_cases)

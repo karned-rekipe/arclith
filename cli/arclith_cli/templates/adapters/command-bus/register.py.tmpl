@@ -5,8 +5,14 @@ from arclith.application.command_bus import CommandDispatcher
 from $adapter_import.bindings_generated import (
     register as register_generated_bindings,
 )
+from $composition_import import (
+    ApplicationUseCases,
+)
 
 
-def register_bindings(dispatcher: CommandDispatcher, use_cases: object) -> None:
+def register_bindings(
+    dispatcher: CommandDispatcher,
+    use_cases: ApplicationUseCases,
+) -> None:
     """Register only commands explicitly exposed through RabbitMQ."""
     register_generated_bindings(dispatcher, use_cases)

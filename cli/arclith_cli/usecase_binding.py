@@ -438,6 +438,7 @@ def entry_adapter_feature_module(entries: list[dict], feature: str) -> str:
 
 
 def _render_composition(entries: list[dict]) -> str:
+    repositories = _repository_bindings(entries)
     lines = [
         _GENERATED_COMPOSITION_HEADER,
         "from __future__ import annotations",
@@ -464,14 +465,14 @@ def _render_composition(entries: list[dict]) -> str:
                     ")",
                 )
             )
-        if factory["repository_entity"] is not None:
-            lines.extend(
-                (
-                    f"from {factory['repository_entity_module']} import (",
-                    f"    {factory['repository_entity']} as {alias}Entity,",
-                    ")",
-                )
+    for (module, entity), (entity_alias, _) in repositories.items():
+        lines.extend(
+            (
+                f"from {module} import (",
+                f"    {entity} as {entity_alias},",
+                ")",
             )
+        )
     lines += [
         "",
         "",
@@ -498,15 +499,20 @@ def _render_composition(entries: list[dict]) -> str:
             f'    raise RuntimeError("Implement application use cases before runtime composition: {names}")'
         )
         return "\n".join(lines) + "\n"
+    for entity_alias, repository_name in repositories.values():
+        lines.append(f"    {repository_name} = arclith.repository({entity_alias})")
     lines.append("    return ApplicationUseCases(")
     for entry in entries:
         alias = _pascal(entry["usecase"])
         factory = entry["factory"]
-        constructor = (
-            f"{alias}UseCase(arclith.repository({alias}Entity))"
-            if factory["repository_entity"] is not None
-            else f"{alias}UseCase()"
-        )
+        if factory["repository_entity"] is None:
+            constructor = f"{alias}UseCase()"
+        else:
+            key = (
+                factory["repository_entity_module"],
+                factory["repository_entity"],
+            )
+            constructor = f"{alias}UseCase({repositories[key][1]})"
         lines.append(f"        {entry['usecase']}={constructor},")
     lines.append("    )")
     return "\n".join(lines) + "\n"
@@ -514,3 +520,24 @@ def _render_composition(entries: list[dict]) -> str:
 
 def _pascal(value: str) -> str:
     return "".join(part.title() for part in value.split("_"))
+
+
+def _repository_bindings(
+    entries: list[dict],
+) -> dict[tuple[str, str], tuple[str, str]]:
+    bindings: dict[tuple[str, str], tuple[str, str]] = {}
+    for entry in entries:
+        factory = entry["factory"]
+        entity = factory["repository_entity"]
+        module = factory["repository_entity_module"]
+        if entity is None or module is None:
+            continue
+        key = (module, entity)
+        bindings.setdefault(
+            key,
+            (
+                f"{_pascal(entry['usecase'])}Entity",
+                f"{entry['usecase']}_repository",
+            ),
+        )
+    return bindings

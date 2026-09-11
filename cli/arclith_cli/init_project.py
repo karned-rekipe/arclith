@@ -271,6 +271,7 @@ from __future__ import annotations
 
 import os
 import sys
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -299,6 +300,7 @@ _VALID_MODES = _available_modes()
 arclith = Arclith(_CONFIG)
 
 
+@cache
 def _build_use_cases() -> Any:
     from {package_name}.infrastructure.use_cases_generated import (
         build_use_cases,

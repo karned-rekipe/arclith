@@ -91,6 +91,8 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
     assert "app.config.adapters.repository ==" not in bootstrap_test
 
     main = (generated / "main.py").read_text(encoding="utf-8")
+    assert "from functools import cache" in main
+    assert "@cache\ndef _build_use_cases()" in main
     assert "_VALID_MODES = _available_modes()" in main
     assert "Installed modes: {available}" in main
     assert 'arclith.run_api("main:build_api", factory=True)' in main

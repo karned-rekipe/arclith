@@ -7,7 +7,7 @@ import keyword
 from pathlib import Path
 
 from arclith_cli.adapter_blueprints import BLUEPRINT_VERSION
-from arclith_cli.binding_options import validate_response_status
+from arclith_cli.binding_options import validate_binding_options
 from arclith_cli.binding_rendering import BindingOptions
 
 
@@ -74,7 +74,13 @@ def _validate_manifest_entry(
         raise ValueError(
             "Binding manifest port belongs outside the application inbound ports"
         )
-    package = port_import.split(".domain.ports.inbound", 1)[0]
+    port_suffix = "domain.ports.inbound"
+    if port_import == port_suffix:
+        package = ""
+    elif port_import.endswith("." + port_suffix):
+        package = port_import.removesuffix("." + port_suffix)
+    else:
+        raise ValueError("Binding manifest port root is invalid")
     _validate_factory(entry["factory"], package)
 
 
@@ -94,9 +100,8 @@ def _validate_factory(factory: object, package: str) -> None:
     if module is not None:
         _validate_python_name(module, module=True)
         _validate_python_name(implementation, module=False)
-    if module is not None and not module.startswith(
-        package + ".application.use_cases."
-    ):
+    prefix = f"{package}." if package else ""
+    if module is not None and not module.startswith(prefix + "application.use_cases."):
         raise ValueError("Binding factory belongs outside application use cases")
     entity_module = factory["repository_entity_module"]
     entity = factory["repository_entity"]
@@ -105,7 +110,7 @@ def _validate_factory(factory: object, package: str) -> None:
     if entity_module is not None:
         _validate_python_name(entity_module, module=True)
         _validate_python_name(entity, module=False)
-        if not entity_module.startswith(package + ".domain.models."):
+        if not entity_module.startswith(prefix + "domain.models."):
             raise ValueError("Binding entity belongs outside domain models")
 
 
@@ -116,16 +121,16 @@ def _validate_manifest_options(options: dict, via: str) -> None:
         raise ValueError("Invalid binding manifest options")
     if options["via"] != via:
         raise ValueError("Invalid binding manifest transport")
-    try:
-        validate_response_status(options["status_code"])
-    except ValueError as exc:
-        raise ValueError(f"Invalid binding manifest status_code: {exc}") from exc
     if any(
         not isinstance(value, str)
         for name, value in options.items()
         if name != "status_code"
     ):
         raise ValueError("Invalid manifest option value")
+    try:
+        validate_binding_options(BindingOptions(**options))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid binding manifest options: {exc}") from exc
 
 
 def _validate_python_name(value: str, *, module: bool) -> None:

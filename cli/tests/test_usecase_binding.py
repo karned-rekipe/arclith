@@ -1,8 +1,8 @@
 """Exercise generated bindings as applications, not merely file snapshots."""
 
 import importlib
-import os
 import json
+import os
 import sys
 import threading
 import subprocess
@@ -13,8 +13,11 @@ from fastapi.testclient import TestClient
 from fastmcp import Client, FastMCP
 from typer.testing import CliRunner
 
+from arclith import Arclith
 from arclith.application.command_bus import CommandDispatcher, CommandEnvelope
 from arclith_cli.add_adapter import add_adapter_cmd
+from arclith_cli.binding_manifest import load_manifest
+from arclith_cli.core_scaffold import add_entity_cmd, add_usecase_cmd
 from arclith_cli.init_project import init_project_cmd
 from arclith_cli.main import app
 from arclith_cli.recipe import load_recipe, replay_recipe
@@ -226,6 +229,7 @@ def test_second_binding_keeps_first_registration(project):
         {"feature": "../escape"},
         {"public_name": 'x""";evil'},
         {"http_path": "/todos/{uuid}"},
+        {"http_path": "/v1"},
         {"status_code": 204},
         {"method": "TRACE"},
     ],
@@ -470,6 +474,180 @@ def test_invalid_response_status_fails_closed_without_writes(
         for path in project.rglob("*")
         if path.is_file()
     } == before
+
+
+@pytest.mark.parametrize(
+    ("option", "value"),
+    [
+        ("feature", "../escape"),
+        ("public_name", "123-invalid"),
+        ("http_path", "/outside"),
+        ("http_path", "/v1"),
+        ("method", "TRACE"),
+        ("command_type", "todo create v1"),
+    ],
+)
+def test_saved_manifest_options_are_fully_revalidated_before_writes(
+    project, option, value
+):
+    apply_binding(plan_binding(project, "create-todo", via="fastapi"))
+    path = project / ".arclith/bindings/fastapi.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["bindings"][0]["options"][option] = value
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    (project / "src/binding_app/domain/ports/inbound/other.py").write_text(
+        PORT_SOURCE.replace("CreateTodo", "Other"), encoding="utf-8"
+    )
+    before = {
+        file.relative_to(project): file.read_bytes()
+        for file in project.rglob("*")
+        if file.is_file()
+    }
+
+    with pytest.raises(ValueError, match="manifest"):
+        plan_binding(project, "other", via="fastapi")
+
+    assert {
+        file.relative_to(project): file.read_bytes()
+        for file in project.rglob("*")
+        if file.is_file()
+    } == before
+
+
+def test_legacy_root_layout_manifest_accepts_application_and_domain_factories(
+    tmp_path,
+):
+    path = tmp_path / "fastapi.json"
+    entry = {
+        "usecase": "create_todo",
+        "port_module": "domain.ports.inbound.create_todo",
+        "port": "CreateTodoPort",
+        "binding_module": "adapters.inbound.fastapi.routers.v1.todos.create_todo",
+        "options": {
+            "via": "fastapi",
+            "feature": "todos",
+            "public_name": "create_todo",
+            "http_path": "/v1/todos",
+            "method": "POST",
+            "status_code": 201,
+            "command_type": "todos.create_todo.v1",
+        },
+        "factory": {
+            "module": "application.use_cases.create_todo",
+            "class": "CreateTodoUseCase",
+            "repository_entity_module": "domain.models.todo",
+            "repository_entity": "Todo",
+        },
+    }
+    path.write_text(json.dumps({"version": "2", "bindings": [entry]}), encoding="utf-8")
+
+    assert load_manifest(
+        path,
+        "fastapi",
+        "adapters.inbound.fastapi",
+        "domain.ports.inbound",
+    ) == [entry]
+
+
+@pytest.mark.parametrize(
+    "constructor",
+    [
+        "def __init__(self, *, logger: str) -> None:\n        self.logger = logger",
+        "def __init__(self, *dependencies: object) -> None:\n        pass",
+        "def __init__(self, **dependencies: object) -> None:\n        pass",
+        "def __init__(self, repository: object, /) -> None:\n        pass",
+        "async def __init__(self) -> None:\n        pass",
+    ],
+)
+def test_unsupported_use_case_constructors_fail_before_writes(project, constructor):
+    source = IMPLEMENTATION_SOURCE.replace(
+        "    async def execute",
+        f"    {constructor}\n\n    async def execute",
+    )
+    (project / "src/binding_app/application/use_cases/create_todo.py").write_text(
+        source, encoding="utf-8"
+    )
+    before = sorted(project.rglob("*"))
+
+    with pytest.raises(ValueError, match="composition"):
+        plan_binding(project, "create-todo", via="fastapi")
+
+    assert sorted(project.rglob("*")) == before
+
+
+def test_aliased_entity_import_builds_a_functional_response_snapshot(project):
+    add_entity_cmd(project_dir=project, entity_name="Todo")
+    usecase = add_usecase_cmd(
+        project_dir=project,
+        usecase_name="CreateAliasedTodo",
+        entity_name="Todo",
+    )
+    port = project / "src/binding_app/domain/ports/inbound/create_aliased_todo.py"
+    port.write_text(
+        port.read_text(encoding="utf-8")
+        .replace("import Todo", "import Todo as TodoModel")
+        .replace("-> Todo:", "-> TodoModel:"),
+        encoding="utf-8",
+    )
+    usecase.write_text(
+        usecase.read_text(encoding="utf-8")
+        .replace("import Todo", "import Todo as TodoModel")
+        .replace("Repository[Todo]", "Repository[TodoModel]")
+        .replace("-> Todo:", "-> TodoModel:")
+        .replace("entity = Todo.model_validate", "entity = TodoModel.model_validate"),
+        encoding="utf-8",
+    )
+    apply_binding(
+        plan_binding(
+            project,
+            "create-aliased-todo",
+            via="fastapi",
+            feature="todos",
+            http_path="/v1/todos",
+            status_code=201,
+        )
+    )
+    composition = importlib.import_module(
+        "binding_app.infrastructure.use_cases_generated"
+    )
+    registry = importlib.import_module(
+        "binding_app.adapters.inbound.fastapi.bindings_generated"
+    )
+    use_cases = composition.build_use_cases(Arclith(project / "config"))
+    api = FastAPI()
+    _register_api(api, registry, create_aliased_todo=use_cases.create_aliased_todo)
+
+    with TestClient(api) as client:
+        response = client.post("/v1/todos", json={})
+
+    assert response.status_code == 201
+    assert response.json()["is_deleted"] is False
+    generated = (
+        project / "src/binding_app/infrastructure/use_cases_generated.py"
+    ).read_text(encoding="utf-8")
+    assert "Todo as CreateAliasedTodoEntity" in generated
+    assert "TodoModel as CreateAliasedTodoEntity" not in generated
+
+
+def test_use_cases_for_one_entity_share_one_repository_and_process_graph(project):
+    add_entity_cmd(project_dir=project, entity_name="Todo")
+    for name in ("StoreTodo", "ArchiveTodo"):
+        add_usecase_cmd(project_dir=project, usecase_name=name, entity_name="Todo")
+        apply_binding(plan_binding(project, name, via="fastapi", feature="todos"))
+    composition = importlib.import_module(
+        "binding_app.infrastructure.use_cases_generated"
+    )
+    use_cases = composition.build_use_cases(Arclith(project / "config"))
+
+    assert use_cases.store_todo._repository is use_cases.archive_todo._repository
+
+    spec = importlib.util.spec_from_file_location(
+        "binding_generated_main", project / "main.py"
+    )
+    assert spec is not None and spec.loader is not None
+    generated_main = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generated_main)
+    assert generated_main._build_use_cases() is generated_main._build_use_cases()
 
 
 def test_binding_plan_does_not_overwrite_a_concurrent_developer_edit(project):

@@ -62,8 +62,8 @@ curl -fsS -X POST http://127.0.0.1:8765/v1/todos \
 
 - Swagger UI s'ouvre sur `http://127.0.0.1:8765/docs`.
 - OpenAPI contient exactement une opération `POST /v1/todos`.
-- La création retourne `201` avec `uuid`, dates d'audit et `version`, même sans
-  champ métier supplémentaire.
+- La création retourne `201` avec `uuid`, dates d'audit, `version` et
+  `is_deleted`, même sans champ métier supplémentaire.
 
 ## Erreur Fréquente
 
