@@ -67,7 +67,7 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
         encoding="utf-8"
     ) == ("logger: console\nrepository: memory\nobservability:\n  enabled: []\n")
     pyproject = (generated / "pyproject.toml").read_text(encoding="utf-8")
-    assert '"arclith>=0.26.0"' in pyproject
+    assert '"arclith>=0.27.0"' in pyproject
     assert "arclith[fastapi" not in pyproject
     assert "arclith[mcp" not in pyproject
     assert (package_root / "domain" / "models" / "__init__.py").exists()
