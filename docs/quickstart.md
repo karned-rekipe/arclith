@@ -39,10 +39,12 @@ arclith-cli expose-usecase create-todo --via fastapi --feature todos \
 
 `init` n'installe aucun transport. La commande `add-adapter` ci-dessus ajoute le
 blueprint et l'extra FastAPI à la demande ; utiliser `mcp/fastmcp` de la même
-manière uniquement si le service expose aussi MCP. Pour un CRUD, remplacer les
-commandes `add-usecase` et `expose-usecase` par ce parcours prévalidé en lot :
+manière uniquement si le service expose aussi MCP. Pour un CRUD, utiliser plutôt
+ce parcours complet, en alternative au bloc précédent :
 
 ```bash
+arclith-cli init todo-list-service
+cd todo-list-service
 arclith-cli add-entity Todo --profile crud
 arclith-cli add-adapter --capability api --adapter fastapi --yes
 arclith-cli expose-feature todo --via fastapi --path /v1/todos

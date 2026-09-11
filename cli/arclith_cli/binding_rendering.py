@@ -283,7 +283,8 @@ def _path_annotations(
     parameters: tuple[str, ...],
 ) -> dict[str, _PathAnnotation]:
     annotations = dict(contract.request_fields)
-    field_names, field_modules = _pydantic_field_references(contract.request_imports)
+    field_names = set(contract.pydantic_field_names)
+    field_modules = set(contract.pydantic_module_names)
     declaration = ast.parse(contract.request_source).body[0]
     assert isinstance(declaration, ast.ClassDef)
     metadata: dict[str, str] = {}
@@ -299,30 +300,6 @@ def _path_annotations(
         parameter: _PathAnnotation(annotations[parameter], metadata.get(parameter))
         for parameter in parameters
     }
-
-
-def _pydantic_field_references(
-    imports: tuple[str, ...],
-) -> tuple[set[str], set[str]]:
-    names: set[str] = set()
-    modules: set[str] = set()
-    for source in imports:
-        statement = ast.parse(source).body[0]
-        if isinstance(statement, ast.ImportFrom) and (
-            statement.module or ""
-        ).startswith("pydantic"):
-            names.update(
-                alias.asname or alias.name
-                for alias in statement.names
-                if alias.name == "Field"
-            )
-        elif isinstance(statement, ast.Import):
-            modules.update(
-                alias.asname or alias.name
-                for alias in statement.names
-                if alias.name == "pydantic"
-            )
-    return names, modules
 
 
 def _field_metadata(

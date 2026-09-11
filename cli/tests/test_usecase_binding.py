@@ -653,6 +653,40 @@ def test_path_constraints_are_reported_as_request_validation(
     assert use_case.commands[0].item_id == 1
 
 
+def test_path_constraints_follow_a_locally_reexported_pydantic_field(project):
+    directory = project / "src/binding_app/domain/ports/inbound"
+    (directory / "limits.py").write_text(
+        "from pydantic import Field\n", encoding="utf-8"
+    )
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        "from pydantic import BaseModel\nfrom .limits import Field",
+    ).replace(
+        "title: str = Field(min_length=1)",
+        "item_id: int = Field(gt=0)\n    title: str = Field(min_length=1)",
+    )
+    (directory / "create_todo.py").write_text(source, encoding="utf-8")
+    registry = _bind(
+        project,
+        "fastapi",
+        http_path="/v1/todos/{item_id}",
+    )
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+
+    with TestClient(api) as client:
+        invalid = client.post("/v1/todos/-1", json={"title": "Invalid"})
+        valid = client.post("/v1/todos/1", json={"title": "Valid"})
+
+    parameter = api.openapi()["paths"]["/v1/todos/{item_id}"]["post"]["parameters"][0]
+    assert invalid.status_code == 422
+    assert valid.status_code == 200
+    assert parameter["schema"]["exclusiveMinimum"] == 0
+    assert len(use_case.commands) == 1
+    assert use_case.commands[0].item_id == 1
+
+
 def test_path_type_aliases_preserve_the_exact_field_identifier(project):
     source = PORT_SOURCE.replace(
         "from pydantic import BaseModel, Field",

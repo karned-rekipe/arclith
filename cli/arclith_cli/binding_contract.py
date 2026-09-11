@@ -6,6 +6,7 @@ import keyword
 from dataclasses import dataclass
 from pathlib import Path
 
+from arclith_cli.import_origins import absolute_import, pydantic_field_references
 from arclith_cli.project_paths import ProjectPaths
 from arclith_cli.rename import EntityNames
 
@@ -34,6 +35,8 @@ class UseCaseContract:
     request: str
     request_source: str
     request_imports: tuple[str, ...]
+    pydantic_field_names: tuple[str, ...]
+    pydantic_module_names: tuple[str, ...]
     request_fields: tuple[tuple[str, str], ...]
     path_compatible_fields: tuple[str, ...]
     result: str
@@ -98,6 +101,9 @@ def inspect_usecase(paths: ProjectPaths, raw_name: str) -> UseCaseContract:
         module,
         result,
     )
+    pydantic_field_names, pydantic_module_names = pydantic_field_references(
+        paths, tree, module
+    )
     (
         implementation_module,
         implementation,
@@ -111,6 +117,8 @@ def inspect_usecase(paths: ProjectPaths, raw_name: str) -> UseCaseContract:
         request=request.name,
         request_source=ast.unparse(request),
         request_imports=_request_imports(tree, _used_names(request, fields), module),
+        pydantic_field_names=pydantic_field_names,
+        pydantic_module_names=pydantic_module_names,
         request_fields=request_fields,
         path_compatible_fields=tuple(
             field.target.id
@@ -321,7 +329,7 @@ def _imported_symbol(
             continue
         for alias in node.names:
             if (alias.asname or alias.name) == symbol:
-                return _absolute_import(node, module), alias.name
+                return absolute_import(node, module), alias.name
     return None
 
 
@@ -499,18 +507,6 @@ def _query_generic(node: ast.Subscript) -> bool:
     return False
 
 
-def _absolute_import(node: ast.ImportFrom, module: str) -> str:
-    if not node.level:
-        if node.module is None:
-            raise ValueError("Imported symbol has no module")
-        return node.module
-    prefix = module.split(".")[: -node.level]
-    if not prefix:
-        raise ValueError("Relative request import escapes its package")
-    suffix = node.module.split(".") if node.module else []
-    return ".".join((*prefix, *suffix))
-
-
 def _selected_import(
     node: ast.Import | ast.ImportFrom, used: set[str], module: str
 ) -> tuple[str, set[str]] | None:
@@ -522,7 +518,7 @@ def _selected_import(
     statement: ast.Import | ast.ImportFrom
     if isinstance(node, ast.ImportFrom):
         statement = ast.ImportFrom(
-            module=_absolute_import(node, module), names=aliases, level=0
+            module=absolute_import(node, module), names=aliases, level=0
         )
     else:
         statement = ast.Import(names=aliases)
