@@ -39,7 +39,10 @@ arclith-cli expose-usecase create-todo --via fastapi --feature todos \
 
 `init` n'installe aucun transport. La commande `add-adapter` ci-dessus ajoute le
 blueprint et l'extra FastAPI à la demande ; utiliser `mcp/fastmcp` de la même
-manière uniquement si le service expose aussi MCP.
+manière uniquement si le service expose aussi MCP. Le profil CRUD initialise
+les ports et use cases applicatifs mais ne les projette pas encore
+automatiquement vers FastAPI ou FastMCP ; consulter le
+[blueprint CRUD](blueprints/crud.md) avant de définir ces contrats publics.
 
 Chaque commande mutante réussie enrichit `arclith.recipe.yaml`. Ce fichier
 versionné conserve les décisions de scaffolding sans remplacer Git et sans
@@ -56,6 +59,8 @@ uv tool install --force "git+https://github.com/karned-rekipe/arclith.git@feat/h
 
 Pour compatibilité, `new` reste disponible. Il équivaut à `init` suivi de
 `add-entity`; il ne télécharge plus un projet complet et n'ajoute aucun adapter.
+Le mode interactif demande le profil applicatif après l'entité ; le mode direct
+peut utiliser `--profile crud`, sinon il reste `minimal`.
 
 ```bash
 mkdir -p ~/Perso/projets/demo
@@ -108,13 +113,23 @@ arclith-cli add-usecase RunMaintenance --no-entity
 arclith-cli add-intent-interpreter ShoppingIntent
 ```
 
+Pour le cycle de vie CRUD classique, sans adapter automatique :
+
+```bash
+arclith-cli add-entity ShoppingItem --profile crud
+# ou, si l'entité existe déjà
+arclith-cli add-blueprint crud --entity ShoppingItem
+```
+
 `add-entity` ajoute un squelette guidé sans import inutilisé. `add-usecase`
 propose les entités détectées en interactif ; en mode direct, `--entity`,
 `--new-entity` et `--no-entity` rendent le choix explicite et sont mutuellement
 exclusifs. Les fichiers générés montrent le pattern
 `Command/Query -> UseCase -> Entity/Result`, mais les champs, invariants et
 appels aux ports restent du code métier à écrire dans le projet. Lire le
-[deep dive scaffold CLI](deep-dives/cli-scaffold.md) pour les exemples complets.
+[deep dive scaffold CLI](deep-dives/cli-scaffold.md) pour les exemples complets,
+ou la [vue d'ensemble des blueprints applicatifs](blueprints.md) pour comprendre
+la séparation entre comportement, capability et adapter.
 
 L'adapter actif est déclaré dans:
 

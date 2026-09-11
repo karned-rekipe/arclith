@@ -96,6 +96,7 @@ def test_new_creates_recipe(
         "directory": ".",
         "port": 8000,
         "repo_ref": "main",
+        "profile": "minimal",
     }
 
 
@@ -342,7 +343,7 @@ def test_non_strict_dry_run_marks_unsupported_steps_as_ignored(
     unknown.update(
         {
             "id": "0002",
-            "command": "add-blueprint",
+            "command": "add-policy",
             "args": {"token": REDACTED},
             "secrets": [
                 {
@@ -370,7 +371,7 @@ def test_non_strict_dry_run_marks_unsupported_steps_as_ignored(
     )
 
     assert result.exit_code == 0, result.output
-    assert "add-blueprint" in result.output
+    assert "add-policy" in result.output
     assert "ignorer (non supportée)" in result.output
     assert "1 étape(s) à exécuter, 1 ignorée(s)" in result.output
     assert "IGNORED_BLUEPRINT_TOKEN" not in result.output
@@ -384,7 +385,7 @@ def test_strict_dry_run_rejects_unknown_command_without_writing(
     recipe_path = project_dir / RECIPE_FILENAME
     raw = yaml.safe_load(recipe_path.read_text(encoding="utf-8"))
     unknown = dict(raw["steps"][0])
-    unknown.update({"id": "0002", "command": "add-blueprint"})
+    unknown.update({"id": "0002", "command": "add-policy"})
     raw["steps"].append(unknown)
     recipe_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
     target = tmp_path / "strict-target"

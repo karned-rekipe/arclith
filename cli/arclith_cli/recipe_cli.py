@@ -15,8 +15,8 @@ from arclith_cli.recipe import (
     replay_recipe,
     required_replay_env,
     select_recipe_steps,
-    step_summary,
 )
+from arclith_cli.recipe_reporting import step_summary
 
 console = Console()
 

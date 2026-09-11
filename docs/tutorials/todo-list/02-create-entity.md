@@ -15,7 +15,18 @@ Répondre au prompt:
 ```text
 Entité — utilisez le singulier (ex : Recipe, recipe_step, MealPlan)
   Nom de l'entité: Todo
+
+Profil applicatif initial
+  1. minimal
+  2. crud
+  Choix [1]: 1
 ```
+
+Ce chapitre construit chaque cas d'usage manuellement afin d'expliquer
+l'architecture ; il conserve donc le profil `minimal`. Pour initialiser le cycle
+complet en une fois, choisir `crud` ou utiliser
+`arclith-cli add-entity Todo --profile crud`. Le
+[blueprint CRUD](../../blueprints/crud.md) reste sans adapter implicite.
 
 La CLI crée:
 

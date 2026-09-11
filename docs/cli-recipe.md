@@ -29,6 +29,7 @@ La version 1 enregistre :
 
 - `init` et `new` ;
 - `add-entity` ;
+- `add-blueprint` ;
 - `add-usecase` ;
 - `add-intent-interpreter` ;
 - `add-adapter`.
@@ -73,6 +74,7 @@ steps:
     status: success
     args:
       entity: Todo
+      profile: minimal
     result:
       generated_files:
         - path: src/todo_service/domain/models/todo.py
@@ -137,10 +139,11 @@ Retirer `--dry-run` pour reconstruire le projet :
 arclith-cli replay arclith.recipe.yaml --dir ../todo-service-rebuilt
 ```
 
-Le replay appelle directement `init_project_cmd`, `add_entity_cmd`,
-`add_usecase_cmd`, `add_intent_interpreter_cmd` et `add_adapter_cmd`. Il ne
+Le replay appelle directement les opérations Python de `init`, `add-entity`,
+`add-blueprint`, `add-usecase`, `add-intent-interpreter` et `add-adapter`. Il ne
 construit pas une ligne de commande shell, ce qui évite les différences de
-quoting et garde les erreurs testables.
+quoting et garde les erreurs testables. Les anciennes étapes `add-entity` qui
+n'ont pas de `profile` restent compatibles et rejouent le profil `minimal`.
 
 Les étapes rejouées ne sont pas enregistrées une seconde fois. Pour une cible
 nouvelle, la recette sélectionnée est copiée une seule fois après le succès du

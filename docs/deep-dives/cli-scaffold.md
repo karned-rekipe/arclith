@@ -11,11 +11,13 @@ inventer le métier. Les fichiers générés sont de courts repères modifiables
 - ils renvoient vers des exemples complets au lieu de les recopier dans chaque
   projet.
 
-Le cœur métier et les adapters ont des commandes distinctes. `init` ne crée aucun
-adapter. `add-adapter` crée le [blueprint complet](adapter-blueprints.md) de la seule
-capability choisie, avec ses dossiers, fichiers de rôle et exemples inertes. Les
-bindings métier viennent après le port inbound, le use case et l'installation du
-transport cible.
+Le cœur applicatif et les adapters ont des commandes distinctes. `init` ne crée
+aucun adapter. `add-entity --profile crud` ou `add-blueprint crud` applique un
+[blueprint applicatif](../blueprints.md) sans choisir de technologie.
+`add-adapter` crée ensuite le [blueprint technique](adapter-blueprints.md) de la
+seule capability choisie, avec ses dossiers, fichiers de rôle et exemples
+inertes. Les bindings métier viennent après le port inbound, le use case et
+l'installation du transport cible.
 
 ## Commandes
 
@@ -24,6 +26,18 @@ Créer une entité guidée :
 ```bash
 arclith-cli add-entity Todo
 ```
+
+En interactif, choisir le profil `minimal` par défaut ou `crud`. En mode direct :
+
+```bash
+arclith-cli add-entity Todo --profile minimal
+arclith-cli add-entity Todo --profile crud
+arclith-cli add-blueprint crud --entity Todo
+```
+
+Le profil CRUD génère les cinq ports et use cases applicatifs, leur composition,
+leurs tests et `.arclith/features/todo.yaml`. Il ne crée aucun adapter. Lire le
+[contrat du blueprint CRUD](../blueprints/crud.md).
 
 Créer un use case lié à une entité détectée :
 
