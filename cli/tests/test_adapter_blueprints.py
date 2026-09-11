@@ -1,4 +1,4 @@
-"""Contract, preservation and runtime tests for complete adapter blueprints."""
+"""Contract, preservation and runtime tests for minimal adapter blueprints."""
 
 import ast
 import os
@@ -33,7 +33,7 @@ def test_every_catalog_adapter_has_a_complete_compilable_blueprint(
         root = tmp_path / adapter.name
         write_missing_files(root, rendered)
         assert validate_adapter_blueprint(root, blueprint) == ()
-        assert blueprint.version == "1"
+        assert blueprint.version == "2"
         assert blueprint_digest(blueprint).startswith("sha256:")
         for path, content in rendered.items():
             if path.endswith(".py"):
@@ -42,10 +42,16 @@ def test_every_catalog_adapter_has_a_complete_compilable_blueprint(
             assert f"{role}/README.md" in rendered
             assert f"{role}/__init__.py" in rendered
         if capability.name == "mcp":
-            assert all(
-                f"features/example/{role}/README.md" in rendered
-                for role in ("tools", "resources", "prompts")
+            assert "features/README.md" in rendered
+            assert not any(path.startswith("features/example/") for path in rendered)
+        if adapter.name in {"fastapi", "fastmcp", "rabbitmq"}:
+            typed_entrypoints = "\n".join(
+                content
+                for path, content in rendered.items()
+                if path.endswith("register.py") or path.endswith("router.py")
             )
+            assert "ApplicationUseCases" in typed_entrypoints
+            assert "use_cases: object" not in typed_entrypoints
 
 
 def test_blueprint_replay_preserves_code_and_restores_missing_files(
@@ -92,8 +98,9 @@ def test_init_obeys_layout_and_adapters_create_only_their_native_roles(
         adapter="fastapi",
         yes=True,
     )
-    assert (fastapi / "routers/v1/example/openapi.py").is_file()
-    assert (fastapi / "routers/v1/example/routes/README.md").is_file()
+    assert (fastapi / "register.py").is_file()
+    assert (fastapi / "bindings_generated.py").is_file()
+    assert not (fastapi / "routers/v1/example").exists()
     assert not fastmcp.exists()
 
     add_adapter_cmd(
@@ -102,9 +109,10 @@ def test_init_obeys_layout_and_adapters_create_only_their_native_roles(
         adapter="fastmcp",
         yes=True,
     )
-    assert (fastmcp / "features/example/prompts/README.md").is_file()
-    assert (fastmcp / "features/example/resources/README.md").is_file()
-    assert (fastmcp / "features/example/tools/README.md").is_file()
+    assert (fastmcp / "register.py").is_file()
+    assert (fastmcp / "bindings_generated.py").is_file()
+    assert (fastmcp / "features/README.md").is_file()
+    assert not (fastmcp / "features/example").exists()
 
 
 def test_dry_run_leaves_the_project_unchanged(tmp_path: Path) -> None:
@@ -152,34 +160,30 @@ def test_legacy_module_shadowing_fails_before_any_write(tmp_path: Path) -> None:
     assert before == after
 
 
-def test_incremental_multi_entity_repositories_import_and_preserve_customizations(
+def test_generic_repository_adapter_is_independent_from_entity_count(
     tmp_path: Path,
 ) -> None:
     root = init_project_cmd(project_name="repository-service", directory=tmp_path)
     for name in ("Todo", "Label"):
         add_entity_cmd(project_dir=root, entity_name=name)
-    add_adapter_cmd(project_dir=root, adapter="memory", all_entities=True, yes=True)
+    add_adapter_cmd(project_dir=root, adapter="memory", yes=True)
     package = root / "src/repository_service"
-    repository = package / "adapters/outbound/memory/repositories/todo_repository.py"
-    original = repository.read_text(encoding="utf-8") + "\n# User customization\n"
-    repository.write_text(original, encoding="utf-8")
-    container = package / "infrastructure/containers/todo_container.py"
-    customized = container.read_text(encoding="utf-8") + "\n# Custom composition\n"
-    container.write_text(customized, encoding="utf-8")
-    add_adapter_cmd(project_dir=root, adapter="memory", all_entities=True, yes=True)
-    assert repository.read_text(encoding="utf-8") == original
-    assert container.read_text(encoding="utf-8") == customized
+    readme = package / "adapters/outbound/memory/README.md"
+    original = readme.read_text(encoding="utf-8") + "\nUser customization.\n"
+    readme.write_text(original, encoding="utf-8")
+    add_adapter_cmd(project_dir=root, adapter="memory", yes=True)
+    assert readme.read_text(encoding="utf-8") == original
     assert not (package / "adapters/outbound/memory/repository.py").exists()
+    assert (package / "adapters/outbound/memory/repositories/README.md").is_file()
+    assert not list(
+        (package / "adapters/outbound/memory/repositories").glob("*_repository.py")
+    )
     source = """
 from arclith import Arclith
-from repository_service.adapters.outbound.memory.repositories.todo_repository import InMemoryTodoRepository
-from repository_service.adapters.outbound.memory.repositories.label_repository import InMemoryLabelRepository
-from repository_service.infrastructure.containers.todo_container import build_todo_service
-from repository_service.infrastructure.containers.label_container import build_label_service
+from repository_service.domain.models.todo import Todo
+from repository_service.domain.models.label import Label
 app = Arclith("config")
-assert InMemoryTodoRepository is not InMemoryLabelRepository
-assert build_todo_service(app)[0] is not None
-assert build_label_service(app)[0] is not None
+assert app.repository(Todo) is not app.repository(Label)
 """
     result = subprocess.run(
         [sys.executable, "-c", source],

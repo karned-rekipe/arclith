@@ -2,7 +2,8 @@
 
 `arclith-cli` construit un projet Python hexagonal par étapes. `init` pose uniquement le socle
 installable ; chaque adapter, transport et dépendance optionnelle est ensuite ajouté explicitement.
-`new` reste disponible pour générer un projet depuis le template officiel `_sample`.
+`new` reste disponible comme raccourci compatible pour `init` suivi de `add-entity`, sans adapter
+implicite.
 
 ## Installation
 
@@ -17,8 +18,9 @@ Exécuter `arclith-cli` sans argument affiche cette liste de commandes et termin
 ### `init` — Initialiser un projet minimal
 
 Crée un projet Arclith vide de métier, avec le layout canonique `src/<package>/...`, une
-configuration minimale, un `main.py` prêt à recevoir les adapters et le runtime Docker standard
-(`Dockerfile`, `.dockerignore`, `arclith-run`).
+configuration minimale et un `main.py` prêt à recevoir les adapters. Les fichiers du runtime
+Docker (`Dockerfile`, `.dockerignore`, `arclith-run`) ne sont ajoutés que par
+`add-adapter --capability runtime --adapter docker-image`.
 
 ```bash
 # Mode interactif
@@ -51,25 +53,27 @@ arclith-cli add-entity Todo
 arclith-cli add-usecase CreateTodo --entity Todo
 
 # Choisir explicitement la persistance et le transport utilisés.
-arclith-cli add-adapter --capability repository --adapter memory --entity Todo --yes
-arclith-cli add-adapter --capability api --adapter fastapi --yes
+arclith-cli add-adapter --capability repository --adapter memory --yes
+arclith-cli add-adapter --capability api --adapter fastapi --param port=8765 --yes
 
-# Après avoir défini les champs et implémenté CreateTodoUseCase.execute :
 arclith-cli expose-usecase create-todo --via fastapi --feature todos \
   --path /v1/todos --method POST --status-code 201
 uv sync
 MODE=api uv run python main.py
 ```
 
-Le registre de binding généré reste à appeler depuis le composition root avec l'instance typée du
-use case ; le CLI ne devine pas ses dépendances métier. Voir le
+Le parcours fonctionne avec les seuls champs techniques de `Entity`. Le composition root typé
+est régénéré automatiquement pour un use case sans dépendance ou avec une dépendance
+`Repository[Entity]`. Une composition plus riche reste explicite. Voir le
 [guide des bindings](https://karned-rekipe.github.io/arclith/deep-dives/use-case-bindings/).
 
 ---
 
-### `new` — Créer un projet
+### `new` — Raccourci minimal compatible
 
-Scaffold un nouveau projet arclith depuis le template officiel `_sample`.
+`new` exécute le même scaffold canonique que `init`, puis ajoute uniquement
+l'entité demandée. Aucun adapter, transport, runtime Docker ou feature n'est
+créé implicitement.
 
 ```bash
 # Mode interactif — l'outil pose les questions
@@ -83,13 +87,13 @@ arclith-cli new MealPlan meal-plan-service --dir ~/projects --port 8500
 
 | Option | Défaut | Description |
 |--------|--------|-------------|
-| `--port` / `-p` | `8000` | Port REST (MCP = port+1) |
+| `--port` / `-p` | `8000` | Port à proposer lors du futur ajout explicite de FastAPI |
 | `--dir` / `-d` | `.` | Répertoire parent |
-| `--ref` | `main` | Branche/tag du template |
 
 Le projet généré utilise un layout `src/<package>/...` pour le code applicatif et un dossier
-`config/` structuré par adapter (voir section [Configuration](#configuration)). Le Dockerfile du
-template est régénéré côté CLI pour appliquer le contrat `runtime/docker-image` courant.
+`config/` structuré par adapter (voir section [Configuration](#configuration)). Utiliser ensuite
+`add-usecase`, `add-adapter` puis `expose-usecase`; un Dockerfile n'apparaît que via l'adapter
+`runtime/docker-image`.
 
 ---
 
@@ -205,9 +209,9 @@ arclith-cli add-adapter
 Mode direct, utile pour CI, scripts de migration ou commandes reproductibles :
 
 ```bash
-arclith-cli add-adapter --adapter mongodb --entity Recipe --db-name my_recipe_service --param collection_name=recipes --yes
-arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activate --yes
-arclith-cli add-adapter --adapter mariadb --entity Recipe --param database=my_recipe_service --param user=app --yes
+arclith-cli add-adapter --adapter mongodb --db-name my_recipe_service --param collection_name=recipes --yes
+arclith-cli add-adapter --adapter duckdb --path data/ --no-activate --yes
+arclith-cli add-adapter --adapter mariadb --param database=my_recipe_service --param user=app --yes
 arclith-cli add-adapter --capability api --adapter fastapi --param port=8080 --yes
 arclith-cli add-adapter --capability mcp --adapter fastmcp --param port=8081 --yes
 arclith-cli add-adapter --capability llm --adapter lmstudio --param model_name=qwen/qwen3.5-9b --yes
@@ -217,14 +221,14 @@ arclith-cli add-adapter --capability observability --adapter opentelemetry --par
 arclith-cli add-adapter --capability runtime --adapter docker-image --yes
 arclith-cli add-adapter --capability cache --adapter memory --yes
 arclith-cli add-adapter --capability cache --adapter redis --param redis_url=redis://redis:6379 --yes
-arclith-cli add-adapter --capability repository --adapter memory --entity Recipe --yes
+arclith-cli add-adapter --capability repository --adapter memory --yes
 ```
 
 **Étapes du wizard :**
 
 1. **Capability** — toutes les capabilities du catalogue sont proposées avec leurs adapters
 2. **Type d'adapter** — selon la capability : `memory` · `mongodb` · `duckdb` · `mariadb` · `fastapi` · `fastmcp` · `rabbitmq` · `docker-image` · `lmstudio` · `openai` · `anthropic` · `langgraph` · `langsmith` · `opentelemetry`
-3. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour les transports globaux, `cache/*`, `llm/*`, `agent/langgraph`, `runtime/docker-image` et les adapters d'observability
+3. **Entité(s) cible(s)** — uniquement pour une extension explicitement déclarée entity-scoped ; les repositories génériques et les transports ne demandent pas d'entité
 4. **Paramètres** — questions spécifiques à l'adapter :
    - `mongodb` → `db_name`, `collection_name`, `multitenant`
    - `duckdb` → `path`
@@ -250,8 +254,6 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
 |--------|--------|-------------|
 | `--capability` | interactif | Capacité cible du catalogue standardisé (`repository`, `cache`, `api`, `mcp`, `http`, `command-bus`, `runtime`, `llm`, `agent`, `observability`) |
 | `--adapter` / `-a` | interactif | Adapter du catalogue : `memory`, `mongodb`, `duckdb`, `mariadb`, `fastapi`, `fastmcp`, `idempotency`, `etag`, `cache-control`, `rabbitmq`, `docker-image`, `lmstudio`, `openai`, `anthropic`, `langgraph`, `langsmith`, `opentelemetry` |
-| `--entity` / `-e` | auto si une seule entité | Entité cible, liste séparée par virgule acceptée |
-| `--all-entities` | `false` | Génère l'adapter pour toutes les entités détectées |
 | `--activate/--no-activate` | `--activate` | Met à jour `config/adapters/adapters.yaml` quand la capacité expose une clé d'activation |
 | `--db-name` | nom du projet | Nom de base pour MongoDB |
 | `--multitenant/--single-tenant` | `--single-tenant` | Mode MongoDB multitenant |
@@ -259,17 +261,20 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
 | `--param` | - | Paramètre adapter `key=value`, répétable pour les adapters du catalogue |
 | `--yes` / `-y` | `false` | Skip la confirmation et utilise les valeurs fournies ou par défaut |
 
-**Fichiers générés par entité :**
+**Contrat d'un repository intégré :**
 
 ```
 config/adapters/outbound/<adapter>.yaml          # config scopée si l'adapter en a besoin
 src/<package>/adapters/outbound/<adapter>/__init__.py
-src/<package>/adapters/outbound/<adapter>/repository.py        # re-export
-src/<package>/adapters/outbound/<adapter>/repositories/<entity>_repository.py  # sous-classe à compléter
-src/<package>/infrastructure/containers/<entity>_container.py  # RepositoryRegistry régénéré
+src/<package>/adapters/outbound/<adapter>/README.md
+src/<package>/adapters/outbound/<adapter>/repositories/        # extensions custom uniquement
+src/<package>/infrastructure/use_cases_generated.py            # composition des use cases exposés
 ```
 
-> ⚠️ `src/<package>/infrastructure/containers/<entity>_container.py` est **régénéré intégralement** si le fichier existe déjà — un avertissement est affiché dans le récapitulatif.
+Les implémentations CRUD sont fournies par Arclith et sélectionnées par
+`arclith.repository(Entity)`. Aucun repository par entité, container ou adapter
+`memory` de secours n'est généré. Le README de chaque rôle définit les seuls
+emplacements autorisés pour une extension provider spécifique.
 
 **Runtime Docker :**
 

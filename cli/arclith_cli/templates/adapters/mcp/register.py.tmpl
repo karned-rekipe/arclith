@@ -1,10 +1,20 @@
-"""Explicit MCP composition: register tools, resources and prompts by feature."""
+"""FastMCP composition entrypoint generated for this service."""
+
+from typing import Any
 
 from fastmcp import FastMCP
 
+from $adapter_import.bindings_generated import (
+    register as register_bindings,
+)
+from $composition_import import (
+    ApplicationUseCases,
+)
 
-def register_components(server: FastMCP) -> None:
-    """Register project components here, injecting their application dependencies.
 
-    The initial skeleton deliberately exposes no business tool or resource.
-    """
+def register_components(
+    server: FastMCP[Any],
+    use_cases: ApplicationUseCases,
+) -> None:
+    """Register only use cases explicitly exposed through FastMCP."""
+    register_bindings(server, use_cases)

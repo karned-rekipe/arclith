@@ -1,5 +1,5 @@
 from typing import Generic, Optional, TypeVar
-from uuid6 import UUID
+from uuid import UUID
 
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.outbound.logger import Logger
@@ -21,4 +21,3 @@ class ReadUseCase(Generic[T]):
             return None
         self._logger.info("✅ Entity found", type=type(result).__name__, uuid=str(uuid))
         return result
-

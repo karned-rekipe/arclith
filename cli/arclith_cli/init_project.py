@@ -11,12 +11,6 @@ from rich.tree import Tree
 
 from arclith.infrastructure.project_layout import canonical_project_layout
 
-from .runtime_templates import (
-    DOCKERIGNORE_TEMPLATE,
-    render_arclith_run,
-    render_dockerfile,
-)
-
 console = Console()
 
 _PROJECT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
@@ -144,21 +138,32 @@ dev = [
 
 Projet Arclith minimal.
 
-```bash
-uv sync
-uv run python -m pytest
+## Prérequis
 
-# Parcours explicite jusqu'à une API FastAPI
-arclith-cli add-entity Todo
-arclith-cli add-usecase CreateTodo --entity Todo
-arclith-cli add-adapter --capability repository --adapter memory --entity Todo --yes
-arclith-cli add-adapter --capability api --adapter fastapi --yes
-arclith-cli expose-usecase create-todo --via fastapi --feature todos \\
-  --path /v1/todos --method POST --status-code 201
+```bash
+uv tool install arclith-cli
+arclith-cli version
 ```
 
-Complétez les champs et l'implémentation du use case, puis composez le binding
-généré depuis le point d'entrée. Aucun transport ou adapter métier n'est généré
+## Parcours minimal jusqu'à une API
+
+```bash
+arclith-cli add-entity Todo
+arclith-cli add-usecase CreateTodo --entity Todo
+arclith-cli add-adapter --capability repository --adapter memory --yes
+arclith-cli add-adapter --capability api --adapter fastapi \\
+  --param port=8765 --param reload=false --yes
+arclith-cli expose-usecase create-todo --via fastapi --feature todos \\
+  --path /v1/todos --method POST --status-code 201
+uv sync
+uv run python -m pytest
+MODE=api uv run python main.py
+```
+
+Le parcours fonctionne immédiatement avec les seuls champs techniques de
+`Entity`. Ajoutez ensuite les champs métier dans le modèle et la commande ; les
+fichiers indiquent où placer validations et règles métier. `expose-usecase`
+régénère la composition typée. Aucun transport ni adapter optionnel n'est créé
 par `init`.
 """,
         encoding="utf-8",
@@ -166,15 +171,23 @@ par `init`.
     (target_dir / "AGENTS.md").write_text(
         f"""# {project_name}: architecture contract
 
+This file is mandatory guidance for coding agents. Read `ARCHITECTURE.md` and
+the nearest adapter `README.md` before creating or moving code.
+
 Canonical source: `src/{package_name}/{{domain,application,adapters,infrastructure}}`.
-Adapter extension points are created only by `arclith-cli add-adapter`.
-Keep installed adapter names and locations. Consult their README before adding a component.
+This `src/<package>` namespace is required by Python packaging and must not be flattened.
+
+- MUST create technologies with `arclith-cli add-adapter` and public bindings with `expose-usecase`.
+- MUST keep code inside a path declared by `ARCHITECTURE.md` and the installed adapter blueprint.
+- MUST NOT create alternate roots, global `utils.py`/`helpers.py`, or infer a feature from an entity.
+- If no declared location fits, update the official blueprint and architecture decision before adding code.
+- Each `.arclith/blueprints/*.yaml` file is a closed, machine-readable list of expected paths.
 
 - Domain imports no adapter or infrastructure module.
 - Application depends on domain models and inbound/outbound ports.
 - Inbound adapters map transport DTOs to typed application Command/Query and present Result.
 - Use the same application port for FastAPI, MCP, LangGraph and messaging.
-- Concrete outbound dependencies are assembled once in infrastructure/containers or bootstrap.
+- Concrete outbound dependencies are assembled once in `infrastructure/use_cases_generated.py` or an explicit bootstrap.
 - Keep FastAPI by version/feature, MCP by feature/tools/resources/prompts, LangGraph by capability.
 - `__init__.py` has no registration or client side effects.
 - Developer-owned files are never overwritten by scaffold replay.
@@ -184,6 +197,55 @@ Keep installed adapter names and locations. Consult their README before adding a
 
 Start with `arclith-cli add-entity`, `add-usecase` and `add-adapter`.
 Use `uv run python -m pytest` to validate this service.
+""",
+        encoding="utf-8",
+    )
+    (target_dir / "ARCHITECTURE.md").write_text(
+        f"""# Architecture contract
+
+The only supported application source layout is `src/{package_name}`. Keeping the
+distribution package under `src/` prevents accidental imports from the checkout.
+
+```text
+src/{package_name}/
+├── domain/
+│   ├── models/                 # entities and domain invariants
+│   ├── events/                 # domain events
+│   ├── value_objects/          # immutable domain values
+│   └── ports/
+│       ├── inbound/            # typed use-case contracts
+│       └── outbound/           # dependencies required by the application
+├── application/
+│   ├── use_cases/              # one orchestration class per use case
+│   ├── services/               # reusable application services
+│   ├── workflows/              # multi-step application coordination
+│   └── intent_interpreters/    # natural-language intent mapping
+├── adapters/
+│   ├── inbound/<technology>/   # HTTP, MCP, agent entrypoints
+│   ├── outbound/<technology>/  # persistence and provider implementations
+│   └── bidirectional/<technology>/ # brokers and conversational channels
+└── infrastructure/
+    ├── use_cases_generated.py  # CLI-owned composition of application ports
+    ├── containers/             # explicit custom dependency containers
+    └── bootstrap/              # process lifecycle composition
+```
+
+An adapter directory exists only after `add-adapter`. Its root README and every
+role README define the allowed responsibilities. The corresponding
+`.arclith/blueprints/<capability>-<adapter>.yaml` records the closed list of
+expected paths. A feature directory exists only after `expose-usecase`.
+
+FastAPI uses exactly `register.py -> routers/v1/router.py -> <feature>/router.py
+-> routes/<operation>.py`. FastMCP uses `register.py -> features/<feature>/
+{{tools,resources,prompts}}`. RabbitMQ uses `register.py -> bindings/<operation>.py`.
+Repositories use the generic Arclith implementation by default; project-owned
+files under `repositories`, `models`, `mappers`, `indexes` or `migrations` require
+a real provider-specific extension point. Never generate another provider as a fallback.
+
+`__init__.py` files are side-effect free. Developer-owned files are preserved;
+only `*_generated.py` files may be regenerated. New generic locations such as
+`utils.py`, `helpers.py` or `common/` are forbidden unless the official blueprint
+is deliberately revised with documentation and tests.
 """,
         encoding="utf-8",
     )
@@ -204,50 +266,77 @@ dist/
     )
     (target_dir / "main.py").write_text(
         f'''"""Application entrypoint for {project_name}."""
+
 from __future__ import annotations
 
 import os
 import sys
+from functools import cache
 from pathlib import Path
+from typing import Any
 
 from arclith import Arclith
+
 _CONFIG = Path(__file__).parent / "config"
 _MODE = os.getenv("MODE", "api")
-_VALID_MODES = {{"api", "mcp_http", "mcp_sse", "all", "bus"}}
+_ADAPTERS = Path(__file__).parent / "src" / "{package_name}" / "adapters"
 
-if _MODE not in _VALID_MODES:
-    print(
-        f"Unsupported MODE={{_MODE!r}}. Expected one of: {{', '.join(sorted(_VALID_MODES))}}.",
-        file=sys.stderr,
-    )
-    sys.exit(64)
+
+def _available_modes() -> frozenset[str]:
+    modes: set[str] = set()
+    if (_ADAPTERS / "inbound" / "fastapi").is_dir():
+        modes.add("api")
+    if (_ADAPTERS / "inbound" / "fastmcp").is_dir():
+        modes.update(("mcp_http", "mcp_sse"))
+    if (_ADAPTERS / "bidirectional" / "rabbitmq").is_dir():
+        modes.add("bus")
+    if {{"api", "mcp_http"}} <= modes:
+        modes.add("all")
+    return frozenset(modes)
+
+
+_VALID_MODES = _available_modes()
 
 arclith = Arclith(_CONFIG)
 
 
-def build_api():
-    from {package_name}.adapters.inbound.fastapi.register import register_routes
+@cache
+def _build_use_cases() -> Any:
+    from {package_name}.infrastructure.use_cases_generated import (
+        build_use_cases,
+    )
+
+    return build_use_cases(arclith)
+
+
+def build_api() -> Any:
+    from {package_name}.adapters.inbound.fastapi.register import (
+        register_routes,
+    )
 
     application = arclith.fastapi()
-    register_routes(application)
+    register_routes(application, _build_use_cases())
     return application
 
 
-def build_mcp():
-    from {package_name}.adapters.inbound.fastmcp.register import register_components
+def build_mcp() -> Any:
+    from {package_name}.adapters.inbound.fastmcp.register import (
+        register_components,
+    )
 
     server = arclith.fastmcp("{project_name} MCP")
-    register_components(server)
+    register_components(server, _build_use_cases())
     return server
 
 
 def _run_bus() -> None:
-    # Optional adapter: installed with add-adapter --capability command-bus.
     from arclith.application.command_bus import CommandDispatcher
-    from {package_name}.adapters.bidirectional.rabbitmq.register import register_bindings
+    from {package_name}.adapters.bidirectional.rabbitmq.register import (
+        register_bindings,
+    )
 
     dispatcher = CommandDispatcher()
-    register_bindings(dispatcher)
+    register_bindings(dispatcher, _build_use_cases())
     arclith.run_command_bus(dispatcher)
 
 
@@ -264,6 +353,14 @@ def _run_mcp_sse() -> None:
 
 
 if __name__ == "__main__":
+    if _MODE not in _VALID_MODES:
+        available = ", ".join(sorted(_VALID_MODES)) or "none"
+        print(
+            f"Unsupported MODE={{_MODE!r}}. Installed modes: {{available}}. "
+            "Add the corresponding adapter with arclith-cli add-adapter.",
+            file=sys.stderr,
+        )
+        sys.exit(64)
     match _MODE:
         case "api":
             arclith.run_with_probes(_run_api, transports=["api"])
@@ -272,17 +369,39 @@ if __name__ == "__main__":
         case "mcp_sse":
             arclith.run_with_probes(_run_mcp_sse, transports=["mcp_sse"])
         case "all":
-            arclith.run_with_probes(_run_api, _run_mcp_http, transports=["api", "mcp_http"])
+            arclith.run_with_probes(
+                _run_api,
+                _run_mcp_http,
+                transports=["api", "mcp_http"],
+            )
         case "bus":
             arclith.run_with_probes(_run_bus, transports=["bus"])
 ''',
         encoding="utf-8",
     )
-    (target_dir / "Dockerfile").write_text(render_dockerfile(), encoding="utf-8")
-    (target_dir / ".dockerignore").write_text(DOCKERIGNORE_TEMPLATE, encoding="utf-8")
-    entrypoint = target_dir / "arclith-run"
-    entrypoint.write_text(render_arclith_run(), encoding="utf-8")
-    entrypoint.chmod(0o755)
+    composition = (
+        target_dir / "src" / package_name / "infrastructure" / "use_cases_generated.py"
+    )
+    composition.write_text(
+        '''# Generated by arclith-cli expose-usecase; do not edit manually.
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from arclith import Arclith
+
+
+@dataclass(frozen=True)
+class ApplicationUseCases:
+    """Typed application dependencies exposed through installed transports."""
+
+
+def build_use_cases(_arclith: Arclith) -> ApplicationUseCases:
+    """Build an empty application until expose-usecase adds a binding."""
+    return ApplicationUseCases()
+''',
+        encoding="utf-8",
+    )
 
 
 def _write_config(target_dir: Path, project_name: str) -> None:
@@ -308,30 +427,8 @@ observability:
 """,
         encoding="utf-8",
     )
-    (config_dir / "http.yaml").write_text(
-        """idempotency:
-  enabled: true
-  ttl_seconds: 86400
-  required: false
-
-etag:
-  enabled: true
-
-cache_control:
-  get_single_max_age: 300
-  get_list_max_age: 60
-""",
-        encoding="utf-8",
-    )
     (config_dir / "soft_delete.yaml").write_text(
         "retention_days: 30\n", encoding="utf-8"
-    )
-    (inbound_dir / "probe.yaml").write_text(
-        """host: 0.0.0.0
-port: 9000
-enabled: true
-""",
-        encoding="utf-8",
     )
 
 
@@ -347,7 +444,8 @@ def test_project_config_loads() -> None:
     app = Arclith("config")
 
     assert app.config.app.name
-    assert app.config.adapters.repository == "memory"
+    assert app.config.adapters.logger == "console"
+    assert app.config.adapters.repository
 
 
 def test_package_imports() -> None:

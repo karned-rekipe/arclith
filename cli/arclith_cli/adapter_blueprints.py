@@ -12,10 +12,9 @@ from pathlib import Path, PurePosixPath
 from string import Template
 
 from arclith_cli.capability_models import AdapterSpec
-from arclith_cli.entity_scanner import scan_entities
 from arclith_cli.project_paths import ProjectPaths
 
-BLUEPRINT_VERSION = "1"
+BLUEPRINT_VERSION = "2"
 
 
 @dataclass(frozen=True)
@@ -166,6 +165,17 @@ _ROLE_GUIDANCE = {
     "presenters": "Render application results without making business decisions or performing I/O.",
     "policies": "Technical retry, timeout and idempotency policies. Retry only safe/idempotent operations.",
     "migrations": "Explicit version-to-version migrations. Preserve compatibility with already persisted data.",
+    "models": "Provider-owned persistence models only; never duplicate the domain entity here without a mapping need.",
+    "indexes": "Provider index declarations and reconciliation code; keep query intent in an outbound port.",
+    "contracts": "Versioned wire contracts and pure mappings around typed application requests and results.",
+    "schemas": "Provider or wire schemas only. Domain validation stays in domain/application models.",
+    "features": "One public transport feature per package. Create it through expose-usecase, never by inference.",
+    "dependencies": "Transport/provider dependency factories. Concrete assembly remains in infrastructure.",
+    "errors": "Translate provider or transport failures at the hexagonal boundary; do not define business errors here.",
+    "codec": "Encode and decode the versioned wire envelope without business decisions.",
+    "topology": "Declare exchanges, queues and routing keys separately from message handlers.",
+    "consumer": "Compose broker consumption with generated bindings; acknowledgement remains framework-owned.",
+    "publisher": "Implement outbound publication behind an application port; preserve correlation and trace context.",
 }
 
 
@@ -217,10 +227,10 @@ def _template(name: str, variables: dict[str, str]) -> str:
 def render_feature_blueprint(
     kind: str, feature: str, package_name: str
 ) -> dict[str, str]:
-    """Render a full inert feature relative to its adapter root.
+    """Render the canonical feature package required by one public binding.
 
-    ``kind`` accepts FastAPI/FastMCP names or their capability names. No public
-    endpoint, tool, resource or prompt is registered by this skeleton.
+    ``kind`` accepts FastAPI/FastMCP names or their capability names. Only the
+    requested feature is created; no entity or example feature is inferred.
     """
     if not feature.isidentifier() or feature.startswith("_"):
         raise ValueError("feature must be a public Python identifier")
@@ -245,7 +255,9 @@ def render_feature_blueprint(
         result[f"{base}/{module}.py"] = f'"""{feature}: {_module_guide(module)}"""\n'
     if kind in {"api", "fastapi"}:
         result[f"{base}/router.py"] += (
-            "\nfrom fastapi import APIRouter\n\nrouter = APIRouter()\n"
+            "\nfrom fastapi import APIRouter\n\n\n"
+            "def build_router() -> APIRouter:\n"
+            f'    return APIRouter(tags=["{feature}"])\n'
         )
     return result
 
@@ -275,6 +287,11 @@ def render_adapter_blueprint(
     variables = {
         "adapter_import": prefix,
         "package_name": package_name,
+        "composition_import": (
+            f"{package_name}.infrastructure.use_cases_generated"
+            if package_name
+            else "infrastructure.use_cases_generated"
+        ),
         "graph_name": graph_name,
     }
     templates: dict[str, tuple[str, ...]] = {
@@ -294,11 +311,8 @@ def render_adapter_blueprint(
         result[f"{module}.py"] = _template(
             f"{blueprint.capability}/{module}.py.tmpl", variables
         )
-    if blueprint.capability in {"api", "mcp"}:
-        for feature in features or ("example",):
-            result.update(
-                render_feature_blueprint(blueprint.capability, feature, package_name)
-            )
+    if blueprint.capability in {"api", "mcp", "command-bus"}:
+        result["bindings_generated.py"] = _empty_binding_registry(blueprint.capability)
     layout = "\n".join(f"- `{name}`" for name in sorted(result))
     boundaries = {
         "inbound": "Input -> transport mapper -> typed application Command/Query -> inbound port -> Result -> presenter. Do not import concrete outbound adapters here.",
@@ -306,16 +320,50 @@ def render_adapter_blueprint(
         "bidirectional": "Separate inbound decoding/validation from outbound publishing. Inbound messages invoke typed application ports; outbound messages implement outbound ports.",
         "runtime": "Assemble application dependencies and manage process startup/shutdown. Runtime configuration does not contain business rules.",
     }
+    implementation_note = (
+        "Arclith already provides the standard repository implementation. "
+        "The generated composition root selects it through `arclith.repository(Entity)`. "
+        "Add a project-owned repository module only when an explicit outbound port "
+        "requires a provider-specific implementation.\n\n"
+        if blueprint.capability == "repository"
+        else ""
+    )
     result["README.md"] = (
         f"# {blueprint.adapter} adapter\n\nBlueprint version: `{blueprint.version}`.\n\n"
-        "All folders and role files are created at installation. `example` is an inert reference feature; "
-        "it exposes no business operation. Register features explicitly from the composition root.\n\n"
+        "This is the canonical, closed extension-point layout for the selected technology. "
+        "Do not create parallel `utils.py`, `helpers.py`, transport or provider trees. "
+        "Business features are created only with `arclith-cli expose-usecase`.\n\n"
         f"{boundaries[blueprint.layer]} Domain logic belongs to the application/domain.\n\n"
-        "Files are developer-owned: rerunning the scaffold fills missing files and preserves existing code. "
+        f"{implementation_note}"
+        "Each package README defines what belongs there. Placeholder modules are guidance and may be "
+        "implemented when that responsibility is actually needed. Files are developer-owned: rerunning "
+        "the scaffold fills missing files and preserves existing code. "
         "Do not register components through import side effects in `__init__.py`.\n\n"
-        f"[Official reference]({blueprint.reference}).\n\n## Complete layout\n\n{layout}\n"
+        f"[Official reference]({blueprint.reference}).\n\n## Allowed layout\n\n{layout}\n"
     )
     return result
+
+
+def _empty_binding_registry(capability: str) -> str:
+    imports = {
+        "api": "from fastapi import APIRouter",
+        "mcp": "from typing import Any\n\nfrom fastmcp import FastMCP",
+        "command-bus": (
+            "from arclith.application.command_bus import CommandDispatcher"
+        ),
+    }
+    target = {
+        "api": "APIRouter",
+        "mcp": "FastMCP[Any]",
+        "command-bus": "CommandDispatcher",
+    }
+    return (
+        "# Generated by arclith-cli expose-usecase; edit the binding modules instead.\n"
+        "from __future__ import annotations\n\n"
+        f"{imports[capability]}\n\n\n"
+        f"def register(_target: {target[capability]}, _use_cases: object) -> None:\n"
+        '    """No public operation is exposed until expose-usecase is run."""\n'
+    )
 
 
 def blueprint_digest(blueprint: AdapterBlueprint) -> str:
@@ -369,9 +417,8 @@ def scaffold_adapter_blueprint(
     blueprint = get_adapter_blueprint(adapter)
     root = paths.package_root.joinpath(*blueprint.root_parts)
     assert_no_module_shadowing(root, blueprint)
-    features = tuple(entity.snake for entity in scan_entities(project_dir))
     rendered = render_adapter_blueprint(
-        blueprint, paths.package_name or "", features, graph_name=graph_name
+        blueprint, paths.package_name or "", graph_name=graph_name
     )
     created = write_missing_files(root, rendered)
     # Metadata is template provenance, not a claim that edited code matches it.
@@ -381,6 +428,9 @@ def scaffold_adapter_blueprint(
             f"template_digest: {blueprint_digest(blueprint)!r}\n"
             f"capability: {adapter.capability}\nadapter: {adapter.name}\n"
             "ownership: developer\n"
+            "contract: closed\n"
+            "expected_paths:\n"
+            + "".join(f"  - {path!r}\n" for path in sorted(rendered))
         )
     }
     write_missing_files(project_dir / ".arclith" / "blueprints", metadata)

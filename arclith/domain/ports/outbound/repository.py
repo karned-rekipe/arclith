@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Generic, Optional, TypeVar
 
-from uuid6 import UUID
+from uuid import UUID
 
 from arclith.domain.models.entity import Entity
 

@@ -27,16 +27,11 @@ from arclith_cli.adapter_rendering import (
     _configured_agent_persistence_extras,
     _ensure_arclith_extras,
     _file_template_vars,
-    _import_vars,
 )
-from arclith_cli.adapter_templates import (
-    REPO_PYTHON,
-    render,
-    render_container,
-)
+from arclith_cli.adapter_templates import render
 from arclith_cli.capabilities import AdapterSpec, CapabilitySpec
-from arclith_cli.entity_scanner import EntityInfo, scan_installed_adapters
-from arclith_cli.project_paths import ProjectPaths, detect_project_paths
+from arclith_cli.entity_scanner import EntityInfo
+from arclith_cli.project_paths import detect_project_paths
 
 console = Console()
 _LANGSMITH_ENV_PARAMETERS: dict[str, str] = {
@@ -63,10 +58,6 @@ class GenerationRequest:
 
 
 def _generate(request: GenerationRequest) -> None:
-    installed = scan_installed_adapters(request.project_dir)
-    if request.adapter.name not in installed:
-        installed = sorted([*installed, request.adapter.name])
-
     paths = detect_project_paths(request.project_dir)
     blueprint = get_adapter_blueprint(request.adapter)
     assert_no_module_shadowing(
@@ -99,7 +90,6 @@ def _generate(request: GenerationRequest) -> None:
     ):
         console.print(f"[green]✓[/green] {generated.relative_to(request.project_dir)}")
     _write_static_templates(request)
-    _write_entity_adapters(request, paths, installed)
     _activate_adapter(request)
     _ensure_persistence_dependencies(request)
     console.print(
@@ -217,130 +207,6 @@ def _write_static_templates(request: GenerationRequest) -> None:
         console.print(
             f"[green]✓[/green] {generated_path.relative_to(request.project_dir)}"
         )
-
-
-def _write_entity_adapters(
-    request: GenerationRequest,
-    paths: ProjectPaths,
-    installed: list[str],
-) -> None:
-    import_vars = _import_vars(paths)
-    for entity in request.entities:
-        _ensure_entity_dependencies(request, paths, import_vars, entity)
-        entity_adapters = [
-            name
-            for name in installed
-            if name == request.adapter.name
-            or (
-                paths.adapters_outbound
-                / name
-                / "repositories"
-                / f"{entity.snake}_repository.py"
-            ).exists()
-        ]
-        _write_entity_adapter(request, paths, entity_adapters, import_vars, entity)
-
-
-def _ensure_entity_dependencies(
-    request: GenerationRequest,
-    paths: ProjectPaths,
-    import_vars: dict[str, str],
-    entity: EntityInfo,
-) -> None:
-    """Create shared repository ports and services without adding another adapter."""
-    defaults = {
-        paths.package_root
-        / "domain"
-        / "ports"
-        / "outbound"
-        / f"{entity.snake}_repository.py": (
-            "from arclith.domain.ports.outbound.repository import Repository\n"
-            f"from {import_vars['domain_import']}.models.{entity.snake} import {entity.pascal}\n\n\n"
-            f"class {entity.pascal}Repository(Repository[{entity.pascal}]):\n"
-            '    """Application persistence contract; declare domain queries here."""\n'
-        ),
-        paths.package_root
-        / "application"
-        / "services"
-        / f"{entity.snake}_service.py": (
-            "from arclith.application.services.base_service import BaseService\n"
-            f"from {import_vars['domain_import']}.models.{entity.snake} import {entity.pascal}\n\n\n"
-            f"class {entity.pascal}Service(BaseService[{entity.pascal}]):\n"
-            '    """Standard entity operations; custom workflows belong to use cases."""\n'
-        ),
-    }
-    for destination, content in defaults.items():
-        if destination.exists():
-            continue
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        ancestor = destination.parent
-        while ancestor != paths.package_root:
-            _ensure_package_file(ancestor / "__init__.py")
-            ancestor = ancestor.parent
-        destination.write_text(content, encoding="utf-8")
-        console.print(
-            f"[green]✓[/green] {destination.relative_to(request.project_dir)}"
-        )
-
-
-def _write_entity_adapter(
-    request: GenerationRequest,
-    paths: ProjectPaths,
-    installed: list[str],
-    import_vars: dict[str, str],
-    entity: EntityInfo,
-) -> None:
-    adapter = request.adapter
-    variables = {
-        "pascal": entity.pascal,
-        "snake": entity.snake,
-        **request.params,
-        **import_vars,
-    }
-    base = paths.adapters_outbound / adapter.name
-    repositories = base / "repositories"
-    repositories.mkdir(parents=True, exist_ok=True)
-    _ensure_package_file(base / "__init__.py")
-
-    repository_init = repositories / "__init__.py"
-    if not repository_init.exists():
-        _ensure_package_file(repository_init)
-        console.print(
-            f"[green]✓[/green] {repository_init.relative_to(request.project_dir)}"
-        )
-
-    repository_file = repositories / f"{entity.snake}_repository.py"
-    if not repository_file.exists():
-        repository_file.write_text(
-            render(REPO_PYTHON[adapter.name], variables), encoding="utf-8"
-        )
-    console.print(
-        f"[green]✓[/green] {repository_file.relative_to(request.project_dir)}"
-    )
-
-    generated = paths.containers / f"{entity.snake}_registrations_generated.py"
-    generated.parent.mkdir(parents=True, exist_ok=True)
-    generated.write_text(
-        "# Generated by Arclith. Edit the developer-owned container instead.\n"
-        + render_container(entity.pascal, entity.snake, installed, import_vars),
-        encoding="utf-8",
-    )
-    container = paths.containers / f"{entity.snake}_container.py"
-    if not container.exists():
-        module = paths.import_path(
-            "infrastructure", "containers", f"{entity.snake}_registrations_generated"
-        )
-        container.write_text(
-            '"""Developer-owned composition hook; customize this boundary when needed."""\n\n'
-            f"from {module} import build_{entity.snake}_service as build_{entity.snake}_service\n",
-            encoding="utf-8",
-        )
-    console.print(f"[green]✓[/green] {generated.relative_to(request.project_dir)}")
-
-
-def _ensure_package_file(path: Path) -> None:
-    if not path.exists():
-        path.write_text("", encoding="utf-8")
 
 
 def _activate_adapter(request: GenerationRequest) -> None:

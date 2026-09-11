@@ -21,8 +21,9 @@ applicatif.
 ## Commande
 
 ```bash
-uv add "arclith[rabbitmq]"
 arclith-cli add-adapter --capability command-bus --adapter rabbitmq --yes
+arclith-cli expose-usecase create-todo --via rabbitmq --feature todos \
+  --command-type todo.create.v1
 ```
 
 ## Configuration Générée

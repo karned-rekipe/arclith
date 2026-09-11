@@ -1,7 +1,7 @@
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from uuid import UUID as StdUUID
-from uuid6 import UUID
+from uuid import UUID
 
 
 class BaseSchema(BaseModel):

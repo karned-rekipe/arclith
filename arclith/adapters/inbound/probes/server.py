@@ -101,7 +101,7 @@ class ProbeServer:
                 port=self._port,
                 log_config=None,
                 access_log=False,
-                ws="websockets-sansio",
+                ws="none",
             )
             server = uvicorn.Server(config)
             loop = asyncio.new_event_loop()
@@ -110,5 +110,4 @@ class ProbeServer:
 
         thread = threading.Thread(target=_run, daemon=True, name="probe-server")
         thread.start()
-
 

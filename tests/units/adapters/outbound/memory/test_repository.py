@@ -35,7 +35,7 @@ async def test_delete_unknown_is_noop(repo):
 
 
 async def test_find_all_excludes_deleted(repo):
-    active = await repo.create(DummyEntity(name="active"))
+    await repo.create(DummyEntity(name="active"))
     deleted = DummyEntity(name="deleted", deleted_at=datetime.now(timezone.utc))
     await repo.create(deleted)
     result = await repo.find_all()

@@ -30,6 +30,7 @@ def test_run_api_enables_reload_for_importable_factory(
     assert received["app"] == "main:build_api"
     assert received["reload"] is True
     assert received["factory"] is True
+    assert received["ws"] == "none"
 
 
 def test_run_api_disables_reload_for_application_instance(
@@ -50,3 +51,4 @@ def test_run_api_disables_reload_for_application_instance(
     assert received["app"] is application
     assert received["reload"] is False
     assert received["factory"] is False
+    assert received["ws"] == "none"

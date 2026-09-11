@@ -1,5 +1,5 @@
 from typing import Generic, TypeVar
-from uuid6 import UUID
+from uuid import UUID
 
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.outbound.logger import Logger
@@ -18,4 +18,3 @@ class DuplicateUseCase(Generic[T]):
         result = await self._repository.duplicate(uuid)
         self._logger.info("✅ Entity duplicated", original_uuid=str(uuid), new_uuid=str(result.uuid))
         return result
-

@@ -4,7 +4,7 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
-from uuid6 import UUID
+from uuid import UUID
 
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.outbound.observability import MetricPort, TracePort

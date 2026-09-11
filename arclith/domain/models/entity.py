@@ -1,13 +1,12 @@
 from datetime import datetime, timezone
 from typing import Any
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-from uuid6 import uuid7, UUID
+from pydantic import BaseModel, Field, field_validator
+from uuid6 import uuid7
 
 
 class Entity(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
     uuid: UUID = Field(
         default_factory=uuid7,
         description="Identifiant unique de l'entité (UUIDv7, ordonné dans le temps).",
@@ -59,4 +58,3 @@ class Entity(BaseModel):
     @property
     def is_deleted(self) -> bool:
         return self.deleted_at is not None
-

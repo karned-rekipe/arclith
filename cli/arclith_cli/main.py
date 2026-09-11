@@ -32,7 +32,7 @@ from .updater import run_update
 
 app = typer.Typer(
     name="arclith-cli",
-    help="Scaffold [bold]arclith[/bold] hexagonal projects from the official template.",
+    help="Build [bold]arclith[/bold] hexagonal projects through explicit capabilities.",
     invoke_without_command=True,
     no_args_is_help=False,
     rich_markup_mode="rich",
@@ -104,11 +104,19 @@ def new(
     ] = Path("."),
     port: Annotated[
         int,
-        typer.Option("--port", "-p", help="Port REST (MCP = port+1)"),
+        typer.Option(
+            "--port",
+            "-p",
+            help="Port REST suggéré pour un futur add-adapter api/fastapi",
+        ),
     ] = 8000,
     repo_ref: Annotated[
         str,
-        typer.Option("--ref", help="Branche ou tag Git du template _sample"),
+        typer.Option(
+            "--ref",
+            help="Option historique conservée pour le replay des anciennes recettes",
+            hidden=True,
+        ),
     ] = "main",
     template_dir: Annotated[
         Path | None,
@@ -125,7 +133,7 @@ def new(
         ),
     ] = False,
 ) -> None:
-    """Créer un nouveau projet [bold]arclith[/bold] scaffoldé depuis le template officiel [dim]_sample[/dim]."""
+    """Raccourci canonique pour init puis add-entity, sans adapter implicite."""
     entity = entity or _prompt_entity()
     project_name = project_name or _prompt_project()
     target_dir = _new_project_cmd(
@@ -186,13 +194,18 @@ def add_adapter(
     entity: Annotated[
         str | None,
         typer.Option(
-            "--entity", "-e", help="Entité cible. Liste séparée par virgule acceptée."
+            "--entity",
+            "-e",
+            help="Option historique réservée aux anciens blueprints entity-scoped",
+            hidden=True,
         ),
     ] = None,
     all_entities: Annotated[
         bool,
         typer.Option(
-            "--all-entities", help="Générer l'adapter pour toutes les entités détectées"
+            "--all-entities",
+            help="Option historique réservée aux anciens blueprints entity-scoped",
+            hidden=True,
         ),
     ] = False,
     activate: Annotated[

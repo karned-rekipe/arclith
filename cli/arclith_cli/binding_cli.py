@@ -58,7 +58,8 @@ def expose_usecase_command(
                 root, command="expose-usecase", args=args, before=before
             )
         console.print(
-            f"Binding ready ({len(changed)} changed files). Supply the typed ports to bindings_generated.register from the composition root."
+            f"Binding ready ({len(changed)} changed files). "
+            "The generated composition root injects this use case into the transport."
         )
     except (ValueError, SyntaxError, OSError) as exc:
         console.print(f"[red]Binding rejected:[/red] {exc}")

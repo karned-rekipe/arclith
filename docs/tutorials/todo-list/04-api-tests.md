@@ -1,64 +1,49 @@
 # 4.4 Tester l'API
 
-Intention: vérifier que l'adapter HTTP expose bien le contrat attendu et appelle les use cases.
+Le CLI génère d'abord un test pur du contrat dans
+`tests/adapters/fastapi/test_create_todo_contract.py`. Il vérifie les mappings
+sans démarrer de serveur ni de base.
 
-## Tests Python
+Ajouter ensuite un smoke de composition qui verrouille le problème du double
+router :
 
-Lancer les tests:
+```python
+from fastapi.testclient import TestClient
+
+from main import build_api
+
+
+def test_create_todo_route_is_registered_once() -> None:
+    app = build_api()
+    routes = [
+        route
+        for route in app.routes
+        if getattr(route, "path", None) == "/v1/todos"
+        and "POST" in getattr(route, "methods", set())
+    ]
+
+    assert len(routes) == 1
+    assert "/v1/v1/todos" not in app.openapi()["paths"]
+
+    with TestClient(app) as client:
+        response = client.post("/v1/todos", json={})
+
+    assert response.status_code == 201
+    assert response.json()["version"] == 1
+```
+
+Le payload vide est volontaire pour la première itération : `Entity` fournit
+déjà les champs techniques. Lorsque les champs métier sont ajoutés au
+`CreateTodoCommand`, le test doit fournir ces champs et contrôler les invariants
+du domaine.
+
+Pour le test manuel :
 
 ```bash
-uv run python -m pytest
+curl -fsS -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{}' \
+  http://127.0.0.1:8120/v1/todos
 ```
 
-## Smoke local
-
-Lancer l'API:
-
-```bash
-uv run python main.py
-```
-
-Ouvrir Swagger UI:
-
-```text
-http://127.0.0.1:8120/docs
-```
-
-Swagger est l'écran généré par FastAPI à partir du contrat OpenAPI. Il permet de vérifier que
-l'adapter HTTP publie les routes, les schémas de payload, les exemples et les statuts de réponse.
-
-![Swagger UI du service Todo](assets/04-swagger.png)
-
-Dans Swagger, ouvrir `POST /v1/todos/`, cliquer sur `Try it out`, puis envoyer:
-
-```json
-{
-  "title": "Ecrire le tutoriel",
-  "description": "Couvrir API, MCP et agent",
-  "due_date": "2026-09-01",
-  "status": "todo"
-}
-```
-
-Dans un autre terminal:
-
-```bash
-curl -fsS http://127.0.0.1:9000/health
-curl -i -fsS -X POST http://127.0.0.1:8120/v1/todos/   -H "Content-Type: application/json"   -H "Idempotency-Key: todo-demo-1"   -d '{
-    "title": "Ecrire le tutoriel",
-    "description": "Couvrir API, MCP et agent",
-    "due_date": "2026-09-01",
-    "status": "todo"
-  }'
-
-curl -i -fsS "http://127.0.0.1:8120/v1/todos/?page=1&per_page=20"
-curl -fsS http://127.0.0.1:8120/openapi.json | python -m json.tool
-```
-
-À vérifier:
-
-- le `POST` retourne `201`, `Location`, `Link` et une enveloppe `{ "status": "success", "data": ... }`;
-- le `GET` retourne `200`, `X-Total-Count`, `pagination` et une liste dans `data`;
-- `/docs` et `/openapi.json` affichent les `operationId`, exemples, headers et réponses `422`.
-
-Étape suivante: [exposer un MCP](05-mcp.md).
+Étape suivante : [exposer le même use case via MCP](05-mcp.md).

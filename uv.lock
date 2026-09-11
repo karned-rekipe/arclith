@@ -107,8 +107,6 @@ name = "arclith"
 version = "0.25.0"
 source = { editable = "." }
 dependencies = [
-    { name = "fastapi" },
-    { name = "fastmcp" },
     { name = "loguru" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -279,10 +277,8 @@ requires-dist = [
     { name = "boto3", marker = "extra == 's3'", specifier = ">=1.43.70" },
     { name = "duckdb", marker = "extra == 'all'", specifier = "==1.5.0" },
     { name = "duckdb", marker = "extra == 'duckdb'", specifier = "==1.5.0" },
-    { name = "fastapi", specifier = ">=0.135.1" },
     { name = "fastapi", marker = "extra == 'all'", specifier = "==0.135.1" },
     { name = "fastapi", marker = "extra == 'fastapi'", specifier = "==0.135.1" },
-    { name = "fastmcp", specifier = ">=3.1.0" },
     { name = "fastmcp", marker = "extra == 'all'", specifier = "==3.1.0" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = "==3.1.0" },
     { name = "google-cloud-storage", marker = "extra == 'all'", specifier = ">=3.3.0,<4.0.0" },

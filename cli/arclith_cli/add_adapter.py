@@ -30,7 +30,7 @@ from arclith_cli.adapter_selection import (
 )
 from arclith_cli.adapter_templates import render
 from arclith_cli.capabilities import AdapterSpec, CapabilitySpec
-from arclith_cli.entity_scanner import EntityInfo, scan_entities
+from arclith_cli.entity_scanner import EntityInfo
 from arclith_cli.project_paths import ProjectPaths, detect_project_paths
 
 console = Console()
@@ -212,24 +212,9 @@ def _list_generated_files(
 
     blueprint = get_adapter_blueprint(adapter)
     adapter_root = paths.package_root.joinpath(*blueprint.root_parts)
-    # Match the generation contract, including reference features on an empty project.
-    features = tuple(entity.snake for entity in scan_entities(project_dir))
-    for relative in render_adapter_blueprint(
-        blueprint, paths.package_name or "", features
-    ):
+    for relative in render_adapter_blueprint(blueprint, paths.package_name or ""):
         path = adapter_root / relative
         files.append((path, "préservé" if path.exists() else "créé"))
-
-    for entity in entities:
-        base = paths.adapters_outbound / adapter.name
-        repo_dir = base / "repositories"
-        repo_file = repo_dir / f"{entity.snake}_repository.py"
-        init = base / "__init__.py"
-        container = paths.containers / f"{entity.snake}_container.py"
-
-        files.append((init, "préservé" if init.exists() else "créé"))
-        files.append((repo_file, "préservé" if repo_file.exists() else "créé"))
-        files.append((container, "préservé" if container.exists() else "créé"))
 
     return files
 

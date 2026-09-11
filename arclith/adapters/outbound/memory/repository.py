@@ -1,5 +1,7 @@
 from typing import Generic, Optional, TypeVar
-from uuid6 import UUID, uuid7
+from uuid import UUID
+
+from uuid6 import uuid7
 
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.outbound.repository import Repository

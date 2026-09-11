@@ -221,3 +221,37 @@ print(arclith.__name__)
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "arclith"
+
+
+def test_import_arclith_does_not_require_transport_extras():
+    script = """
+import importlib.abc
+import sys
+
+
+class BlockTransportExtras(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        blocked = ("fastapi", "fastmcp")
+        if any(fullname == name or fullname.startswith(name + ".") for name in blocked):
+            raise ModuleNotFoundError(fullname)
+        return None
+
+
+sys.meta_path.insert(0, BlockTransportExtras())
+
+import arclith
+
+assert arclith.Arclith is not None
+assert "fastapi" not in sys.modules
+assert "fastmcp" not in sys.modules
+print(arclith.__name__)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "arclith"

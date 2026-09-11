@@ -31,13 +31,13 @@ Si le fichier est vide, utiliser:
 Tester ensuite dans un chat LM Studio:
 
 ```text
-Utilise les tools disponibles pour créer une todo:
-titre Tester LM Studio MCP, description Appel MCP depuis LM Studio,
-échéance 2026-09-01, statut todo.
+Utilise le tool create_todo pour créer une todo.
 ```
 
-Le test est réussi si LM Studio voit les tools `create_todo_item` et `list_todo_items`, appelle le
-serveur `http://127.0.0.1:8121/mcp`, et que les logs du service Arclith montrent l'appel entrant.
+Le test est réussi si LM Studio voit le tool `create_todo`, appelle le serveur
+`http://127.0.0.1:8121/mcp`, et reçoit les champs techniques de l'entité. Si le modèle métier et le
+port ont été enrichis avec `title`, `description` ou `due_date`, ajouter ces valeurs au prompt et
+au payload attendu.
 
 ![Flux LM Studio vers MCP Arclith](assets/05-lmstudio-mcp.svg)
 

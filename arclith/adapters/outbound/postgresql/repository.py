@@ -6,7 +6,9 @@ import json
 import re
 from typing import Any, Generic, TypeVar
 
-from uuid6 import UUID, uuid7
+from uuid import UUID
+
+from uuid6 import uuid7
 
 from arclith.adapters.context import get_adapter_tenant_context
 from arclith.adapters.outbound.postgresql.config import PostgreSQLConfig

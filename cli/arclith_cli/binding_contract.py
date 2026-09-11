@@ -4,6 +4,7 @@ import ast
 import builtins
 import keyword
 from dataclasses import dataclass
+from pathlib import Path
 
 from arclith_cli.project_paths import ProjectPaths
 from arclith_cli.rename import EntityNames
@@ -19,12 +20,22 @@ class UseCaseContract:
     request_imports: tuple[str, ...]
     result: str
     result_names: tuple[str, ...]
+    response_fields: tuple[str, ...]
+    response_imports: tuple[str, ...]
+    implementation_module: str | None
+    implementation: str | None
+    repository_entity_module: str | None
+    repository_entity: str | None
     asynchronous: bool
     query_compatible: bool
 
     @property
     def transport_request(self) -> str:
         return self.request.removesuffix("Command").removesuffix("Query") + "Request"
+
+    @property
+    def transport_response(self) -> str:
+        return self.request.removesuffix("Command").removesuffix("Query") + "Response"
 
 
 def public_identifier(raw: str) -> str:
@@ -57,6 +68,17 @@ def inspect_usecase(paths: ProjectPaths, raw_name: str) -> UseCaseContract:
     module = paths.import_path(*relative.parts)
     result = _annotation(method.returns)
     fields = _request_fields(request)
+    response_fields, response_imports = _response_contract(
+        paths,
+        tree,
+        module,
+        result,
+    )
+    implementation_module, implementation, repository = _implementation_contract(
+        paths,
+        name,
+        port.name,
+    )
     return UseCaseContract(
         name=name,
         module=module,
@@ -66,9 +88,196 @@ def inspect_usecase(paths: ProjectPaths, raw_name: str) -> UseCaseContract:
         request_imports=_request_imports(tree, _used_names(request, fields), module),
         result=ast.unparse(result),
         result_names=tuple(sorted(_loaded_names(result) - set(dir(builtins)))),
+        response_fields=response_fields,
+        response_imports=response_imports,
+        implementation_module=implementation_module,
+        implementation=implementation,
+        repository_entity_module=repository[0] if repository is not None else None,
+        repository_entity=repository[1] if repository is not None else None,
         asynchronous=isinstance(method, ast.AsyncFunctionDef),
         query_compatible=all(_query_annotation(field.annotation) for field in fields),
     )
+
+
+_ENTITY_RESPONSE_FIELDS = (
+    "uuid: UUID",
+    "created_at: datetime",
+    "created_by: str | None",
+    "updated_at: datetime",
+    "updated_by: str | None",
+    "deleted_at: datetime | None",
+    "deleted_by: str | None",
+    "version: int",
+    "is_deleted: bool",
+)
+
+
+def _response_contract(
+    paths: ProjectPaths,
+    tree: ast.Module,
+    module: str,
+    result: ast.expr,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    if not isinstance(result, ast.Name):
+        raise ValueError(
+            "Automatic binding requires a direct Pydantic result model; "
+            "write an explicit transport presenter for composite results"
+        )
+    model_tree, model, model_module = _resolve_model(
+        paths,
+        tree,
+        module,
+        result.id,
+    )
+    bases = {ast.unparse(base).split(".")[-1] for base in model.bases}
+    if not bases & {"BaseModel", "Entity"}:
+        raise ValueError("Automatic binding requires a Pydantic result model")
+    fields = _request_fields(model)
+    rendered = tuple(ast.unparse(field) for field in fields)
+    if "Entity" in bases:
+        rendered = (*_ENTITY_RESPONSE_FIELDS, *rendered)
+    used: set[str] = set()
+    for field in fields:
+        used.update(_loaded_names(field))
+    imports = _request_imports(model_tree, used, model_module)
+    if "Entity" in bases:
+        imports = ("from datetime import datetime", "from uuid import UUID", *imports)
+    return rendered, tuple(dict.fromkeys(imports))
+
+
+def _resolve_model(
+    paths: ProjectPaths,
+    tree: ast.Module,
+    module: str,
+    symbol: str,
+) -> tuple[ast.Module, ast.ClassDef, str]:
+    local = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == symbol
+    ]
+    if len(local) == 1:
+        return tree, local[0], module
+    imported = _imported_symbol(tree, module, symbol)
+    if imported is None:
+        raise ValueError(f"Cannot resolve result model {symbol!r}")
+    imported_module, imported_symbol = imported
+    package_name = paths.package_name
+    if package_name is None:
+        if not imported_module.startswith(("domain.", "application.")):
+            raise ValueError("Automatic result snapshots require a project-owned model")
+        relative = imported_module.replace(".", "/")
+    else:
+        if not imported_module.startswith(package_name + "."):
+            raise ValueError("Automatic result snapshots require a project-owned model")
+        relative = imported_module.removeprefix(package_name + ".").replace(".", "/")
+    path = paths.package_root / f"{relative}.py"
+    if not path.is_file():
+        raise ValueError(f"Cannot resolve result model module {imported_module!r}")
+    model_tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    matches = [
+        node
+        for node in model_tree.body
+        if isinstance(node, ast.ClassDef) and node.name == imported_symbol
+    ]
+    if len(matches) != 1:
+        raise ValueError(f"Expected one result model named {imported_symbol!r}")
+    return model_tree, matches[0], imported_module
+
+
+def _implementation_contract(
+    paths: ProjectPaths,
+    name: str,
+    port: str,
+) -> tuple[str | None, str | None, tuple[str, str] | None]:
+    path = paths.application_use_cases / f"{name}.py"
+    if not path.is_file():
+        return None, None, None
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    matches = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef)
+        and any(ast.unparse(base).split(".")[-1] == port for base in node.bases)
+    ]
+    if len(matches) != 1:
+        raise ValueError(f"Expected one implementation of {port}")
+    implementation = matches[0]
+    constructors = [
+        node
+        for node in implementation.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "__init__"
+    ]
+    repository: tuple[str, str] | None = None
+    if constructors:
+        if len(constructors) != 1 or isinstance(constructors[0], ast.AsyncFunctionDef):
+            raise ValueError("Automatic composition requires one synchronous __init__")
+        constructor = constructors[0]
+        arguments = constructor.args
+        if (
+            arguments.posonlyargs
+            or arguments.kwonlyargs
+            or arguments.vararg is not None
+            or arguments.kwarg is not None
+            or not arguments.args
+            or arguments.args[0].arg != "self"
+        ):
+            raise ValueError(
+                "Automatic composition supports only self and at most one positional Repository[Entity] dependency"
+            )
+        parameters = constructor.args.args[1:]
+        if len(parameters) > 1:
+            raise ValueError(
+                "Automatic composition supports a no-argument use case or one Repository[Entity] dependency"
+            )
+        if not parameters:
+            return _module_for_path(paths, path), implementation.name, None
+        annotation = _annotation(parameters[0].annotation)
+        if not (
+            isinstance(annotation, ast.Subscript)
+            and ast.unparse(annotation.value).split(".")[-1] == "Repository"
+            and isinstance(annotation.slice, ast.Name)
+        ):
+            raise ValueError(
+                "Automatic composition requires the constructor dependency Repository[Entity]"
+            )
+        entity_alias = annotation.slice.id
+        imported_entity = _imported_symbol(
+            tree, _module_for_path(paths, path), entity_alias
+        )
+        if imported_entity is None:
+            raise ValueError(f"Cannot resolve repository entity {entity_alias!r}")
+        repository = imported_entity
+    return _module_for_path(paths, path), implementation.name, repository
+
+
+def _module_for_path(paths: ProjectPaths, path: Path) -> str:
+    relative = path.relative_to(paths.package_root).with_suffix("")
+    return paths.import_path(*relative.parts)
+
+
+def _imported_symbol_module(
+    tree: ast.Module,
+    module: str,
+    symbol: str,
+) -> str | None:
+    imported = _imported_symbol(tree, module, symbol)
+    return imported[0] if imported is not None else None
+
+
+def _imported_symbol(
+    tree: ast.Module,
+    module: str,
+    symbol: str,
+) -> tuple[str, str] | None:
+    for node in tree.body:
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        for alias in node.names:
+            if (alias.asname or alias.name) == symbol:
+                return _absolute_import(node, module), alias.name
+    return None
 
 
 def _find_port(tree: ast.Module) -> ast.ClassDef:
@@ -219,8 +428,10 @@ def _query_generic(node: ast.Subscript) -> bool:
     return False
 
 
-def _absolute_import(node: ast.ImportFrom, module: str) -> str | None:
+def _absolute_import(node: ast.ImportFrom, module: str) -> str:
     if not node.level:
+        if node.module is None:
+            raise ValueError("Imported symbol has no module")
         return node.module
     prefix = module.split(".")[: -node.level]
     if not prefix:
