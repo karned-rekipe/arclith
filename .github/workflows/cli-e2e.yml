@@ -14,7 +14,6 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.13"
-  ARCLITH_TEMPLATE_DIR: ${{ github.workspace }}/.templates/_sample
 
 jobs:
   e2e-scaffold:
@@ -24,22 +23,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Resolve sample template ref
-        id: sample-ref
-        run: |
-          ref="${GITHUB_HEAD_REF:-main}"
-          if git ls-remote --exit-code --heads https://github.com/karned-rekipe/_sample.git "$ref" >/dev/null 2>&1; then
-            echo "ref=$ref" >> "$GITHUB_OUTPUT"
-          else
-            echo "ref=main" >> "$GITHUB_OUTPUT"
-          fi
-
-      - uses: actions/checkout@v4
-        with:
-          repository: karned-rekipe/_sample
-          ref: ${{ steps.sample-ref.outputs.ref }}
-          path: .templates/_sample
 
       - uses: astral-sh/setup-uv@v5
         with:
@@ -61,17 +44,38 @@ jobs:
       - name: Quick smoke test — scaffold real project
         run: |
           cd /tmp
-          arclith-cli new TestEntity test-smoke --port 9999 --template-dir "$ARCLITH_TEMPLATE_DIR"
+          arclith-cli | grep "Commands"
+          arclith-cli new TestEntity test-smoke --port 9999
           cd test-smoke
 
-          # Verify stable PyPI dependency
+          # Generated consumers target stable PyPI and contain no local source override.
           if grep -q '\[tool\.uv\.sources\]' pyproject.toml; then
             echo "❌ Generated project contains [tool.uv.sources] — template is broken"
             exit 1
           fi
+          grep '"arclith>=' pyproject.toml
 
-          # Verify arclith version
-          grep "arclith\[" pyproject.toml
+          # `new` is only `init + add-entity`: no technology is inferred.
+          test ! -d src/test_smoke/adapters/inbound/fastapi
+          test ! -d src/test_smoke/adapters/inbound/fastmcp
+          test ! -d src/test_smoke/adapters/bidirectional/rabbitmq
+          test ! -d src/test_smoke/adapters/outbound/mongodb
+          test ! -e Dockerfile
+
+          arclith-cli add-usecase CreateTestEntity --entity TestEntity
+          arclith-cli add-adapter --capability repository --adapter memory --yes
+          arclith-cli add-adapter --capability api --adapter fastapi \
+            --param port=9999 --param reload=false --yes
+          arclith-cli expose-usecase create-test-entity --via fastapi \
+            --feature test_entities --path /v1/test-entities --method POST \
+            --status-code 201
+
+          # The selected adapter is installed alone.
+          test -d src/test_smoke/adapters/inbound/fastapi
+          test ! -d src/test_smoke/adapters/inbound/fastmcp
+          test ! -d src/test_smoke/adapters/bidirectional/rabbitmq
+          test ! -d src/test_smoke/adapters/outbound/mongodb
+          grep '"arclith\[fastapi\]>=' pyproject.toml
 
           # Validate the current repository version without waiting for PyPI propagation.
           python - <<'PY'
@@ -85,8 +89,39 @@ jobs:
           )
           PY
 
-          # Install and validate
-          uv sync --no-dev
-          uv run python -c "import main; from test_smoke.adapters.inbound.fastapi.dependencies import require_auth; from test_smoke.adapters.inbound.fastmcp.dependencies import require_auth_mcp; print('imports ok')"
+          # Install and validate the generated project and its public HTTP contract.
+          uv sync --group dev
+          uv run pytest -q
+          uv run python - <<'PY'
+          import importlib.util
+
+          from fastapi.testclient import TestClient
+
+          from main import build_api
+
+          application = build_api()
+          post_routes = [
+              route
+              for route in application.routes
+              if "POST" in getattr(route, "methods", set())
+          ]
+          assert [route.path for route in post_routes] == ["/v1/test-entities"]
+          assert "/v1/v1/test-entities" not in application.openapi()["paths"]
+          response = TestClient(application).post("/v1/test-entities", json={})
+          assert response.status_code == 201
+          assert set(response.json()) == {
+              "uuid",
+              "created_at",
+              "created_by",
+              "updated_at",
+              "updated_by",
+              "deleted_at",
+              "deleted_by",
+              "version",
+          }
+          assert importlib.util.find_spec("fastmcp") is None
+          assert importlib.util.find_spec("aio_pika") is None
+          assert importlib.util.find_spec("motor") is None
+          PY
 
           echo "✅ Smoke test passed"
