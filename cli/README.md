@@ -32,7 +32,8 @@ arclith-cli init todo-list-service --dir ~/projects
 ```
 
 Cette commande ne crée aucune entité, aucun CRUD et aucun endpoint métier. Elle sert quand on veut
-construire le projet étape par étape avec `add-entity`, `add-usecase`, puis `add-adapter`.
+construire le projet étape par étape avec `add-entity`, `add-blueprint`, `add-usecase`, puis
+`add-adapter`.
 Elle ne crée pas non plus FastAPI ou FastMCP et n'installe aucun de leurs extras.
 
 #### Pourquoi `src/<package>/...` ?
@@ -67,13 +68,18 @@ est régénéré automatiquement pour un use case sans dépendance ou avec une d
 `Repository[Entity]`. Une composition plus riche reste explicite. Voir le
 [guide des bindings](https://karned-rekipe.github.io/arclith/deep-dives/use-case-bindings/).
 
+Pour initialiser plutôt les cinq opérations CRUD, utiliser
+`add-entity Todo --profile crud`. Ce blueprint crée le cœur applicatif et sa
+composition, mais aucun endpoint : la projection FastAPI, FastMCP, RabbitMQ ou
+LangGraph reste une décision distincte.
+
 ---
 
 ### `new` — Raccourci minimal compatible
 
-`new` exécute le même scaffold canonique que `init`, puis ajoute uniquement
-l'entité demandée. Aucun adapter, transport, runtime Docker ou feature n'est
-créé implicitement.
+`new` exécute le même scaffold canonique que `init`, puis ajoute l'entité
+demandée avec le profil `minimal` par défaut. Le profil `crud` reste explicite.
+Aucun adapter, transport ou runtime Docker n'est créé implicitement.
 
 ```bash
 # Mode interactif — l'outil pose les questions
@@ -83,12 +89,14 @@ arclith-cli new
 arclith-cli new Recipe my-recipe-service
 arclith-cli new RecipeStep meal-planner --port 8400
 arclith-cli new MealPlan meal-plan-service --dir ~/projects --port 8500
+arclith-cli new Todo todo-service --profile crud
 ```
 
 | Option | Défaut | Description |
 |--------|--------|-------------|
 | `--port` / `-p` | `8000` | Port à proposer lors du futur ajout explicite de FastAPI |
 | `--dir` / `-d` | `.` | Répertoire parent |
+| `--profile` | `minimal` | Profil applicatif initial (`minimal` ou `crud`) |
 
 Le projet généré utilise un layout `src/<package>/...` pour le code applicatif et un dossier
 `config/` structuré par adapter (voir section [Configuration](#configuration)). Utiliser ensuite
@@ -107,6 +115,7 @@ reste commenté, donc aucun import inutilisé n'est ajouté.
 ```bash
 cd my-recipe-service
 arclith-cli add-entity ShoppingItem
+arclith-cli add-entity Todo --profile crud
 ```
 
 Fichier généré :
@@ -115,9 +124,31 @@ Fichier généré :
 src/<package>/domain/models/shopping_item.py
 ```
 
-La commande ne génère aucun CRUD, aucun port repository, aucun adapter et aucun
-endpoint. Elle pose seulement le point d'ancrage du modèle métier ; le
-développeur complète ensuite les champs et invariants de l'entité.
+Sans `--profile`, le mode direct conserve le profil `minimal` et ne génère aucun
+CRUD, port repository, adapter ou endpoint. En interactif, la CLI demande de
+choisir `minimal` ou `crud`. Le profil `crud` initialise les ports inbound, use
+cases, erreurs, composition et tests du cycle `create/get/list/update/delete`,
+sans créer d'adapter.
+
+---
+
+### `blueprints` et `add-blueprint` — Initialiser un comportement applicatif
+
+Le catalogue des blueprints est distinct du catalogue des capabilities et des
+adapters :
+
+```bash
+arclith-cli blueprints
+arclith-cli blueprints --json
+arclith-cli add-blueprint crud --entity ShoppingItem --dry-run
+arclith-cli add-blueprint crud --entity ShoppingItem
+```
+
+La première application écrit `.arclith/features/shopping_item.yaml`. Un replay
+préserve les fichiers applicatifs déjà personnalisés et complète uniquement les
+fichiers manquants. Le CRUD est une possibilité parmi les futurs blueprints ;
+il n'est jamais inféré depuis un adapter. Voir le
+[contrat détaillé](https://karned-rekipe.github.io/arclith/blueprints/).
 
 ---
 
@@ -388,8 +419,9 @@ arclith = Arclith("config.yaml")
 
 ### `history` et `replay` — Relire et rejouer les décisions CLI
 
-`init`, `new`, `add-entity`, `add-usecase`, `add-intent-interpreter` et
-`add-adapter` ajoutent une étape à `arclith.recipe.yaml` uniquement après leur
+`init`, `new`, `add-entity`, `add-blueprint`, `add-usecase`,
+`add-intent-interpreter` et `add-adapter` ajoutent une étape à
+`arclith.recipe.yaml` uniquement après leur
 succès complet. La recette est un historique fonctionnel rejouable ; Git reste
 l'historique du code et `export-config` reste la configuration consolidée de
 déploiement.

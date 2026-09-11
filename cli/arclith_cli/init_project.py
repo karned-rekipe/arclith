@@ -164,7 +164,8 @@ Le parcours fonctionne immédiatement avec les seuls champs techniques de
 `Entity`. Ajoutez ensuite les champs métier dans le modèle et la commande ; les
 fichiers indiquent où placer validations et règles métier. `expose-usecase`
 régénère la composition typée. Aucun transport ni adapter optionnel n'est créé
-par `init`.
+par `init`. Pour initialiser le cycle applicatif classique sans adapter, utilisez
+`arclith-cli add-entity Todo --profile crud`.
 """,
         encoding="utf-8",
     )
@@ -179,9 +180,10 @@ This `src/<package>` namespace is required by Python packaging and must not be f
 
 - MUST create technologies with `arclith-cli add-adapter` and public bindings with `expose-usecase`.
 - MUST keep code inside a path declared by `ARCHITECTURE.md` and the installed adapter blueprint.
-- MUST NOT create alternate roots, global `utils.py`/`helpers.py`, or infer a feature from an entity.
+- MUST NOT create alternate roots, global `utils.py`/`helpers.py`, or infer a transport feature from an entity.
 - If no declared location fits, update the official blueprint and architecture decision before adding code.
 - Each `.arclith/blueprints/*.yaml` file is a closed, machine-readable list of expected paths.
+- Each `.arclith/features/*.yaml` file declares an application blueprint and its operations, never a transport.
 
 - Domain imports no adapter or infrastructure module.
 - Application depends on domain models and inbound/outbound ports.
@@ -195,7 +197,7 @@ This `src/<package>` namespace is required by Python packaging and must not be f
 - Test mapping, application contracts and runtime registration with fake ports before delivery.
 - LangGraph state is serializable and versioned; test checkpoint resume when persisted keys change.
 
-Start with `arclith-cli add-entity`, `add-usecase` and `add-adapter`.
+Start with `arclith-cli add-entity`, optionally `add-blueprint`, then `add-usecase` and `add-adapter`.
 Use `uv run python -m pytest` to validate this service.
 """,
         encoding="utf-8",
@@ -234,6 +236,10 @@ An adapter directory exists only after `add-adapter`. Its root README and every
 role README define the allowed responsibilities. The corresponding
 `.arclith/blueprints/<capability>-<adapter>.yaml` records the closed list of
 expected paths. A feature directory exists only after `expose-usecase`.
+
+An application blueprint exists only after `add-entity --profile <name>` or
+`add-blueprint`. Its `.arclith/features/<feature>.yaml` manifest declares the
+application operations but never creates an adapter or transport binding.
 
 FastAPI uses exactly `register.py -> routers/v1/router.py -> <feature>/router.py
 -> routes/<operation>.py`. FastMCP uses `register.py -> features/<feature>/

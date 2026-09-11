@@ -5,6 +5,11 @@ Une capability est une brique activable par `arclith-cli add-adapter`.
 Chaque installation crée son [blueprint complet](deep-dives/adapter-blueprints.md) :
 packages, fichiers de rôle et documentation développeur/IA sont présents dès le départ.
 
+Une capability et son adapter répondent à un besoin technique. Ils restent
+distincts des [blueprints applicatifs](blueprints.md), qui initialisent un
+comportement récurrent comme le CRUD sans choisir FastAPI, FastMCP, MongoDB ou
+PostgreSQL.
+
 La section Capabilities est le niveau deep dive de la documentation. Elle
 détaille les contrats, les adapters, les contraintes de production et les
 validations. Le format attendu est décrit dans
@@ -50,7 +55,7 @@ arclith-cli capabilities --json
 
 | Besoin | Lire |
 |---|---|
-| Concevoir le cœur métier | [Scaffold CLI guidé](deep-dives/cli-scaffold.md), puis [formation Todo](tutorials/todo-list/02-create-entity.md) |
+| Concevoir le cœur métier | [Scaffold CLI guidé](deep-dives/cli-scaffold.md), [blueprints applicatifs](blueprints.md), puis [formation Todo](tutorials/todo-list/02-create-entity.md) |
 | API minimale | [Quickstart API](quickstarts/api.md), [formation API](tutorials/todo-list/04-api.md), puis [api/fastapi](capabilities/api.md) |
 | MCP minimal | [Quickstart MCP](quickstarts/mcp.md), [formation MCP](tutorials/todo-list/05-mcp.md), puis [mcp/fastmcp](capabilities/mcp.md) |
 | Bus RabbitMQ | [Quickstart Bus](quickstarts/bus.md), puis [command-bus/rabbitmq](capabilities/command-bus.md) |

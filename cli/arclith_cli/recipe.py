@@ -33,6 +33,7 @@ _SUPPORTED_COMMANDS = {
     "init",
     "new",
     "add-adapter",
+    "add-blueprint",
     "add-entity",
     "add-usecase",
     "add-intent-interpreter",
@@ -255,27 +256,6 @@ def validate_replay_steps(
         )
 
 
-def step_summary(step: RecipeStep) -> str:
-    """Return a compact, secret-free human summary for history and dry-run."""
-    args = step.args
-    if step.command in {"init", "new"}:
-        return str(args.get("project_name") or "project")
-    if step.command == "add-adapter":
-        capability = args.get("capability", "repository")
-        adapter = args.get("adapter", "?")
-        entities = args.get("entities") or []
-        suffix = f" ({', '.join(map(str, entities))})" if entities else ""
-        return f"{capability}/{adapter}{suffix}"
-    if step.command == "add-usecase":
-        usecase = str(args.get("usecase") or "usecase")
-        entity = args.get("entity") or args.get("new_entity")
-        return f"{usecase} ({entity})" if entity else f"{usecase} (transverse)"
-    for key in ("entity", "usecase", "intent"):
-        if key in args:
-            return str(args[key])
-    return ""
-
-
 def required_replay_env(steps: tuple[RecipeStep, ...]) -> tuple[str, ...]:
     """List environment variables needed to hydrate redacted replay arguments."""
     return tuple(
@@ -315,6 +295,7 @@ def _execute_step(
             port=int(args.get("port", 8000)),
             repo_ref=str(args.get("repo_ref", "main")),
             template_dir=None,
+            profile=str(args.get("profile", "minimal")),
             target_path=target_dir,
         )
         return
@@ -322,10 +303,12 @@ def _execute_step(
         raise RecipeError(
             f"Replay target does not exist before step {step.id}: {target_dir}"
         )
-    if step.command == "add-entity":
-        from arclith_cli.core_scaffold import add_entity_cmd
+    if step.command in {"add-entity", "add-blueprint"}:
+        from arclith_cli.application_blueprint_recipe import (
+            replay_application_blueprint_step,
+        )
 
-        add_entity_cmd(project_dir=target_dir, entity_name=str(args["entity"]))
+        replay_application_blueprint_step(step.command, target_dir, args)
         return
     if step.command == "add-usecase":
         from arclith_cli.core_scaffold import add_usecase_cmd

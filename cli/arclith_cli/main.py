@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Annotated, Any, Mapping, Never
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -13,17 +13,23 @@ from rich.table import Table
 from . import __version__
 from .add_adapter import add_adapter_cmd
 from .adapter_blueprints import blueprint_digest, get_adapter_blueprint
+from .application_blueprint_cli import (
+    add_blueprint_command,
+    add_entity_command,
+    application_profile_recipe_metadata,
+    blueprints_command,
+    prompt_entity,
+    resolve_entity_profile,
+)
 from .binding_cli import expose_usecase_command
 from .capabilities import CAPABILITY_CATALOG, capability_catalog_as_dict
-from .core_scaffold import add_entity_cmd, add_intent_interpreter_cmd, add_usecase_cmd
+from .command_recording import record_success as _record_success
+from .core_scaffold import add_intent_interpreter_cmd, add_usecase_cmd
 from .export_config import export_config_cmd
 from .init_project import init_project_cmd
 from .new_project import new_project_cmd as _new_project_cmd
 from .recipe import (
-    RecipeError,
-    RecipeSecretRef,
     adapter_secret_metadata,
-    record_successful_step,
     snapshot_project_files,
 )
 from .recipe_cli import history_command, replay_command
@@ -41,6 +47,9 @@ console = Console()
 app.command(name="history")(history_command)
 app.command(name="replay")(replay_command)
 app.command(name="expose-usecase")(expose_usecase_command)
+app.command(name="add-entity")(add_entity_command)
+app.command(name="blueprints")(blueprints_command)
+app.command(name="add-blueprint")(add_blueprint_command)
 
 _ENTITY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
 _PROJECT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
@@ -110,6 +119,13 @@ def new(
             help="Port REST suggéré pour un futur add-adapter api/fastapi",
         ),
     ] = 8000,
+    profile: Annotated[
+        str | None,
+        typer.Option(
+            "--profile",
+            help="Profil applicatif initial : minimal ou un blueprint tel que crud.",
+        ),
+    ] = None,
     repo_ref: Annotated[
         str,
         typer.Option(
@@ -134,7 +150,13 @@ def new(
     ] = False,
 ) -> None:
     """Raccourci canonique pour init puis add-entity, sans adapter implicite."""
-    entity = entity or _prompt_entity()
+    interactive = entity is None
+    entity = entity or prompt_entity()
+    try:
+        resolved_profile = resolve_entity_profile(profile, interactive=interactive)
+    except ValueError as exc:
+        console.print(f"[red]✗ Profil invalide :[/red] {exc}")
+        raise typer.Exit(1) from exc
     project_name = project_name or _prompt_project()
     target_dir = _new_project_cmd(
         entity=entity,
@@ -143,6 +165,7 @@ def new(
         port=port,
         repo_ref=repo_ref,
         template_dir=template_dir,
+        profile=resolved_profile,
     )
     if not no_record:
         _record_success(
@@ -154,6 +177,8 @@ def new(
                 "directory": ".",
                 "port": port,
                 "repo_ref": repo_ref,
+                "profile": resolved_profile,
+                **application_profile_recipe_metadata(resolved_profile),
             },
             before={},
         )
@@ -307,33 +332,6 @@ def add_adapter(
         )
 
 
-@app.command(name="add-entity")
-def add_entity(
-    entity: Annotated[
-        str | None,
-        typer.Argument(
-            help="Nom de l'entité métier au singulier. Exemple : Recipe, recipe_step, meal-plan",
-        ),
-    ] = None,
-    no_record: Annotated[
-        bool,
-        typer.Option("--no-record", hidden=True),
-    ] = False,
-) -> None:
-    """Créer uniquement le fichier minimal d'une entité métier dans domain/models."""
-    resolved_name = entity or _prompt_entity()
-    project_dir = Path.cwd()
-    before = snapshot_project_files(project_dir) if not no_record else {}
-    add_entity_cmd(project_dir=project_dir, entity_name=resolved_name)
-    if not no_record:
-        _record_success(
-            project_dir,
-            command="add-entity",
-            args={"entity": resolved_name},
-            before=before,
-        )
-
-
 @app.command(name="add-usecase")
 def add_usecase(
     usecase: Annotated[
@@ -471,24 +469,6 @@ def export_config(
 # ── Prompts interactifs ───────────────────────────────────────────────────────
 
 
-def _prompt_entity() -> str:
-    console.print(
-        "\n[bold]Entité[/bold] — utilisez le [yellow]singulier[/yellow] "
-        "[dim](ex : Recipe, recipe_step, MealPlan)[/dim]"
-    )
-    while True:
-        value = Prompt.ask("  [bold green]Nom de l'entité[/bold green]").strip()
-        if not value:
-            console.print("  [red]Le nom ne peut pas être vide.[/red]")
-        elif not _ENTITY_RE.match(value):
-            console.print(
-                "  [red]Caractères invalides.[/red] "
-                "[dim]Lettres, chiffres, _ et - uniquement. Doit commencer par une lettre.[/dim]"
-            )
-        else:
-            return value
-
-
 def _prompt_project() -> str:
     console.print(
         "\n[bold]Projet[/bold] [dim](ex : my-recipe-service, meal-planner)[/dim]"
@@ -541,33 +521,6 @@ def _prompt_intent_interpreter() -> str:
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-
-def _record_success(
-    project_dir: Path,
-    *,
-    command: str,
-    args: Mapping[str, Any],
-    before: Mapping[str, str],
-    secret_fields: Mapping[str, str] | None = None,
-    secret_references: tuple[RecipeSecretRef, ...] = (),
-) -> None:
-    try:
-        record_successful_step(
-            project_dir,
-            command=command,
-            args=args,
-            before=before,
-            secret_fields=secret_fields,
-            secret_references=secret_references,
-        )
-    except (OSError, RecipeError) as exc:
-        _recipe_error(exc)
-
-
-def _recipe_error(exc: Exception) -> Never:
-    console.print(f"[red]✗ Recette CLI invalide :[/red] {exc}")
-    raise typer.Exit(1)
 
 
 def _split_entity_option(value: str | None) -> list[str] | None:
