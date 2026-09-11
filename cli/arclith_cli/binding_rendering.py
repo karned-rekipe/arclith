@@ -200,10 +200,7 @@ def _fastapi(
     mapper_call = f"to_application({request}{mapper_arguments})"
     application_call = _execute(contract, "application_request")
     function_lines = _mapper_boundary(mapper_call)
-    if error_mappings:
-        function_lines.extend(_error_boundary(application_call, error_mappings))
-    else:
-        function_lines.append(f"        return present_result({application_call})")
+    function_lines.extend(_execution_boundary(application_call, error_mappings))
     fastapi_imports = (
         "APIRouter, HTTPException as _HTTPException" if error_mappings else "APIRouter"
     )
@@ -250,11 +247,16 @@ def _mapper_boundary(call: str) -> list[str]:
     ]
 
 
-def _error_boundary(
+def _execution_boundary(
     call: str,
     error_mappings: tuple[ApplicationErrorMapping, ...],
 ) -> list[str]:
-    lines = ["        try:", f"            return present_result({call})"]
+    lines = [
+        "        try:",
+        f"            application_result = {call}",
+        "        except _ValidationError as exc:",
+        "            raise _RequestValidationError(exc.errors()) from exc",
+    ]
     for mapping in error_mappings:
         lines.extend(
             (
@@ -264,6 +266,7 @@ def _error_boundary(
                 "            ) from exc",
             )
         )
+    lines.append("        return present_result(application_result)")
     return lines
 
 

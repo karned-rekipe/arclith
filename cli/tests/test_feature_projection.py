@@ -154,9 +154,15 @@ def test_crud_feature_projection_executes_all_routes_and_error_mappings(
     _install_fastapi(project)
     entity = project / "src/runtime_feature_api/domain/models/todo.py"
     entity.write_text(
-        entity.read_text(encoding="utf-8").replace(
+        entity.read_text(encoding="utf-8")
+        .replace(
+            "from arclith.domain.models.entity import Entity",
+            "from pydantic import Field\n\n"
+            "from arclith.domain.models.entity import Entity",
+        )
+        .replace(
             "    pass\n",
-            "    title: str | None = None\n",
+            "    title: str = Field(min_length=3)\n",
         ),
         encoding="utf-8",
     )
@@ -202,6 +208,9 @@ def test_crud_feature_projection_executes_all_routes_and_error_mappings(
     )
     client = TestClient(application)
 
+    invalid_create = client.post("/v1/todos", json={"title": "no"})
+    assert invalid_create.status_code == 422
+
     created = client.post("/v1/todos", json={"title": "Preserved"})
     assert created.status_code == 201
     item = created.json()["item"]
@@ -216,6 +225,11 @@ def test_crud_feature_projection_executes_all_routes_and_error_mappings(
     assert page.status_code == 200
     assert page.json()["items"] == [item]
     assert page.json()["total"] == 1
+
+    invalid_update = client.patch(
+        f"/v1/todos/{uuid}", json={"version": 1, "title": "no"}
+    )
+    assert invalid_update.status_code == 422
 
     updated = client.patch(f"/v1/todos/{uuid}", json={"version": 1})
     assert updated.status_code == 200
