@@ -90,6 +90,15 @@ Si `probe/server` est actif, lancer l'API avec les probes :
 arclith.run_with_probes(lambda: arclith.run_api("main:app"), transports=["api"])
 ```
 
+Pour garder l'import FastAPI optionnel dans un projet généré tout en permettant l'auto-reload,
+utiliser une factory importable :
+
+```python
+arclith.run_api("main:build_api", factory=True)
+```
+
+Une instance FastAPI directe reste acceptée, mais Uvicorn désactive alors le reload.
+
 Le port API sert le métier. Le port probe sert `/health`, `/ready`, `/info` et
 `/metrics`.
 

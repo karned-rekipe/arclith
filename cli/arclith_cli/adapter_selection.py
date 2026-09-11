@@ -121,9 +121,6 @@ def _resolve_capability(
             raise typer.Exit(1)
         if len(matches) == 1:
             return matches[0]
-        repository = get_capability("repository")
-        if repository is not None and repository in matches:
-            return repository
         supported = ", ".join(capability.name for capability in matches)
         console.print(
             f"[red]✗[/red] L'adapter [bold]{adapter_name}[/bold] est ambigu. "

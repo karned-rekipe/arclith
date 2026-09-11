@@ -252,7 +252,7 @@ def _run_bus() -> None:
 
 
 def _run_api() -> None:
-    arclith.run_api(build_api())
+    arclith.run_api("main:build_api", factory=True)
 
 
 def _run_mcp_http() -> None:

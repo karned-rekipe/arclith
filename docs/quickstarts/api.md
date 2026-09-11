@@ -11,10 +11,18 @@ est choisie.
 - Python 3.13
 - `uv`
 
+Installer d'abord `arclith-cli` comme outil global géré par `uv`, puis vérifier que la commande est
+disponible :
+
+```bash
+uv tool install "git+https://github.com/karned-rekipe/arclith.git#subdirectory=cli"
+arclith-cli version
+```
+
 ## Étapes
 
 ```bash
-uvx --from arclith-cli arclith-cli init todo-api --dir .
+arclith-cli init todo-api --dir .
 cd todo-api
 arclith-cli add-entity Todo
 arclith-cli add-usecase CreateTodo --entity Todo
@@ -35,6 +43,10 @@ Lancer l'API :
 ```bash
 MODE=api uv run python main.py
 ```
+
+Le `main.py` généré fournit l'API à Uvicorn sous forme de factory importable. Le réglage `reload`
+de `config/adapters/inbound/fastapi.yaml` reste ainsi effectif en développement, sans importer
+FastAPI avant l'ajout explicite de l'adapter.
 
 Dans un second terminal :
 

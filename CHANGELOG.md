@@ -12,7 +12,10 @@
 - **Repositories explicites** — ajouter MongoDB, PostgreSQL, MariaDB ou DuckDB ne génère plus de
   spécialisation `memory` parallèle ; celle-ci reste disponible via `repository/memory`.
 - **Aide et parcours API** — la commande racine sans argument affiche l'aide avec un succès, et les
-  quickstarts montrent le flux `init` → cœur métier → adapter API → `expose-usecase`.
+  quickstarts montrent l'installation préalable du CLI puis le flux `init` → cœur métier → adapter
+  API → `expose-usecase`.
+- **Factory API rechargeable** — le point d'entrée généré reste lazy et utilise une factory Uvicorn
+  importable, afin que le réglage `reload` fonctionne après l'ajout explicite de FastAPI.
 
 ---
 

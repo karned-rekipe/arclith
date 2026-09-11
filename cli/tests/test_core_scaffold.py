@@ -115,6 +115,7 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
     assert '"${ARCLITH_AGENT_RUNTIME:-development}" = "durable"' in entrypoint
     assert "exec arclith-agent-runtime" in entrypoint
     assert '_VALID_MODES = {"api", "mcp_http", "mcp_sse", "all", "bus"}' in main
+    assert 'arclith.run_api("main:build_api", factory=True)' in main
     assert (
         'arclith.run_with_probes(_run_api, _run_mcp_http, transports=["api", "mcp_http"])'
         in main

@@ -467,7 +467,7 @@ class Arclith:
     def close_langgraph_persistence(self) -> None:
         self._langgraph_bootstrap.close_langgraph_persistence()
 
-    def run_api(self, app: "FastAPI | str") -> None:
+    def run_api(self, app: "FastAPI | str", *, factory: bool = False) -> None:
         import uvicorn
 
         in_main_thread = threading.current_thread() is threading.main_thread()
@@ -478,6 +478,7 @@ class Arclith:
             reload=self.config.api.reload
             if isinstance(app, str) and in_main_thread
             else False,
+            factory=factory,
             log_config=_UVICORN_LOG_CONFIG,
             ws="websockets-sansio",
         )

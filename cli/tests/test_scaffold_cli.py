@@ -68,7 +68,7 @@ def test_add_adapter_wizard_lists_and_installs_api_only(
     assert not (package_root / "adapters" / "inbound" / "fastmcp").exists()
     pyproject = (project_dir / "pyproject.toml").read_text(encoding="utf-8")
     assert '"arclith[fastapi]>=0.24.0"' in pyproject
-    assert "mcp" not in pyproject
+    assert "arclith[mcp]" not in pyproject
 
 
 def test_add_adapter_infers_api_from_fastapi_name(
@@ -87,6 +87,28 @@ def test_add_adapter_infers_api_from_fastapi_name(
 
     assert result.exit_code == 0, result.output
     assert (project_dir / "config/adapters/inbound/fastapi.yaml").is_file()
+
+
+def test_add_adapter_requires_capability_for_ambiguous_adapter_name(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = tmp_path / "todo-api"
+    init_result = runner.invoke(app, ["init", "todo-api", "--dir", str(tmp_path)])
+    assert init_result.exit_code == 0, init_result.output
+
+    result = _invoke(
+        monkeypatch,
+        project_dir,
+        ["add-adapter", "--adapter", "memory", "--yes"],
+    )
+
+    assert result.exit_code == 1
+    assert "memory" in result.output
+    assert "ambigu" in result.output
+    assert "--capability" in result.output
+    assert "repository" in result.output
+    assert "cache" in result.output
 
 
 def test_add_usecase_entity_option_generates_linked_scaffold_and_recipe(
