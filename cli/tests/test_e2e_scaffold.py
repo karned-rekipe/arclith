@@ -220,17 +220,21 @@ def test_scaffold_and_run(temp_workspace: Path):
     assert (project_dir / ".venv").exists(), "Virtual environment not created"
 
     # Step 4 — validate core imports without installing a transport extra
+    validation_script = """
+from arclith import Arclith
+from test_plan_service.domain.models.plan import Plan
+
+assert Arclith("config").config.adapters.repository == "memory"
+assert Plan.__name__ == "Plan"
+print("✅ All imports OK")
+""".strip()
     result = subprocess.run(
         [
             "uv",
             "run",
             "python",
             "-c",
-            "from arclith import Arclith; "
-            "from test_plan_service.domain.models.plan import Plan; "
-            "assert Arclith('config').config.adapters.repository == 'memory'; "
-            "assert Plan.__name__ == 'Plan'; "
-            "print('✅ All imports OK')",
+            validation_script,
         ],
         cwd=project_dir,
         capture_output=True,
