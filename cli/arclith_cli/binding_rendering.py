@@ -281,6 +281,7 @@ def _path_annotations(
     parameters: tuple[str, ...],
 ) -> dict[str, _PathAnnotation]:
     annotations = dict(contract.request_fields)
+    field_names, field_modules = _pydantic_field_references(contract.request_imports)
     declaration = ast.parse(contract.request_source).body[0]
     assert isinstance(declaration, ast.ClassDef)
     metadata: dict[str, str] = {}
@@ -289,7 +290,7 @@ def _path_annotations(
             isinstance(statement, ast.AnnAssign)
             and isinstance(statement.target, ast.Name)
             and statement.value is not None
-            and _field_metadata(statement.value)
+            and _field_metadata(statement.value, field_names, field_modules)
         ):
             metadata[statement.target.id] = ast.unparse(statement.value)
     return {
@@ -298,12 +299,43 @@ def _path_annotations(
     }
 
 
-def _field_metadata(node: ast.expr | None) -> bool:
+def _pydantic_field_references(
+    imports: tuple[str, ...],
+) -> tuple[set[str], set[str]]:
+    names: set[str] = set()
+    modules: set[str] = set()
+    for source in imports:
+        statement = ast.parse(source).body[0]
+        if isinstance(statement, ast.ImportFrom) and (
+            statement.module or ""
+        ).startswith("pydantic"):
+            names.update(
+                alias.asname or alias.name
+                for alias in statement.names
+                if alias.name == "Field"
+            )
+        elif isinstance(statement, ast.Import):
+            modules.update(
+                alias.asname or alias.name
+                for alias in statement.names
+                if alias.name == "pydantic"
+            )
+    return names, modules
+
+
+def _field_metadata(
+    node: ast.expr | None,
+    names: set[str],
+    modules: set[str],
+) -> bool:
     if not isinstance(node, ast.Call):
         return False
     function = node.func
-    return (isinstance(function, ast.Name) and function.id == "Field") or (
-        isinstance(function, ast.Attribute) and function.attr == "Field"
+    return (isinstance(function, ast.Name) and function.id in names) or (
+        isinstance(function, ast.Attribute)
+        and function.attr == "Field"
+        and isinstance(function.value, ast.Name)
+        and function.value.id in modules
     )
 
 

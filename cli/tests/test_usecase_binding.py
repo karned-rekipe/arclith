@@ -525,10 +525,26 @@ def test_aliased_path_field_uses_its_python_name_in_the_drift_guard(project):
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_path_constraints_are_reported_as_request_validation(project):
-    source = PORT_SOURCE.replace(
-        "title: str = Field(min_length=1)",
-        "item_id: int = Field(gt=0)\n    title: str = Field(min_length=1)",
+@pytest.mark.parametrize(
+    ("field_import", "field_factory"),
+    [
+        ("from pydantic import BaseModel, Field", "Field"),
+        ("from pydantic import BaseModel, Field as F", "F"),
+    ],
+)
+def test_path_constraints_are_reported_as_request_validation(
+    project,
+    field_import,
+    field_factory,
+):
+    source = (
+        PORT_SOURCE.replace("Field(", f"{field_factory}(")
+        .replace("from pydantic import BaseModel, Field", field_import)
+        .replace(
+            f"title: str = {field_factory}(min_length=1)",
+            f"item_id: int = {field_factory}(gt=0)\n"
+            f"    title: str = {field_factory}(min_length=1)",
+        )
     )
     (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
         source,

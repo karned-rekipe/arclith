@@ -316,6 +316,42 @@ def test_feature_projection_rejects_container_drift_before_writes(
 
 
 @pytest.mark.parametrize(
+    "signature",
+    [
+        "()",
+        "(*, arclith: Arclith)",
+        "(arclith: Arclith, required: str)",
+    ],
+)
+def test_feature_projection_rejects_incompatible_builder_signatures_before_writes(
+    tmp_path: Path,
+    signature: str,
+) -> None:
+    project = _project(tmp_path)
+    _install_fastapi(project)
+    container = project / "src/feature_api/infrastructure/containers/todo.py"
+    container.write_text(
+        container.read_text(encoding="utf-8").replace(
+            "(arclith: Arclith) -> TodoUseCases",
+            f"{signature} -> TodoUseCases",
+        ),
+        encoding="utf-8",
+    )
+    before = _snapshot(project)
+
+    with pytest.raises(ValueError, match="container"):
+        plan_feature_projection(
+            project,
+            feature_name="todo",
+            via="fastapi",
+            http_path="/v1/todos",
+        )
+
+    assert _snapshot(project) == before
+    assert not (project / ".arclith/bindings/fastapi.json").exists()
+
+
+@pytest.mark.parametrize(
     ("via", "path", "message"),
     [
         ("fastmcp", None, "Supported feature projections"),

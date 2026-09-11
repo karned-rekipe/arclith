@@ -196,7 +196,11 @@ def _validate_crud_application_contract(
         for node in tree.body
         if isinstance(node, ast.FunctionDef) and node.name == builder
     ]
-    if len(functions) != 1 or not isinstance(functions[0].returns, ast.Name):
+    if (
+        len(functions) != 1
+        or not _accepts_one_positional_argument(functions[0])
+        or not isinstance(functions[0].returns, ast.Name)
+    ):
         raise ValueError(
             "CRUD feature container no longer matches its blueprint contract"
         )
@@ -219,6 +223,14 @@ def _validate_crud_application_contract(
         raise ValueError(
             "CRUD feature container no longer matches its blueprint contract"
         )
+
+
+def _accepts_one_positional_argument(function: ast.FunctionDef) -> bool:
+    arguments = function.args
+    positional = (*arguments.posonlyargs, *arguments.args)
+    required_positional = len(positional) - len(arguments.defaults)
+    required_keyword_only = any(default is None for default in arguments.kw_defaults)
+    return bool(positional) and required_positional <= 1 and not required_keyword_only
 
 
 def _class_names(path: Path) -> set[str]:
