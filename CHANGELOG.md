@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+---
+
+## [0.25.0] — 2026-09-11
+
 ### Changed
 
 - **Scaffold CLI réellement incrémental** — `init` n'installe plus FastAPI ou FastMCP et ne crée
@@ -16,6 +20,8 @@
   API → `expose-usecase`.
 - **Factory API rechargeable** — le point d'entrée généré reste lazy et utilise une factory Uvicorn
   importable, afin que le réglage `reload` fonctionne après l'ajout explicite de FastAPI.
+- **Versions release** — `arclith` passe à `0.25.0`; `arclith-cli` passe à `0.22.0`
+  et dépend de `arclith>=0.25.0`.
 
 ---
 
