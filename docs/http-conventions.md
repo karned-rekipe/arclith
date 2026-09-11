@@ -5,6 +5,26 @@
 Ce document définit les conventions HTTP/REST production-ready pour les APIs construites avec `arclith`.
 Toutes les fonctionnalités SOTA sont implémentées via des middlewares automatiques + patterns routers.
 
+## Portée Du Scaffold CRUD
+
+`arclith-cli expose-feature <feature> --via fastapi` génère un contrat REST
+fonctionnel et typé, mais volontairement minimal. Il déclare toujours
+`status_code` et `responses`, traduit `NotFound` en `404`, la validation en
+`422` et un conflit de version porté dans le payload en `409`.
+
+Le blueprint applicatif retourne cependant des Results typés pour `create`,
+`update` et `delete`. La première projection conserve ces représentations :
+`PATCH` et `DELETE` répondent donc `200` avec un body, sans inventer
+`If-Match`, `ETag`, `Location`, `Prefer` ou une politique d'idempotence absents
+des ports applicatifs. Les routes et presenters générés sont propriété du projet
+et constituent le point de versionnement pour appliquer les conventions
+production détaillées ci-dessous. Passer à `204`, `412` ou aux headers SOTA
+exige de modifier ensemble le contrat public, son mapper/presenter et ses tests.
+
+La projection CLI est ainsi un baseline explicite, pas une affirmation que les
+politiques HTTP optionnelles sont déjà actives. Ajouter les capabilities HTTP
+requises et valider le contrat final avant mise en production.
+
 **Fonctionnalités clés :**
 
 - ✅ Headers Location/Content-Location (RFC 7231)

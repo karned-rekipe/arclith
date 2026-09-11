@@ -63,6 +63,28 @@ puis convertit le résultat en DTO de réponse. La chaîne de routers
 `application -> v1 -> feature -> opération` n'inclut chaque niveau qu'une fois.
 Le transport ne publie pas directement l'entité du domaine.
 
+## Projeter Une Feature CRUD
+
+Lorsqu'une feature possède un manifeste de blueprint CRUD, exposer son contrat
+REST complet sans répéter cinq commandes :
+
+```bash
+arclith-cli add-entity Todo --profile crud
+arclith-cli add-adapter --capability api --adapter fastapi --yes
+arclith-cli expose-feature todo --via fastapi --path /v1/todos
+```
+
+`expose-feature` projette ensemble `POST /v1/todos`, les lectures collection et
+item, `PATCH /v1/todos/{uuid}` et `DELETE /v1/todos/{uuid}`. Le chemin `uuid`
+reste un paramètre FastAPI typé, puis le mapper reconstruit la Command ou Query
+applicative. Les erreurs `NotFound` et `VersionConflict` générées par le
+blueprint deviennent `404` et `409` au bord HTTP.
+
+La projection exige un adapter déjà installé, prévalide toutes les collisions
+et compose les cinq ports depuis un seul container applicatif. Elle ne choisit
+pas de repository et ne modifie pas les règles métier. Pour un use case isolé,
+continuer à utiliser `expose-usecase`.
+
 ## Auth
 
 ```python
@@ -106,6 +128,8 @@ Le port API sert le métier. Le port probe sert `/health`, `/ready`, `/info` et
 - Les erreurs métier doivent être converties en erreurs HTTP explicites.
 - Les middlewares HTTP transverses sont dans la capability [http](http.md).
 - Les contrats HTTP publics doivent être testés avec `TestClient` ou `httpx`.
+- Une projection de feature doit rester explicite et consommer son manifeste
+  canonique ; ne pas inférer un CRUD depuis l'adapter.
 
 ## Validation
 

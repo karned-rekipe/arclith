@@ -29,7 +29,7 @@ arclith-cli capabilities --json
 
 | Capability | Couche | Adapters | Quand la lire |
 |---|---|---|---|
-| [api](capabilities/api.md) | inbound | `fastapi` | exposer des endpoints HTTP |
+| [api](capabilities/api.md) | inbound | `fastapi` | exposer un use case ou projeter une feature en HTTP |
 | [mcp](capabilities/mcp.md) | inbound | `fastmcp` | exposer des tools MCP |
 | [agent](capabilities/agent.md) | inbound | `langgraph` | exposer un agent LangGraph |
 | [agent-persistence](capabilities/agent-persistence.md) | inbound | `langgraph` | conserver threads et mémoire cross-thread |
@@ -56,7 +56,7 @@ arclith-cli capabilities --json
 | Besoin | Lire |
 |---|---|
 | Concevoir le cœur métier | [Scaffold CLI guidé](deep-dives/cli-scaffold.md), [blueprints applicatifs](blueprints.md), puis [formation Todo](tutorials/todo-list/02-create-entity.md) |
-| API minimale | [Quickstart API](quickstarts/api.md), [formation API](tutorials/todo-list/04-api.md), puis [api/fastapi](capabilities/api.md) |
+| API minimale ou CRUD | [Quickstart API](quickstarts/api.md), [blueprint CRUD](blueprints/crud.md), puis [api/fastapi](capabilities/api.md) |
 | MCP minimal | [Quickstart MCP](quickstarts/mcp.md), [formation MCP](tutorials/todo-list/05-mcp.md), puis [mcp/fastmcp](capabilities/mcp.md) |
 | Bus RabbitMQ | [Quickstart Bus](quickstarts/bus.md), puis [command-bus/rabbitmq](capabilities/command-bus.md) |
 | Canal conversationnel | [Quickstart Channel](quickstarts/channel.md), [contrat channel](capabilities/channel.md), puis [webhook signé](capabilities/channel-webhook.md) ou [Slack](capabilities/channel-slack.md) |

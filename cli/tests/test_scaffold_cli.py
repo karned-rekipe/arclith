@@ -42,6 +42,7 @@ def test_root_without_arguments_displays_help_successfully() -> None:
     assert "Usage:" in result.output
     assert "add-adapter" in result.output
     assert "expose-usecase" in result.output
+    assert "expose-feature" in result.output
     assert "Missing command" not in result.output
 
 

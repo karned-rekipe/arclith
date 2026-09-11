@@ -17,6 +17,7 @@ un import, un traitement événementiel, une conversation ou un pipeline RAG.
 | Blueprint applicatif | Quel comportement récurrent initialiser ? | CRUD | `add-blueprint` |
 | Capability | De quelle capacité technique le service a-t-il besoin ? | API, MCP, repository, agent | `capabilities` |
 | Adapter | Avec quelle technologie implémenter la capability ? | FastAPI, FastMCP, MongoDB, PostgreSQL | `add-adapter` |
+| Projection | Quel contrat public exposer sur un adapter installé ? | CRUD vers REST | `expose-feature` |
 
 Une feature peut donc appliquer un blueprint CRUD tout en restant sans transport
 et en utilisant le repository mémoire par défaut. FastAPI, FastMCP et un store
@@ -84,8 +85,22 @@ operations:
 ```
 
 Il est enregistré dans `.arclith/features/<feature>.yaml`. Ce manifeste permet
-à une future projection de transport de savoir quelles opérations existent,
-sans déduire un comportement depuis le nom d'un fichier ou d'un adapter.
+à une projection de transport de savoir quelles opérations existent, sans
+déduire un comportement depuis le nom d'un fichier ou d'un adapter.
+
+Après installation explicite de FastAPI, le CRUD peut être projeté comme un
+ensemble REST cohérent :
+
+```bash
+arclith-cli add-adapter --capability api --adapter fastapi --yes
+arclith-cli expose-feature todo --via fastapi --path /v1/todos --dry-run
+arclith-cli expose-feature todo --via fastapi --path /v1/todos
+```
+
+Cette commande consomme le manifeste et prévalide les cinq opérations dans un
+seul plan avant toute écriture. Elle ne crée jamais l'adapter à la place de
+`add-adapter`. Pour une opération isolée ou un comportement hors blueprint,
+utiliser `expose-usecase`.
 
 Les règles de génération sont strictes :
 
@@ -96,7 +111,8 @@ Les règles de génération sont strictes :
 - un manifeste modifié ou incompatible doit être résolu explicitement ;
 - `--dry-run` n'écrit ni fichier, ni manifeste, ni étape de recette ;
 - aucune route, aucun tool MCP et aucun adapter de persistence ne sont créés
-  implicitement.
+  implicitement ; une route n'apparaît qu'après `expose-feature` ou
+  `expose-usecase`.
 
 Consulter le [blueprint CRUD](blueprints/crud.md) pour son contrat détaillé et
 les [blueprints des adapters](deep-dives/adapter-blueprints.md) pour la structure

@@ -545,6 +545,11 @@ def _documentation(entity: str, feature: str) -> str:
         aucun adapter concret.
 
         Les projections FastAPI, FastMCP, RabbitMQ ou LangGraph sont des décisions
-        séparées. N'exposez que les opérations compatibles avec le transport visé.
+        séparées. Après installation explicite de FastAPI, projetez ce CRUD avec :
+
+        `arclith-cli expose-feature {feature} --via fastapi --path /v1/<collection>`
+
+        La CLI traduit NotFound et VersionConflict en 404 et 409 au bord HTTP.
+        N'exposez que les opérations compatibles avec le transport visé.
         """
     )

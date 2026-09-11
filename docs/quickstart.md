@@ -39,10 +39,20 @@ arclith-cli expose-usecase create-todo --via fastapi --feature todos \
 
 `init` n'installe aucun transport. La commande `add-adapter` ci-dessus ajoute le
 blueprint et l'extra FastAPI à la demande ; utiliser `mcp/fastmcp` de la même
-manière uniquement si le service expose aussi MCP. Le profil CRUD initialise
-les ports et use cases applicatifs mais ne les projette pas encore
-automatiquement vers FastAPI ou FastMCP ; consulter le
-[blueprint CRUD](blueprints/crud.md) avant de définir ces contrats publics.
+manière uniquement si le service expose aussi MCP. Pour un CRUD, utiliser plutôt
+ce parcours complet, en alternative au bloc précédent :
+
+```bash
+arclith-cli init todo-list-service
+cd todo-list-service
+arclith-cli add-entity Todo --profile crud
+arclith-cli add-adapter --capability api --adapter fastapi --yes
+arclith-cli expose-feature todo --via fastapi --path /v1/todos
+```
+
+Le profil crée le cœur applicatif ; `expose-feature` constitue la décision
+séparée qui publie ses cinq opérations sur l'adapter déjà installé. Consulter le
+[blueprint CRUD](blueprints/crud.md) pour le contrat HTTP et ses erreurs.
 
 Chaque commande mutante réussie enrichit `arclith.recipe.yaml`. Ce fichier
 versionné conserve les décisions de scaffolding sans remplacer Git et sans
@@ -119,6 +129,14 @@ Pour le cycle de vie CRUD classique, sans adapter automatique :
 arclith-cli add-entity ShoppingItem --profile crud
 # ou, si l'entité existe déjà
 arclith-cli add-blueprint crud --entity ShoppingItem
+```
+
+Puis, uniquement si une API REST est voulue :
+
+```bash
+arclith-cli add-adapter --capability api --adapter fastapi --yes
+arclith-cli expose-feature shopping_item --via fastapi \
+  --path /v1/shopping-items
 ```
 
 `add-entity` ajoute un squelette guidé sans import inutilisé. `add-usecase`

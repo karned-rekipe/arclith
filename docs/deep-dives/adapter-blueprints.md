@@ -2,8 +2,10 @@
 
 Arclith applique un contrat fermé et versionné : une technologie n'apparaît dans
 un projet qu'après `arclith-cli add-adapter`, et une feature publique n'apparaît
-qu'après `arclith-cli expose-usecase`. `init`, `add-entity` et `add-usecase` ne
-déduisent jamais un adapter ou une feature.
+qu'après `arclith-cli expose-usecase` ou `arclith-cli expose-feature`. La première
+commande projette un use case isolé ; la seconde projette en lot un blueprint
+applicatif prévalidé, tel que CRUD. `init`, `add-entity`, `add-blueprint` et
+`add-usecase` ne déduisent jamais un adapter ou une feature publique.
 
 Le contrat a trois représentations synchronisées :
 

@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 from arclith_cli import __version__
 from arclith_cli.capability_models import AdapterSpec
 from arclith_cli.project_paths import detect_project_paths
+from arclith_cli.recipe_execution import execute_adapter_step, execute_binding_step
 from arclith_cli.recipe_models import (
     EXTERNAL_PATH,
     RECIPE_FILENAME,
@@ -38,6 +39,7 @@ _SUPPORTED_COMMANDS = {
     "add-usecase",
     "add-intent-interpreter",
     "expose-usecase",
+    "expose-feature",
 }
 _SENSITIVE_NAME_RE = re.compile(
     r"(?:^|_)(?:password|passwd|secret|token|api_key|apikey|credential)(?:$|_)",
@@ -332,29 +334,11 @@ def _execute_step(
             intent_name=str(args["intent"]),
         )
         return
-    if step.command == "expose-usecase":
-        from arclith_cli.usecase_binding import apply_binding, plan_binding
-
-        apply_binding(plan_binding(target_dir, **args))
+    if step.command in {"expose-usecase", "expose-feature"}:
+        execute_binding_step(step.command, target_dir, args)
         return
     if step.command == "add-adapter":
-        from arclith_cli.add_adapter import add_adapter_cmd
-
-        raw_params = args.get("params") or {}
-        if not isinstance(raw_params, dict):
-            raise RecipeError(f"Step {step.id} add-adapter params must be a mapping.")
-        raw_entities = args.get("entities") or []
-        if not isinstance(raw_entities, list):
-            raise RecipeError(f"Step {step.id} add-adapter entities must be a list.")
-        add_adapter_cmd(
-            project_dir=target_dir,
-            capability_name=str(args.get("capability", "repository")),
-            adapter=str(args["adapter"]),
-            entity_names=[str(item) for item in raw_entities] or None,
-            activate=bool(args.get("activate", True)),
-            adapter_params=dict(raw_params),
-            yes=True,
-        )
+        execute_adapter_step(step, target_dir, args)
 
 
 def _hydrate_step_args(step: RecipeStep) -> dict[str, Any]:
@@ -505,6 +489,7 @@ def _is_sensitive_value(key: str, value: Any) -> bool:
 def _is_external_path_value(key: str, value: Any) -> bool:
     return (
         isinstance(value, str)
+        and key.lower() != "http_path"
         and bool(_PATH_FIELD_RE.search(key.lower()))
         and Path(value).is_absolute()
     )

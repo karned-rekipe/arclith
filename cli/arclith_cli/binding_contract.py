@@ -6,8 +6,25 @@ import keyword
 from dataclasses import dataclass
 from pathlib import Path
 
+from arclith_cli.import_origins import absolute_import, pydantic_field_references
 from arclith_cli.project_paths import ProjectPaths
 from arclith_cli.rename import EntityNames
+
+_SCALAR_ANNOTATIONS = frozenset(
+    {
+        "str",
+        "int",
+        "float",
+        "bool",
+        "bytes",
+        "UUID",
+        "date",
+        "datetime",
+        "time",
+        "timedelta",
+        "Decimal",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -18,6 +35,10 @@ class UseCaseContract:
     request: str
     request_source: str
     request_imports: tuple[str, ...]
+    pydantic_field_names: tuple[str, ...]
+    pydantic_module_names: tuple[str, ...]
+    request_fields: tuple[tuple[str, str], ...]
+    path_compatible_fields: tuple[str, ...]
     result: str
     result_names: tuple[str, ...]
     response_fields: tuple[str, ...]
@@ -26,6 +47,7 @@ class UseCaseContract:
     implementation: str | None
     repository_entity_module: str | None
     repository_entity: str | None
+    requires_container: bool
     asynchronous: bool
     query_compatible: bool
 
@@ -68,17 +90,26 @@ def inspect_usecase(paths: ProjectPaths, raw_name: str) -> UseCaseContract:
     module = paths.import_path(*relative.parts)
     result = _annotation(method.returns)
     fields = _request_fields(request)
+    request_fields = tuple(
+        (field.target.id, ast.unparse(_annotation(field.annotation)))
+        for field in fields
+        if isinstance(field.target, ast.Name)
+    )
     response_fields, response_imports = _response_contract(
         paths,
         tree,
         module,
         result,
     )
-    implementation_module, implementation, repository = _implementation_contract(
-        paths,
-        name,
-        port.name,
+    pydantic_field_names, pydantic_module_names = pydantic_field_references(
+        paths, tree, module
     )
+    (
+        implementation_module,
+        implementation,
+        repository,
+        requires_container,
+    ) = _implementation_contract(paths, name, port.name)
     return UseCaseContract(
         name=name,
         module=module,
@@ -86,6 +117,14 @@ def inspect_usecase(paths: ProjectPaths, raw_name: str) -> UseCaseContract:
         request=request.name,
         request_source=ast.unparse(request),
         request_imports=_request_imports(tree, _used_names(request, fields), module),
+        pydantic_field_names=pydantic_field_names,
+        pydantic_module_names=pydantic_module_names,
+        request_fields=request_fields,
+        path_compatible_fields=tuple(
+            field.target.id
+            for field in fields
+            if isinstance(field.target, ast.Name) and _path_annotation(field.annotation)
+        ),
         result=ast.unparse(result),
         result_names=tuple(sorted(_loaded_names(result) - set(dir(builtins)))),
         response_fields=response_fields,
@@ -94,6 +133,7 @@ def inspect_usecase(paths: ProjectPaths, raw_name: str) -> UseCaseContract:
         implementation=implementation,
         repository_entity_module=repository[0] if repository is not None else None,
         repository_entity=repository[1] if repository is not None else None,
+        requires_container=requires_container,
         asynchronous=isinstance(method, ast.AsyncFunctionDef),
         query_compatible=all(_query_annotation(field.annotation) for field in fields),
     )
@@ -189,10 +229,10 @@ def _implementation_contract(
     paths: ProjectPaths,
     name: str,
     port: str,
-) -> tuple[str | None, str | None, tuple[str, str] | None]:
+) -> tuple[str | None, str | None, tuple[str, str] | None, bool]:
     path = paths.application_use_cases / f"{name}.py"
     if not path.is_file():
-        return None, None, None
+        return None, None, None, False
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     matches = [
         node
@@ -203,53 +243,66 @@ def _implementation_contract(
     if len(matches) != 1:
         raise ValueError(f"Expected one implementation of {port}")
     implementation = matches[0]
+    module = _module_for_path(paths, path)
     constructors = [
         node
         for node in implementation.body
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         and node.name == "__init__"
     ]
-    repository: tuple[str, str] | None = None
-    if constructors:
-        if len(constructors) != 1 or isinstance(constructors[0], ast.AsyncFunctionDef):
-            raise ValueError("Automatic composition requires one synchronous __init__")
-        constructor = constructors[0]
-        arguments = constructor.args
-        if (
-            arguments.posonlyargs
-            or arguments.kwonlyargs
-            or arguments.vararg is not None
-            or arguments.kwarg is not None
-            or not arguments.args
-            or arguments.args[0].arg != "self"
-        ):
-            raise ValueError(
-                "Automatic composition supports only self and at most one positional Repository[Entity] dependency"
-            )
-        parameters = constructor.args.args[1:]
-        if len(parameters) > 1:
-            raise ValueError(
-                "Automatic composition supports a no-argument use case or one Repository[Entity] dependency"
-            )
-        if not parameters:
-            return _module_for_path(paths, path), implementation.name, None
-        annotation = _annotation(parameters[0].annotation)
-        if not (
-            isinstance(annotation, ast.Subscript)
-            and ast.unparse(annotation.value).split(".")[-1] == "Repository"
-            and isinstance(annotation.slice, ast.Name)
-        ):
-            raise ValueError(
-                "Automatic composition requires the constructor dependency Repository[Entity]"
-            )
-        entity_alias = annotation.slice.id
-        imported_entity = _imported_symbol(
-            tree, _module_for_path(paths, path), entity_alias
+    repository, requires_container = _implementation_dependency(
+        tree, module, constructors
+    )
+    return module, implementation.name, repository, requires_container
+
+
+def _implementation_dependency(
+    tree: ast.Module,
+    module: str,
+    constructors: list[ast.FunctionDef | ast.AsyncFunctionDef],
+) -> tuple[tuple[str, str] | None, bool]:
+    if not constructors:
+        return None, False
+    if len(constructors) != 1 or isinstance(constructors[0], ast.AsyncFunctionDef):
+        raise ValueError("Automatic composition requires one synchronous __init__")
+    arguments = constructors[0].args
+    if (
+        arguments.posonlyargs
+        or arguments.kwonlyargs
+        or arguments.vararg is not None
+        or arguments.kwarg is not None
+        or not arguments.args
+        or arguments.args[0].arg != "self"
+    ):
+        raise ValueError(
+            "Automatic composition supports only self and at most one positional "
+            "Repository[Entity] or BaseService[Entity] dependency"
         )
-        if imported_entity is None:
-            raise ValueError(f"Cannot resolve repository entity {entity_alias!r}")
-        repository = imported_entity
-    return _module_for_path(paths, path), implementation.name, repository
+    parameters = arguments.args[1:]
+    if len(parameters) > 1:
+        raise ValueError(
+            "Automatic composition supports a no-argument use case or one "
+            "Repository[Entity] or BaseService[Entity] dependency"
+        )
+    if not parameters:
+        return None, False
+    annotation = _annotation(parameters[0].annotation)
+    if not (
+        isinstance(annotation, ast.Subscript)
+        and ast.unparse(annotation.value).split(".")[-1]
+        in {"Repository", "BaseService"}
+        and isinstance(annotation.slice, ast.Name)
+    ):
+        raise ValueError(
+            "Automatic composition requires Repository[Entity] or a feature "
+            "container for BaseService[Entity]"
+        )
+    dependency = ast.unparse(annotation.value).split(".")[-1]
+    entity_alias = annotation.slice.id
+    imported_entity = _imported_symbol(tree, module, entity_alias)
+    if imported_entity is None:
+        raise ValueError(f"Cannot resolve repository entity {entity_alias!r}")
+    return imported_entity, dependency == "BaseService"
 
 
 def _module_for_path(paths: ProjectPaths, path: Path) -> str:
@@ -276,7 +329,7 @@ def _imported_symbol(
             continue
         for alias in node.names:
             if (alias.asname or alias.name) == symbol:
-                return _absolute_import(node, module), alias.name
+                return absolute_import(node, module), alias.name
     return None
 
 
@@ -390,19 +443,7 @@ def _validate_declarative_request(request: ast.ClassDef) -> None:
 def _query_annotation(node: ast.expr) -> bool:
     node = _annotation(node)
     if isinstance(node, ast.Name):
-        return node.id in {
-            "str",
-            "int",
-            "float",
-            "bool",
-            "bytes",
-            "UUID",
-            "date",
-            "datetime",
-            "time",
-            "timedelta",
-            "Decimal",
-        }
+        return node.id in _SCALAR_ANNOTATIONS
     if isinstance(node, ast.Constant):
         return node.value is None
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
@@ -410,6 +451,44 @@ def _query_annotation(node: ast.expr) -> bool:
     if isinstance(node, ast.Subscript):
         return _query_generic(node)
     return False
+
+
+def _path_annotation(node: ast.expr) -> bool:
+    """Accept values FastAPI can decode from one path segment."""
+    node = _annotation(node)
+    if isinstance(node, ast.Name):
+        return node.id in _SCALAR_ANNOTATIONS
+    if isinstance(node, ast.Constant):
+        return False
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        return _path_union((node.left, node.right))
+    if not isinstance(node, ast.Subscript):
+        return False
+    name = node.value.id if isinstance(node.value, ast.Name) else ""
+    args = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
+    if name == "Annotated":
+        return _path_annotation(args[0])
+    if name == "Literal":
+        return all(
+            isinstance(value, ast.Constant)
+            and isinstance(value.value, (str, int, float, bool))
+            for value in args
+        )
+    if name in {"Optional", "Union"}:
+        return _path_union(tuple(args))
+    return False
+
+
+def _path_union(nodes: tuple[ast.expr, ...]) -> bool:
+    members = [
+        node
+        for node in nodes
+        if not (
+            isinstance(normalized := _annotation(node), ast.Constant)
+            and normalized.value is None
+        )
+    ]
+    return bool(members) and all(_path_annotation(node) for node in members)
 
 
 def _query_generic(node: ast.Subscript) -> bool:
@@ -428,18 +507,6 @@ def _query_generic(node: ast.Subscript) -> bool:
     return False
 
 
-def _absolute_import(node: ast.ImportFrom, module: str) -> str:
-    if not node.level:
-        if node.module is None:
-            raise ValueError("Imported symbol has no module")
-        return node.module
-    prefix = module.split(".")[: -node.level]
-    if not prefix:
-        raise ValueError("Relative request import escapes its package")
-    suffix = node.module.split(".") if node.module else []
-    return ".".join((*prefix, *suffix))
-
-
 def _selected_import(
     node: ast.Import | ast.ImportFrom, used: set[str], module: str
 ) -> tuple[str, set[str]] | None:
@@ -451,7 +518,7 @@ def _selected_import(
     statement: ast.Import | ast.ImportFrom
     if isinstance(node, ast.ImportFrom):
         statement = ast.ImportFrom(
-            module=_absolute_import(node, module), names=aliases, level=0
+            module=absolute_import(node, module), names=aliases, level=0
         )
     else:
         statement = ast.Import(names=aliases)

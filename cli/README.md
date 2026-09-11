@@ -70,8 +70,17 @@ est régénéré automatiquement pour un use case sans dépendance ou avec une d
 
 Pour initialiser plutôt les cinq opérations CRUD, utiliser
 `add-entity Todo --profile crud`. Ce blueprint crée le cœur applicatif et sa
-composition, mais aucun endpoint : la projection FastAPI, FastMCP, RabbitMQ ou
-LangGraph reste une décision distincte.
+composition, mais aucun endpoint. Après installation explicite de FastAPI, la
+projection REST complète tient en une commande distincte :
+
+```bash
+arclith-cli add-entity Todo --profile crud
+arclith-cli add-adapter --capability api --adapter fastapi --yes
+arclith-cli expose-feature todo --via fastapi --path /v1/todos
+```
+
+Les projections FastMCP, RabbitMQ ou LangGraph restent des décisions distinctes
+avec une sémantique propre au transport.
 
 ---
 
@@ -100,8 +109,9 @@ arclith-cli new Todo todo-service --profile crud
 
 Le projet généré utilise un layout `src/<package>/...` pour le code applicatif et un dossier
 `config/` structuré par adapter (voir section [Configuration](#configuration)). Utiliser ensuite
-`add-usecase`, `add-adapter` puis `expose-usecase`; un Dockerfile n'apparaît que via l'adapter
-`runtime/docker-image`.
+`add-usecase`, `add-adapter` puis `expose-usecase`, ou le couple
+`add-entity --profile crud` puis `expose-feature`; un Dockerfile n'apparaît que
+via l'adapter `runtime/docker-image`.
 
 ---
 
@@ -149,6 +159,33 @@ préserve les fichiers applicatifs déjà personnalisés et complète uniquement
 fichiers manquants. Le CRUD est une possibilité parmi les futurs blueprints ;
 il n'est jamais inféré depuis un adapter. Voir le
 [contrat détaillé](https://karned-rekipe.github.io/arclith/blueprints/).
+
+---
+
+### `expose-feature` — Projeter Un Blueprint Applicatif
+
+Consomme le manifeste `.arclith/features/<feature>.yaml` créé par un blueprint
+et projette ses opérations vers un adapter déjà installé. La première version
+supporte le blueprint `crud` vers FastAPI :
+
+```bash
+arclith-cli add-entity Todo --profile crud
+arclith-cli add-adapter --capability api --adapter fastapi --yes
+arclith-cli expose-feature todo --via fastapi --path /v1/todos --dry-run
+arclith-cli expose-feature todo --via fastapi --path /v1/todos
+```
+
+Sans `--path`, la collection utilise `/v1/<feature-en-kebab-case>` :
+`shopping_item` devient `/v1/shopping-item`, sans pluralisation automatique. La
+commande planifie ensemble les routes `POST`, `GET` collection,
+`GET` item, `PATCH` et `DELETE`, leurs DTO et leur composition partagée, puis
+n'écrit qu'après validation complète du lot. Les
+erreurs applicatives `NotFound` et `VersionConflict` deviennent `404` et `409`.
+Elle ne crée ni adapter ni repository. Les fichiers développeur sont préservés
+à la relance et la recette n'enregistre que la première mutation effective.
+
+Utiliser `expose-usecase` pour une opération isolée ou un comportement qui ne
+provient pas d'un blueprint.
 
 ---
 
@@ -420,7 +457,8 @@ arclith = Arclith("config.yaml")
 ### `history` et `replay` — Relire et rejouer les décisions CLI
 
 `init`, `new`, `add-entity`, `add-blueprint`, `add-usecase`,
-`add-intent-interpreter` et `add-adapter` ajoutent une étape à
+`add-intent-interpreter`, `add-adapter`, `expose-usecase` et `expose-feature`
+ajoutent une étape à
 `arclith.recipe.yaml` uniquement après leur
 succès complet. La recette est un historique fonctionnel rejouable ; Git reste
 l'historique du code et `export-config` reste la configuration consolidée de
