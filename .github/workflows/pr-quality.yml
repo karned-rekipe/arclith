@@ -24,6 +24,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
+          save-cache: false
       - run: make lint
 
   security:
@@ -35,6 +36,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
+          save-cache: false
       - run: make security
 
   complexity:
@@ -46,6 +48,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
+          save-cache: false
       - run: make complexity
 
   typecheck:
@@ -58,6 +61,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
+          save-cache: false
       - run: make typecheck
 
   coverage:

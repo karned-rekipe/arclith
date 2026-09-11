@@ -28,6 +28,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
+          save-cache: false
 
       - name: Install CLI dependencies
         working-directory: cli
