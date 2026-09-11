@@ -4,6 +4,34 @@
 
 ---
 
+## [0.27.0] — 2026-09-11
+
+### Added
+
+- **Blueprint applicatif CRUD** — `add-entity --profile crud` et `add-blueprint crud` génèrent
+  les cinq opérations `create`, `get`, `list`, `update` et `delete`, leur composition, leurs tests
+  et un manifeste de feature canonique, sans coupler le domaine à un transport ou une base.
+- **Projection FastAPI d'une feature** — `expose-feature <feature> --via fastapi` projette le CRUD
+  en cinq routes REST typées, avec chemins, statuts et erreurs applicatives explicites.
+- **Recettes CRUD rejouables** — le profil, la feature et sa projection sont enregistrés dans la
+  recette afin de reconstruire le même service de manière déterministe.
+
+### Changed
+
+- **Génération atomique et non destructive** — toute la projection est validée avant écriture ;
+  les collisions de routes bloquent l'opération entière et les fichiers devenus propriété du
+  projet ne sont pas écrasés lors d'une relance.
+- **Frontières techniques explicites** — FastAPI doit être installé avant la projection ; aucune
+  persistence durable, migration, pluralisation ou projection MCP/RabbitMQ/LangGraph n'est
+  déduite implicitement du choix CRUD.
+- **Contrats HTTP durcis** — la validation applicative devient une réponse `422`, les ressources
+  absentes une `404`, les conflits de version une `409`, et les champs absents d'un `PATCH`
+  restent distingués des valeurs explicitement fournies.
+- **Versions release** — `arclith` passe à `0.27.0`; `arclith-cli` passe à `0.24.0`
+  et dépend de `arclith>=0.27.0`.
+
+---
+
 ## [0.26.0] — 2026-09-11
 
 ### Added

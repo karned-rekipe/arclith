@@ -68,7 +68,7 @@ def test_add_adapter_wizard_lists_and_installs_api_only(
     assert (package_root / "adapters" / "inbound" / "fastapi").is_dir()
     assert not (package_root / "adapters" / "inbound" / "fastmcp").exists()
     pyproject = (project_dir / "pyproject.toml").read_text(encoding="utf-8")
-    assert '"arclith[fastapi]>=0.26.0"' in pyproject
+    assert '"arclith[fastapi]>=0.27.0"' in pyproject
     assert "arclith[mcp]" not in pyproject
 
 
