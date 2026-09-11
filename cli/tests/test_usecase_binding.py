@@ -17,12 +17,18 @@ from typer.testing import CliRunner
 from arclith import Arclith
 from arclith.application.command_bus import CommandDispatcher, CommandEnvelope
 from arclith_cli.add_adapter import add_adapter_cmd
+from arclith_cli.binding_rendering import ApplicationErrorMapping
 from arclith_cli.binding_manifest import load_manifest
 from arclith_cli.core_scaffold import add_entity_cmd, add_usecase_cmd
 from arclith_cli.init_project import init_project_cmd
 from arclith_cli.main import app
 from arclith_cli.recipe import load_recipe, replay_recipe
-from arclith_cli.usecase_binding import apply_binding, plan_binding
+from arclith_cli.usecase_binding import (
+    BindingRequest,
+    apply_binding,
+    plan_binding,
+    plan_bindings,
+)
 
 PORT_SOURCE = """from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field
@@ -303,6 +309,56 @@ def test_path_parameters_cannot_shadow_generated_binding_names(project, field):
         )
 
 
+@pytest.mark.parametrize(
+    "field",
+    ["ValidationError", "RequestValidationError", "HTTPException"],
+)
+def test_generated_fastapi_internals_cannot_be_shadowed_by_path_fields(
+    project,
+    field,
+):
+    path = project / "src/binding_app/domain/ports/inbound/create_todo.py"
+    path.write_text(
+        PORT_SOURCE.replace("title: str", f"{field}: str"),
+        encoding="utf-8",
+    )
+    plan = plan_bindings(
+        project,
+        (
+            BindingRequest(
+                usecase="create-todo",
+                via="fastapi",
+                feature="todos",
+                public_name=None,
+                http_path=f"/v1/todos/{{{field}}}",
+                method=None,
+                status_code=200,
+                command_type=None,
+                container=None,
+                error_mappings=(
+                    ApplicationErrorMapping(
+                        module="builtins",
+                        error="LookupError",
+                        status_code=404,
+                        description="Missing",
+                    ),
+                ),
+            ),
+        ),
+    )
+    apply_binding(plan)
+    route_path = (
+        project
+        / "src/binding_app/adapters/inbound/fastapi/routers/v1/todos/routes/create_todo.py"
+    )
+    route = route_path.read_text(encoding="utf-8")
+
+    assert "ValidationError as _ValidationError" in route
+    assert "RequestValidationError as _RequestValidationError" in route
+    assert "HTTPException as _HTTPException" in route
+    compile(route, str(route_path), "exec")
+
+
 def test_public_route_collision_is_rejected(project):
     apply_binding(
         plan_binding(project, "create-todo", via="fastapi", http_path="/v1/todos")
@@ -491,8 +547,10 @@ def test_path_constraints_are_reported_as_request_validation(project):
         invalid = client.post("/v1/todos/-1", json={"title": "Invalid"})
         valid = client.post("/v1/todos/1", json={"title": "Valid"})
 
+    parameter = api.openapi()["paths"]["/v1/todos/{item_id}"]["post"]["parameters"][0]
     assert invalid.status_code == 422
     assert valid.status_code == 200
+    assert parameter["schema"]["exclusiveMinimum"] == 0
     assert len(use_case.commands) == 1
     assert use_case.commands[0].item_id == 1
 

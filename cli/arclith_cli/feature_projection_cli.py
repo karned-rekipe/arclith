@@ -32,7 +32,10 @@ def expose_feature_command(
         str | None,
         typer.Option(
             "--path",
-            help="Chemin de collection REST ; défaut déterministe : /v1/<feature>.",
+            help=(
+                "Chemin de collection REST ; défaut déterministe : "
+                "/v1/<feature-en-kebab-case>."
+            ),
         ),
     ] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,

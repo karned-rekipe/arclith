@@ -118,6 +118,33 @@ def test_crud_feature_projection_generates_one_complete_rest_contract(
     assert "delete_todo=container_1.delete" in composition
 
 
+def test_default_feature_path_is_kebab_case_without_pluralization(
+    tmp_path: Path,
+) -> None:
+    project = init_project_cmd(project_name="shopping-api", directory=tmp_path)
+    add_entity_cmd(project_dir=project, entity_name="ShoppingItem")
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="ShoppingItem",
+        feature_name="shopping_item",
+        dry_run=False,
+    )
+    _install_fastapi(project)
+
+    plan = plan_feature_projection(
+        project,
+        feature_name="shopping_item",
+        via="fastapi",
+        http_path=None,
+    )
+
+    assert {item.http_path for item in plan.binding_plan.options} == {
+        "/v1/shopping-item",
+        "/v1/shopping-item/{uuid}",
+    }
+
+
 def test_crud_feature_projection_executes_all_routes_and_error_mappings(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

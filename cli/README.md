@@ -175,8 +175,9 @@ arclith-cli expose-feature todo --via fastapi --path /v1/todos --dry-run
 arclith-cli expose-feature todo --via fastapi --path /v1/todos
 ```
 
-Sans `--path`, la collection utilise `/v1/<feature>` sans pluralisation
-automatique. La commande planifie ensemble les routes `POST`, `GET` collection,
+Sans `--path`, la collection utilise `/v1/<feature-en-kebab-case>` :
+`shopping_item` devient `/v1/shopping-item`, sans pluralisation automatique. La
+commande planifie ensemble les routes `POST`, `GET` collection,
 `GET` item, `PATCH` et `DELETE`, leurs DTO et leur composition partagée, puis
 n'écrit qu'après validation complète du lot. Les
 erreurs applicatives `NotFound` et `VersionConflict` deviennent `404` et `409`.

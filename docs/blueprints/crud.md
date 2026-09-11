@@ -107,8 +107,10 @@ crée ni adapter ni persistence et consomme le manifeste canonique
 Elle planifie les cinq bindings ensemble avant la première écriture : une
 collision sur une seule opération rejette donc toute la projection.
 
-Sans `--path`, le chemin déterministe est `/v1/todo`. La CLI ne pluralise pas un
-nom métier ; fournir `--path /v1/todos` rend le contrat public explicite.
+Sans `--path`, le chemin déterministe utilise la feature en kebab-case :
+`todo` devient `/v1/todo` et `shopping_item` devient `/v1/shopping-item`. La CLI
+ne pluralise pas un nom métier ; fournir `--path /v1/todos` rend le contrat
+public explicite.
 
 ## Contrat FastAPI Généré
 

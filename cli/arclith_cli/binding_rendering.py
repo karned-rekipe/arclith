@@ -34,11 +34,18 @@ def render_contract(
 ) -> str:
     """Snapshot a transport input model so later application edits are explicit."""
     imports = tuple(dict.fromkeys((contract.request, *contract.result_names)))
+    path_annotations = _path_annotations(contract, path_parameters)
+    annotated_import = (
+        ("from typing import Annotated as _Annotated",)
+        if any(annotation.metadata for annotation in path_annotations.values())
+        else ()
+    )
     header = "\n".join(
         dict.fromkeys(
             (
                 *contract.request_imports,
                 *contract.response_imports,
+                *annotated_import,
                 "from pydantic import ConfigDict",
             )
         )
@@ -61,10 +68,9 @@ def render_contract(
     model = ast.unparse(declaration)
     if len(declaration.body) == 2 and isinstance(declaration.body[-1], ast.Pass):
         model = model.replace("\n    pass", "\n\n    pass")
-    field_types = dict(contract.request_fields)
     aliases = _path_aliases(contract, path_parameters)
     path_aliases = "".join(
-        f"type {aliases[parameter]} = {field_types[parameter]}\n"
+        f"type {aliases[parameter]} = {path_annotations[parameter].render()}\n"
         for parameter in path_parameters
     )
     application_payload = "request.model_dump()"
@@ -196,7 +202,9 @@ def _fastapi(
         function_lines.extend(_error_boundary(application_call, error_mappings))
     else:
         function_lines.append(f"        return present_result({application_call})")
-    fastapi_imports = "APIRouter, HTTPException" if error_mappings else "APIRouter"
+    fastapi_imports = (
+        "APIRouter, HTTPException as _HTTPException" if error_mappings else "APIRouter"
+    )
     error_imports = "".join(
         _parenthesized_import(mapping.module, (mapping.error,))
         for mapping in error_mappings
@@ -209,8 +217,8 @@ def _fastapi(
         }
     )
     lines = [
-        "from fastapi.exceptions import RequestValidationError",
-        "from pydantic import ValidationError",
+        "from fastapi.exceptions import RequestValidationError as _RequestValidationError",
+        "from pydantic import ValidationError as _ValidationError",
         f"from fastapi import {fastapi_imports}",
         "",
         "",
@@ -235,8 +243,8 @@ def _mapper_boundary(call: str) -> list[str]:
     return [
         "        try:",
         f"            application_request = {call}",
-        "        except ValidationError as exc:",
-        "            raise RequestValidationError(exc.errors()) from exc",
+        "        except _ValidationError as exc:",
+        "            raise _RequestValidationError(exc.errors()) from exc",
     ]
 
 
@@ -249,12 +257,54 @@ def _error_boundary(
         lines.extend(
             (
                 f"        except {mapping.error} as exc:",
-                "            raise HTTPException(",
+                "            raise _HTTPException(",
                 f"                status_code={mapping.status_code}, detail=str(exc)",
                 "            ) from exc",
             )
         )
     return lines
+
+
+@dataclass(frozen=True)
+class _PathAnnotation:
+    annotation: str
+    metadata: str | None
+
+    def render(self) -> str:
+        if self.metadata is None:
+            return self.annotation
+        return f"_Annotated[{self.annotation}, {self.metadata}]"
+
+
+def _path_annotations(
+    contract: UseCaseContract,
+    parameters: tuple[str, ...],
+) -> dict[str, _PathAnnotation]:
+    annotations = dict(contract.request_fields)
+    declaration = ast.parse(contract.request_source).body[0]
+    assert isinstance(declaration, ast.ClassDef)
+    metadata: dict[str, str] = {}
+    for statement in declaration.body:
+        if (
+            isinstance(statement, ast.AnnAssign)
+            and isinstance(statement.target, ast.Name)
+            and statement.value is not None
+            and _field_metadata(statement.value)
+        ):
+            metadata[statement.target.id] = ast.unparse(statement.value)
+    return {
+        parameter: _PathAnnotation(annotations[parameter], metadata.get(parameter))
+        for parameter in parameters
+    }
+
+
+def _field_metadata(node: ast.expr | None) -> bool:
+    if not isinstance(node, ast.Call):
+        return False
+    function = node.func
+    return (isinstance(function, ast.Name) and function.id == "Field") or (
+        isinstance(function, ast.Attribute) and function.attr == "Field"
+    )
 
 
 def _path_aliases(
