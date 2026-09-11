@@ -1,8 +1,9 @@
 # Capability API
 
-Le CLI crée dès l'installation tous les fichiers et packages du [blueprint complet
-de cette capability](../deep-dives/adapter-blueprints.md), avec des repères pour les
-développeurs et les IA. Les fichiers existants sont préservés lors d'une relance.
+Le CLI crée les fichiers et packages du [blueprint complet de cette
+capability](../deep-dives/adapter-blueprints.md) uniquement lorsque `api/fastapi` est ajouté.
+Il ajoute alors l'extra `arclith[fastapi]`. Les fichiers existants sont préservés lors d'une
+relance.
 
 Transport HTTP REST exposé via FastAPI.
 
@@ -88,6 +89,15 @@ Si `probe/server` est actif, lancer l'API avec les probes :
 ```python
 arclith.run_with_probes(lambda: arclith.run_api("main:app"), transports=["api"])
 ```
+
+Pour garder l'import FastAPI optionnel dans un projet généré tout en permettant l'auto-reload,
+utiliser une factory importable :
+
+```python
+arclith.run_api("main:build_api", factory=True)
+```
+
+Une instance FastAPI directe reste acceptée, mais Uvicorn désactive alors le reload.
 
 Le port API sert le métier. Le port probe sert `/health`, `/ready`, `/info` et
 `/metrics`.

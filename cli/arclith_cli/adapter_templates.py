@@ -186,8 +186,7 @@ def render_container(
     pascal: str, snake: str, installed_adapters: list[str], import_vars: dict[str, str]
 ) -> str:
     """Generate the full container file content for a given entity and its adapters."""
-    # memory is always included (arclith built-in, needs no extra files)
-    adapters = list(dict.fromkeys(["memory", *installed_adapters]))
+    adapters = list(dict.fromkeys(installed_adapters))
     vars = {"pascal": pascal, "snake": snake, **import_vars}
 
     header = _CONTAINER_HEADER.format(**vars)

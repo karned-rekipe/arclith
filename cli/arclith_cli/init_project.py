@@ -10,9 +10,6 @@ from rich.panel import Panel
 from rich.tree import Tree
 
 from arclith.infrastructure.project_layout import canonical_project_layout
-from arclith_cli.adapter_blueprints import scaffold_adapter_blueprint
-from arclith_cli.capabilities import API_CAPABILITY, MCP_CAPABILITY
-from arclith_cli.project_paths import detect_project_paths
 
 from .runtime_templates import (
     DOCKERIGNORE_TEMPLATE,
@@ -52,9 +49,6 @@ def init_project_cmd(
     _write_project_files(target_dir, project_name, package_name)
     _write_config(target_dir, project_name)
     _write_tests(target_dir, package_name)
-    paths = detect_project_paths(target_dir)
-    for capability in (API_CAPABILITY, MCP_CAPABILITY):
-        scaffold_adapter_blueprint(target_dir, paths, capability.adapters[0])
 
     console.print(
         Panel.fit(
@@ -126,7 +120,7 @@ version = "0.1.0"
 description = "Arclith service"
 requires-python = ">=3.13"
 dependencies = [
-    "arclith[fastapi,mcp]>={framework_version}",
+    "arclith>={framework_version}",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -153,7 +147,19 @@ Projet Arclith minimal.
 ```bash
 uv sync
 uv run python -m pytest
+
+# Parcours explicite jusqu'à une API FastAPI
+arclith-cli add-entity Todo
+arclith-cli add-usecase CreateTodo --entity Todo
+arclith-cli add-adapter --capability repository --adapter memory --entity Todo --yes
+arclith-cli add-adapter --capability api --adapter fastapi --yes
+arclith-cli expose-usecase create-todo --via fastapi --feature todos \\
+  --path /v1/todos --method POST --status-code 201
 ```
+
+Complétez les champs et l'implémentation du use case, puis composez le binding
+généré depuis le point d'entrée. Aucun transport ou adapter métier n'est généré
+par `init`.
 """,
         encoding="utf-8",
     )
@@ -161,8 +167,8 @@ uv run python -m pytest
         f"""# {project_name}: architecture contract
 
 Canonical source: `src/{package_name}/{{domain,application,adapters,infrastructure}}`.
-All adapter extension points are created at installation, including unused roles.
-Keep their names and locations. Consult the adapter README before adding a component.
+Adapter extension points are created only by `arclith-cli add-adapter`.
+Keep installed adapter names and locations. Consult their README before adding a component.
 
 - Domain imports no adapter or infrastructure module.
 - Application depends on domain models and inbound/outbound ports.
@@ -205,9 +211,6 @@ import sys
 from pathlib import Path
 
 from arclith import Arclith
-from {package_name}.adapters.inbound.fastapi.register import register_routes
-from {package_name}.adapters.inbound.fastmcp.register import register_components
-
 _CONFIG = Path(__file__).parent / "config"
 _MODE = os.getenv("MODE", "api")
 _VALID_MODES = {{"api", "mcp_http", "mcp_sse", "all", "bus"}}
@@ -220,11 +223,19 @@ if _MODE not in _VALID_MODES:
     sys.exit(64)
 
 arclith = Arclith(_CONFIG)
-app = arclith.fastapi()
-register_routes(app)
+
+
+def build_api():
+    from {package_name}.adapters.inbound.fastapi.register import register_routes
+
+    application = arclith.fastapi()
+    register_routes(application)
+    return application
 
 
 def build_mcp():
+    from {package_name}.adapters.inbound.fastmcp.register import register_components
+
     server = arclith.fastmcp("{project_name} MCP")
     register_components(server)
     return server
@@ -241,7 +252,7 @@ def _run_bus() -> None:
 
 
 def _run_api() -> None:
-    arclith.run_api("main:app")
+    arclith.run_api("main:build_api", factory=True)
 
 
 def _run_mcp_http() -> None:
@@ -357,8 +368,10 @@ def _print_tree(target_dir: Path, project_name: str) -> None:
         Panel(
             f"[bold cyan]cd[/bold cyan] {target_dir}\n"
             f"[bold cyan]uv sync[/bold cyan]\n"
-            f"[bold cyan]arclith-cli add-entity[/bold cyan]\n"
-            f"[bold cyan]arclith-cli add-usecase[/bold cyan]",
+            f"[bold cyan]arclith-cli add-entity Todo[/bold cyan]\n"
+            f"[bold cyan]arclith-cli add-usecase CreateTodo --entity Todo[/bold cyan]\n"
+            f"[bold cyan]arclith-cli add-adapter[/bold cyan]  [dim]# toutes les capabilities[/dim]\n"
+            f"[bold cyan]arclith-cli expose-usecase create-todo --via fastapi[/bold cyan]",
             title="[bold blue]Next steps[/bold blue]",
             border_style="green",
         )

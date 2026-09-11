@@ -11,10 +11,11 @@ inventer le métier. Les fichiers générés sont de courts repères modifiables
 - ils renvoient vers des exemples complets au lieu de les recopier dans chaque
   projet.
 
-Le cœur métier et les adapters ont des commandes distinctes. `init` et `add-adapter`
-créent les [blueprints complets des adapters](adapter-blueprints.md), avec tous les
-dossiers, fichiers de rôle et exemples inertes dès l'installation. Les bindings
-métier viennent après le port inbound et le use case.
+Le cœur métier et les adapters ont des commandes distinctes. `init` ne crée aucun
+adapter. `add-adapter` crée le [blueprint complet](adapter-blueprints.md) de la seule
+capability choisie, avec ses dossiers, fichiers de rôle et exemples inertes. Les
+bindings métier viennent après le port inbound, le use case et l'installation du
+transport cible.
 
 ## Commandes
 

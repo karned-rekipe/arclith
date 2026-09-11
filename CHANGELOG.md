@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Scaffold CLI réellement incrémental** — `init` n'installe plus FastAPI ou FastMCP et ne crée
+  plus leurs blueprints ; `add-adapter` ajoute uniquement l'extra et l'arborescence sélectionnés.
+- **Wizard adapter complet** — `add-adapter` sans option propose toutes les capabilities du
+  catalogue, notamment `api/fastapi` et `mcp/fastmcp`, tandis qu'un nom d'adapter non ambigu permet
+  toujours le mode direct.
+- **Repositories explicites** — ajouter MongoDB, PostgreSQL, MariaDB ou DuckDB ne génère plus de
+  spécialisation `memory` parallèle ; celle-ci reste disponible via `repository/memory`.
+- **Aide et parcours API** — la commande racine sans argument affiche l'aide avec un succès, et les
+  quickstarts montrent l'installation préalable du CLI puis le flux `init` → cœur métier → adapter
+  API → `expose-usecase`.
+- **Factory API rechargeable** — le point d'entrée généré reste lazy et utilise une factory Uvicorn
+  importable, afin que le réglage `reload` fonctionne après l'ajout explicite de FastAPI.
+
 ---
 
 ## [0.24.0] — 2026-09-04

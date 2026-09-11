@@ -1,6 +1,8 @@
 # arclith-cli
 
-`arclith-cli` génère instantanément un projet Python en architecture hexagonale prêt à démarrer, en téléchargeant le template officiel `_sample` depuis GitHub et en remplaçant l'entité de démo `Ingredient` par le nom de votre choix. Tout type de projet peut être scaffoldé — service REST, agent IA, API MCP — avec les ports, le nom de projet et le backend de persistance configurés d'emblée.
+`arclith-cli` construit un projet Python hexagonal par étapes. `init` pose uniquement le socle
+installable ; chaque adapter, transport et dépendance optionnelle est ensuite ajouté explicitement.
+`new` reste disponible pour générer un projet depuis le template officiel `_sample`.
 
 ## Installation
 
@@ -9,6 +11,8 @@ uv tool install "git+https://github.com/karned-rekipe/arclith.git#subdirectory=c
 ```
 
 ## Commandes
+
+Exécuter `arclith-cli` sans argument affiche cette liste de commandes et termine sans erreur.
 
 ### `init` — Initialiser un projet minimal
 
@@ -27,6 +31,39 @@ arclith-cli init todo-list-service --dir ~/projects
 
 Cette commande ne crée aucune entité, aucun CRUD et aucun endpoint métier. Elle sert quand on veut
 construire le projet étape par étape avec `add-entity`, `add-usecase`, puis `add-adapter`.
+Elle ne crée pas non plus FastAPI ou FastMCP et n'installe aucun de leurs extras.
+
+#### Pourquoi `src/<package>/...` ?
+
+`src/` est la racine des imports du projet installé ; `<package>` est le namespace propre au
+service. Les couches restent donc importées comme `todo_service.domain` ou
+`todo_service.application`, au lieu de créer des packages Python globaux et génériques nommés
+`domain`, `application` et `adapters`. Cette structure évite les collisions, empêche les tests
+d'importer accidentellement le dépôt courant à la place du package installé et suit le `src layout`
+standard de l'écosystème Python.
+
+#### Parcours complet vers une API
+
+```bash
+arclith-cli init todo-api
+cd todo-api
+arclith-cli add-entity Todo
+arclith-cli add-usecase CreateTodo --entity Todo
+
+# Choisir explicitement la persistance et le transport utilisés.
+arclith-cli add-adapter --capability repository --adapter memory --entity Todo --yes
+arclith-cli add-adapter --capability api --adapter fastapi --yes
+
+# Après avoir défini les champs et implémenté CreateTodoUseCase.execute :
+arclith-cli expose-usecase create-todo --via fastapi --feature todos \
+  --path /v1/todos --method POST --status-code 201
+uv sync
+MODE=api uv run python main.py
+```
+
+Le registre de binding généré reste à appeler depuis le composition root avec l'instance typée du
+use case ; le CLI ne devine pas ses dépendances métier. Voir le
+[guide des bindings](https://karned-rekipe.github.io/arclith/deep-dives/use-case-bindings/).
 
 ---
 
@@ -156,7 +193,9 @@ logique métier.
 
 ### `add-adapter` — Ajouter un adapter
 
-Wizard interactif à lancer **depuis la racine du projet cible**. Scaffold le code Python et/ou les fichiers de configuration pour un nouvel adapter. Par défaut, la capacité cible est `repository`.
+Wizard interactif à lancer **depuis la racine du projet cible**. Sans option, il affiche toutes les
+capabilities et leurs adapters, notamment `api/fastapi` et `mcp/fastmcp`, puis demande le choix.
+Il scaffold uniquement le code, la configuration et l'extra de dépendance du choix effectué.
 
 ```bash
 cd my-recipe-service
@@ -183,9 +222,10 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
 
 **Étapes du wizard :**
 
-1. **Type d'adapter** — selon la capacité : `memory` · `mongodb` · `duckdb` · `mariadb` · `fastapi` · `fastmcp` · `rabbitmq` · `docker-image` · `lmstudio` · `openai` · `anthropic` · `langgraph` · `langsmith` · `opentelemetry`
-2. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour les transports globaux, `cache/*`, `llm/*`, `agent/langgraph`, `runtime/docker-image` et les adapters d'observability
-3. **Paramètres** — questions spécifiques à l'adapter :
+1. **Capability** — toutes les capabilities du catalogue sont proposées avec leurs adapters
+2. **Type d'adapter** — selon la capability : `memory` · `mongodb` · `duckdb` · `mariadb` · `fastapi` · `fastmcp` · `rabbitmq` · `docker-image` · `lmstudio` · `openai` · `anthropic` · `langgraph` · `langsmith` · `opentelemetry`
+3. **Entité(s) cible(s)** — détectées automatiquement pour les adapters entity-scoped ; ignorées pour les transports globaux, `cache/*`, `llm/*`, `agent/langgraph`, `runtime/docker-image` et les adapters d'observability
+4. **Paramètres** — questions spécifiques à l'adapter :
    - `mongodb` → `db_name`, `collection_name`, `multitenant`
    - `duckdb` → `path`
    - `mariadb` → `host`, `port`, `database`, `user`, `driver`, `table_prefix`
@@ -203,12 +243,12 @@ arclith-cli add-adapter --capability repository --adapter memory --entity Recipe
    - `command-bus/rabbitmq` → `url`, `exchange`, `exchange_type`, `queue`, `routing_key`, `prefetch`, `consumer_name`, `concurrency`, `publisher_confirms`, `durable`, `retry_enabled`, `retry_requeue`, `dead_letter_exchange`, `dead_letter_routing_key`
    - `runtime/docker-image` → `uv_version`, `api_port`, `mcp_port`, `probe_port`, `agent_port`
    - `repository/memory` → aucun paramètre
-4. **Activation** — met à jour `config/adapters/adapters.yaml` pour les capacités activables (`repository: <adapter>` ou `observability.enabled: [<adapter>, ...]`) ; `api/fastapi`, `mcp/fastmcp`, `cache/*`, `llm/*`, `agent/langgraph`, `command-bus/rabbitmq` et `runtime/docker-image` sont exposés par leurs fichiers dédiés
-5. **Récapitulatif** — liste des fichiers créés ou remplacés avant confirmation
+5. **Activation** — met à jour `config/adapters/adapters.yaml` pour les capacités activables (`repository: <adapter>` ou `observability.enabled: [<adapter>, ...]`) ; `api/fastapi`, `mcp/fastmcp`, `cache/*`, `llm/*`, `agent/langgraph`, `command-bus/rabbitmq` et `runtime/docker-image` sont exposés par leurs fichiers dédiés
+6. **Récapitulatif** — liste des fichiers créés ou remplacés avant confirmation
 
 | Option | Défaut | Description |
 |--------|--------|-------------|
-| `--capability` | `repository` | Capacité cible du catalogue standardisé (`repository`, `cache`, `api`, `mcp`, `http`, `command-bus`, `runtime`, `llm`, `agent`, `observability`) |
+| `--capability` | interactif | Capacité cible du catalogue standardisé (`repository`, `cache`, `api`, `mcp`, `http`, `command-bus`, `runtime`, `llm`, `agent`, `observability`) |
 | `--adapter` / `-a` | interactif | Adapter du catalogue : `memory`, `mongodb`, `duckdb`, `mariadb`, `fastapi`, `fastmcp`, `idempotency`, `etag`, `cache-control`, `rabbitmq`, `docker-image`, `lmstudio`, `openai`, `anthropic`, `langgraph`, `langsmith`, `opentelemetry` |
 | `--entity` / `-e` | auto si une seule entité | Entité cible, liste séparée par virgule acceptée |
 | `--all-entities` | `false` | Génère l'adapter pour toutes les entités détectées |
@@ -267,6 +307,9 @@ LM Studio ou tout endpoint OpenAI-compatible avec `base_url`.
 L'adapter `repository/mongodb` génère `config/adapters/outbound/mongodb.yaml` avec `uri: null`, puis
 mappe `adapters.mongodb.uri` vers `MONGODB_URI` dans `config/secrets.yaml`. L'URI réelle reste dans
 l'environnement, un fichier local de secrets ou Vault selon le resolver choisi.
+Il ne génère pas de repository `memory` applicatif. L'implémentation mémoire du framework peut être
+utilisée directement dans des tests ; une spécialisation mémoire du projet n'est créée que par un
+choix explicite de `repository/memory`.
 
 L'adapter `agent/langgraph` génère `langgraph.json`, `config/adapters/inbound/langgraph.yaml` et
 `src/<package>/adapters/inbound/langgraph/agent.py`. Le projet ne modifie ensuite que ce fichier pour

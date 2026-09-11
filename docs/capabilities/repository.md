@@ -260,8 +260,11 @@ s'applique à toutes les configurations possibles.
 
 ### Memory
 
-`memory` n'a pas de fichier scoped. Il est le choix par défaut pour les tests
-rapides, mais chaque processus possède son propre état et toute donnée est
+`memory` n'a pas de fichier scoped. Le runtime Arclith le conserve comme valeur
+par défaut pour les tests rapides, mais le CLI ne génère une spécialisation
+mémoire du projet que si `repository/memory` est explicitement ajouté. Ajouter
+MongoDB, PostgreSQL, MariaDB ou DuckDB ne crée aucun repository mémoire en
+parallèle. Chaque processus mémoire possède son propre état et toute donnée est
 perdue à son arrêt.
 
 ### MongoDB

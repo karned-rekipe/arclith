@@ -177,6 +177,9 @@ def test_add_mongodb_adapter_uses_non_interactive_params(tmp_path: Path) -> None
     assert "repository: memory" in (
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
+    assert not (
+        project_dir / "src" / "demo_service" / "adapters" / "outbound" / "memory"
+    ).exists()
 
 
 def test_add_mongodb_adapter_generates_loadable_single_tenant_config(
@@ -689,6 +692,9 @@ def test_add_langsmith_preserves_existing_config_values(tmp_path: Path) -> None:
 
 def test_add_fastapi_api_adapter_generates_inbound_config_only(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
+    (project_dir / "pyproject.toml").write_text(
+        '[project]\ndependencies = ["arclith>=0.24.0"]\n', encoding="utf-8"
+    )
     config_path = project_dir / "config" / "adapters" / "inbound" / "fastapi.yaml"
 
     add_adapter_cmd(
@@ -720,6 +726,9 @@ def test_add_fastapi_api_adapter_generates_inbound_config_only(tmp_path: Path) -
 
     assert second_config == first_config
     assert config == {"host": "127.0.0.1", "port": 8080, "reload": False}
+    assert '"arclith[fastapi]>=0.24.0"' in (project_dir / "pyproject.toml").read_text(
+        encoding="utf-8"
+    )
     assert "repository: memory" in (
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
@@ -740,6 +749,9 @@ def test_add_fastapi_api_adapter_generates_inbound_config_only(tmp_path: Path) -
 
 def test_add_fastmcp_mcp_adapter_generates_inbound_config_only(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
+    (project_dir / "pyproject.toml").write_text(
+        '[project]\ndependencies = ["arclith>=0.24.0"]\n', encoding="utf-8"
+    )
     config_path = project_dir / "config" / "adapters" / "inbound" / "fastmcp.yaml"
 
     add_adapter_cmd(
@@ -769,6 +781,9 @@ def test_add_fastmcp_mcp_adapter_generates_inbound_config_only(tmp_path: Path) -
 
     assert second_config == first_config
     assert config == {"host": "127.0.0.1", "port": 9001}
+    assert '"arclith[mcp]>=0.24.0"' in (project_dir / "pyproject.toml").read_text(
+        encoding="utf-8"
+    )
     assert "repository: memory" in (
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
@@ -2211,7 +2226,7 @@ def test_add_memory_adapter_interactive_wizard_activates_memory(tmp_path: Path) 
     result = subprocess.run(
         ["arclith-cli", "add-adapter"],
         cwd=project_dir,
-        input="1\ny\ny\n",
+        input="1\n1\ny\ny\n",
         capture_output=True,
         text=True,
         timeout=30,

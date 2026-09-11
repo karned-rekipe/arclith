@@ -196,13 +196,28 @@ def test_interactive_and_direct_adapter_inputs_record_the_same_shape(
     direct = _invoke_in_project(
         monkeypatch,
         direct_project,
-        ["add-adapter", "--adapter", "memory", "--entity", "Widget", "--yes"],
+        [
+            "add-adapter",
+            "--capability",
+            "repository",
+            "--adapter",
+            "memory",
+            "--entity",
+            "Widget",
+            "--yes",
+        ],
     )
     assert direct.exit_code == 0, direct.output
     monkeypatch.chdir(interactive_project)
     interactive = runner.invoke(
         app,
-        ["add-adapter", "--adapter", "memory"],
+        [
+            "add-adapter",
+            "--capability",
+            "repository",
+            "--adapter",
+            "memory",
+        ],
         input="\n\n",
     )
     assert interactive.exit_code == 0, interactive.output
