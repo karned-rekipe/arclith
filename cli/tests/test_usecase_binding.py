@@ -227,6 +227,49 @@ def test_repeat_accepts_a_legacy_manifest_without_container_metadata(project):
     assert repeated.files == {}
 
 
+@pytest.mark.parametrize(
+    "changed",
+    [
+        {"http_path": "/v1/tasks"},
+        {"method": "PUT"},
+        {"status_code": 202},
+    ],
+)
+def test_registered_public_contract_changes_require_explicit_migration(
+    project,
+    changed,
+):
+    apply_binding(
+        plan_binding(
+            project,
+            "create-todo",
+            via="fastapi",
+            feature="todos",
+            http_path="/v1/todos",
+        )
+    )
+    before = {
+        path.relative_to(project): path.read_bytes()
+        for path in project.rglob("*")
+        if path.is_file()
+    }
+    options = {"feature": "todos", "http_path": "/v1/todos", **changed}
+
+    with pytest.raises(ValueError, match="different binding"):
+        plan_binding(
+            project,
+            "create-todo",
+            via="fastapi",
+            **options,
+        )
+
+    assert {
+        path.relative_to(project): path.read_bytes()
+        for path in project.rglob("*")
+        if path.is_file()
+    } == before
+
+
 def test_second_binding_keeps_first_registration(project):
     first = plan_binding(project, "create-todo", via="fastapi", feature="todos")
     apply_binding(first)

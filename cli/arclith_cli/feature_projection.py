@@ -71,7 +71,8 @@ def plan_feature_projection(
             "Supported application blueprints for FastAPI feature projection: crud"
         )
     if (
-        manifest.blueprint.version != blueprint.version
+        manifest.blueprint.name != blueprint.name
+        or manifest.blueprint.version != blueprint.version
         or manifest.operations != blueprint.operations
     ):
         raise ValueError("Feature manifest does not match its canonical blueprint")

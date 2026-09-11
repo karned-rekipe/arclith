@@ -298,6 +298,34 @@ def test_feature_projection_rejects_manifest_drift_before_writes(
     assert not (project / ".arclith/bindings/fastapi.json").exists()
 
 
+@pytest.mark.parametrize("blueprint_name", ["CRUD", " crud "])
+def test_feature_projection_requires_the_exact_canonical_blueprint_name(
+    tmp_path: Path,
+    blueprint_name: str,
+) -> None:
+    project = _project(tmp_path)
+    _install_fastapi(project)
+    manifest_path = project / ".arclith/features/todo.yaml"
+    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    manifest["blueprint"]["name"] = blueprint_name
+    manifest_path.write_text(
+        yaml.safe_dump(manifest, sort_keys=False),
+        encoding="utf-8",
+    )
+    before = _snapshot(project)
+
+    with pytest.raises(ValueError, match="canonical blueprint"):
+        plan_feature_projection(
+            project,
+            feature_name="todo",
+            via="fastapi",
+            http_path="/v1/todos",
+        )
+
+    assert _snapshot(project) == before
+    assert not (project / ".arclith/bindings/fastapi.json").exists()
+
+
 def test_feature_projection_rejects_entity_manifest_drift_before_writes(
     tmp_path: Path,
 ) -> None:
@@ -523,6 +551,32 @@ def test_feature_projection_dry_run_and_repeat_preserve_developer_files(
         "update",
         "delete",
     ]
+
+
+def test_feature_projection_requires_explicit_public_route_migration(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path)
+    _install_fastapi(project)
+    apply_feature_projection(
+        plan_feature_projection(
+            project,
+            feature_name="todo",
+            via="fastapi",
+            http_path="/v1/todos",
+        )
+    )
+    before = _snapshot(project)
+
+    with pytest.raises(ValueError, match="different binding"):
+        plan_feature_projection(
+            project,
+            feature_name="todo",
+            via="fastapi",
+            http_path="/v1/tasks",
+        )
+
+    assert _snapshot(project) == before
 
 
 def test_feature_projection_recipe_recreates_the_public_contract(

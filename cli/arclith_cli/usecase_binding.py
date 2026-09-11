@@ -243,13 +243,21 @@ def _merge_entry(
     contract: UseCaseContract,
     options: BindingOptions,
 ) -> list[dict]:
+    registered = next(
+        (item for item in entries if item["usecase"] == contract.name),
+        None,
+    )
+    if registered is not None and registered != entry:
+        raise ValueError(
+            "This use case already has a different binding; preserve and edit "
+            "its public contract explicitly"
+        )
     _check_collisions(entries, entry)
-    registered = any(item["usecase"] == contract.name for item in entries)
     operation_files = (
         root / f"contracts/{contract.name}.py",
         root / (native_module(contract, options) + ".py"),
     )
-    if not registered and any(path.exists() for path in operation_files):
+    if registered is None and any(path.exists() for path in operation_files):
         raise ValueError(
             "A developer file already occupies this binding; select a distinct use case name"
         )
@@ -453,10 +461,6 @@ def apply_binding(plan: BindingPlan | BindingBatchPlan) -> tuple[Path, ...]:
 def _check_collisions(entries: list[dict], entry: dict) -> None:
     for current in entries:
         if current["usecase"] == entry["usecase"]:
-            if current != entry:
-                raise ValueError(
-                    "This use case already has a different binding; preserve and edit its public contract explicitly"
-                )
             continue
         options = entry["options"]
         previous = current["options"]
