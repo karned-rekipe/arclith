@@ -1,7 +1,5 @@
 from datetime import datetime, timezone
 
-import pytest
-
 from arclith.application.use_cases.create import CreateUseCase
 from tests.units.conftest import DummyEntity
 
@@ -25,4 +23,3 @@ async def test_create_returns_entity(repo, logger):
     entity = DummyEntity(name="bar")
     result = await CreateUseCase(repo, logger).execute(entity)
     assert result.name == "bar"
-

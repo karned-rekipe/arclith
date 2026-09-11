@@ -1,4 +1,3 @@
-import pytest
 from uuid6 import uuid7
 
 from arclith.application.use_cases.create import CreateUseCase
@@ -29,4 +28,3 @@ async def test_hard_delete_removes_entity(repo, logger):
 
 async def test_delete_unknown_uuid_is_noop(repo, logger):
     await DeleteUseCase(repo, logger).execute(uuid7())
-

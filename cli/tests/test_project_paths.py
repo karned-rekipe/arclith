@@ -16,7 +16,10 @@ def test_detect_project_paths_uses_src_package(tmp_path: Path):
     assert paths.adapters_outbound == package_root / "adapters" / "outbound"
     assert paths.adapters_bidirectional == package_root / "adapters" / "bidirectional"
     assert paths.containers == package_root / "infrastructure" / "containers"
-    assert paths.import_path("domain", "models", "recipe") == "my_service.domain.models.recipe"
+    assert (
+        paths.import_path("domain", "models", "recipe")
+        == "my_service.domain.models.recipe"
+    )
 
 
 def test_detect_project_paths_uses_src_package_before_domain_exists(tmp_path: Path):

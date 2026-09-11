@@ -38,33 +38,30 @@ reload: true
 
 ```python
 from arclith import Arclith
-from fastapi import APIRouter
+
+from todo_service.adapters.inbound.fastapi.register import register_routes
+from todo_service.infrastructure.use_cases_generated import build_use_cases
 
 arclith = Arclith("config")
 app = arclith.fastapi()
-
-router = APIRouter(prefix="/v1/todos", tags=["todos"])
-app.include_router(router)
+register_routes(app, build_use_cases(arclith))
 ```
 
 `Arclith.fastapi()` configure le titre, la version et la description depuis la
 configuration applicative. Il ajoute aussi les middlewares HTTP et
 l'observabilité activés.
 
-## Écrire Une Route
+## Exposer Une Route
 
-```python
-from fastapi import status
-
-@router.post("/", status_code=status.HTTP_201_CREATED)
-async def create_todo(payload: CreateTodoRequest) -> TodoResponse:
-    command = payload.to_command()
-    result = await create_todo_use_case.execute(command)
-    return TodoResponse.from_entity(result)
+```bash
+arclith-cli expose-usecase create-todo --via fastapi --feature todos \
+  --path /v1/todos --method POST --status-code 201
 ```
 
-La route valide et convertit le payload HTTP, appelle un use case, puis convertit
-le résultat en réponse HTTP.
+La route générée valide et convertit le payload HTTP, appelle le port inbound,
+puis convertit le résultat en DTO de réponse. La chaîne de routers
+`application -> v1 -> feature -> opération` n'inclut chaque niveau qu'une fois.
+Le transport ne publie pas directement l'entité du domaine.
 
 ## Auth
 

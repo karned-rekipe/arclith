@@ -187,49 +187,18 @@ class ListTodosUseCase(ListTodosPort):
 Les use cases implémentent les ports inbound et dépendent seulement de `Repository[Todo]`. Ils ne
 connaissent ni FastAPI, ni FastMCP, ni LangGraph, ni MongoDB.
 
-## Container applicatif
+## Composition applicative
 
-Créer `src/todo_list_service/infrastructure/containers/todo_container.py`:
+Pour un constructeur sans dépendance ou avec une unique dépendance
+`Repository[Todo]`, `expose-usecase` met automatiquement à jour
+`infrastructure/use_cases_generated.py`. Aucun container par entité n'est
+nécessaire : `Arclith.repository(Todo)` sélectionne le provider configuré et le
+même graphe de use cases est injecté dans les transports installés.
 
-```python
-from __future__ import annotations
-
-from weakref import WeakKeyDictionary
-
-from arclith import Arclith
-from arclith.domain.ports.outbound.repository import Repository
-
-from todo_list_service.application.use_cases.create_todo import CreateTodoUseCase
-from todo_list_service.application.use_cases.list_todos import ListTodosUseCase
-from todo_list_service.domain.models.todo import Todo
-from todo_list_service.domain.ports.inbound.create_todo import CreateTodoPort
-from todo_list_service.domain.ports.inbound.list_todos import ListTodosPort
-
-_repositories: WeakKeyDictionary[Arclith, Repository[Todo]] = WeakKeyDictionary()
-
-
-def build_todo_repository(app: Arclith) -> Repository[Todo]:
-    repository = _repositories.get(app)
-    if repository is None:
-        repository = app.repository(Todo)
-        _repositories[app] = repository
-    return repository
-
-
-def clear_todo_repository_cache() -> None:
-    _repositories.clear()
-
-
-def build_create_todo_use_case(app: Arclith) -> CreateTodoPort:
-    return CreateTodoUseCase(build_todo_repository(app))
-
-
-def build_list_todos_use_case(app: Arclith) -> ListTodosPort:
-    return ListTodosUseCase(build_todo_repository(app))
-```
-
-Le cache par instance `Arclith` permet de partager un repository `memory` dans le même processus tout
-en gardant les tests isolables avec `clear_todo_repository_cache()`.
+Créer un fichier sous `infrastructure/containers/` uniquement lorsqu'une
+composition réellement plus riche ne peut pas être exprimée par ce socle. Le
+fichier doit alors être explicite, testé et référencé par le bootstrap ; il ne
+doit jamais être généré à partir du seul nom d'une entité.
 
 ## Tester
 

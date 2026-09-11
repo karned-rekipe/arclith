@@ -1,59 +1,71 @@
-# 4. Exposer une API
+# 4. Exposer une API FastAPI
 
-Objectif: générer la configuration FastAPI avec la CLI, puis exposer `CreateTodoPort` et
-`ListTodosPort` par HTTP.
-
-![Capture interactive FastAPI](assets/04-api.svg)
-
-## Générer l'adapter
-
-Depuis la racine du projet:
+Objectif : installer uniquement FastAPI puis exposer un use case par une route
+typée, sans dupliquer le préfixe de version ni créer une feature implicite.
 
 ```bash
-arclith-cli add-adapter --capability api
+arclith-cli add-adapter \
+  --capability api \
+  --adapter fastapi \
+  --param host=127.0.0.1 \
+  --param port=8120 \
+  --param reload=true \
+  --yes
+
+arclith-cli expose-usecase CreateTodo \
+  --via fastapi \
+  --feature todos \
+  --path /v1/todos \
+  --method POST \
+  --status-code 201
 ```
 
-Répondre aux prompts:
+La première commande ajoute `arclith[fastapi]`, la configuration et le socle
+du transport. La seconde crée uniquement la feature `todos` et le binding du
+use case existant.
+
+## Structure attendue
 
 ```text
-① Type d'adapter
-   1  fastapi
-
-  Votre choix (numéro ou nom): 1
-
-③ Paramètres fastapi
-  Host FastAPI (0.0.0.0): 0.0.0.0
-  Port FastAPI (8000): 8120
-  Activer le reload FastAPI [y/n] (y): y
-
-  Confirmer la génération ? [y/n] (y): y
+adapters/inbound/fastapi/
+├── README.md
+├── register.py
+├── bindings_generated.py
+├── dependencies.py
+├── errors.py
+├── contracts/
+├── middleware/
+└── routers/
+    └── v1/
+        ├── router.py
+        └── todos/
+            ├── README.md
+            ├── router.py
+            ├── schemas.py
+            ├── mappers.py
+            ├── presenters.py
+            ├── openapi.py
+            └── routes/create_todo.py
 ```
 
-La CLI crée:
+La chaîne d'inclusion est unique :
 
 ```text
-config/adapters/inbound/fastapi.yaml
+main.build_api
+  -> fastapi/register.py
+  -> routers/v1/router.py          # propriétaire du préfixe /v1
+  -> routers/v1/todos/router.py
+  -> routes/create_todo.py         # chemin local /todos
 ```
 
-## Sous-étapes
+Les DTO de transport restent sous FastAPI. La route mappe la requête vers le
+`CreateTodoCommand`, appelle `CreateTodoPort`, puis présente un
+`CreateTodoResponse`. Elle ne construit pas de repository et ne contient pas de
+règle métier.
 
-1. [Configurer FastAPI et les schémas HTTP](04-api-config-schemas.md)
-2. [Écrire les handlers HTTP](04-api-handlers.md)
-3. [Déclarer le router et brancher FastAPI](04-api-router-main.md)
-4. [Tester l'API](04-api-tests.md)
+Sous-étapes :
 
-## Rôle des fichiers API
-
-| Fichier | Rôle |
-| --- | --- |
-| `config/adapters/inbound/fastapi.yaml` | Configure le transport HTTP généré par Arclith. |
-| `adapters/inbound/schemas/todo_schema.py` | Définit les payloads et réponses HTTP. C'est le contrat exposé dans Swagger, pas le modèle métier. |
-| `adapters/inbound/fastapi/handlers/todo_handlers.py` | Traduit HTTP vers `CreateTodoCommand` et `ListTodosQuery`, puis traduit les résultats en réponses Arclith. |
-| `adapters/inbound/fastapi/routers/todo_router.py` | Déclare les routes, métadonnées OpenAPI, exemples, headers et statuts HTTP. |
-| `adapters/inbound/fastapi/register.py` | Récupère les use cases via le container et branche le router dans l'application FastAPI. |
-| `main.py` | Crée l'instance `Arclith`, l'application FastAPI et lance le transport API. |
-
-Le handler voit les ports inbound; le router voit FastAPI; aucun des deux ne manipule directement
-`Repository[Todo]`.
-
-Étape suivante: [configurer FastAPI et les schémas HTTP](04-api-config-schemas.md).
+1. [Contrats et schémas](04-api-config-schemas.md)
+2. [Binding HTTP](04-api-handlers.md)
+3. [Router et composition](04-api-router-main.md)
+4. [Tests de l'API](04-api-tests.md)

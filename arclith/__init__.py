@@ -22,7 +22,6 @@ from arclith.adapters.bidirectional.slack import (
     SlackSignatureVerifier,
     SlackUnsupportedMediaType,
     SlackUrlVerificationPayload,
-    build_slack_router,
     sign_slack_payload,
 )
 from arclith.adapters.bidirectional.webhook import (
@@ -38,7 +37,6 @@ from arclith.adapters.bidirectional.webhook import (
     WebhookResponseModeError,
     WebhookSignatureVerifier,
     WebhookUnsupportedMediaType,
-    build_webhook_router,
     sign_webhook_payload,
 )
 from arclith.adapters.inbound.schemas.base_schema import BaseSchema
@@ -385,4 +383,18 @@ def __getattr__(name):
 
         globals()["build_pydantic_ai_model"] = _build_pydantic_ai_model
         return _build_pydantic_ai_model
+    if name == "build_slack_router":
+        from arclith.adapters.bidirectional.slack.fastapi import (
+            build_slack_router as _build_slack_router,
+        )
+
+        globals()["build_slack_router"] = _build_slack_router
+        return _build_slack_router
+    if name == "build_webhook_router":
+        from arclith.adapters.bidirectional.webhook.fastapi import (
+            build_webhook_router as _build_webhook_router,
+        )
+
+        globals()["build_webhook_router"] = _build_webhook_router
+        return _build_webhook_router
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

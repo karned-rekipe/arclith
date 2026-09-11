@@ -221,3 +221,35 @@ print(arclith.__name__)
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "arclith"
+
+
+def test_import_arclith_does_not_require_fastapi_extra():
+    script = """
+import importlib.abc
+import sys
+
+
+class BlockFastAPIExtra(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        if fullname == "fastapi" or fullname.startswith("fastapi."):
+            raise ModuleNotFoundError(fullname)
+        return None
+
+
+sys.meta_path.insert(0, BlockFastAPIExtra())
+
+import arclith
+
+assert arclith.Arclith is not None
+assert "fastapi" not in sys.modules
+print(arclith.__name__)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "arclith"

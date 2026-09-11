@@ -46,17 +46,27 @@ uv tool install --force \
   "git+https://github.com/karned-rekipe/arclith.git@<branche>#subdirectory=cli"
 ```
 
-## 2. Créer l'entité et l'API
+## 2. Créer l'entité et choisir les transports
 
-Le scaffold crée l'entité `Ingredient`, les ports, le service applicatif, l'API FastAPI, MCP et les
-probes.
+Le projet de base est minimal. Chaque entité, use case et adapter est ajouté explicitement ; aucun
+transport ni probe n'est déduit du nom de l'entité.
 
 ```bash
 mkdir -p ~/Perso/projets/demo
 cd ~/Perso/projets/demo
 
-arclith-cli new Ingredient pantry-agent --port 8100
+arclith-cli init pantry-agent
 cd pantry-agent
+arclith-cli add-entity Ingredient
+arclith-cli add-usecase CreateIngredient --entity Ingredient
+arclith-cli add-adapter --capability repository --adapter memory --yes
+arclith-cli add-adapter --capability api --adapter fastapi --param port=8100 --yes
+arclith-cli add-adapter --capability mcp --adapter fastmcp --param port=8101 --yes
+arclith-cli add-adapter --capability probe --adapter server --yes
+arclith-cli expose-usecase CreateIngredient --via fastapi --feature ingredients \
+  --path /v1/ingredients --method POST --status-code 201
+arclith-cli expose-usecase CreateIngredient --via fastmcp --feature ingredients \
+  --name create_ingredient
 uv sync
 ```
 
@@ -367,7 +377,6 @@ Pour partager les mêmes données entre l'API et l'agent local, brancher un repo
 arclith-cli add-adapter \
   --capability repository \
   --adapter mongodb \
-  --entity Ingredient \
   --db-name pantry_agent \
   --yes
 ```

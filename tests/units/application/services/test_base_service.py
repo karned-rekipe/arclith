@@ -5,7 +5,7 @@ from uuid6 import uuid7
 
 from arclith.application.services.base_service import BaseService
 from arclith.adapters.outbound.memory.repository import InMemoryRepository
-from tests.units.conftest import DummyEntity, NullLogger
+from tests.units.conftest import DummyEntity
 
 
 class DummyService(BaseService[DummyEntity]):
@@ -74,5 +74,4 @@ async def test_purge_skipped_with_none_retention(repo, logger):
 
 def repo_from_service(service: DummyService) -> InMemoryRepository:
     return service._find_all._repository
-
 

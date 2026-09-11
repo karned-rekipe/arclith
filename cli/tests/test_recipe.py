@@ -150,8 +150,6 @@ def test_add_adapter_records_resolved_params_and_generated_files(
             "repository",
             "--adapter",
             "memory",
-            "--entity",
-            "Widget",
             "--yes",
         ],
     )
@@ -159,23 +157,20 @@ def test_add_adapter_records_resolved_params_and_generated_files(
     assert result.exit_code == 0, result.output
     step = load_recipe(project_dir / RECIPE_FILENAME).steps[-1]
     assert step.command == "add-adapter"
-    assert step.args["blueprint_version"] == "1"
+    assert step.args["blueprint_version"] == "2"
     assert re.fullmatch(r"sha256:[a-f0-9]{64}", step.args["template_digest"])
     assert step.args == {
         "capability": "repository",
         "adapter": "memory",
-        "entities": ["Widget"],
+        "entities": [],
         "activate": True,
         "profile": None,
         "params": {},
-        "blueprint_version": "1",
+        "blueprint_version": "2",
         "template_digest": step.args["template_digest"],
     }
     changed_paths = {change.path for change in step.result.generated_files}
-    assert (
-        "src/demo_service/adapters/outbound/memory/repositories/widget_repository.py"
-        in changed_paths
-    )
+    assert "src/demo_service/adapters/outbound/memory/README.md" in changed_paths
     assert "config/adapters/adapters.yaml" not in changed_paths
 
 
@@ -202,8 +197,6 @@ def test_interactive_and_direct_adapter_inputs_record_the_same_shape(
             "repository",
             "--adapter",
             "memory",
-            "--entity",
-            "Widget",
             "--yes",
         ],
     )
@@ -465,8 +458,6 @@ def test_replay_rebuilds_minimal_project_without_duplicate_steps(
             "repository",
             "--adapter",
             "memory",
-            "--entity",
-            "Widget",
             "--yes",
         ],
     ):
@@ -484,14 +475,7 @@ def test_replay_rebuilds_minimal_project_without_duplicate_steps(
     package_root = target / "src" / "source_service"
     assert (package_root / "domain" / "models" / "widget.py").is_file()
     assert (package_root / "application" / "use_cases" / "create_widget.py").is_file()
-    assert (
-        package_root
-        / "adapters"
-        / "outbound"
-        / "memory"
-        / "repositories"
-        / "widget_repository.py"
-    ).is_file()
+    assert (package_root / "adapters/outbound/memory/README.md").is_file()
     source = load_recipe(recipe_path)
     replayed = load_recipe(target / RECIPE_FILENAME)
     assert [step.id for step in replayed.steps] == [step.id for step in source.steps]

@@ -1,8 +1,9 @@
 from datetime import date, datetime
 from typing import Any, ClassVar, Generic, Optional, TypeVar
+from uuid import UUID
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
-from uuid6 import UUID, uuid7
+from uuid6 import uuid7
 
 from arclith.adapters.context import get_adapter_tenant_context
 from arclith.adapters.outbound.mongodb.config import MongoDBConfig

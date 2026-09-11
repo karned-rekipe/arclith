@@ -4,7 +4,8 @@
 
 **Contexte :** Choix de l'algorithme d'ID pour les entités.
 
-**Décision :** UUIDv7 via la bibliothèque `uuid6`.
+**Décision :** UUIDv7 généré par la bibliothèque `uuid6`, exposé avec le type
+standard `uuid.UUID`.
 
 **Pourquoi pas l'alternative évidente (UUIDv4) :**
 UUIDv4 est aléatoire — pas d'ordre temporel, ce qui dégrade les index B-tree (MongoDB, DuckDB) et rend le tri par ID
@@ -12,7 +13,10 @@ impossible. UUIDv7 est ordonné par le temps à la milliseconde, combine les ava
 
 **Conséquence sur le code :**
 
-- `Entity.uuid` est de type `uuid6.UUID`, pas `uuid.UUID` stdlib.
+- `Entity.uuid` est annoté `uuid.UUID` afin que Pydantic, OpenAPI et les outils
+  de sérialisation reconnaissent nativement le format `uuid`.
+- La factory `uuid6.uuid7` retourne un objet compatible `uuid.UUID` et conserve
+  l'ordre temporel attendu.
 - Les adaptateurs MongoDB stockent l'UUID en string pour compatibilité.
 - `@field_validator("uuid", mode="before")` sur `Entity` coerce automatiquement les strings en `UUID`.
 
@@ -31,7 +35,7 @@ de `field_validator`. Pydantic v2 offre la validation au runtime et est le stand
 **Conséquence sur le code :**
 
 - `Entity` étend `BaseModel`, pas `dataclass`.
-- `model_config = ConfigDict(arbitrary_types_allowed=True)` pour accepter `uuid6.UUID`.
+- aucun `arbitrary_types_allowed` n'est requis pour l'identifiant standard.
 - Les `@field_validator` utilisent `mode="before"` pour la coercion.
 
 ---

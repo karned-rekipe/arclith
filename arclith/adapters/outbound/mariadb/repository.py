@@ -5,7 +5,9 @@ from typing import Any, Generic, TypeVar
 
 from sqlalchemy import JSON, Column, DateTime, Integer, MetaData, String, Table, delete, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
-from uuid6 import UUID, uuid7
+from uuid import UUID
+
+from uuid6 import uuid7
 
 from arclith.adapters.context import get_adapter_tenant_context
 from arclith.adapters.outbound.mariadb.config import MariaDBConfig

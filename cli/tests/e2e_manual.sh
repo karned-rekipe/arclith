@@ -1,88 +1,59 @@
 #!/bin/bash
-# Test E2E complet : arclith-cli new → uv sync → imports → server start
-set -e
+# Parcours manuel complet: init -> coeur -> adapters choisis -> route -> serveur.
+set -euo pipefail
 
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+test_parent=$(mktemp -d)
+project_dir="$test_parent/todo-api-e2e"
+server_pid=""
 
-version_lt() {
-    local left_major left_minor left_patch right_major right_minor right_patch
-    IFS=. read -r left_major left_minor left_patch <<< "$1"
-    IFS=. read -r right_major right_minor right_patch <<< "$2"
-
-    ((left_major < right_major)) && return 0
-    ((left_major > right_major)) && return 1
-    ((left_minor < right_minor)) && return 0
-    ((left_minor > right_minor)) && return 1
-    ((left_patch < right_patch))
+cleanup() {
+    if [[ -n "$server_pid" ]]; then
+        kill "$server_pid" 2>/dev/null || true
+    fi
+    rm -rf "$test_parent"
 }
+trap cleanup EXIT
 
-echo "🧪 Test E2E — arclith-cli scaffold"
-echo ""
+arclith-cli init todo-api-e2e --dir "$test_parent"
+cd "$project_dir"
 
-# Cleanup
-TEST_DIR="/tmp/arclith-e2e-test-$(date +%s)"
-trap "rm -rf $TEST_DIR" EXIT
+arclith-cli add-entity Todo
+arclith-cli add-usecase CreateTodo --entity Todo
+arclith-cli add-adapter --capability repository --adapter memory --yes
+arclith-cli add-adapter \
+    --capability api \
+    --adapter fastapi \
+    --param host=127.0.0.1 \
+    --param port=9700 \
+    --param reload=false \
+    --yes
+arclith-cli expose-usecase CreateTodo \
+    --via fastapi \
+    --feature todos \
+    --path /v1/todos \
+    --method POST \
+    --status-code 201
 
-# Step 1 — Scaffold
-echo "Step 1/5 — Scaffolding project..."
-arclith-cli new Widget e2e-test --dir /tmp --port 9700 > /dev/null
-mv /tmp/e2e-test "$TEST_DIR"
-cd "$TEST_DIR"
+grep -q 'arclith\[fastapi\]' pyproject.toml
+! grep -q 'arclith\[[^]]*mcp' pyproject.toml
+test ! -e src/todo_api_e2e/adapters/inbound/fastmcp
 
-# Step 2 — Verify stable PyPI
-echo "Step 2/5 — Verifying stable PyPI dependencies..."
-if grep -q '\[tool\.uv\.sources\]' pyproject.toml; then
-    echo -e "${RED}✗ FAIL: [tool.uv.sources] detected in generated project${NC}"
-    exit 1
-fi
+uv sync
+uv run pytest -q
 
-ARCLITH_VERSION=$(grep 'arclith\[' pyproject.toml | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
-MIN_ARCLITH_VERSION="0.25.0"
-if version_lt "$ARCLITH_VERSION" "$MIN_ARCLITH_VERSION"; then
-    echo -e "${RED}✗ FAIL: arclith version < $MIN_ARCLITH_VERSION (found: $ARCLITH_VERSION)${NC}"
-    exit 1
-fi
-echo -e "${GREEN}✓${NC} arclith>=$MIN_ARCLITH_VERSION from PyPI (found: $ARCLITH_VERSION)"
+MODE=api uv run python main.py >server.log 2>&1 &
+server_pid=$!
+for _ in $(seq 1 30); do
+    if curl -fsS http://127.0.0.1:9700/openapi.json >/dev/null; then
+        break
+    fi
+    sleep 1
+done
 
-# Step 3 — Install
-echo "Step 3/5 — Installing dependencies (uv sync)..."
-uv sync --no-dev > /dev/null 2>&1
+curl -fsS http://127.0.0.1:9700/openapi.json | grep -q '"/v1/todos"'
+curl -fsS -X POST \
+    -H 'Content-Type: application/json' \
+    -d '{}' \
+    http://127.0.0.1:9700/v1/todos | grep -q '"version":1'
 
-# Step 4 — Validate imports
-echo "Step 4/5 — Validating critical imports..."
-uv run python -c "
-from pathlib import Path
-from arclith import load_config_dir, Arclith
-from e2e_test.adapters.inbound.fastapi.dependencies import require_auth
-from e2e_test.adapters.inbound.fastmcp.dependencies import require_auth_mcp
-print('✅ All imports OK')
-" 2>&1 | grep "✅" || {
-    echo -e "${RED}✗ FAIL: Import error${NC}"
-    exit 1
-}
-
-# Step 5 — Test server start (timeout 3s)
-echo "Step 5/5 — Testing server startup..."
-timeout 3 uv run python main.py > /dev/null 2>&1 &
-PID=$!
-sleep 2
-
-if ps -p $PID > /dev/null 2>&1; then
-    echo -e "${GREEN}✓${NC} Server started successfully"
-    kill $PID 2>/dev/null || true
-else
-    echo -e "${RED}✗ FAIL: Server failed to start${NC}"
-    exit 1
-fi
-
-echo ""
-echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}✅ E2E TEST PASSED${NC}"
-echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo ""
-echo "Project scaffolded in: $TEST_DIR"
-echo "To explore:"
-echo "  cd $TEST_DIR"
-echo "  uv run python main.py"
+echo "E2E_OK http://127.0.0.1:9700/docs"

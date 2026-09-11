@@ -16,10 +16,10 @@ Arclith doit rester une brique hexagonale stable:
 - `uv`
 - `git`
 
-Installer la CLI depuis le repository:
+Installer au préalable la CLI publiée sur PyPI :
 
 ```bash
-uv tool install "git+https://github.com/karned-rekipe/arclith.git#subdirectory=cli"
+uv tool install arclith-cli
 arclith-cli version
 ```
 
@@ -31,7 +31,8 @@ arclith-cli init todo-list-service
 cd todo-list-service
 arclith-cli add-entity Todo
 arclith-cli add-usecase CreateTodo --entity Todo
-arclith-cli add-adapter --capability api --adapter fastapi --yes
+arclith-cli add-adapter --capability repository --adapter memory --yes
+arclith-cli add-adapter --capability api --adapter fastapi --param port=8765 --yes
 arclith-cli expose-usecase create-todo --via fastapi --feature todos \
   --path /v1/todos --method POST --status-code 201
 ```
@@ -51,9 +52,10 @@ Pour tester une branche de développement avant merge:
 uv tool install --force "git+https://github.com/karned-rekipe/arclith.git@feat/hexagonal-foundation#subdirectory=cli"
 ```
 
-## 1. Créer un projet concret
+## 1. Comprendre le raccourci `new`
 
-Exemple: un service `pantry-agent` qui gère une entité `Ingredient`.
+Pour compatibilité, `new` reste disponible. Il équivaut à `init` suivi de
+`add-entity`; il ne télécharge plus un projet complet et n'ajoute aucun adapter.
 
 ```bash
 mkdir -p ~/Perso/projets/demo
@@ -64,9 +66,9 @@ cd pantry-agent
 uv sync
 ```
 
-Le premier `uv sync` crée `uv.lock` pour le projet généré. Ensuite, les commandes
-`uv run --frozen ...` peuvent être utilisées pour garantir que l'environnement reste
-strictement conforme au lockfile.
+L'option `--port` ne démarre et ne configure aucun serveur : elle sert uniquement
+à afficher la commande FastAPI suggérée. Le transport reste une décision explicite
+avec `add-adapter`.
 
 Le projet généré suit le layout canonique:
 
@@ -87,51 +89,15 @@ tests/
 main.py
 ```
 
-## 2. Lancer API, MCP et probes
+Le premier `uv sync` crée `uv.lock`. Ensuite, ajouter les use cases et uniquement
+les adapters nécessaires en suivant les parcours dédiés :
 
-En développement, le mode `all` lance l'API, MCP HTTP et les probes.
+- [API FastAPI](quickstarts/api.md)
+- [MCP FastMCP](quickstarts/mcp.md)
+- [command bus RabbitMQ](quickstarts/bus.md)
+- [repositories](capabilities/repository.md)
 
-```bash
-MODE=all uv run --frozen python main.py
-```
-
-Par convention:
-
-- API FastAPI: `http://127.0.0.1:8100`
-- MCP HTTP: `http://127.0.0.1:8101`
-- probes: `http://127.0.0.1:9000`
-
-Vérifier l'état:
-
-```bash
-curl -fsS http://127.0.0.1:9000/health
-curl -fsS http://127.0.0.1:9000/ready
-curl -fsS http://127.0.0.1:9000/info
-```
-
-Créer puis lire une ressource:
-
-```bash
-CREATE_RESPONSE=$(curl -fsS -X POST http://127.0.0.1:8100/v1/ingredients/ \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: demo-$(uv run --frozen python -c 'import uuid; print(uuid.uuid4())')" \
-  -d '{"name":"Farine de ble"}')
-
-echo "$CREATE_RESPONSE"
-
-INGREDIENT_ID=$(CREATE_RESPONSE="$CREATE_RESPONSE" uv run --frozen python - <<'PY'
-import json
-import os
-
-print(json.loads(os.environ["CREATE_RESPONSE"])["data"]["uuid"])
-PY
-)
-
-curl -fsS "http://127.0.0.1:8100/v1/ingredients/$INGREDIENT_ID"
-curl -fsS "http://127.0.0.1:8100/v1/ingredients/?name=farine"
-```
-
-## 3. Changer ou ajouter un adapter outbound
+## 2. Changer ou ajouter un adapter outbound
 
 Pour ajouter seulement du cœur métier, sans CRUD ni adapter automatique :
 
@@ -182,9 +148,10 @@ génère les fichiers de l'adapter et met à jour la configuration.
 Le même flux peut être joué en mode direct:
 
 ```bash
-arclith-cli add-adapter --adapter mongodb --entity Ingredient --db-name pantry_agent --yes
-arclith-cli add-adapter --adapter duckdb --all-entities --path data/ --no-activate --yes
-arclith-cli add-adapter --adapter mariadb --entity Ingredient --param database=pantry_agent --param user=app --yes
+arclith-cli add-adapter --capability repository --adapter mongodb --db-name pantry_agent --yes
+arclith-cli add-adapter --capability repository --adapter duckdb --path data/ --no-activate --yes
+arclith-cli add-adapter --capability repository --adapter mariadb \
+  --param database=pantry_agent --param user=app --yes
 ```
 
 ### MongoDB
@@ -217,18 +184,14 @@ path: data/
 
 ### MariaDB
 
-Installer l'extra dans le projet qui utilise cet adapter:
-
-```bash
-uv add "arclith[mariadb]"
-```
+La CLI ajoute elle-même l'extra `arclith[mariadb]` au projet.
 
 Génération directe:
 
 ```bash
 arclith-cli add-adapter \
+  --capability repository \
   --adapter mariadb \
-  --entity Ingredient \
   --param host=127.0.0.1 \
   --param port=3306 \
   --param database=pantry_agent \
@@ -252,7 +215,7 @@ multitenant: false
 Le mot de passe ou l'URL complète doivent rester dans un resolver de secrets, par exemple
 `config/secrets.yaml`, `env` ou Vault.
 
-## 4. Ajouter un autre inbound sans toucher au métier
+## 3. Ajouter un autre inbound sans toucher au métier
 
 Le même service applicatif peut être exposé par plusieurs adapters:
 
@@ -263,7 +226,7 @@ Le même service applicatif peut être exposé par plusieurs adapters:
 La règle à conserver: l'inbound transforme le protocole en appel de cas d'usage. Il ne contient pas
 le métier.
 
-## 5. Cas agent IA
+## 4. Cas agent IA
 
 Pour un agent, le cœur doit rester testable sans LLM:
 
@@ -357,9 +320,10 @@ LangGraph, LangSmith et LLM local LM Studio, suivre:
 
 - [Quickstart agent Arclith from scratch](agent-quickstart.md)
 
-## 6. Construire l'image runtime
+## 5. Construire l'image runtime
 
-Les projets créés avec `arclith-cli init` incluent un Dockerfile runtime. Pour un projet existant:
+`init` et `new` n'incluent aucun fichier Docker. Ajouter explicitement le runtime lorsque le service
+doit être conteneurisé :
 
 ```bash
 arclith-cli add-adapter --capability runtime --adapter docker-image --yes
@@ -382,7 +346,7 @@ Pour `bus`, ajouter d'abord `command-bus/rabbitmq` et implémenter le runner `MO
 Les secrets restent hors image: utiliser l'environnement runtime, Docker secrets, Vault ou fichiers
 montés. Le `.dockerignore` généré exclut `.env`, `secrets.yaml` et les clés privées.
 
-## 7. Valider avant commit
+## 6. Valider avant commit
 
 ```bash
 make quality

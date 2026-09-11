@@ -1,4 +1,3 @@
-import pytest
 from uuid6 import uuid7
 
 from arclith.application.use_cases.create import CreateUseCase
@@ -24,4 +23,3 @@ async def test_read_deleted_returns_none(repo, logger):
     await DeleteUseCase(repo, logger).execute(entity.uuid)
     result = await ReadUseCase(repo, logger).execute(entity.uuid)
     assert result is None
-

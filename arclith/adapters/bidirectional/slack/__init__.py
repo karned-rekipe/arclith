@@ -9,7 +9,6 @@ from arclith.adapters.bidirectional.slack.errors import (
     SlackPayloadTooLarge,
     SlackUnsupportedMediaType,
 )
-from arclith.adapters.bidirectional.slack.fastapi import build_slack_router
 from arclith.adapters.bidirectional.slack.models import (
     SlackChallengeResponse,
     SlackErrorResponse,
@@ -47,3 +46,15 @@ __all__ = [
     "build_slack_router",
     "sign_slack_payload",
 ]
+
+
+def __getattr__(name: str):
+    """Load the optional FastAPI router only when it is requested."""
+    if name == "build_slack_router":
+        from arclith.adapters.bidirectional.slack.fastapi import (
+            build_slack_router as _build_slack_router,
+        )
+
+        globals()[name] = _build_slack_router
+        return _build_slack_router
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

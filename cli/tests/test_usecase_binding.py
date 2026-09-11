@@ -8,7 +8,7 @@ import threading
 import subprocess
 
 import pytest
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
 from fastmcp import Client, FastMCP
 from typer.testing import CliRunner
@@ -35,6 +35,18 @@ class CreateTodoPort(ABC):
         raise NotImplementedError
 """
 
+IMPLEMENTATION_SOURCE = """from binding_app.domain.ports.inbound.create_todo import (
+    CreateTodoCommand,
+    CreateTodoPort,
+    CreateTodoResult,
+)
+
+
+class CreateTodoUseCase(CreateTodoPort):
+    async def execute(self, command: CreateTodoCommand) -> CreateTodoResult:
+        return CreateTodoResult(title=command.title)
+"""
+
 
 @pytest.fixture
 def project(tmp_path, monkeypatch):
@@ -42,6 +54,9 @@ def project(tmp_path, monkeypatch):
     package = root / "src/binding_app"
     (package / "domain/ports/inbound/create_todo.py").write_text(
         PORT_SOURCE, encoding="utf-8"
+    )
+    (package / "application/use_cases/create_todo.py").write_text(
+        IMPLEMENTATION_SOURCE, encoding="utf-8"
     )
     for capability, adapter in (("api", "fastapi"), ("mcp", "fastmcp")):
         add_adapter_cmd(
@@ -88,6 +103,12 @@ def _usecase():
     return Recorder()
 
 
+def _register_api(api: FastAPI, registry, **use_cases) -> None:
+    router = APIRouter(prefix="/v1")
+    registry.register(router, **use_cases)
+    api.include_router(router)
+
+
 @pytest.mark.asyncio
 async def test_http_mcp_and_broker_share_one_typed_use_case(project):
     http = _bind(project, "fastapi", http_path="/v1/todos", status_code=201)
@@ -95,7 +116,7 @@ async def test_http_mcp_and_broker_share_one_typed_use_case(project):
     broker = _bind(project, "rabbitmq", command_type="todo.create.v1")
     use_case = _usecase()
     api = FastAPI()
-    http.register(api, create_todo=use_case)
+    _register_api(api, http, create_todo=use_case)
     with TestClient(api) as client:
         response = client.post("/v1/todos", json={"title": "Same intent"})
         assert response.status_code == 201
@@ -193,8 +214,8 @@ def test_second_binding_keeps_first_registration(project):
     registry = (
         project / "src/binding_app/adapters/inbound/fastapi/bindings_generated.py"
     )
-    assert "register_create_todo(target, create_todo)" in registry.read_text()
-    assert "register_list_todos(target, list_todos)" in registry.read_text()
+    assert "register_create_todo(todos_router, create_todo)" in registry.read_text()
+    assert "register_list_todos(todos_router, list_todos)" in registry.read_text()
     manifest = json.loads((project / ".arclith/bindings/fastapi.json").read_text())
     assert len(manifest["bindings"]) == 2
 
@@ -252,7 +273,7 @@ def test_real_get_query_maps_lists_and_validation(project):
         "binding_app.adapters.inbound.fastapi.bindings_generated"
     )
     api = FastAPI()
-    registry.register(api, list_todos=QueryUseCase())
+    _register_api(api, registry, list_todos=QueryUseCase())
     with TestClient(api) as client:
         assert client.get("/v1/todos?title=read&tags=a&tags=b").json() == {
             "title": "read"
@@ -275,7 +296,7 @@ def test_pydantic_aliases_and_literal_constants_are_preserved(project):
     registry = _bind(project, "fastapi", http_path="/v1/todos")
     use_case = _usecase()
     api = FastAPI()
-    registry.register(api, create_todo=use_case)
+    _register_api(api, registry, create_todo=use_case)
     with TestClient(api) as client:
         assert client.post("/v1/todos", json={"displayTitle": "Aliased"}).json() == {
             "title": "Aliased"
@@ -331,7 +352,7 @@ async def test_sync_use_case_is_offloaded_by_broker_binding(project):
     assert threads and threads[0] != threading.get_ident()
     http = _bind(project, "fastapi", http_path="/v1/sync")
     api = FastAPI()
-    http.register(api, create_todo=SyncUseCase())
+    _register_api(api, http, create_todo=SyncUseCase())
     with TestClient(api) as client:
         assert client.post("/v1/sync", json={"title": "HTTP thread"}).status_code == 200
     mcp = _bind(project, "fastmcp")
@@ -408,7 +429,7 @@ def test_nested_get_query_requires_an_explicit_mapper(project):
 )
 def test_malformed_manifest_is_rejected_without_writes(project, manifest):
     path = project / ".arclith/bindings/fastapi.json"
-    path.parent.mkdir(parents=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(manifest), encoding="utf-8")
     before = sorted(project.rglob("*"))
     with pytest.raises(ValueError, match="manifest"):
@@ -454,6 +475,7 @@ def test_invalid_response_status_fails_closed_without_writes(
 def test_binding_plan_does_not_overwrite_a_concurrent_developer_edit(project):
     plan = plan_binding(project, "create-todo", via="fastapi")
     path = project / "src/binding_app/adapters/inbound/fastapi/contracts/create_todo.py"
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("# Concurrent developer implementation\n", encoding="utf-8")
     with pytest.raises(ValueError, match="changed after binding planning"):
         apply_binding(plan)

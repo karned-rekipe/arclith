@@ -50,6 +50,8 @@ def _validate_http(path: str, method: str, status: int) -> None:
         )
     if any(char.isspace() or ord(char) < 32 for char in path):
         raise ValueError("HTTP path must not contain whitespace or control characters")
+    if path != "/v1" and not path.startswith("/v1/"):
+        raise ValueError("Automatic FastAPI bindings must live below the /v1 router")
     validate_response_status(status)
 
 

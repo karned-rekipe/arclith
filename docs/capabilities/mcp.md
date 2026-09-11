@@ -43,16 +43,14 @@ mcp = arclith.fastmcp("todo-service")
 
 ## Écrire Un Tool
 
-```python
-@mcp.tool
-async def create_todo(title: str) -> dict:
-    command = CreateTodoCommand(title=title)
-    todo = await create_todo_use_case.execute(command)
-    return {"uuid": str(todo.uuid), "title": todo.title}
+```bash
+arclith-cli expose-usecase create-todo --via fastmcp --feature todos
 ```
 
-Un tool MCP doit rester une façade de transport. Il traduit les arguments du
-client, appelle le use case, puis retourne une réponse sérialisable.
+Le tool généré reste une façade de transport. Il traduit les arguments du client,
+appelle le même port inbound que FastAPI, puis retourne un DTO sérialisable.
+`resources/` et `prompts/` sont créés dans la feature comme points d'extension
+documentés, sans contenu public inventé.
 
 ## Auth
 

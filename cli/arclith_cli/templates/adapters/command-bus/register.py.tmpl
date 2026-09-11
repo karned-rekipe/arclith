@@ -2,6 +2,11 @@
 
 from arclith.application.command_bus import CommandDispatcher
 
+from $adapter_import.bindings_generated import (
+    register as register_generated_bindings,
+)
 
-def register_bindings(dispatcher: CommandDispatcher) -> None:
-    """Call dispatcher.register(handler) for each project binding."""
+
+def register_bindings(dispatcher: CommandDispatcher, use_cases: object) -> None:
+    """Register only commands explicitly exposed through RabbitMQ."""
+    register_generated_bindings(dispatcher, use_cases)

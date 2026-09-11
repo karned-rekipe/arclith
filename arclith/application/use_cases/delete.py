@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Generic, TypeVar
-from uuid6 import UUID
+from uuid import UUID
 
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.outbound.logger import Logger
@@ -31,4 +31,3 @@ class DeleteUseCase(Generic[T]):
         entity = entity.model_copy(update={"deleted_at": now, "deleted_by": deleted_by, "updated_at": now})
         await self._repository.update(entity)
         self._logger.info("🗑️ Entity soft deleted", uuid=str(uuid), retention_days=self._retention_days)
-

@@ -1,7 +1,9 @@
 import uuid as stdlib_uuid
 from datetime import datetime, timezone
 
-from uuid6 import UUID, uuid7
+from uuid import UUID
+
+from uuid6 import uuid7
 
 from tests.units.conftest import DummyEntity
 

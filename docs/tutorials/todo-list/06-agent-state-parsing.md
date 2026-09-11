@@ -5,12 +5,9 @@ appel LLM.
 
 ## State
 
-Créer le package LangGraph:
-
-```bash
-mkdir -p src/todo_list_service/adapters/inbound/langgraph
-touch src/todo_list_service/adapters/inbound/langgraph/__init__.py
-```
+Le package et ses rôles ont déjà été créés par
+`add-adapter --capability agent --adapter langgraph`. Ne pas créer un second
+arbre LangGraph manuellement.
 
 Modifier `src/todo_list_service/adapters/inbound/langgraph/state.py`:
 

@@ -73,7 +73,10 @@ def render_entity_use_case_template(
 from arclith.domain.ports.outbound.repository import Repository
 
 from {entity_module} import {entity_class}
-from {inbound_port_module} import {class_name}Command, {class_name}Port
+from {inbound_port_module} import (
+    {class_name}Command,
+    {class_name}Port,
+)
 
 
 class {class_name}UseCase({class_name}Port):
@@ -81,8 +84,9 @@ class {class_name}UseCase({class_name}Port):
         self._repository = repository
 
     async def execute(self, command: {class_name}Command) -> {entity_class}:
-        """TODO: orchestrate business rules and persist or return the entity."""
-        raise NotImplementedError("Implement {class_name}UseCase.execute")
+        """Persist the minimal entity; add business rules here when required."""
+        entity = {entity_class}.model_validate(command.model_dump(), by_name=True)
+        return await self._repository.create(entity)
 '''
 
 
@@ -135,6 +139,6 @@ from {inbound_port_module} import (
 
 class {class_name}UseCase({class_name}Port):
     async def execute(self, command: {class_name}Command) -> {class_name}Result:
-        """TODO: orchestrate this transverse use case."""
-        raise NotImplementedError("Implement {class_name}UseCase.execute")
+        """Return the minimal result; replace this when adding output fields."""
+        return {class_name}Result()
 '''

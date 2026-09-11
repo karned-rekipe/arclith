@@ -27,16 +27,11 @@ message utilisateur
 
 ## Générer les briques agent
 
-Installer les dépendances:
-
-```bash
-uv add "arclith[langgraph]"
-```
+`add-adapter agent/langgraph` ajoute lui-même l'extra `arclith[langgraph]`.
 
 Créer les intent-interpreters:
 
 ```bash
-touch src/todo_list_service/application/intent_interpreters/__init__.py
 arclith-cli add-intent-interpreter
 arclith-cli add-intent-interpreter
 ```

@@ -10,7 +10,7 @@ arclith-cli init todo-service
 cd todo-service
 arclith-cli add-entity Todo
 arclith-cli add-usecase CreateTodo --entity Todo
-# Définir les champs de CreateTodoCommand et implémenter le use case.
+arclith-cli add-adapter --capability repository --adapter memory --yes
 arclith-cli add-adapter --capability api --adapter fastapi --yes
 arclith-cli expose-usecase create-todo --via fastapi --feature todos \
   --path /v1/todos --method POST --status-code 201 --dry-run
@@ -25,34 +25,39 @@ arclith-cli expose-usecase create-todo --via rabbitmq --feature todos \
   --command-type todo.create.v1
 ```
 
-Chaque adapter dispose de son arborescence complète dès son installation, dont
-`contracts/`. Une exposition ajoute les fichiers nommés d'une opération dans les
-emplacements déjà établis. Le contrat d'entrée est une copie du modèle Pydantic
-applicatif au moment de la génération. Son mapper valide ensuite la Command ou
-Query attendue par le port. Le résultat est typé et son presenter est explicitement
-personnalisable pour versionner le contrat public.
+Chaque adapter dispose de son arborescence fermée dès son installation, dont
+`contracts/`. Une exposition ajoute uniquement la feature et les fichiers nommés
+de l'opération. Le contrat d'entrée est une copie du modèle Pydantic applicatif
+au moment de la génération. Son mapper valide ensuite la Command ou Query attendue
+par le port. Le résultat est projeté dans un DTO de réponse propre au transport :
+un modèle de domaine n'est jamais publié directement.
 
 ## Composition explicite et typée
 
-L'agrégateur `adapters/inbound/fastapi/bindings_generated.py` expose par exemple :
+L'agrégateur `adapters/inbound/fastapi/bindings_generated.py` compose chaque
+router de feature exactement une fois et reçoit les ports depuis
+`ApplicationUseCases` :
 
 ```python
-def register(target: FastAPI, *, create_todo: CreateTodoPort) -> None:
-    register_create_todo(target, create_todo)
+def register(target: APIRouter, use_cases: ApplicationUseCases) -> None:
+    todos_router = build_todos_router()
+    register_create_todo(todos_router, use_cases.create_todo)
+    target.include_router(todos_router)
 ```
 
-Le composition root construit le use case puis appelle ce registre :
+Le CLI régénère en parallèle `infrastructure/use_cases_generated.py` :
 
 ```python
-from todo_service.adapters.inbound.fastapi.bindings_generated import register
-from todo_service.application.use_cases.create_todo import CreateTodoUseCase
-
-register(api, create_todo=CreateTodoUseCase(repository))
+def build_use_cases(arclith: Arclith) -> ApplicationUseCases:
+    return ApplicationUseCases(
+        create_todo=CreateTodoUseCase(arclith.repository(Todo)),
+    )
 ```
 
-Cette dernière liaison est explicite : le CLI ne devine pas quel repository,
-transaction, identité ou autre dépendance convient à une classe applicative.
-Les autres transports reçoivent la même instance de use case. Les lectures
+Cette composition automatique est limitée au cas sûr généré par le CLI : un use
+case sans dépendance ou avec une unique dépendance `Repository[Entity]`. Une
+composition plus riche reste un bootstrap développeur explicite. Les autres
+transports reçoivent le même port applicatif. Les lectures
 `Query` utilisent GET par défaut dans FastAPI. Les commandes utilisent POST.
 Les opérations FastMCP sont des tools ; resources et prompts restent des
 primitives MCP distinctes dans les dossiers déjà créés.
@@ -66,7 +71,8 @@ edges et sa politique de reprise. La sortie reste typée. Une query ne peut pas
 ## Propriété, collisions et recettes
 
 - Les contrats, routes, tools et nodes sont des fichiers développeur créés une fois.
-- `bindings_generated.py` et `.arclith/bindings/<transport>.json` sont détenus par le CLI.
+- `bindings_generated.py`, `infrastructure/use_cases_generated.py` et
+  `.arclith/bindings/<transport>.json` sont détenus par le CLI.
 - Une deuxième exposition ajoute un import et un paramètre typé à l'agrégateur.
 - Rejouer une exposition identique préserve les modifications manuelles.
 - Un même nom public, type de commande ou couple méthode/chemin ne peut appartenir à deux bindings.

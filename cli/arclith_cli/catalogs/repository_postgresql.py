@@ -102,6 +102,8 @@ multitenant: {multitenant}
         ),
     ),
     facets=POSTGRESQL_FACETS,
+    dependency_extra="postgresql",
+    entity_scoped=False,
 )
 
 __all__ = ["POSTGRESQL_REPOSITORY_ADAPTER"]

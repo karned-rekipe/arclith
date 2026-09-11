@@ -480,7 +480,7 @@ class Arclith:
             else False,
             factory=factory,
             log_config=_UVICORN_LOG_CONFIG,
-            ws="websockets-sansio",
+            ws="none",
         )
 
     def run_mcp_sse(self, mcp: "_fastmcp.FastMCP") -> None:

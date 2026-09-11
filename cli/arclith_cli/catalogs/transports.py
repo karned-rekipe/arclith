@@ -362,6 +362,7 @@ rabbitmq:
                     default="commands.dead",
                 ),
             ),
+            dependency_extra="rabbitmq",
             entity_scoped=False,
         ),
     ),

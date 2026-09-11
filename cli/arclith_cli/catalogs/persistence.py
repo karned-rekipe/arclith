@@ -28,6 +28,7 @@ REPOSITORY_CAPABILITY = CapabilitySpec(
             layer="outbound",
             description="Stockage volatile en mémoire pour dev, tests et smoke locaux.",
             facets=MEMORY_FACETS,
+            entity_scoped=False,
         ),
         AdapterSpec(
             name="mongodb",
@@ -68,6 +69,8 @@ multitenant: {multitenant}   # true = uri/db_name résolus par requête via JWT 
                 ),
             ),
             facets=MONGODB_FACETS,
+            dependency_extra="mongodb",
+            entity_scoped=False,
         ),
         AdapterSpec(
             name="duckdb",
@@ -88,6 +91,8 @@ path: {path}
                 ),
             ),
             facets=DUCKDB_FACETS,
+            dependency_extra="duckdb",
+            entity_scoped=False,
         ),
         AdapterSpec(
             name="mariadb",
@@ -155,6 +160,8 @@ multitenant: false
                 ),
             ),
             facets=MARIADB_FACETS,
+            dependency_extra="mariadb",
+            entity_scoped=False,
         ),
         POSTGRESQL_REPOSITORY_ADAPTER,
     ),

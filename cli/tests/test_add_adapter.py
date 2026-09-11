@@ -55,7 +55,7 @@ def _minimal_project(tmp_path: Path) -> Path:
 @pytest.mark.parametrize(
     "adapter", REPOSITORY_CAPABILITY.adapters, ids=lambda adapter: adapter.name
 )
-def test_repository_scaffold_uses_direct_modules_without_compatibility_wrapper(
+def test_repository_scaffold_uses_framework_implementation_without_entity_code(
     tmp_path: Path, adapter
 ) -> None:
     project_dir = _minimal_project(tmp_path)
@@ -69,16 +69,12 @@ def test_repository_scaffold_uses_direct_modules_without_compatibility_wrapper(
     add_adapter_cmd(project_dir=project_dir, adapter=adapter.name, yes=True)
 
     assert not wrapper.exists()
-    assert (
-        paths.adapters_outbound
-        / adapter.name
-        / "repositories/widget_repository.py"
-    ).is_file()
-    generated = (
-        paths.containers / "widget_registrations_generated.py"
-    ).read_text(encoding="utf-8")
-    assert f".outbound.{adapter.name}.repositories.widget_repository import" in generated
-    assert f".outbound.{adapter.name}.repository import" not in generated
+    adapter_root = paths.adapters_outbound / adapter.name
+    assert (adapter_root / "__init__.py").is_file()
+    assert (adapter_root / "README.md").is_file()
+    assert (adapter_root / "repositories/README.md").is_file()
+    assert not list((adapter_root / "repositories").glob("*_repository.py"))
+    assert not list(paths.containers.glob("*_generated.py"))
 
 
 def test_add_duckdb_adapter_non_interactive(tmp_path: Path) -> None:
@@ -91,21 +87,10 @@ def test_add_duckdb_adapter_non_interactive(tmp_path: Path) -> None:
         yes=True,
     )
 
-    package_root = project_dir / "src" / "demo_service"
-    assert (
-        package_root
-        / "adapters"
-        / "outbound"
-        / "duckdb"
-        / "repositories"
-        / "widget_repository.py"
-    ).exists()
-    assert not (
-        package_root / "adapters" / "outbound" / "duckdb" / "repository.py"
-    ).exists()
-    assert 'register("duckdb", _build_duckdb)' in (
-        package_root / "infrastructure" / "containers" / "widget_registrations_generated.py"
-    ).read_text(encoding="utf-8")
+    adapter_root = project_dir / "src/demo_service/adapters/outbound/duckdb"
+    assert (adapter_root / "README.md").is_file()
+    assert (adapter_root / "repositories/README.md").exists()
+    assert not list((adapter_root / "repositories").glob("*_repository.py"))
     assert "repository: duckdb" in (
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
@@ -133,20 +118,10 @@ def test_add_duckdb_adapter_generates_loadable_directory_config_idempotently(
     duckdb_config = (
         project_dir / "config" / "adapters" / "outbound" / "duckdb.yaml"
     ).read_text(encoding="utf-8")
-    container = (
-        project_dir
-        / "src"
-        / "demo_service"
-        / "infrastructure"
-        / "containers"
-        / "widget_registrations_generated.py"
-    ).read_text(encoding="utf-8")
-
     assert app.config.adapters.repository == "duckdb"
     assert app.config.adapters.duckdb is not None
     assert app.config.adapters.duckdb.path == "data/"
     assert duckdb_config == "multitenant: false\npath: data/\n"
-    assert container.count('register("duckdb", _build_duckdb)') == 1
 
 
 def test_add_mongodb_adapter_uses_non_interactive_params(tmp_path: Path) -> None:
@@ -155,7 +130,6 @@ def test_add_mongodb_adapter_uses_non_interactive_params(tmp_path: Path) -> None
     add_adapter_cmd(
         project_dir=project_dir,
         adapter="mongodb",
-        entity_names=["Widget"],
         activate=False,
         db_name="demo_shared",
         adapter_params={"collection_name": "widgets"},
@@ -190,7 +164,6 @@ def test_add_mongodb_adapter_generates_loadable_single_tenant_config(
     add_adapter_cmd(
         project_dir=project_dir,
         adapter="mongodb",
-        entity_names=["Widget"],
         db_name="demo_shared",
         yes=True,
     )
@@ -224,22 +197,10 @@ def test_add_mariadb_adapter_uses_catalog_params(tmp_path: Path) -> None:
         yes=True,
     )
 
-    package_root = project_dir / "src" / "demo_service"
-    repository_file = (
-        package_root
-        / "adapters"
-        / "outbound"
-        / "mariadb"
-        / "repositories"
-        / "widget_repository.py"
-    )
-    assert repository_file.exists()
-    assert "class MariaDBWidgetRepository" in repository_file.read_text(
-        encoding="utf-8"
-    )
-    assert 'register("mariadb", _build_mariadb)' in (
-        package_root / "infrastructure" / "containers" / "widget_registrations_generated.py"
-    ).read_text(encoding="utf-8")
+    adapter_root = project_dir / "src/demo_service/adapters/outbound/mariadb"
+    assert (adapter_root / "README.md").is_file()
+    assert (adapter_root / "repositories/README.md").exists()
+    assert not list((adapter_root / "repositories").glob("*_repository.py"))
     mariadb_config = (
         project_dir / "config" / "adapters" / "outbound" / "mariadb.yaml"
     ).read_text(encoding="utf-8")
@@ -279,22 +240,10 @@ def test_add_postgresql_adapter_uses_catalog_params(tmp_path: Path) -> None:
         yes=True,
     )
 
-    package_root = project_dir / "src" / "demo_service"
-    repository_file = (
-        package_root
-        / "adapters"
-        / "outbound"
-        / "postgresql"
-        / "repositories"
-        / "widget_repository.py"
-    )
-    assert repository_file.exists()
-    assert "class PostgreSQLWidgetRepository" in repository_file.read_text(
-        encoding="utf-8"
-    )
-    assert 'register("postgresql", _build_postgresql)' in (
-        package_root / "infrastructure" / "containers" / "widget_registrations_generated.py"
-    ).read_text(encoding="utf-8")
+    adapter_root = project_dir / "src/demo_service/adapters/outbound/postgresql"
+    assert (adapter_root / "README.md").is_file()
+    assert (adapter_root / "repositories/README.md").exists()
+    assert not list((adapter_root / "repositories").glob("*_repository.py"))
     postgresql_config = (
         project_dir / "config" / "adapters" / "outbound" / "postgresql.yaml"
     ).read_text(encoding="utf-8")
@@ -467,7 +416,9 @@ def test_add_langsmith_observability_adapter_uses_catalog_params(
     assert "LANGSMITH_API_KEY" not in load_output.out
     assert "LANGSMITH_API_KEY" not in load_output.err
     package_root = project_dir / "src" / "demo_service"
-    assert (package_root / "adapters" / "outbound" / "langsmith" / "instrumentation").is_dir()
+    assert (
+        package_root / "adapters" / "outbound" / "langsmith" / "instrumentation"
+    ).is_dir()
 
 
 def test_add_langsmith_never_rewrites_existing_dotenv(tmp_path: Path) -> None:
@@ -603,6 +554,40 @@ def test_add_opentelemetry_adds_dependency_extra_idempotently(
 
 
 @pytest.mark.parametrize(
+    ("capability", "adapter", "extra"),
+    [
+        ("repository", "mongodb", "mongodb"),
+        ("repository", "duckdb", "duckdb"),
+        ("repository", "mariadb", "mariadb"),
+        ("repository", "postgresql", "postgresql"),
+        ("command-bus", "rabbitmq", "rabbitmq"),
+    ],
+)
+def test_driver_adapter_adds_only_its_dependency_extra_idempotently(
+    tmp_path: Path,
+    capability: str,
+    adapter: str,
+    extra: str,
+) -> None:
+    project_dir = _minimal_project(tmp_path)
+    pyproject = project_dir / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\ndependencies = ["arclith>=0.25.0"]\n',
+        encoding="utf-8",
+    )
+
+    for _ in range(2):
+        add_adapter_cmd(
+            project_dir=project_dir,
+            capability_name=capability,
+            adapter=adapter,
+            yes=True,
+        )
+
+    assert f"arclith[{extra}]>=0.25.0" in pyproject.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
     ("profile", "sampling_ratio", "environment"),
     [
         ("development", 1.0, "development"),
@@ -734,7 +719,9 @@ def test_add_fastapi_api_adapter_generates_inbound_config_only(tmp_path: Path) -
     ).read_text(encoding="utf-8")
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "outbound" / "fastapi").exists()
-    assert (package_root / "adapters" / "inbound" / "fastapi" / "routers" / "v1" / "widget" / "routes").is_dir()
+    v1_root = package_root / "adapters/inbound/fastapi/routers/v1"
+    assert (v1_root / "router.py").is_file()
+    assert not (v1_root / "widget").exists()
 
     from arclith import Arclith
 
@@ -789,7 +776,10 @@ def test_add_fastmcp_mcp_adapter_generates_inbound_config_only(tmp_path: Path) -
     ).read_text(encoding="utf-8")
     package_root = project_dir / "src" / "demo_service"
     assert not (package_root / "adapters" / "outbound" / "fastmcp").exists()
-    assert (package_root / "adapters" / "inbound" / "fastmcp" / "features" / "widget" / "resources").is_dir()
+    fastmcp_root = package_root / "adapters/inbound/fastmcp"
+    assert (fastmcp_root / "register.py").is_file()
+    assert (fastmcp_root / "features/README.md").is_file()
+    assert not (fastmcp_root / "features/widget").exists()
 
     from arclith import Arclith
 
@@ -979,7 +969,9 @@ def test_add_http_cache_control_adapter_merges_http_config(tmp_path: Path) -> No
     assert "http:" not in (
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
-    assert (package_root / "adapters" / "inbound" / "cache_control" / "policies").is_dir()
+    assert (
+        package_root / "adapters" / "inbound" / "cache_control" / "policies"
+    ).is_dir()
 
 
 def test_add_http_cache_control_adapter_rejects_negative_max_age(
@@ -1067,7 +1059,9 @@ def test_add_command_bus_rabbitmq_adapter_merges_command_bus_config(
     assert "command-bus:" not in (
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
-    assert (package_root / "adapters" / "bidirectional" / "rabbitmq" / "bindings").is_dir()
+    assert (
+        package_root / "adapters" / "bidirectional" / "rabbitmq" / "bindings"
+    ).is_dir()
 
 
 def test_add_command_bus_rabbitmq_adapter_rejects_unbounded_prefetch(
@@ -1110,8 +1104,14 @@ def test_add_memory_channel_generates_loadable_bidirectional_config(
     assert app.config.adapters.channel.configured_adapters() == ("memory",)
     assert isinstance(app.channel_sender("memory"), MemoryChannel)
     assert (
-        project_dir / "src" / "demo_service" / "adapters" / "bidirectional" / "memory"
-        / "inbound" / "README.md"
+        project_dir
+        / "src"
+        / "demo_service"
+        / "adapters"
+        / "bidirectional"
+        / "memory"
+        / "inbound"
+        / "README.md"
     ).is_file()
 
 
@@ -1540,7 +1540,9 @@ def test_add_storage_adapter_generates_loadable_config_only(
             "adapters.storage.sas_token": "AZURE_STORAGE_SAS_TOKEN",
         }
     package_root = project_dir / "src" / "demo_service"
-    assert (package_root / "adapters" / "outbound" / adapter.replace("-", "_") / "transfers").is_dir()
+    assert (
+        package_root / "adapters" / "outbound" / adapter.replace("-", "_") / "transfers"
+    ).is_dir()
 
     from arclith import Arclith
 
@@ -1902,7 +1904,10 @@ def test_add_langgraph_agent_adapter_generates_runtime_entrypoint(
     assert "stream_mode: [updates, custom]" in langgraph_config
     generated_agent = agent_file.read_text(encoding="utf-8")
     assert "Stable LangGraph deployment entrypoint" in generated_agent
-    assert "from demo_service.adapters.inbound.langgraph.graph import register_agent" in generated_agent
+    assert (
+        "from demo_service.adapters.inbound.langgraph.graph import register_agent"
+        in generated_agent
+    )
     assert (
         'agent = arclith.langgraph(AgentState, register_agent, name="todo_agent", context_schema=AgentContext)'
         in generated_agent
@@ -2041,7 +2046,10 @@ async def test_add_langgraph_agent_adapter_generates_compilable_minimal_agent(
     sys.modules[spec.name] = module
     try:
         spec.loader.exec_module(module)
-        assert await module.agent.ainvoke({"messages": []}) == {"messages": [], "state_version": 1}
+        assert await module.agent.ainvoke({"messages": []}) == {
+            "messages": [],
+            "state_version": 1,
+        }
         events = [
             event
             async for event in module.agent.astream(
@@ -2162,8 +2170,6 @@ def test_add_memory_adapter_direct_cli_keeps_memory_and_loads_config(
             "repository",
             "--adapter",
             "memory",
-            "--entity",
-            "Widget",
             "--yes",
         ],
         cwd=project_dir,
@@ -2176,14 +2182,7 @@ def test_add_memory_adapter_direct_cli_keeps_memory_and_loads_config(
     )
 
     package_root = project_dir / "src" / "memory_service"
-    assert (
-        package_root
-        / "adapters"
-        / "outbound"
-        / "memory"
-        / "repositories"
-        / "widget_repository.py"
-    ).exists()
+    assert (package_root / "adapters/outbound/memory/README.md").exists()
     assert not (
         package_root / "adapters" / "outbound" / "memory" / "repository.py"
     ).exists()
@@ -2236,14 +2235,7 @@ def test_add_memory_adapter_interactive_wizard_activates_memory(tmp_path: Path) 
         f"wizard failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
     )
     package_root = project_dir / "src" / "demo_service"
-    assert (
-        package_root
-        / "adapters"
-        / "outbound"
-        / "memory"
-        / "repositories"
-        / "widget_repository.py"
-    ).exists()
+    assert (package_root / "adapters/outbound/memory/README.md").exists()
     assert "repository: memory" in (
         project_dir / "config" / "adapters" / "adapters.yaml"
     ).read_text(encoding="utf-8")
@@ -2791,9 +2783,13 @@ def test_boolean_string_default_false_is_false(tmp_path: Path) -> None:
     assert _resolve_parameter(parameter, None, tmp_path, prompt_missing=False) is False
 
 
-def test_non_interactive_requires_entity_when_multiple_models(tmp_path: Path) -> None:
+def test_repository_adapter_is_not_scoped_to_detected_entities(tmp_path: Path) -> None:
     project_dir = _minimal_project(tmp_path)
     _write_model(project_dir, "demo_service", "Recipe", "recipe")
 
-    with pytest.raises(typer.Exit):
-        add_adapter_cmd(project_dir=project_dir, adapter="memory", yes=True)
+    add_adapter_cmd(project_dir=project_dir, adapter="memory", yes=True)
+
+    adapter_root = project_dir / "src/demo_service/adapters/outbound/memory"
+    assert (adapter_root / "README.md").is_file()
+    assert (adapter_root / "repositories/README.md").is_file()
+    assert not list((adapter_root / "repositories").glob("*_repository.py"))

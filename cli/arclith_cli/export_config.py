@@ -36,12 +36,17 @@ def export_config_cmd(
 
     if output_path.exists():
         from rich.prompt import Confirm
-        if not Confirm.ask(f"  [yellow]{output_path.relative_to(project_dir)}[/yellow] existe déjà. Écraser ?", default=True):
+
+        if not Confirm.ask(
+            f"  [yellow]{output_path.relative_to(project_dir)}[/yellow] existe déjà. Écraser ?",
+            default=True,
+        ):
             console.print("[yellow]Annulé.[/yellow]")
             raise typer.Exit(0)
 
     try:
         from arclith.infrastructure.config import export_config_yaml
+
         export_config_yaml(config_dir, output_path)
     except Exception as exc:
         console.print(f"[red]✗ Erreur :[/red] {exc}")
@@ -53,17 +58,15 @@ def export_config_cmd(
     except ValueError:
         # output_path is outside project_dir (e.g., /tmp/config.yaml)
         display_path = str(output_path)
-    
+
     console.print(
         Panel.fit(
             f"[green]✓[/green] [bold]{display_path}[/bold] généré depuis [dim]config/[/dim]\n\n"
             f"  [bold cyan]Kubernetes[/bold cyan]  Monter ce fichier comme ConfigMap\n"
-            f"  [bold cyan]Arclith[/bold cyan]     [dim]Arclith(\"{display_path}\")[/dim]  ←  identique à  [dim]Arclith(\"config/\")[/dim]\n\n"
+            f'  [bold cyan]Arclith[/bold cyan]     [dim]Arclith("{display_path}")[/dim]  ←  identique à  [dim]Arclith("config/")[/dim]\n\n'
             f"  [dim]⚠ Fichier généré — ne pas éditer manuellement.[/dim]\n"
             f"  [dim]  Ajouter [bold]config.yaml[/bold] à .gitignore[/dim]",
             border_style="green",
             title="[bold]export-config[/bold]",
         )
-
     )
-

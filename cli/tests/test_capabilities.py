@@ -23,7 +23,7 @@ def test_repository_capability_catalog_declares_standard_adapters() -> None:
     )
     memory = capability.get_adapter("memory")
     assert memory is not None
-    assert memory.entity_scoped is True
+    assert memory.entity_scoped is False
     assert memory.config_path is None
     assert memory.parameters == ()
     postgresql = capability.get_adapter("postgresql")
@@ -840,7 +840,7 @@ def test_capabilities_command_outputs_json_catalog() -> None:
         "mariadb",
         "postgresql",
     ]
-    assert repository["adapters"][0]["entity_scoped"] is True
+    assert repository["adapters"][0]["entity_scoped"] is False
     assert repository["adapters"][0]["facets"] == {
         "storage_model": "memory",
         "runtime": "in_process",

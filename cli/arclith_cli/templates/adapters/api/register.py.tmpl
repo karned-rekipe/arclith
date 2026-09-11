@@ -1,10 +1,12 @@
-"""Explicit FastAPI composition; add business features to the version router."""
+"""FastAPI composition entrypoint generated for this service."""
 
 from fastapi import FastAPI
 
-from $adapter_import.routers.v1.router import router
+from $adapter_import.routers.v1.router import (
+    build_router,
+)
 
 
-def register_routes(app: FastAPI) -> None:
-    """Install the API once from the process composition root."""
-    app.include_router(router)
+def register_routes(app: FastAPI, use_cases: object) -> None:
+    """Install one freshly composed API router on the application."""
+    app.include_router(build_router(use_cases))

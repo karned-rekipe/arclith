@@ -1,5 +1,5 @@
 from typing import Generic, Optional, TypeVar
-from uuid6 import UUID
+from uuid import UUID
 
 from arclith.application.timing import log_duration
 from arclith.domain.models.entity import Entity

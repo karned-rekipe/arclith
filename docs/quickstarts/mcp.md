@@ -1,51 +1,64 @@
 # Quickstart MCP
 
-Créer un service et vérifier le serveur MCP HTTP.
+Créer un projet neuf, ajouter explicitement FastMCP et appeler un tool qui
+réutilise le même port applicatif que l'API.
 
-`init` crée immédiatement `middleware/`, `contracts/` et
-`features/example/{tools/,resources/,prompts/,register.py,schemas.py,mappers.py,presenters.py}`.
-Les trois primitives MCP possèdent ainsi leur emplacement dès le scaffold ;
-consulter le [contrat complet](../deep-dives/adapter-blueprints.md#fastmcp).
+`init` ne crée ni package FastMCP ni dépendance MCP. `add-adapter` crée le
+[contrat FastMCP](../deep-dives/adapter-blueprints.md#fastmcp), sans feature
+fictive. `expose-usecase` crée ensuite uniquement la feature demandée.
 
 ## Prérequis
 
-- Python 3.13
-- `uv`
+- Python 3.13 ;
+- [`uv`](https://docs.astral.sh/uv/) ;
+- `uv tool install arclith-cli` ou l'usage ponctuel de `uvx` ci-dessous.
 
 ## Étapes
 
 ```bash
 uvx --from arclith-cli arclith-cli init todo-mcp --dir .
 cd todo-mcp
+arclith-cli add-entity Todo
+arclith-cli add-usecase CreateTodo --entity Todo
+arclith-cli add-adapter --capability repository --adapter memory --yes
+arclith-cli add-adapter --capability mcp --adapter fastmcp \
+  --param port=8766 --yes
+arclith-cli expose-usecase create-todo --via fastmcp --feature todos
 uv sync
+uv run python -m pytest
 MODE=mcp_http uv run python main.py
 ```
+
+Le serveur streamable HTTP écoute sur `http://127.0.0.1:8766/mcp/`.
+
+## Validation protocolaire
 
 Dans un second terminal :
 
 ```bash
-curl -fsS http://127.0.0.1:9000/health
-curl -fsS http://127.0.0.1:9000/info
+uv run python - <<'PY'
+import asyncio
+
+from fastmcp import Client
+
+
+async def main() -> None:
+    async with Client("http://127.0.0.1:8766/mcp/") as client:
+        tools = await client.list_tools()
+        assert [tool.name for tool in tools] == ["create_todo"]
+        result = await client.call_tool("create_todo", {"payload": {}})
+        print(result.data)
+
+
+asyncio.run(main())
+PY
 ```
 
 ## Résultat
 
-`/health` retourne `{"status":"ok"}`.
-
-`/info` indique `mcp_http` dans `active_transports`.
-
-Le terminal serveur affiche aussi l'URL FastMCP, par défaut `http://127.0.0.1:8001/mcp`.
-
-## Erreur Fréquente
-
-Si le client MCP ne se connecte pas, vérifier d'abord que le port `8001` n'est pas déjà utilisé.
-Le test protocolaire complet est traité dans le [Deep Dive MCP](../deep-dives/mcp.md).
-
-## Média
-
-!!! note "Média à produire"
-    Capture : terminal avec l'URL FastMCP et `/info`.
-    Vidéo : lancement MCP puis vérification des probes.
+Le tool `create_todo` est présent une seule fois et retourne le DTO contenant
+`uuid`, les champs d'audit et `version`. Aucun code FastAPI n'existe tant que
+l'adapter API n'a pas été ajouté.
 
 ## Suite
 

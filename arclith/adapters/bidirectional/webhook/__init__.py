@@ -7,7 +7,6 @@ from arclith.adapters.bidirectional.webhook.errors import (
     WebhookResponseModeError,
     WebhookUnsupportedMediaType,
 )
-from arclith.adapters.bidirectional.webhook.fastapi import build_webhook_router
 from arclith.adapters.bidirectional.webhook.models import (
     WebhookErrorResponse,
     WebhookIncomingPayload,
@@ -39,3 +38,15 @@ __all__ = [
     "build_webhook_router",
     "sign_webhook_payload",
 ]
+
+
+def __getattr__(name: str):
+    """Load the optional FastAPI router only when it is requested."""
+    if name == "build_webhook_router":
+        from arclith.adapters.bidirectional.webhook.fastapi import (
+            build_webhook_router as _build_webhook_router,
+        )
+
+        globals()[name] = _build_webhook_router
+        return _build_webhook_router
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

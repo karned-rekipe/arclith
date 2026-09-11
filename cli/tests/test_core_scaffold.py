@@ -1,5 +1,3 @@
-import re
-import stat
 from pathlib import Path
 
 import pytest
@@ -62,9 +60,9 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
     assert generated == tmp_path / "todo-list-service"
     assert (generated / "pyproject.toml").exists()
     assert (generated / "main.py").exists()
-    assert (generated / "Dockerfile").exists()
-    assert (generated / ".dockerignore").exists()
-    assert (generated / "arclith-run").exists()
+    assert not (generated / "Dockerfile").exists()
+    assert not (generated / ".dockerignore").exists()
+    assert not (generated / "arclith-run").exists()
     assert (generated / "config" / "adapters" / "adapters.yaml").read_text(
         encoding="utf-8"
     ) == ("logger: console\nrepository: memory\nobservability:\n  enabled: []\n")
@@ -78,6 +76,7 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
     assert (package_root / "application" / "use_cases" / "__init__.py").exists()
     assert (package_root / "adapters" / "inbound" / "__init__.py").exists()
     assert (package_root / "infrastructure" / "containers" / "__init__.py").exists()
+    assert (package_root / "infrastructure" / "use_cases_generated.py").exists()
     assert sorted(
         path.name for path in (package_root / "domain" / "models").glob("*.py")
     ) == ["__init__.py"]
@@ -85,42 +84,18 @@ def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) 
     assert not (package_root / "adapters" / "inbound" / "fastmcp").exists()
     assert not (generated / ".arclith" / "blueprints").exists()
 
-    dockerfile = (generated / "Dockerfile").read_text(encoding="utf-8")
-    dockerignore = (generated / ".dockerignore").read_text(encoding="utf-8")
+    bootstrap_test = (generated / "tests" / "test_project_bootstrap.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'assert app.config.adapters.logger == "console"' in bootstrap_test
+    assert "app.config.adapters.repository ==" not in bootstrap_test
+
     main = (generated / "main.py").read_text(encoding="utf-8")
-    arclith_run = generated / "arclith-run"
-    entrypoint = arclith_run.read_text(encoding="utf-8")
-    assert "FROM python:3.13-slim-bookworm AS builder" in dockerfile
-    assert "FROM python:3.13-slim-bookworm AS runtime" in dockerfile
-    assert "uv sync --frozen --no-dev --no-install-project" in dockerfile
-    assert "uv sync --frozen --no-dev" in dockerfile
-    assert "USER 1001:1001" in dockerfile
-    assert 'ENTRYPOINT ["./arclith-run"]' in dockerfile
-    assert 'CMD ["api"]' in dockerfile
-    assert "MODE=api" not in dockerfile
-    assert "LANGGRAPH_PORT=2024" in dockerfile
-    assert (
-        re.search(r"(?m)^ARG .*SECRET|^ARG .*TOKEN|^ARG .*PASSWORD", dockerfile) is None
-    )
-    assert ".env" in dockerignore
-    assert "secrets.yaml" in dockerignore
-    assert "id_rsa" in dockerignore
-    assert 'if [ -n "${ARCLITH_RUNTIME_MODE:-}" ]; then' in entrypoint
-    assert (
-        "api|mcp|mcp_http|mcp_sse|bus|command_bus|command-bus|agent|all) shift ;;"
-        in entrypoint
-    )
-    assert "bus|command_bus|command-bus)" in entrypoint
-    assert "langgraph dev" in entrypoint
-    assert '"${ARCLITH_AGENT_RUNTIME:-development}" = "durable"' in entrypoint
-    assert "exec arclith-agent-runtime" in entrypoint
-    assert '_VALID_MODES = {"api", "mcp_http", "mcp_sse", "all", "bus"}' in main
+    assert "_VALID_MODES = _available_modes()" in main
+    assert "Installed modes: {available}" in main
     assert 'arclith.run_api("main:build_api", factory=True)' in main
-    assert (
-        'arclith.run_with_probes(_run_api, _run_mcp_http, transports=["api", "mcp_http"])'
-        in main
-    )
-    assert arclith_run.stat().st_mode & stat.S_IXUSR
+    assert "arclith.run_with_probes(" in main
+    assert 'transports=["api", "mcp_http"]' in main
 
 
 def test_init_project_refuses_existing_directory(tmp_path: Path) -> None:
@@ -131,7 +106,7 @@ def test_init_project_refuses_existing_directory(tmp_path: Path) -> None:
         init_project_cmd(project_name="todo-list-service", directory=tmp_path)
 
 
-def test_new_entity_prepares_only_installed_transport_features(
+def test_new_entity_does_not_infer_transport_features(
     tmp_path: Path,
 ) -> None:
     project = init_project_cmd(project_name="feature-service", directory=tmp_path)
@@ -142,21 +117,14 @@ def test_new_entity_prepares_only_installed_transport_features(
         adapter="fastapi",
         yes=True,
     )
-    customized = root / "fastapi/routers/v1/shopping_item/schemas.py"
-    customized.parent.mkdir(parents=True)
-    customized.write_text("# Developer-owned contract\n")
-
     add_entity_cmd(project_dir=project, entity_name="ShoppingItem")
 
-    for module in ("router", "schemas", "mappers", "presenters", "openapi"):
-        assert (root / f"fastapi/routers/v1/shopping_item/{module}.py").is_file()
-    assert (root / "fastapi/routers/v1/shopping_item/routes/README.md").is_file()
+    assert not (root / "fastapi/routers/v1/shopping_item").exists()
     assert not (root / "fastmcp").exists()
-    assert customized.read_text() == "# Developer-owned contract\n"
     assert "shopping_item" not in (root / "fastapi/routers/v1/router.py").read_text()
 
 
-def test_entity_feature_collision_fails_before_creating_entity(tmp_path: Path) -> None:
+def test_entity_creation_ignores_transport_module_names(tmp_path: Path) -> None:
     project = init_project_cmd(project_name="collision-service", directory=tmp_path)
     add_adapter_cmd(
         project_dir=project,
@@ -168,10 +136,9 @@ def test_entity_feature_collision_fails_before_creating_entity(tmp_path: Path) -
     conflict = root / "adapters/inbound/fastapi/routers/v1/todo.py"
     conflict.write_text("# Existing developer module\n")
 
-    with pytest.raises(typer.Exit):
-        add_entity_cmd(project_dir=project, entity_name="Todo")
+    add_entity_cmd(project_dir=project, entity_name="Todo")
 
-    assert not (root / "domain/models/todo.py").exists()
+    assert (root / "domain/models/todo.py").exists()
     assert not (root / "adapters/inbound/fastmcp/features/todo").exists()
     assert conflict.read_text() == "# Existing developer module\n"
 
@@ -530,10 +497,10 @@ def test_add_usecase_supports_legacy_root_layout(tmp_path: Path) -> None:
     )
 
     assert generated == project_dir / "application" / "use_cases" / "create_recipe.py"
-    assert (
-        "from domain.ports.inbound.create_recipe import CreateRecipeCommand, CreateRecipePort\n"
-        in generated.read_text(encoding="utf-8")
-    )
+    source = generated.read_text(encoding="utf-8")
+    assert "from domain.ports.inbound.create_recipe import (" in source
+    assert "    CreateRecipeCommand," in source
+    assert "    CreateRecipePort," in source
     assert "from domain.models.recipe import Recipe" in generated.read_text(
         encoding="utf-8"
     )

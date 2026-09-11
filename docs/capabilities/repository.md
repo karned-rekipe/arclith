@@ -74,6 +74,17 @@ repository: mongodb
 Il sert aussi de fallback pour toute entité qui n'a pas de binding explicite.
 Un service mono-store n'a donc rien à modifier.
 
+`init` configure `memory` comme valeur sûre et fonctionnelle sans créer de code
+d'adapter dans le projet : l'implémentation générique appartient au framework.
+Ajouter MongoDB remplace uniquement le choix actif et crée uniquement la
+configuration et le blueprint MongoDB. Cela ne génère jamais un second adapter
+`memory`, un repository par entité, un service ou un container.
+
+Le contrat des extensions provider est fermé : `repositories/` pour les
+implémentations de ports custom, `models/` pour les modèles provider,
+`mappers/` pour les traductions pures, `indexes/` pour les index et
+`migrations/` pour les migrations. Lire le [contrat d'arborescence](../deep-dives/adapter-blueprints.md#repository).
+
 Les facets sont uniquement des métadonnées de choix dans le catalogue CLI.
 Elles ne changent ni ce fichier, ni le contrat du port, ni le comportement des
 projets existants.
