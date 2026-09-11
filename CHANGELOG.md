@@ -4,6 +4,32 @@
 
 ---
 
+## [0.26.0] — 2026-09-11
+
+### Added
+
+- **Blueprints fermés et guidage des agents** — chaque adapter installé fournit une arborescence
+  versionnée, machine-readable et documentée par rôle ; les projets générés embarquent également
+  `AGENTS.md` et `ARCHITECTURE.md` pour imposer les emplacements et responsabilités attendus.
+- **Bindings de use cases multi-transports** — `expose-usecase` génère des contrats typés et une
+  composition unique utilisable par FastAPI, FastMCP, LangGraph et RabbitMQ, sans feature fictive.
+- **Parcours réellement testés de bout en bout** — les quickstarts et la CI valident des projets
+  neufs avec FastAPI, FastMCP, RabbitMQ et MongoDB, ainsi que l'absence des extras non sélectionnés.
+
+### Changed
+
+- **Composition cohérente en mémoire** — les transports d'un processus réutilisent le même graphe
+  applicatif et tous les use cases d'une entité partagent une seule instance de repository.
+- **Contrats générés durcis** — les imports aliasés, le layout racine historique et les champs
+  techniques d'`Entity`, dont `is_deleted`, sont pris en charge ; les constructeurs et manifestes
+  non composables sont refusés avant toute écriture.
+- **Routage FastAPI univoque** — le préfixe `/v1` n'a qu'un propriétaire et une route vide exacte
+  `/v1` est rejetée, empêchant les routes dupliquées ou invalides.
+- **Versions release** — `arclith` passe à `0.26.0`; `arclith-cli` passe à `0.23.0`
+  et dépend de `arclith>=0.26.0`.
+
+---
+
 ## [0.25.0] — 2026-09-11
 
 ### Changed
