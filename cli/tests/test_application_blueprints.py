@@ -16,6 +16,7 @@ from arclith_cli.application_blueprints import (
     application_blueprint_catalog_as_dict,
     get_application_blueprint,
 )
+from arclith_cli.application_blueprint_recipe import replay_add_entity_step
 from arclith_cli.blueprint_generation import (
     add_application_blueprint_cmd,
     apply_application_blueprint,
@@ -183,6 +184,36 @@ def test_feature_manifest_rejects_an_invalid_feature_identifier(
         load_feature_manifest(manifest_path)
 
 
+def test_feature_manifest_rejects_a_boolean_schema_version(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "feature.yaml"
+    manifest_path.write_text(
+        yaml.safe_dump(
+            {
+                "version": True,
+                "feature": "todo",
+                "entity": {"name": "Todo", "module": "demo.domain.models.todo"},
+                "blueprint": {"name": "crud", "version": 1},
+                "operations": ["create"],
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="feature.version must be an integer"):
+        load_feature_manifest(manifest_path)
+
+
+def test_feature_manifest_reports_malformed_yaml_as_a_validation_error(
+    tmp_path: Path,
+) -> None:
+    manifest_path = tmp_path / "feature.yaml"
+    manifest_path.write_text("version: [unterminated\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid YAML in feature manifest"):
+        load_feature_manifest(manifest_path)
+
+
 def test_crud_blueprint_dry_run_has_no_filesystem_or_recipe_side_effect(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -237,6 +268,36 @@ def test_crud_blueprint_rejects_a_first_install_collision_without_writes(
         if path.is_file()
     } == before
     assert not (project / ".arclith/features/todo.yaml").exists()
+
+
+def test_crud_blueprint_rejects_a_manifest_directory_without_writes(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path)
+    manifest_path = project / ".arclith/features/todo.yaml"
+    manifest_path.mkdir(parents=True)
+    before = {
+        path.relative_to(project): path.read_bytes()
+        for path in project.rglob("*")
+        if path.is_file()
+    }
+
+    with pytest.raises(ValueError, match="target is not a file"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+        )
+
+    assert {
+        path.relative_to(project): path.read_bytes()
+        for path in project.rglob("*")
+        if path.is_file()
+    } == before
+    assert not (
+        project / "src/blueprint_service/application/use_cases/create_todo.py"
+    ).exists()
 
 
 def test_crud_blueprint_executes_the_framework_crud_primitives(
@@ -499,6 +560,61 @@ def test_unknown_blueprint_and_profile_fail_without_partial_entity(
     )
     assert new_result.exit_code == 1
     assert not (tmp_path / "invalid-new-service").exists()
+
+
+@pytest.mark.parametrize("profile", ["minimal", "crud"])
+def test_add_entity_rejects_python_keyword_names_before_writing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    profile: str,
+) -> None:
+    project = init_project_cmd(project_name="keyword-service", directory=tmp_path)
+
+    result = _invoke(
+        monkeypatch,
+        project,
+        ["add-entity", "Class", "--profile", profile],
+    )
+
+    assert result.exit_code == 1
+    assert (
+        "mot-clé Python réservé" in result.output
+        or "reserved Python keyword" in result.output
+    )
+    assert not (project / "src/keyword_service/domain/models/class.py").exists()
+    assert not (project / ".arclith/features/class.yaml").exists()
+
+
+def test_crud_profile_recipe_preflights_collisions_before_entity_creation(
+    tmp_path: Path,
+) -> None:
+    project = init_project_cmd(project_name="recipe-service", directory=tmp_path)
+    collision = project / "src/recipe_service/application/use_cases/create_todo.py"
+    collision.parent.mkdir(parents=True, exist_ok=True)
+    collision.write_text("# developer-owned\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="already exists"):
+        replay_add_entity_step(
+            project,
+            {"entity": "Todo", "profile": "crud"},
+        )
+
+    assert not (project / "src/recipe_service/domain/models/todo.py").exists()
+    assert collision.read_text(encoding="utf-8") == "# developer-owned\n"
+
+
+def test_crud_profile_recipe_validates_profile_before_entity_creation(
+    tmp_path: Path,
+) -> None:
+    project = init_project_cmd(project_name="recipe-service", directory=tmp_path)
+
+    with pytest.raises(ValueError, match="Unknown application blueprint"):
+        replay_add_entity_step(
+            project,
+            {"entity": "Todo", "profile": "unknown"},
+        )
+
+    assert not (project / "src/recipe_service/domain/models/todo.py").exists()
 
 
 def test_add_blueprint_requires_an_existing_entity(tmp_path: Path) -> None:

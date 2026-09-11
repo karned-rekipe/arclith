@@ -17,14 +17,11 @@ from arclith_cli.application_blueprints import (
 from arclith_cli.blueprint_generation import (
     add_application_blueprint_cmd,
     apply_application_blueprint,
-    plan_application_blueprint_for_entity,
+    plan_application_profile_for_new_entity,
 )
 from arclith_cli.command_recording import record_success
 from arclith_cli.core_scaffold import add_entity_cmd
-from arclith_cli.entity_scanner import EntityInfo
-from arclith_cli.project_paths import detect_project_paths
 from arclith_cli.recipe import snapshot_project_files
-from arclith_cli.rename import EntityNames
 
 console = Console()
 _ENTITY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
@@ -59,24 +56,15 @@ def add_entity_command(
         raise typer.Exit(1) from exc
     project_dir = Path.cwd()
     before = snapshot_project_files(project_dir) if not no_record else {}
-    blueprint_plan = None
-    if resolved_profile != "minimal":
-        try:
-            paths = detect_project_paths(project_dir)
-            names = EntityNames.from_input(resolved_name)
-            blueprint_plan = plan_application_blueprint_for_entity(
-                project_dir,
-                blueprint=get_application_blueprint(resolved_profile),
-                entity=EntityInfo(
-                    pascal=names.pascal,
-                    snake=names.snake,
-                    file_path=paths.domain_models / f"{names.snake}.py",
-                ),
-                feature_name=names.snake,
-            )
-        except (OSError, SyntaxError, ValueError) as exc:
-            console.print(f"[red]✗ Blueprint refusé :[/red] {exc}")
-            raise typer.Exit(1) from exc
+    try:
+        blueprint_plan = plan_application_profile_for_new_entity(
+            project_dir,
+            profile_name=resolved_profile,
+            entity_name=resolved_name,
+        )
+    except (OSError, SyntaxError, ValueError) as exc:
+        console.print(f"[red]✗ Blueprint refusé :[/red] {exc}")
+        raise typer.Exit(1) from exc
     add_entity_cmd(project_dir=project_dir, entity_name=resolved_name)
     if blueprint_plan is not None:
         try:

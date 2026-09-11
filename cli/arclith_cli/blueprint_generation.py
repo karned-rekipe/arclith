@@ -73,6 +73,11 @@ def plan_application_blueprint_for_entity(
     feature_name: str | None,
 ) -> ApplicationBlueprintPlan:
     paths = detect_project_paths(project_dir)
+    if keyword.iskeyword(entity.snake):
+        raise ValueError(
+            f"Entity {entity.pascal!r} normalizes to the reserved Python keyword "
+            f"{entity.snake!r}"
+        )
     feature = _feature_name(feature_name or entity.snake)
     manifest = FeatureManifest(
         version=FEATURE_MANIFEST_VERSION,
@@ -87,7 +92,9 @@ def plan_application_blueprint_for_entity(
     manifest_path = project_dir / ".arclith" / "features" / f"{feature}.yaml"
     rendered = render_application_blueprint(blueprint, paths, entity, feature)
     invalid_targets = sorted(
-        path for path in rendered if path.exists() and not path.is_file()
+        path
+        for path in (*rendered, manifest_path)
+        if path.exists() and not path.is_file()
     )
     if invalid_targets:
         relative = ", ".join(
@@ -126,6 +133,29 @@ def plan_application_blueprint_for_entity(
         files=files,
         preserved=preserved,
         originals=originals,
+    )
+
+
+def plan_application_profile_for_new_entity(
+    project_dir: Path,
+    *,
+    profile_name: str,
+    entity_name: str,
+) -> ApplicationBlueprintPlan | None:
+    """Preflight an optional application profile before creating its entity."""
+    if profile_name == "minimal":
+        return None
+    paths = detect_project_paths(project_dir)
+    names = EntityNames.from_input(entity_name.strip())
+    return plan_application_blueprint_for_entity(
+        project_dir,
+        blueprint=get_application_blueprint(profile_name),
+        entity=EntityInfo(
+            pascal=names.pascal,
+            snake=names.snake,
+            file_path=paths.domain_models / f"{names.snake}.py",
+        ),
+        feature_name=names.snake,
     )
 
 

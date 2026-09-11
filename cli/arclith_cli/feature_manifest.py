@@ -69,6 +69,8 @@ class FeatureManifest:
             "feature manifest",
         )
         version = data["version"]
+        if isinstance(version, bool) or not isinstance(version, int):
+            raise ValueError("feature.version must be an integer")
         if version != FEATURE_MANIFEST_VERSION:
             raise ValueError(
                 f"Unsupported feature manifest version {version!r}; "
@@ -103,7 +105,10 @@ class FeatureManifest:
 def load_feature_manifest(path: Path) -> FeatureManifest:
     if not path.is_file():
         raise ValueError(f"Feature manifest not found: {path}")
-    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise ValueError(f"Invalid YAML in feature manifest {path}: {exc}") from exc
     return FeatureManifest.from_dict(raw)
 
 

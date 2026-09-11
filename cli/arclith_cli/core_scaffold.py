@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import keyword
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -279,12 +280,16 @@ def _assert_project_root(project_dir: Path, *, command: str) -> None:
 
 
 def _assert_valid_name(raw: str, *, label: str) -> None:
-    if _NAME_RE.match(raw.strip()):
+    normalized = raw.strip()
+    if _NAME_RE.match(normalized) and not keyword.iskeyword(
+        EntityNames.from_input(normalized).snake
+    ):
         return
 
     console.print(
         f"[red]✗[/red] Nom de {label} invalide : [bold]{raw}[/bold]. "
-        "Lettres, chiffres, _ et - uniquement. Doit commencer par une lettre."
+        "Lettres, chiffres, _ et - uniquement, sans mot-clé Python réservé. "
+        "Doit commencer par une lettre."
     )
     raise typer.Exit(1)
 
