@@ -175,8 +175,10 @@ def test_crud_feature_projection_executes_all_routes_and_error_mappings(
     deleted = client.delete(f"/v1/todos/{uuid}")
     assert deleted.status_code == 200
     assert deleted.json() == {"deleted": True}
-    assert client.get(f"/v1/todos/{uuid}").status_code == 404
-    assert client.delete(f"/v1/todos/{uuid}").status_code == 404
+    missing_after_delete = client.get(f"/v1/todos/{uuid}")
+    repeated_delete = client.delete(f"/v1/todos/{uuid}")
+    assert missing_after_delete.status_code == 404
+    assert repeated_delete.status_code == 404
 
     openapi = application.openapi()["paths"]
     assert set(openapi) == {"/v1/todos", "/v1/todos/{uuid}"}
