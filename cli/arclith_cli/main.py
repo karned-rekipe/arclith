@@ -31,6 +31,7 @@ from .guide import guide_command, run_interactive_guide, should_launch_guide
 from .init_project import init_project_cmd
 from .new_project import new_project_cmd as _new_project_cmd
 from .project_status_cli import doctor_command, status_command
+from .project_runtime_cli import run_command
 from .recipe import (
     adapter_secret_metadata,
     snapshot_project_files,
@@ -57,6 +58,7 @@ app.command(name="add-blueprint")(add_blueprint_command)
 app.command(name="guide")(guide_command)
 app.command(name="status")(status_command)
 app.command(name="doctor")(doctor_command)
+app.command(name="run")(run_command)
 
 _ENTITY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
 _PROJECT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")

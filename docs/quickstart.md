@@ -49,6 +49,7 @@ arclith-cli add-adapter --capability repository --adapter memory --yes
 arclith-cli add-adapter --capability api --adapter fastapi --param port=8765 --yes
 arclith-cli expose-usecase create-todo --via fastapi --feature todos \
   --path /v1/todos --method POST --status-code 201
+arclith-cli run api
 ```
 
 `init` n'installe aucun transport. La commande `add-adapter` ci-dessus ajoute le
@@ -67,6 +68,10 @@ arclith-cli expose-feature todo --via fastapi --path /v1/todos
 Le profil crée le cœur applicatif ; `expose-feature` constitue la décision
 séparée qui publie ses cinq opérations sur l'adapter déjà installé. Consulter le
 [blueprint CRUD](blueprints/crud.md) pour le contrat HTTP et ses erreurs.
+
+`arclith-cli run api` exécute `uv run` dans la racine détectée et conserve le
+serveur en avant-plan jusqu'à `Ctrl+C`. Le port et le reload restent pilotés par
+la configuration FastAPI générée.
 
 Chaque commande mutante réussie enrichit `arclith.recipe.yaml`. Ce fichier
 versionné conserve les décisions de scaffolding sans remplacer Git et sans
