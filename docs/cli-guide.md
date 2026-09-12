@@ -1,25 +1,53 @@
-# Guide interactif Arclith CLI
+# Cockpit et guide interactif Arclith CLI
 
-Le guide interactif transforme la CLI en session persistante : vous choisissez
-le résultat attendu, Arclith construit un plan complet, affiche les commandes
-équivalentes, puis attend une confirmation unique avant d'écrire.
+Le cockpit plein écran transforme la CLI en espace de travail persistant : vous
+choisissez le résultat attendu, Arclith construit un plan complet, affiche les
+commandes équivalentes, génère le projet, puis permet de l'inspecter et de lancer
+ses transports sans quitter l'interface.
 
 ```bash
 arclith-cli
 ```
 
-Dans un vrai terminal, cette commande ouvre le guide. Dans un pipe, un script,
+Dans un vrai terminal, cette commande ouvre la TUI plein écran. Dans un pipe, un script,
 une CI ou un terminal déclaré `TERM=dumb`, elle conserve le comportement
 non-interactif historique et affiche l'aide avec un code de sortie `0`. Pour
-ouvrir explicitement le guide :
+ouvrir explicitement le cockpit :
+
+```bash
+arclith-cli tui
+```
+
+Le guide Questionary historique reste disponible comme interface de repli et
+pour le catalogue avancé complet :
 
 ```bash
 arclith-cli guide
 ```
 
+## Interface plein écran
+
+La TUI repose sur des écrans distincts et conserve le moteur de planification
+indépendant de l'interface :
+
+- un accueil pour créer ou ouvrir un projet ;
+- un formulaire adaptatif couvrant les six intentions Arclith ;
+- un aperçu permanent du plan et des commandes directes ;
+- une progression visible pendant la génération atomique ;
+- un tableau de bord fondé sur l'état réel du disque ;
+- un cockpit runtime avec sélection du transport, logs, démarrage, arrêt et
+  redémarrage ;
+- une disposition réduite automatiquement dans les terminaux étroits ;
+- navigation clavier, footer de raccourcis et palette de commandes Textual.
+
+Les raccourcis principaux du tableau de bord sont `s` pour démarrer, `x` pour
+arrêter, `r` pour actualiser, `n` pour un nouveau projet, `g` pour le guide
+avancé et `q` pour quitter. Un runtime actif est arrêté avant la fermeture de
+l'application afin de ne pas laisser de processus orphelin.
+
 ## Créer par intention
 
-Le premier écran ne demande pas de connaître les commandes Arclith. Il propose
+L'écran de création ne demande pas de connaître les commandes Arclith. Il propose
 six résultats :
 
 | Intention | Cœur généré | Décisions techniques explicites | Exposition |
@@ -51,9 +79,9 @@ Ces commandes restent utilisables indépendamment dans un script. Les paramètre
 secrets éventuellement saisis dans le parcours avancé sont masqués dans le plan
 et dans `arclith.recipe.yaml`.
 
-## Continuer dans le même menu
+## Continuer dans le tableau de bord
 
-Après la création, le guide reste ouvert sur le nouveau projet. Lancé depuis
+Après la création, le cockpit reste ouvert sur le nouveau projet. Lancé depuis
 n'importe quel sous-répertoire d'un projet Arclith, il retrouve automatiquement
 la racine et affiche :
 
@@ -63,7 +91,7 @@ la racine et affiche :
 - les adapters réellement installés ;
 - les anomalies de manifeste ou de recette.
 
-Le menu permet ensuite d'ajouter une entité, un cas d'usage ou n'importe quel
+Le guide avancé permet ensuite d'ajouter une entité, un cas d'usage ou n'importe quel
 adapter du catalogue, puis d'exposer un cas d'usage via FastAPI, FastMCP,
 LangGraph ou RabbitMQ. Une action impossible reste désactivée tant que ses
 prérequis ne sont pas présents.
@@ -102,8 +130,9 @@ recette est absent ou illisible.
 
 ## Lancer le projet
 
-La CLI peut aussi synchroniser l'environnement du projet et lancer un transport
-en avant-plan :
+Le tableau de bord sélectionne les transports réellement installés et permet de
+les démarrer, arrêter ou redémarrer tout en conservant leurs logs dans un panneau
+dédié. La même opération reste disponible hors TUI, en avant-plan :
 
 ```bash
 arclith-cli run api
