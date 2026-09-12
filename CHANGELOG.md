@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Guide projet persistant** — `arclith-cli` ouvre dans un vrai terminal un
+  menu contextuel pour créer un socle minimal, une API CRUD ou ciblée, un
+  serveur MCP, un agent LangGraph ou un worker RabbitMQ, puis continuer à faire
+  évoluer le projet sans relancer la CLI.
+- **Plans auditables et génération atomique** — chaque parcours affiche ses
+  commandes équivalentes avant confirmation ; les créations et rejeux complets
+  passent par un staging nettoyé en cas d'échec et refusent toute cible existante.
+- **État et diagnostic** — `status`, `status --json` et `doctor` inspectent les
+  entités, cas d'usage, features, adapters et métadonnées réellement présents.
+
+### Changed
+
+- **Compatibilité non interactive préservée** — sans TTY, dans une CI ou avec
+  `TERM=dumb`, la commande racine continue d'afficher l'aide avec succès ; les
+  commandes directes restent disponibles et le guide ne crée aucun adapter
+  implicitement.
+
 ---
 
 ## [0.27.0] — 2026-09-11

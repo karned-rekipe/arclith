@@ -11,9 +11,42 @@ implicite.
 uv tool install "git+https://github.com/karned-rekipe/arclith.git#subdirectory=cli"
 ```
 
-## Commandes
+## Guide interactif
 
-Exécuter `arclith-cli` sans argument affiche cette liste de commandes et termine sans erreur.
+Exécuter `arclith-cli` sans argument dans un vrai terminal ouvre une session
+persistante. Le guide propose un résultat (socle minimal, API CRUD, API sur
+mesure, serveur MCP, agent LangGraph ou worker RabbitMQ), collecte uniquement
+les décisions nécessaires, affiche le plan et les commandes équivalentes, puis
+demande confirmation avant d'écrire :
+
+```bash
+arclith-cli
+# ou explicitement
+arclith-cli guide
+```
+
+Après la création, le menu reste ouvert sur le projet afin d'ajouter une entité,
+un cas d'usage, un adapter ou une exposition sans relancer la CLI. Une création
+ou un replay complet utilise un staging atomique : la cible finale n'apparaît
+qu'après la réussite de toutes les étapes et une cible existante n'est jamais
+écrasée.
+
+Dans un pipe, un script, une CI ou avec `TERM=dumb`, l'appel sans argument reste
+non interactif : il affiche l'aide et termine avec succès. Toutes les commandes
+directes restent stables et sont montrées dans le plan du guide.
+
+Le projet courant peut aussi être inspecté sans ouvrir le menu :
+
+```bash
+arclith-cli status
+arclith-cli status --json
+arclith-cli doctor
+```
+
+La documentation complète est disponible dans le
+[guide interactif](https://karned-rekipe.github.io/arclith/cli-guide/).
+
+## Commandes
 
 ### `init` — Initialiser un projet minimal
 

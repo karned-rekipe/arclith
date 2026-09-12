@@ -42,6 +42,7 @@ nav:
       - Le chemin hexagonal: foundations/hexagonal-flow.md
       - Modes runtime: foundations/runtime-modes.md
       - Recettes CLI: cli-recipe.md
+      - Guide interactif CLI: cli-guide.md
   - Blueprints:
       - Vue d'ensemble: blueprints.md
       - CRUD: blueprints/crud.md
