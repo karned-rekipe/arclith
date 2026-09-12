@@ -4,15 +4,16 @@ Framework Python 3.13 pour construire des microservices hexagonaux avec domaine,
 adapters, FastAPI, FastMCP, bus, canaux conversationnels, agents, configuration, observabilité et
 runtime Docker.
 
-Pour construire un projet pas à pas dans une session guidée, lancez
-`uvx --from arclith-cli arclith-cli` sans argument. Les commandes directes
-restent disponibles pour les scripts et la CI.
+Pour construire puis piloter un projet sans quitter le terminal, lancez
+`uvx --from arclith-cli arclith-cli` sans argument : le cockpit plein écran
+guide la création, inspecte le projet et démarre ses runtimes avec leurs logs.
+Les commandes directes restent disponibles pour les scripts et la CI.
 
 ```bash
 uvx --from arclith-cli arclith-cli init my-service --dir .
 cd my-service
 uv sync
-MODE=api uv run python main.py
+uvx --from arclith-cli arclith-cli run api
 curl -fsS http://127.0.0.1:9000/health
 ```
 

@@ -23,16 +23,17 @@ uv tool install arclith-cli
 arclith-cli version
 ```
 
-Pour le parcours recommandé dans un terminal, lancer simplement :
+Pour le parcours recommandé dans un terminal, lancer simplement le cockpit plein
+écran :
 
 ```bash
 arclith-cli
 ```
 
-Le guide persistant demande le résultat attendu, montre le plan complet avant
-toute écriture et continue dans le nouveau projet. Il couvre le socle minimal,
-l'API REST CRUD ou ciblée, FastMCP, LangGraph et RabbitMQ, sans rendre implicite
-le choix du repository ou du transport. Voir le
+La TUI demande le résultat attendu, montre le plan complet avant toute écriture,
+continue dans le nouveau projet et permet d'y démarrer l'API avec ses logs. Elle
+couvre le socle minimal, l'API REST CRUD ou ciblée, FastMCP, LangGraph et
+RabbitMQ, sans rendre implicite le choix du repository ou du transport. Voir le
 [guide interactif Arclith CLI](cli-guide.md).
 
 Les commandes ci-dessous restent l'équivalent direct pour les scripts et la CI.

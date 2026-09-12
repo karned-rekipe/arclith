@@ -15,10 +15,11 @@ authors = [
 keywords = ["arclith", "scaffold", "hexagonal-architecture", "cli", "ddd"]
 dependencies = [
     "typer>=0.15.0",
-    "rich>=13.0.0",
+    "rich>=14.2.0,<15.0.0",
     "httpx>=0.27.0",
     "arclith>=0.27.0",
     "questionary>=2.1.1,<3.0.0",
+    "textual>=8.2.8,<9.0.0",
 ]
 
 [tool.uv.sources]

@@ -4,8 +4,14 @@
 
 ### Added
 
+- **Cockpit plein écran** — l'appel `arclith-cli` et la commande explicite `tui`
+  ouvrent une interface Textual moderne pour créer ou ouvrir un projet, prévisualiser
+  son plan, suivre sa génération et inspecter son état réel.
+- **Contrôle runtime intégré** — le tableau de bord détecte les transports
+  installés, diffuse leurs logs et permet démarrage, arrêt et redémarrage sans
+  laisser de processus enfant après la fermeture.
 - **Guide projet persistant** — `arclith-cli` ouvre dans un vrai terminal un
-  menu contextuel pour créer un socle minimal, une API CRUD ou ciblée, un
+  cockpit contextuel pour créer un socle minimal, une API CRUD ou ciblée, un
   serveur MCP, un agent LangGraph ou un worker RabbitMQ, puis continuer à faire
   évoluer le projet sans relancer la CLI.
 - **Plans auditables et génération atomique** — chaque parcours affiche ses
@@ -19,6 +25,9 @@
 
 ### Changed
 
+- **Guide compact préservé** — `arclith-cli guide` conserve le parcours
+  Questionary et l'accès à toutes les mutations avancées du catalogue depuis le
+  cockpit.
 - **Compatibilité non interactive préservée** — sans TTY, dans une CI ou avec
   `TERM=dumb`, la commande racine continue d'afficher l'aide avec succès ; les
   commandes directes restent disponibles et le guide ne crée aucun adapter
