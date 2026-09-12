@@ -100,6 +100,36 @@ encore exactement le projet. La sortie JSON est adaptée aux scripts. `doctor`
 retourne un code non nul si le projet est introuvable ou si un manifeste ou la
 recette est absent ou illisible.
 
+## Lancer le projet
+
+La CLI peut aussi synchroniser l'environnement du projet et lancer un transport
+en avant-plan :
+
+```bash
+arclith-cli run api
+```
+
+La commande retrouve la racine depuis n'importe quel sous-répertoire, vérifie
+que l'adapter correspondant est réellement installé, puis exécute le point
+d'entrée généré avec `uv`. Le host, le port et le reload restent définis dans
+`config/adapters/inbound/fastapi.yaml`; `run` n'introduit pas de seconde
+configuration. L'URL locale est affichée avant le démarrage et `Ctrl+C` arrête
+le processus.
+
+Les autres modes du point d'entrée généré sont également disponibles lorsqu'ils
+ont leurs adapters :
+
+```bash
+arclith-cli run mcp_http
+arclith-cli run mcp_sse
+arclith-cli run bus
+arclith-cli run all
+```
+
+Le processus reste volontairement attaché au terminal : la CLI ne crée ni
+daemon caché, ni fichier PID global, ni runtime concurrent. Cette propriété
+garantit une propagation normale des logs, du code de sortie et des signaux.
+
 Pour retrouver toutes les options spécialisées, utilisez toujours :
 
 ```bash

@@ -13,6 +13,9 @@
   passent par un staging nettoyé en cas d'échec et refusent toute cible existante.
 - **État et diagnostic** — `status`, `status --json` et `doctor` inspectent les
   entités, cas d'usage, features, adapters et métadonnées réellement présents.
+- **Runtime projet** — `arclith-cli run api` synchronise avec `uv`, valide le
+  transport installé et lance le point d'entrée généré en avant-plan ; les modes
+  MCP, bus et multi-transport sont exposés selon les adapters présents.
 
 ### Changed
 

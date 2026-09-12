@@ -157,7 +157,7 @@ arclith-cli expose-usecase create-todo --via fastapi --feature todos \\
   --path /v1/todos --method POST --status-code 201
 uv sync
 uv run python -m pytest
-MODE=api uv run python main.py
+arclith-cli run api
 ```
 
 Le parcours fonctionne immédiatement avec les seuls champs techniques de

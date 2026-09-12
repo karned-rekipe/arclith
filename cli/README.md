@@ -41,7 +41,14 @@ Le projet courant peut aussi être inspecté sans ouvrir le menu :
 arclith-cli status
 arclith-cli status --json
 arclith-cli doctor
+arclith-cli run api
 ```
+
+`run` retrouve la racine du projet, vérifie le transport installé, synchronise
+l'environnement avec `uv` et conserve le runtime en avant-plan. Les modes
+`mcp_http`, `mcp_sse`, `bus` et `all` sont proposés lorsque leurs adapters sont
+présents. Les logs et le code de sortie restent ceux du processus généré ;
+`Ctrl+C` l'arrête normalement.
 
 La documentation complète est disponible dans le
 [guide interactif](https://karned-rekipe.github.io/arclith/cli-guide/).
