@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Callable
+from contextlib import suppress
 import os
 import signal
 
@@ -47,17 +48,13 @@ class ManagedRuntime:
         process = self._process
         if process is None or process.returncode is not None:
             return False
-        try:
+        with suppress(ProcessLookupError):
             self._interrupt(process)
-        except ProcessLookupError:
-            pass
         try:
             await asyncio.wait_for(process.wait(), timeout=timeout)
         except TimeoutError:
-            try:
+            with suppress(ProcessLookupError):
                 self._kill(process)
-            except ProcessLookupError:
-                pass
             await process.wait()
         if self._process is process:
             self._process = None
