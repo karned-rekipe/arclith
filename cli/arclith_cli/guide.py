@@ -4,8 +4,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TextIO
 
-from click.exceptions import Exit
 from rich.console import Console
+import typer
 
 from arclith_cli.capabilities import CAPABILITY_CATALOG, get_capability
 from arclith_cli.capability_models import AdapterSpec, ParameterSpec
@@ -84,14 +84,14 @@ def run_interactive_guide(
         except GuideCancelled:
             renderer.warning("Guide fermé. Aucun choix en attente n'a été appliqué.")
             return
-        except (GuidePlanError, OSError, SyntaxError, ValueError, Exit) as exc:
+        except (GuidePlanError, OSError, SyntaxError, ValueError, typer.Exit) as exc:
             message = _guide_error_message(exc)
             if message is not None:
                 renderer.error(message)
 
 
 def _guide_error_message(exc: Exception) -> str | None:
-    if isinstance(exc, Exit):
+    if isinstance(exc, typer.Exit):
         if exc.exit_code == 0:
             return None
         return "L'étape Arclith a été refusée ; le guide reste ouvert."
