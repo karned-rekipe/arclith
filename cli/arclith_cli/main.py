@@ -27,8 +27,10 @@ from .command_recording import record_success as _record_success
 from .core_scaffold import add_intent_interpreter_cmd, add_usecase_cmd
 from .export_config import export_config_cmd
 from .feature_projection_cli import expose_feature_command
+from .guide import guide_command, run_interactive_guide, should_launch_guide
 from .init_project import init_project_cmd
 from .new_project import new_project_cmd as _new_project_cmd
+from .project_status_cli import doctor_command, status_command
 from .recipe import (
     adapter_secret_metadata,
     snapshot_project_files,
@@ -52,6 +54,9 @@ app.command(name="expose-feature")(expose_feature_command)
 app.command(name="add-entity")(add_entity_command)
 app.command(name="blueprints")(blueprints_command)
 app.command(name="add-blueprint")(add_blueprint_command)
+app.command(name="guide")(guide_command)
+app.command(name="status")(status_command)
+app.command(name="doctor")(doctor_command)
 
 _ENTITY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
 _PROJECT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
@@ -59,9 +64,12 @@ _PROJECT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
 
 @app.callback()
 def main(ctx: typer.Context) -> None:
-    """Afficher l'aide quand aucune commande n'est fournie."""
+    """Lancer le guide dans un terminal, sinon afficher l'aide stable."""
     if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
+        if should_launch_guide():
+            run_interactive_guide()
+        else:
+            typer.echo(ctx.get_help())
 
 
 @app.command()
