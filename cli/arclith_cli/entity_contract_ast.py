@@ -13,10 +13,13 @@ def module_imports(tree: ast.Module) -> tuple[ast.Import | ast.ImportFrom, ...]:
         for statement in tree.body
         if isinstance(statement, (ast.Import, ast.ImportFrom))
     ]
-    type_checking_names = {"TYPE_CHECKING"}
-    typing_modules = {"typing", "typing_extensions"}
+    type_checking_names: set[str] = set()
+    typing_modules: set[str] = set()
     for statement in imports:
-        if isinstance(statement, ast.ImportFrom) and statement.module in typing_modules:
+        if isinstance(statement, ast.ImportFrom) and statement.module in {
+            "typing",
+            "typing_extensions",
+        }:
             type_checking_names.update(
                 alias.asname or alias.name
                 for alias in statement.names

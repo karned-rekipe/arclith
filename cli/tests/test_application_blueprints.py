@@ -662,6 +662,13 @@ except ImportError:
         "from typing import TYPE_CHECKING as TC",
         "from .product_types import Money",
     }
+    shadowed = ast.parse(
+        '''TYPE_CHECKING = False
+if TYPE_CHECKING:
+    import unavailable_dependency
+'''
+    )
+    assert module_imports(shadowed) == ()
 
 
 def _run(awaitable: Coroutine[Any, Any, T]) -> T:
