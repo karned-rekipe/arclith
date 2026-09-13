@@ -5,7 +5,10 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 
-from arclith_cli.entity_contract_ast import module_imports
+from arclith_cli.module_bindings import (
+    conditional_module_bindings,
+    module_imports,
+)
 from arclith_cli.entity_input_aliases import static_input_aliases
 
 
@@ -33,7 +36,17 @@ def typing_references(
     before_line: int | None = None,
 ) -> TypingReferences:
     """Resolve aliases for annotation markers imported from typing modules."""
-    markers = ("Annotated", "ClassVar", "Final", "Literal", "TypeAlias")
+    markers = (
+        "Annotated",
+        "ClassVar",
+        "Final",
+        "List",
+        "Literal",
+        "Optional",
+        "Set",
+        "TypeAlias",
+        "Union",
+    )
     names: dict[str, set[str]] = {marker: set() for marker in markers}
     modules: set[str] = set()
 
@@ -45,8 +58,16 @@ def typing_references(
     imports = set(module_imports(tree))
     statements = list(tree.body)
     statements.extend(statement for statement in imports if statement not in tree.body)
-    for statement in sorted(statements, key=lambda item: item.lineno):
-        if before_line is not None and statement.lineno > before_line:
+    events: list[tuple[int, int, ast.stmt | str]] = [
+        (statement.lineno, statement.col_offset, statement)
+        for statement in statements
+    ]
+    events.extend(conditional_module_bindings(tree))
+    for line, _, statement in sorted(events, key=lambda item: item[:2]):
+        if before_line is not None and line > before_line:
+            continue
+        if isinstance(statement, str):
+            clear(statement)
             continue
         if isinstance(statement, ast.ImportFrom):
             if statement not in imports:
@@ -120,6 +141,15 @@ def validate_model_config(
     if class_alias_generator is not False:
         _raise_alias_generator_error(entity_name, class_alias_generator, "class")
     for statement in model.body:
+        if isinstance(statement, ast.ClassDef) and statement.name == "Config":
+            alias_generator = _legacy_config_has_alias_generator(statement)
+            if alias_generator is not False:
+                _raise_alias_generator_error(
+                    entity_name,
+                    alias_generator,
+                    "legacy Config",
+                )
+            continue
         value = _direct_model_config_value(statement)
         if value is None:
             finder = _ModelConfigReferenceFinder()
@@ -139,6 +169,28 @@ def validate_model_config(
         )
         if alias_generator is not False:
             _raise_alias_generator_error(entity_name, alias_generator, "model_config")
+
+
+def _legacy_config_has_alias_generator(model: ast.ClassDef) -> bool | None:
+    if model.bases or model.keywords or model.decorator_list or model.type_params:
+        return None
+    for statement in model.body:
+        if isinstance(statement, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "alias_generator"
+            for target in statement.targets
+        ):
+            return True
+        if (
+            isinstance(statement, ast.AnnAssign)
+            and isinstance(statement.target, ast.Name)
+            and statement.target.id == "alias_generator"
+        ):
+            return True
+        finder = _LegacyConfigReferenceFinder()
+        finder.visit(statement)
+        if finder.found:
+            return None
+    return False
 
 
 def _raise_alias_generator_error(
@@ -183,6 +235,27 @@ class _ModelConfigReferenceFinder(ast.NodeVisitor):
 
     def visit_Name(self, node: ast.Name) -> None:
         if node.id == "model_config":
+            self.found = True
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        return
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        return
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        return
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        return
+
+
+class _LegacyConfigReferenceFinder(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.found = False
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if node.id == "alias_generator":
             self.found = True
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:

@@ -8,6 +8,10 @@ from pathlib import Path
 
 from arclith_cli.binding_annotations import BindingAnnotationReferences
 from arclith_cli.binding_imports import request_imports
+from arclith_cli.entity_contract_ast import (
+    field_dependencies,
+    qualify_class_dependencies,
+)
 from arclith_cli.import_origins import (
     absolute_import,
     pydantic_base_model_references,
@@ -189,14 +193,17 @@ def _response_contract(
         annotations.is_pydantic_base_model(base) for base in model.bases
     ):
         raise ValueError("Automatic binding requires a Pydantic result model")
-    fields = _request_fields(model)
+    fields = qualify_class_dependencies(
+        model,
+        tuple(_request_fields(model)),
+        result.id,
+        annotations.typing.kind,
+    )
     rendered = tuple(ast.unparse(field) for field in fields)
     if entity_model:
         rendered = (*_ENTITY_RESPONSE_FIELDS, *rendered)
-    used: set[str] = set()
-    for field in fields:
-        used.update(_loaded_names(field))
-    used.difference_update(_class_bound_names(model))
+    used = field_dependencies(fields, annotations.typing.kind)
+    used.discard(result.id)
     imports = request_imports(
         model_tree,
         used,
@@ -471,7 +478,13 @@ def _request_fields(request: ast.ClassDef) -> list[ast.AnnAssign]:
 
 
 def _used_names(request: ast.ClassDef, fields: list[ast.AnnAssign]) -> set[str]:
-    names = _loaded_names(request)
+    names = {
+        name
+        for statement in request.body
+        for name in _loaded_names(statement)
+    }
+    for class_keyword in request.keywords:
+        names.update(_loaded_names(class_keyword.value))
     for field in fields:
         names.update(_loaded_names(_annotation(field.annotation)))
     names.difference_update(_class_bound_names(request))

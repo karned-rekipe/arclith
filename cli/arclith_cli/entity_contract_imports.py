@@ -6,7 +6,8 @@ import ast
 import builtins
 from collections.abc import Callable
 
-from arclith_cli.entity_contract_ast import field_dependencies, module_bindings_before
+from arclith_cli.entity_contract_ast import field_dependencies
+from arclith_cli.module_bindings import module_bindings_before
 from arclith_cli.import_origins import absolute_import
 
 

@@ -4,7 +4,10 @@ import ast
 import sys
 from pathlib import Path
 
-from arclith_cli.entity_contract_ast import module_bindings_before
+from arclith_cli.module_bindings import (
+    conditional_module_bindings,
+    module_bindings_before,
+)
 from arclith_cli.project_paths import ProjectPaths
 
 
@@ -332,8 +335,16 @@ def _module_pydantic_bindings(
         names.discard(name)
         modules.discard(name)
 
-    for statement in tree.body:
-        if before_line is not None and statement.lineno > before_line:
+    events: list[tuple[int, int, ast.stmt | str]] = [
+        (statement.lineno, statement.col_offset, statement)
+        for statement in tree.body
+    ]
+    events.extend(conditional_module_bindings(tree))
+    for line, _, statement in sorted(events, key=lambda item: item[:2]):
+        if before_line is not None and line > before_line:
+            continue
+        if isinstance(statement, str):
+            clear(statement)
             continue
         if isinstance(statement, ast.ImportFrom):
             imported_module = project_absolute_import(paths, statement, module)

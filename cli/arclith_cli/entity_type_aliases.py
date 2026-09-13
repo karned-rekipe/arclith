@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 
-from arclith_cli.entity_contract_ast import module_bindings_before
+from arclith_cli.module_bindings import module_bindings_before
 from arclith_cli.entity_contract_validation import (
     TypingReferences,
     is_pydantic_field,

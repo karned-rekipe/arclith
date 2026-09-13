@@ -58,6 +58,7 @@ def render_contract(
     declaration = tree.body[0]
     assert isinstance(declaration, ast.ClassDef)
     declaration.name = contract.transport_request
+    declaration.bases = [ast.Name(id=support.base_model, ctx=ast.Load())]
     declaration.body = [
         statement
         for statement in declaration.body

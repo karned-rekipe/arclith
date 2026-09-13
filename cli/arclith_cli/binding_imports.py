@@ -3,7 +3,7 @@
 import ast
 import builtins
 
-from arclith_cli.entity_contract_ast import module_bindings_before
+from arclith_cli.module_bindings import module_bindings_before
 from arclith_cli.import_origins import absolute_import
 
 

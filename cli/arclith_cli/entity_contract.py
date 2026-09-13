@@ -27,6 +27,7 @@ from arclith_cli.import_origins import (
     pydantic_field_info_references,
     pydantic_field_references,
 )
+from arclith_cli.module_bindings import uncertain_module_bindings_before
 from arclith_cli.project_paths import ProjectPaths
 from arclith_cli.entity_type_aliases import (
     validate_type_alias_metadata as _validate_type_alias_metadata,
@@ -81,6 +82,15 @@ def inspect_entity_contract(
     model_line = models[0].lineno
     typing = typing_references(tree, before_line=model_line)
     fields = tuple(_business_fields(models[0], typing))
+    uncertain_dependencies = field_dependencies(fields, typing.kind) & set(
+        uncertain_module_bindings_before(tree, model_line)
+    )
+    if uncertain_dependencies:
+        raise ValueError(
+            "Entity field dependencies rebound through module control flow "
+            "cannot be projected safely: "
+            + ", ".join(sorted(uncertain_dependencies))
+        )
     fields = qualify_class_dependencies(
         models[0],
         fields,

@@ -24,7 +24,7 @@ from arclith_cli.blueprint_generation import (
     plan_application_blueprint,
 )
 from arclith_cli.core_scaffold import add_entity_cmd
-from arclith_cli.entity_contract_ast import module_imports
+from arclith_cli.module_bindings import module_imports
 from arclith_cli.feature_manifest import load_feature_manifest
 from arclith_cli.init_project import init_project_cmd
 from arclith_cli.main import app
@@ -909,6 +909,61 @@ class Todo(Entity):
     )
 
     with pytest.raises(ValueError, match="alias_generator.*cannot be projected"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+def test_crud_blueprint_rejects_legacy_config_alias_generators(tmp_path: Path) -> None:
+    project = _project(tmp_path, "legacy-alias-service")
+    entity = project / "src/legacy_alias_service/domain/models/todo.py"
+    entity.write_text(
+        """from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    class Config:
+        alias_generator = str.upper
+
+    external_id: str
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="legacy Config.*alias_generator"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+def test_crud_blueprint_rejects_conditional_pydantic_rebinding(tmp_path: Path) -> None:
+    project = _project(tmp_path, "conditional-field-service")
+    entity = project / "src/conditional_field_service/domain/models/todo.py"
+    entity.write_text(
+        """from pydantic import Field
+
+from arclith.domain.models.entity import Entity
+
+USE_CUSTOM = False
+if USE_CUSTOM:
+    Field = object
+
+
+class Todo(Entity):
+    external_id: str = Field(alias="uuid")
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="control flow.*Field"):
         add_application_blueprint_cmd(
             project_dir=project,
             blueprint_name="crud",

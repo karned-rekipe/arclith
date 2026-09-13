@@ -4,7 +4,11 @@ import ast
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from arclith_cli.entity_contract_ast import module_imports
+from arclith_cli.module_bindings import (
+    conditional_module_bindings,
+    module_imports,
+)
+from arclith_cli.entity_contract_validation import TypingReferences, typing_references
 
 _BUILTIN_SCALAR_ANNOTATIONS = frozenset(
     {
@@ -24,6 +28,7 @@ class BindingAnnotationReferences:
     scalar_names: frozenset[str]
     pydantic_base_names: frozenset[str]
     pydantic_modules: frozenset[str]
+    typing: TypingReferences
 
     @classmethod
     def from_tree(
@@ -47,8 +52,16 @@ class BindingAnnotationReferences:
         statements.extend(
             statement for statement in imports if statement not in tree.body
         )
-        for statement in sorted(statements, key=lambda item: item.lineno):
-            if before_line is not None and statement.lineno > before_line:
+        events: list[tuple[int, int, ast.stmt | str]] = [
+            (statement.lineno, statement.col_offset, statement)
+            for statement in statements
+        ]
+        events.extend(conditional_module_bindings(tree))
+        for line, _, statement in sorted(events, key=lambda item: item[:2]):
+            if before_line is not None and line > before_line:
+                continue
+            if isinstance(statement, str):
+                scalar_names.discard(statement)
                 continue
             if isinstance(statement, ast.ImportFrom):
                 if statement not in imports:
@@ -100,6 +113,7 @@ class BindingAnnotationReferences:
             scalar_names=frozenset(scalar_names),
             pydantic_base_names=frozenset(resolved_base_names),
             pydantic_modules=frozenset(resolved_pydantic_modules),
+            typing=typing_references(tree, before_line=before_line),
         )
 
     def is_pydantic_base_model(self, base: ast.expr) -> bool:
@@ -138,7 +152,7 @@ class BindingAnnotationReferences:
             return self._path_union((node.left, node.right))
         if not isinstance(node, ast.Subscript):
             return False
-        name = node.value.id if isinstance(node.value, ast.Name) else ""
+        name = self.typing.kind(node.value)
         args = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
         if name == "Annotated":
             return self.path_compatible(args[0])
@@ -164,7 +178,7 @@ class BindingAnnotationReferences:
         return bool(members) and all(self.path_compatible(node) for node in members)
 
     def _query_generic(self, node: ast.Subscript) -> bool:
-        name = node.value.id if isinstance(node.value, ast.Name) else ""
+        name = self.typing.kind(node.value)
         args = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
         if name == "Annotated":
             return self.query_compatible(args[0])
@@ -174,14 +188,11 @@ class BindingAnnotationReferences:
                 and isinstance(value.value, (str, int, float, bool))
                 for value in args
             )
-        if name in {
+        builtin_name = node.value.id if isinstance(node.value, ast.Name) else ""
+        if name in {"List", "Set", "Optional", "Union"} or builtin_name in {
             "list",
             "set",
             "frozenset",
-            "List",
-            "Set",
-            "Optional",
-            "Union",
         }:
             return all(self.query_compatible(value) for value in args)
         return False

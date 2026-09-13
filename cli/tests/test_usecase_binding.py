@@ -174,6 +174,72 @@ def test_module_qualified_pydantic_models_build_a_functional_http_binding(projec
     assert response.json() == {"title": "qualified"}
 
 
+def test_deferred_response_annotations_keep_their_imports(project):
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        "from decimal import Decimal\nfrom pydantic import BaseModel, Field",
+    ).replace(
+        "class CreateTodoResult(BaseModel):\n    title: str",
+        'class CreateTodoResult(BaseModel):\n'
+        '    amount: "Decimal | None" = None\n'
+        "    title: str",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+
+    registry = _bind(project, "fastapi", http_path="/v1/todos")
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+    generated = (
+        project / "src/binding_app/adapters/inbound/fastapi/contracts/create_todo.py"
+    ).read_text(encoding="utf-8")
+
+    with TestClient(api) as client:
+        response = client.post("/v1/todos", json={"title": "deferred"})
+
+    assert "from decimal import Decimal" in generated
+    assert response.status_code == 200
+    assert response.json() == {"amount": None, "title": "deferred"}
+
+
+def test_response_fields_qualify_class_local_type_aliases(project):
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        "from uuid import UUID\nfrom pydantic import BaseModel, Field",
+    ).replace(
+        "class CreateTodoResult(BaseModel):\n    title: str",
+        "class CreateTodoResult(BaseModel):\n"
+        "    type ItemId = UUID\n"
+        "    item_id: ItemId = UUID(int=0)\n"
+        "    title: str",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+
+    registry = _bind(project, "fastapi", http_path="/v1/todos")
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+    generated = (
+        project / "src/binding_app/adapters/inbound/fastapi/contracts/create_todo.py"
+    ).read_text(encoding="utf-8")
+
+    with TestClient(api) as client:
+        response = client.post("/v1/todos", json={"title": "class alias"})
+
+    assert "item_id: CreateTodoResult.ItemId" in generated
+    assert response.status_code == 200
+    assert response.json() == {
+        "item_id": "00000000-0000-0000-0000-000000000000",
+        "title": "class alias",
+    }
+
+
 @pytest.mark.parametrize(
     ("support_import", "base"),
     (
@@ -265,6 +331,34 @@ BaseModel = PydanticBaseModel
 
     assert response.status_code == 201
     assert response.json() == {"title": "assignment re-export"}
+
+
+def test_local_assignment_base_model_uses_the_transport_base(project):
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        "import pydantic\nfrom pydantic import Field\n\n"
+        "BaseModel = pydantic.BaseModel",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+
+    registry = _bind(project, "fastapi", http_path="/v1/todos", status_code=201)
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+    generated = (
+        project / "src/binding_app/adapters/inbound/fastapi/contracts/create_todo.py"
+    ).read_text(encoding="utf-8")
+
+    with TestClient(api) as client:
+        response = client.post("/v1/todos", json={"title": "local alias"})
+
+    assert "BaseModel = pydantic.BaseModel" not in generated
+    assert "class CreateTodoRequest(_ArclithTransportBaseModel):" in generated
+    assert response.status_code == 201
+    assert response.json() == {"title": "local alias"}
 
 
 def test_shadowed_direct_base_model_is_rejected(project):
@@ -993,6 +1087,78 @@ def test_type_checking_scalar_import_is_accepted_for_fastapi_path(project):
     ).read_text(encoding="utf-8")
 
     assert "from uuid import UUID" in generated
+
+
+@pytest.mark.parametrize(
+    ("typing_import", "annotation", "invalid_value"),
+    (
+        ("from typing import Annotated as A", "A[int, Field(gt=0)]", "0"),
+        ("import typing as t", "t.Annotated[int, Field(gt=0)]", "0"),
+        ("from typing import Optional as Maybe", "Maybe[int]", "not-an-int"),
+    ),
+)
+def test_typing_aliases_are_accepted_for_fastapi_paths(
+    project,
+    typing_import,
+    annotation,
+    invalid_value,
+):
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        f"{typing_import}\nfrom pydantic import BaseModel, Field",
+    ).replace(
+        "title: str = Field(min_length=1)",
+        f"item_id: {annotation}\n    title: str = Field(min_length=1)",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+    registry = _bind(
+        project,
+        "fastapi",
+        http_path="/v1/todos/{item_id}",
+    )
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+
+    with TestClient(api) as client:
+        invalid = client.post(
+            f"/v1/todos/{invalid_value}",
+            json={"title": "Invalid"},
+        )
+        valid = client.post("/v1/todos/1", json={"title": "Valid"})
+
+    assert invalid.status_code == 422
+    assert valid.status_code == 200
+    assert use_case.commands[0].item_id == 1
+
+
+def test_control_flow_typing_rebinding_is_rejected_for_fastapi_path(project):
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        "from typing import Annotated\nfrom pydantic import BaseModel, Field\n\n"
+        "USE_CUSTOM = False\n"
+        "if USE_CUSTOM:\n"
+        "    Annotated = list",
+    ).replace(
+        "title: str = Field(min_length=1)",
+        "item_id: Annotated[int, Field(gt=0)]\n"
+        "    title: str = Field(min_length=1)",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="explicit mapper.*Annotated"):
+        plan_binding(
+            project,
+            "create-todo",
+            via="fastapi",
+            http_path="/v1/todos/{item_id}",
+        )
 
 
 def test_request_class_local_constant_is_not_treated_as_an_import(project):
