@@ -213,6 +213,8 @@ def _quoted_annotation_dependencies(
             kind = typing_kind(node.value)
             visit(node.value, parse_strings=parse_strings)
             if kind == "Literal":
+                for argument in _subscript_arguments(node.slice):
+                    visit(argument, parse_strings=False)
                 return
             if kind == "Annotated":
                 arguments = _subscript_arguments(node.slice)

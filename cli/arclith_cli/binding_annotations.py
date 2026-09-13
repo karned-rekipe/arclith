@@ -4,6 +4,8 @@ import ast
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from arclith_cli.entity_contract_ast import module_imports
+
 _BUILTIN_SCALAR_ANNOTATIONS = frozenset(
     {
         "str",
@@ -40,16 +42,29 @@ class BindingAnnotationReferences:
             "datetime": {"date", "datetime", "time", "timedelta"},
             "decimal": {"Decimal"},
         }
-        for statement in tree.body:
+        imports = set(module_imports(tree))
+        statements = list(tree.body)
+        statements.extend(
+            statement for statement in imports if statement not in tree.body
+        )
+        for statement in sorted(statements, key=lambda item: item.lineno):
             if before_line is not None and statement.lineno > before_line:
                 continue
             if isinstance(statement, ast.ImportFrom):
+                if statement not in imports:
+                    continue
                 exported = scalar_modules.get(statement.module or "", set())
                 for alias in statement.names:
                     local = alias.asname or alias.name
                     scalar_names.discard(local)
                     if alias.name in exported:
                         scalar_names.add(local)
+            elif isinstance(statement, ast.Import):
+                if statement not in imports:
+                    continue
+                for alias in statement.names:
+                    local = alias.asname or alias.name.split(".")[0]
+                    scalar_names.discard(local)
             elif isinstance(statement, (ast.Assign, ast.AnnAssign)):
                 targets = (
                     statement.targets

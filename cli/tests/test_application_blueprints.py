@@ -157,7 +157,7 @@ class Todo(Entity):
     assert "from decimal import Decimal" in create
     assert "from pydantic import BaseModel as _ArclithCrudBaseModel, Field" in create
     assert "from inventory_service.domain.models.todo import (" not in create
-    assert "from inventory_service.domain.models.todo import MIN_SKU_LENGTH" in create
+    assert "MIN_SKU_LENGTH = 3" in create
     assert "ProductStatus" in create
     assert (
         "sku: str = Field(min_length=MIN_SKU_LENGTH, pattern='^[A-Z0-9-]+$')" in create
@@ -2289,6 +2289,216 @@ class Todo(Entity):
             "opaque_metadata_service."
         ):
             sys.modules.pop(module)
+
+
+def test_type_checking_typing_alias_sanitizes_deferred_metadata(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path, "guarded-typing-service")
+    entity = project / "src/guarded_typing_service/domain/models/todo.py"
+    entity.write_text(
+        '''from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from pydantic import Field
+
+from arclith.domain.models.entity import Entity
+
+if TYPE_CHECKING:
+    from typing import Annotated as A
+
+
+class Todo(Entity):
+    code: "A[str, Field(exclude=True, min_length=2)]"
+''',
+        encoding="utf-8",
+    )
+
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+    source = (
+        project / "src/guarded_typing_service/domain/ports/inbound/create_todo.py"
+    ).read_text(encoding="utf-8")
+
+    assert "from typing import Annotated as A" in source
+    assert "exclude=True" not in source
+    assert "min_length=2" in source
+
+
+def test_entity_literal_default_is_snapshotted_before_a_later_rebinding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path, "default-snapshot-service")
+    entity = project / "src/default_snapshot_service/domain/models/todo.py"
+    entity.write_text(
+        '''from arclith.domain.models.entity import Entity
+
+DEFAULT = "old"
+
+
+class Todo(Entity):
+    code: str = DEFAULT
+
+
+DEFAULT = "new"
+''',
+        encoding="utf-8",
+    )
+
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+    monkeypatch.syspath_prepend(str(project / "src"))
+    contract = importlib.import_module(
+        "default_snapshot_service.domain.ports.inbound.create_todo"
+    )
+    source = (
+        project / "src/default_snapshot_service/domain/ports/inbound/create_todo.py"
+    ).read_text(encoding="utf-8")
+
+    assert "DEFAULT = 'old'" in source
+    assert contract.CreateTodoCommand().code == "old"
+
+    for module in tuple(sys.modules):
+        if module == "default_snapshot_service" or module.startswith(
+            "default_snapshot_service."
+        ):
+            sys.modules.pop(module)
+
+
+def test_deferred_literal_member_imports_its_runtime_dependency(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path, "literal-member-service")
+    entity = project / "src/literal_member_service/domain/models/todo.py"
+    entity.write_text(
+        '''from enum import Enum
+from typing import Literal
+
+from arclith.domain.models.entity import Entity
+
+
+class Status(str, Enum):
+    ACTIVE = "active"
+
+
+class Todo(Entity):
+    status: "Literal[Status.ACTIVE]"
+''',
+        encoding="utf-8",
+    )
+
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+    monkeypatch.syspath_prepend(str(project / "src"))
+    contract = importlib.import_module(
+        "literal_member_service.domain.ports.inbound.create_todo"
+    )
+    entity_module = importlib.import_module(
+        "literal_member_service.domain.models.todo"
+    )
+    source = (
+        project / "src/literal_member_service/domain/ports/inbound/create_todo.py"
+    ).read_text(encoding="utf-8")
+
+    assert "Status" in source
+    assert (
+        contract.CreateTodoCommand(status=entity_module.Status.ACTIVE).status
+        is entity_module.Status.ACTIVE
+    )
+
+    for module in tuple(sys.modules):
+        if module == "literal_member_service" or module.startswith(
+            "literal_member_service."
+        ):
+            sys.modules.pop(module)
+
+
+def test_standard_library_new_type_alias_remains_supported(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path, "new-type-service")
+    entity = project / "src/new_type_service/domain/models/todo.py"
+    entity.write_text(
+        '''from typing import NewType
+
+from arclith.domain.models.entity import Entity
+
+UserId = NewType("UserId", int)
+
+
+class Todo(Entity):
+    user_id: UserId
+''',
+        encoding="utf-8",
+    )
+
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+    monkeypatch.syspath_prepend(str(project / "src"))
+    contract = importlib.import_module(
+        "new_type_service.domain.ports.inbound.create_todo"
+    )
+
+    assert contract.CreateTodoCommand(user_id=7).user_id == 7
+
+    for module in tuple(sys.modules):
+        if module == "new_type_service" or module.startswith("new_type_service."):
+            sys.modules.pop(module)
+
+
+def test_crud_blueprint_rejects_import_collision_with_generated_contract(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path, "contract-collision-service")
+    entity = project / "src/contract_collision_service/domain/models/todo.py"
+    entity.write_text(
+        '''from pydantic import BaseModel
+
+from arclith.domain.models.entity import Entity
+
+
+class CreateTodoCommand(BaseModel):
+    value: str
+
+
+class Todo(Entity):
+    payload: CreateTodoCommand
+''',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="collide with generated CRUD"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
 
 
 def _run(awaitable: Coroutine[Any, Any, T]) -> T:

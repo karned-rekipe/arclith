@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 
+from arclith_cli.entity_contract_ast import module_bindings_before
 from arclith_cli.entity_contract_validation import (
     TypingReferences,
     is_pydantic_field,
@@ -153,7 +154,12 @@ def _validate_alias(
         pydantic_modules=set(pydantic_modules),
     )
     finder.visit(value)
-    if finder.found or any(isinstance(node, ast.Call) for node in ast.walk(value)) or any(
+    unsafe_call = any(
+        isinstance(node, ast.Call)
+        and not _is_safe_new_type_call(node, tree, before_line=before_line)
+        for node in ast.walk(value)
+    )
+    if finder.found or unsafe_call or any(
         contains_project_field_info(
             paths,
             tree,
@@ -198,6 +204,46 @@ def _reject_uninspectable_alias(
             f"Imported annotation {name!r} cannot be inspected for Pydantic "
             "metadata; inline the external type alias before projection"
         )
+
+
+def _is_safe_new_type_call(
+    node: ast.Call,
+    tree: ast.Module,
+    *,
+    before_line: int | None,
+) -> bool:
+    """Allow the standard-library NewType constructor in local aliases."""
+    line = before_line
+    if line is None:
+        line = max(
+            (getattr(candidate, "lineno", 0) for candidate in ast.walk(tree)),
+            default=0,
+        ) + 1
+    bindings = module_bindings_before(tree, line)
+    if isinstance(node.func, ast.Name):
+        binding = bindings.get(node.func.id)
+        if binding is None:
+            return False
+        statement, alias = binding
+        return (
+            isinstance(statement, ast.ImportFrom)
+            and statement.module in {"typing", "typing_extensions"}
+            and alias.name == "NewType"
+        )
+    if not (
+        isinstance(node.func, ast.Attribute)
+        and node.func.attr == "NewType"
+        and isinstance(node.func.value, ast.Name)
+    ):
+        return False
+    binding = bindings.get(node.func.value.id)
+    if binding is None:
+        return False
+    statement, alias = binding
+    return isinstance(statement, ast.Import) and alias.name in {
+        "typing",
+        "typing_extensions",
+    }
 
 
 def _local_alias_value(

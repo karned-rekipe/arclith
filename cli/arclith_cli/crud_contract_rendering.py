@@ -14,6 +14,7 @@ def render_create_port(
     entity_module: str,
     contract: EntityContract,
 ) -> str:
+    _reject_generated_name_collisions(entity, contract, "Create")
     support = _support_names(entity, contract, include_uuid=False)
     imports = _port_imports(
         entity,
@@ -59,6 +60,7 @@ def render_update_port(
     entity_module: str,
     contract: EntityContract,
 ) -> str:
+    _reject_generated_name_collisions(entity, contract, "Update")
     support = _support_names(entity, contract, include_uuid=True)
     imports = _port_imports(
         entity,
@@ -146,6 +148,20 @@ def _bound_import_names(imports: tuple[str, ...]) -> set[str]:
             )
         elif isinstance(statement, ast.ImportFrom):
             names.update(alias.asname or alias.name for alias in statement.names)
+        elif isinstance(statement, ast.Assign):
+            names.update(
+                target.id
+                for target in statement.targets
+                if isinstance(target, ast.Name)
+            )
+        elif isinstance(statement, ast.AnnAssign) and isinstance(
+            statement.target, ast.Name
+        ):
+            names.add(statement.target.id)
+        elif isinstance(statement, ast.TypeAlias) and isinstance(
+            statement.name, ast.Name
+        ):
+            names.add(statement.name.id)
     return names
 
 
@@ -154,6 +170,25 @@ def _available_name(preferred: str, unavailable: set[str]) -> str:
     while candidate in unavailable:
         candidate += "_"
     return candidate
+
+
+def _reject_generated_name_collisions(
+    entity: str,
+    contract: EntityContract,
+    operation: str,
+) -> None:
+    generated = {
+        f"{operation}{entity}Command",
+        f"{operation}{entity}Result",
+        f"{operation}{entity}Port",
+    }
+    collisions = generated & _bound_import_names(contract.imports)
+    if collisions:
+        raise ValueError(
+            "Entity field imports collide with generated CRUD contract names: "
+            + ", ".join(sorted(collisions))
+            + "; alias the imported entity field type before generating the blueprint"
+        )
 
 
 def _port_imports(

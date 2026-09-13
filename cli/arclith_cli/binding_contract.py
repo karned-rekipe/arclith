@@ -196,6 +196,7 @@ def _response_contract(
     used: set[str] = set()
     for field in fields:
         used.update(_loaded_names(field))
+    used.difference_update(_class_bound_names(model))
     imports = request_imports(
         model_tree,
         used,
@@ -473,6 +474,27 @@ def _used_names(request: ast.ClassDef, fields: list[ast.AnnAssign]) -> set[str]:
     names = _loaded_names(request)
     for field in fields:
         names.update(_loaded_names(_annotation(field.annotation)))
+    names.difference_update(_class_bound_names(request))
+    return names
+
+
+def _class_bound_names(model: ast.ClassDef) -> set[str]:
+    names: set[str] = set()
+    for statement in model.body:
+        if isinstance(statement, ast.Assign):
+            names.update(
+                target.id
+                for target in statement.targets
+                if isinstance(target, ast.Name)
+            )
+        elif isinstance(statement, ast.AnnAssign) and isinstance(
+            statement.target, ast.Name
+        ):
+            names.add(statement.target.id)
+        elif isinstance(statement, ast.TypeAlias) and isinstance(
+            statement.name, ast.Name
+        ):
+            names.add(statement.name.id)
     return names
 
 
@@ -482,7 +504,10 @@ def _validate_declarative_request(request: ast.ClassDef) -> None:
             "Generic or decorated request models require an explicit mapper"
         )
     for statement in request.body:
-        if isinstance(statement, (ast.AnnAssign, ast.Assign, ast.Pass)):
+        if isinstance(
+            statement,
+            (ast.AnnAssign, ast.Assign, ast.TypeAlias, ast.Pass),
+        ):
             continue
         if isinstance(statement, ast.Expr) and isinstance(
             statement.value, ast.Constant

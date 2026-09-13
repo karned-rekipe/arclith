@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 
+from arclith_cli.entity_contract_ast import module_imports
 from arclith_cli.entity_input_aliases import static_input_aliases
 
 
@@ -41,10 +42,15 @@ def typing_references(
         for values in names.values():
             values.discard(name)
 
-    for statement in tree.body:
+    imports = set(module_imports(tree))
+    statements = list(tree.body)
+    statements.extend(statement for statement in imports if statement not in tree.body)
+    for statement in sorted(statements, key=lambda item: item.lineno):
         if before_line is not None and statement.lineno > before_line:
             continue
         if isinstance(statement, ast.ImportFrom):
+            if statement not in imports:
+                continue
             for alias in statement.names:
                 local = alias.asname or alias.name
                 clear(local)
@@ -52,6 +58,8 @@ def typing_references(
                     if alias.name in names:
                         names[alias.name].add(local)
         elif isinstance(statement, ast.Import):
+            if statement not in imports:
+                continue
             for alias in statement.names:
                 local = alias.asname or alias.name.split(".")[0]
                 clear(local)

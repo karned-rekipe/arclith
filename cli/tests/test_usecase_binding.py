@@ -964,6 +964,64 @@ def test_local_pep_695_scalar_alias_is_copied_into_fastapi_contract(project):
     assert use_case.commands[0].item_id == identifier
 
 
+def test_type_checking_scalar_import_is_accepted_for_fastapi_path(project):
+    source = ("from __future__ import annotations\n\n" + PORT_SOURCE).replace(
+        "from pydantic import BaseModel, Field",
+        "from typing import TYPE_CHECKING\n"
+        "from pydantic import BaseModel, Field\n\n"
+        "if TYPE_CHECKING:\n"
+        "    from uuid import UUID",
+    ).replace(
+        "title: str = Field(min_length=1)",
+        "item_id: UUID\n    title: str = Field(min_length=1)",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+
+    apply_binding(
+        plan_binding(
+            project,
+            "create-todo",
+            via="fastapi",
+            http_path="/v1/todos/{item_id}",
+        )
+    )
+    generated = (
+        project / "src/binding_app/adapters/inbound/fastapi/contracts/create_todo.py"
+    ).read_text(encoding="utf-8")
+
+    assert "from uuid import UUID" in generated
+
+
+def test_request_class_local_constant_is_not_treated_as_an_import(project):
+    source = PORT_SOURCE.replace(
+        "class CreateTodoCommand(BaseModel):",
+        "class CreateTodoCommand(BaseModel):\n"
+        "    _LIMIT = 3\n"
+        "    type Title = str",
+    ).replace(
+        "title: str = Field(min_length=1)",
+        "title: Title = Field(min_length=1, max_length=_LIMIT)",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+    registry = _bind(project, "fastapi", http_path="/v1/todos")
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+
+    with TestClient(api) as client:
+        valid = client.post("/v1/todos", json={"title": "abc"})
+        invalid = client.post("/v1/todos", json={"title": "abcd"})
+
+    assert valid.status_code == 200
+    assert invalid.status_code == 422
+
+
 def test_path_annotated_alias_avoids_application_symbol_collision(project):
     source = PORT_SOURCE.replace(
         "from pydantic import BaseModel, Field",

@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import ast
-import builtins
 from copy import deepcopy
 from dataclasses import dataclass
 
 from arclith_cli.entity_contract_ast import (
     field_dependencies,
-    module_bindings_before,
     qualify_class_dependencies,
 )
+from arclith_cli.entity_contract_imports import field_imports
 from arclith_cli.entity_scanner import EntityInfo
 from arclith_cli.entity_contract_validation import (
     TypingReferences,
@@ -22,7 +21,6 @@ from arclith_cli.entity_contract_validation import (
 )
 from arclith_cli.entity_field_metadata import validate_indirect_field_metadata
 from arclith_cli.import_origins import (
-    absolute_import,
     pydantic_alias_choices_references,
     pydantic_alias_path_references,
     pydantic_config_dict_references,
@@ -168,11 +166,11 @@ def inspect_entity_contract(
         )
         for field in fields
     )
-    imports = _field_imports(
+    imports = field_imports(
         tree,
         fields,
         module,
-        typing,
+        typing.kind,
         before_line=model_line,
     )
     return EntityContract(
@@ -257,63 +255,6 @@ def _available_support_name(preferred: str, unavailable: set[str]) -> str:
     while candidate in unavailable:
         candidate += "_"
     return candidate
-
-
-def _field_imports(
-    tree: ast.Module,
-    fields: tuple[ast.AnnAssign, ...],
-    module: str,
-    typing: TypingReferences,
-    *,
-    before_line: int,
-) -> tuple[str, ...]:
-    used = field_dependencies(fields, typing.kind)
-    bindings = module_bindings_before(tree, before_line)
-    resolved = set(dir(builtins)) - bindings.keys()
-    imports: list[str] = []
-    import_bindings: dict[int, tuple[ast.Import | ast.ImportFrom, list[ast.alias]]] = {}
-    local: list[str] = []
-    for name in sorted(used & bindings.keys()):
-        binding = bindings[name]
-        if binding is None:
-            local.append(name)
-            continue
-        statement, alias = binding
-        key = id(statement)
-        if key not in import_bindings:
-            import_bindings[key] = (statement, [])
-        import_bindings[key][1].append(alias)
-    for statement, aliases in import_bindings.values():
-        selected = sorted(
-            aliases,
-            key=lambda alias: alias.asname or alias.name.split(".")[0],
-        )
-        if not selected:
-            continue
-        if isinstance(statement, ast.ImportFrom):
-            rendered: ast.Import | ast.ImportFrom = ast.ImportFrom(
-                module=absolute_import(statement, module),
-                names=selected,
-                level=0,
-            )
-        else:
-            rendered = ast.Import(names=selected)
-        imports.append(ast.unparse(rendered))
-        resolved.update(
-            alias.asname or alias.name.split(".")[0] for alias in selected
-        )
-
-    if local:
-        imports.append(f"from {module} import {', '.join(local)}")
-        resolved.update(local)
-
-    unresolved = used - resolved
-    if unresolved:
-        raise ValueError(
-            "Unresolved entity field dependencies cannot be projected into CRUD "
-            "commands: " + ", ".join(sorted(unresolved))
-        )
-    return tuple(imports)
 
 
 def _optional_update_field(
