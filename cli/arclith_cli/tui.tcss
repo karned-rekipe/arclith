@@ -58,15 +58,62 @@ Button.-error {
     color: $background;
 }
 
-Input, Select {
+Input {
     height: 3;
     border: tall $border;
     background: $surface;
     color: $text;
 }
 
-Input:focus, Select:focus {
+Input:focus {
     border: tall $primary;
+}
+
+Select {
+    height: auto;
+    background: transparent;
+    color: $text;
+}
+
+Select > SelectCurrent {
+    border: tall $border;
+    background: $surface;
+    color: $text;
+}
+
+Select:focus > SelectCurrent {
+    border: tall $primary;
+    background: $surface-lighten-1;
+}
+
+SelectCurrent.-has-value Static#label {
+    color: $text;
+}
+
+SelectCurrent .arrow {
+    color: $text-muted;
+}
+
+Select > SelectOverlay {
+    border: tall $primary;
+    background: $surface-lighten-1;
+    color: $text;
+}
+
+Select > SelectOverlay > .option-list--option {
+    background: $surface-lighten-1;
+    color: $text;
+}
+
+Select > SelectOverlay > .option-list--option-highlighted {
+    background: $primary;
+    color: $background;
+    text-style: bold;
+}
+
+Select > SelectOverlay > .option-list--option-hover {
+    background: $boost;
+    color: $text;
 }
 
 .section-title {
@@ -89,6 +136,21 @@ Input:focus, Select:focus {
 .field-label {
     color: $text-muted;
     margin-top: 1;
+}
+
+.field-help {
+    height: auto;
+    color: $text-muted;
+    margin-top: 1;
+}
+
+.decision-note {
+    height: auto;
+    padding: 1 2;
+    margin-top: 1;
+    background: $surface;
+    border-left: thick $primary;
+    color: $text-muted;
 }
 
 .content-title {
@@ -185,9 +247,15 @@ Input:focus, Select:focus {
     padding: 1;
 }
 
-#wizard-form {
+#wizard-main {
     width: 1fr;
     min-width: 42;
+    height: 1fr;
+}
+
+#wizard-form {
+    width: 100%;
+    height: 1fr;
     padding: 2 3;
 }
 
@@ -205,6 +273,28 @@ Input:focus, Select:focus {
     height: auto;
 }
 
+.wizard-page {
+    width: 100%;
+    height: auto;
+}
+
+#review-plan {
+    height: auto;
+    margin-top: 1;
+    color: $text-muted;
+}
+
+#wizard-actions {
+    width: 100%;
+    height: 4;
+    padding: 0 3;
+    margin-top: 0;
+}
+
+#creation-progress {
+    margin: 0 3;
+}
+
 #plan-panel, #project-plan {
     width: 40;
     min-width: 32;
@@ -215,10 +305,6 @@ Input:focus, Select:focus {
 
 #plan-preview {
     color: $text-muted;
-}
-
-#creation-progress {
-    margin-top: 1;
 }
 
 #project-brand {

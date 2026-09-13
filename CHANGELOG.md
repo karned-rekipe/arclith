@@ -33,6 +33,16 @@
   commandes directes restent disponibles et le guide ne crée aucun adapter
   implicitement.
 
+### Fixed
+
+- **Assistant de création réellement progressif** — les étapes Intention,
+  Domaine, Stockage, Transport et Vérification disposent maintenant de pages
+  distinctes et de boutons Précédent/Continuer toujours visibles, y compris dans
+  un terminal de 80 × 24 caractères.
+- **Listes déroulantes lisibles** — la valeur courante, la flèche, les options,
+  le survol et la sélection des champs d'intention, de repository et de runtime
+  ont un contraste explicite et ne sont plus rognés par une double bordure.
+
 ---
 
 ## [0.27.0] — 2026-09-11

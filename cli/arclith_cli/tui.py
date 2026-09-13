@@ -39,21 +39,12 @@ from arclith_cli.project_runtime import (
 )
 from arclith_cli.tui_models import ProjectDraft, render_plan
 from arclith_cli.tui_runtime import ManagedRuntime
-
-
-_INTENT_OPTIONS = (
-    ("API REST CRUD", ProjectIntent.API_CRUD.value),
-    ("API REST sur mesure", ProjectIntent.API_CUSTOM.value),
-    ("Serveur MCP", ProjectIntent.MCP.value),
-    ("Agent LangGraph", ProjectIntent.AGENT.value),
-    ("Worker RabbitMQ", ProjectIntent.WORKER.value),
-    ("Socle minimal", ProjectIntent.MINIMAL.value),
+from arclith_cli.tui_wizard_layout import (
+    WIZARD_PAGE_IDS,
+    WIZARD_STEPS,
+    compose_project_wizard,
 )
-_REPOSITORY_OPTIONS = (
-    ("Mémoire — rapide et non persistant", RepositoryChoice.MEMORY.value),
-    ("MongoDB — documentaire asynchrone", RepositoryChoice.MONGODB.value),
-    ("PostgreSQL — JSONB et transactions", RepositoryChoice.POSTGRESQL.value),
-)
+
 _RUNTIME_LABELS = {
     RuntimeMode.API: "API FastAPI",
     RuntimeMode.MCP_HTTP: "MCP HTTP",
@@ -134,80 +125,20 @@ class ProjectWizardScreen(Screen[Path | None]):
         super().__init__()
         self._parent_dir = parent_dir
         self._busy = False
+        self._current_step = 0
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
-        with Horizontal(id="wizard-shell"):
-            with Vertical(id="wizard-sidebar"):
-                yield Label("NOUVEAU PROJET", classes="section-title")
-                yield Static("●  Intention", classes="wizard-step is-active")
-                yield Static("○  Domaine", classes="wizard-step")
-                yield Static("○  Stockage", classes="wizard-step")
-                yield Static("○  Transport", classes="wizard-step")
-                yield Static("○  Vérification", classes="wizard-step")
-                yield Static(
-                    "Le plan est calculé par le même moteur que les commandes directes.",
-                    id="wizard-note",
-                )
-            with VerticalScroll(id="wizard-form"):
-                yield Static("CRÉATION GUIDÉE", classes="eyebrow")
-                yield Label("Configurer le service", id="wizard-title")
-                yield Static(
-                    "Toutes les décisions restent modifiables avant l’écriture atomique.",
-                    classes="lead",
-                )
-                yield Label("Résultat attendu", classes="field-label")
-                yield Select(
-                    _INTENT_OPTIONS,
-                    value=ProjectIntent.API_CRUD.value,
-                    allow_blank=False,
-                    id="intent",
-                )
-                yield Label("Répertoire parent", classes="field-label")
-                yield Input(value=str(self._parent_dir), id="parent-dir")
-                yield Label("Nom du projet", classes="field-label")
-                yield Input(value="catalog-service", id="project-name")
-                with Vertical(id="entity-field", classes="form-field"):
-                    yield Label("Première entité", classes="field-label")
-                    yield Input(value="Product", id="entity")
-                with Vertical(id="usecase-field", classes="form-field"):
-                    yield Label("Premier cas d’usage", classes="field-label")
-                    yield Input(value="CreateProduct", id="usecase")
-                with Vertical(id="repository-field", classes="form-field"):
-                    yield Label("Repository explicite", classes="field-label")
-                    yield Select(
-                        _REPOSITORY_OPTIONS,
-                        value=RepositoryChoice.MEMORY.value,
-                        allow_blank=False,
-                        id="repository",
-                    )
-                with Vertical(id="port-field", classes="form-field"):
-                    yield Label("Port", classes="field-label")
-                    yield Input(value="8000", id="port", type="integer")
-                with Vertical(id="path-field", classes="form-field"):
-                    yield Label("Chemin HTTP", classes="field-label")
-                    yield Input(value="/v1/products", id="public-path")
-                yield Static("", id="wizard-error", classes="error-message")
-                with Horizontal(classes="action-row"):
-                    yield Button("Retour", id="cancel-project")
-                    yield Button(
-                        "Créer le projet", id="create-project", variant="primary"
-                    )
-                yield ProgressBar(total=1, show_eta=False, id="creation-progress")
-            with VerticalScroll(id="plan-panel"):
-                yield Label("PLAN DE GÉNÉRATION", classes="section-title")
-                yield Static("", id="plan-preview")
-        yield Footer()
+        yield from compose_project_wizard(self._parent_dir)
 
     def on_mount(self) -> None:
         self.query_one("#creation-progress", ProgressBar).display = False
         self._refresh_intent_fields()
+        self._set_step(0)
         self._refresh_plan()
-        self.query_one("#project-name", Input).focus()
 
     def on_resize(self, event: events.Resize) -> None:
-        self.query_one("#wizard-sidebar", Vertical).display = event.size.width >= 100
-        self.query_one("#plan-panel", VerticalScroll).display = event.size.width >= 72
+        self.query_one("#wizard-sidebar", Vertical).display = event.size.width >= 118
+        self.query_one("#plan-panel", VerticalScroll).display = event.size.width >= 90
 
     def on_input_changed(self, _event: Input.Changed) -> None:
         self._refresh_plan()
@@ -218,8 +149,10 @@ class ProjectWizardScreen(Screen[Path | None]):
         self._refresh_plan()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "cancel-project":
+        if event.button.id == "previous-step":
             self.action_cancel()
+        elif event.button.id == "next-step":
+            self._next_step()
         elif event.button.id == "create-project":
             self._request_creation()
 
@@ -230,22 +163,47 @@ class ProjectWizardScreen(Screen[Path | None]):
                 severity="warning",
             )
             return
+        if self._current_step > 0:
+            self._set_step(self._current_step - 1)
+            return
         self.dismiss(None)
+
+    def _next_step(self) -> None:
+        if self._current_step == 0:
+            self._set_step(1)
+            return
+        try:
+            self._draft().plan()
+        except (GuidePlanError, OSError, ValueError) as exc:
+            self.query_one("#wizard-error", Static).update(
+                f"[red]{escape(str(exc))}[/red]"
+            )
+            return
+        self.query_one("#wizard-error", Static).update("")
+        self._set_step(min(self._current_step + 1, len(WIZARD_STEPS) - 1))
 
     def _refresh_intent_fields(self) -> None:
         intent = self._intent()
         api = intent in {ProjectIntent.API_CRUD, ProjectIntent.API_CUSTOM}
+        minimal = intent == ProjectIntent.MINIMAL
         self.query_one("#usecase-field", Vertical).display = intent not in {
             ProjectIntent.MINIMAL,
             ProjectIntent.API_CRUD,
         }
-        self.query_one("#repository-field", Vertical).display = (
-            intent != ProjectIntent.MINIMAL
+        self.query_one("#repository-field", Vertical).display = not minimal
+        self.query_one("#storage-note", Static).display = minimal
+        self.query_one("#storage-note", Static).update(
+            "Le socle minimal n’installe aucun repository."
         )
         self.query_one("#port-field", Vertical).display = (
             api or intent == ProjectIntent.MCP
         )
         self.query_one("#path-field", Vertical).display = api
+        entity_label = "Première entité (facultative)" if minimal else "Première entité"
+        self.query_one("#entity-label", Label).update(entity_label)
+        self.query_one("#transport-note", Static).update(
+            self._transport_description(intent)
+        )
         if intent == ProjectIntent.MCP:
             port = self.query_one("#port", Input)
             if port.value == "8000":
@@ -263,6 +221,7 @@ class ProjectWizardScreen(Screen[Path | None]):
         except (GuidePlanError, OSError, ValueError) as exc:
             preview = f"[yellow]Plan incomplet[/yellow]\n\n{escape(str(exc))}"
         self.query_one("#plan-preview", Static).update(preview)
+        self.query_one("#review-plan", Static).update(preview)
 
     def _request_creation(self) -> None:
         try:
@@ -309,8 +268,58 @@ class ProjectWizardScreen(Screen[Path | None]):
     def _set_busy(self, busy: bool) -> None:
         self._busy = busy
         self.query_one("#create-project", Button).disabled = busy
-        self.query_one("#cancel-project", Button).disabled = busy
+        self.query_one("#next-step", Button).disabled = busy
+        self.query_one("#previous-step", Button).disabled = busy
         self.query_one("#creation-progress", ProgressBar).display = busy
+
+    def _set_step(self, step: int) -> None:
+        self._current_step = step
+        for index, ((label, _description), page_id) in enumerate(
+            zip(WIZARD_STEPS, WIZARD_PAGE_IDS, strict=True)
+        ):
+            active = index == step
+            self.query_one(f"#{page_id}", Vertical).display = active
+            indicator = self.query_one(f"#wizard-step-{index}", Static)
+            indicator.set_class(active, "is-active")
+            indicator.update(f"{'●' if active else '○'}  {label}")
+        title, description = WIZARD_STEPS[step]
+        self.query_one("#wizard-title", Label).update(title)
+        self.query_one("#wizard-description", Static).update(description)
+        previous = self.query_one("#previous-step", Button)
+        previous.label = "Annuler" if step == 0 else "Précédent"
+        self.query_one("#next-step", Button).display = step < len(WIZARD_STEPS) - 1
+        self.query_one("#create-project", Button).display = (
+            step == len(WIZARD_STEPS) - 1
+        )
+        self.query_one("#wizard-form", VerticalScroll).scroll_home(animate=False)
+        self.call_after_refresh(self._focus_current_step)
+
+    def _focus_current_step(self) -> None:
+        focus_targets = (
+            "#intent",
+            "#parent-dir",
+            "#repository" if self._intent() != ProjectIntent.MINIMAL else "#next-step",
+            (
+                "#port"
+                if self._intent()
+                in {ProjectIntent.API_CRUD, ProjectIntent.API_CUSTOM, ProjectIntent.MCP}
+                else "#next-step"
+            ),
+            "#create-project",
+        )
+        self.query_one(focus_targets[self._current_step]).focus()
+
+    @staticmethod
+    def _transport_description(intent: ProjectIntent) -> str:
+        descriptions = {
+            ProjectIntent.API_CRUD: "FastAPI exposera les cinq opérations CRUD.",
+            ProjectIntent.API_CUSTOM: "FastAPI exposera le premier cas d’usage.",
+            ProjectIntent.MCP: "FastMCP exposera le premier cas d’usage comme outil.",
+            ProjectIntent.AGENT: "LangGraph exposera le premier cas d’usage comme nœud.",
+            ProjectIntent.WORKER: "RabbitMQ recevra une commande versionnée.",
+            ProjectIntent.MINIMAL: "Aucun transport n’est installé pour le socle minimal.",
+        }
+        return descriptions[intent]
 
     def _draft(self) -> ProjectDraft:
         return ProjectDraft(

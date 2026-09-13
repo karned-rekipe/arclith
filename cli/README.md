@@ -15,9 +15,10 @@ uv tool install "git+https://github.com/karned-rekipe/arclith.git#subdirectory=c
 
 Exécuter `arclith-cli` sans argument dans un vrai terminal ouvre une TUI
 persistante. Le cockpit propose un résultat (socle minimal, API CRUD, API sur
-mesure, serveur MCP, agent LangGraph ou worker RabbitMQ), collecte uniquement
-les décisions nécessaires, affiche le plan et les commandes équivalentes, puis
-demande confirmation avant d'écrire :
+mesure, serveur MCP, agent LangGraph ou worker RabbitMQ), puis avance réellement
+par étapes : intention, domaine, stockage, transport et vérification. Les actions
+restent visibles dans les terminaux compacts. Le cockpit affiche le plan et les
+commandes équivalentes avant d'écrire :
 
 ```bash
 arclith-cli

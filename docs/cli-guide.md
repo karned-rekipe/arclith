@@ -31,7 +31,8 @@ La TUI repose sur des écrans distincts et conserve le moteur de planification
 indépendant de l'interface :
 
 - un accueil pour créer ou ouvrir un projet ;
-- un formulaire adaptatif couvrant les six intentions Arclith ;
+- un assistant adaptatif couvrant les six intentions Arclith, avec une page par
+  étape et des actions Précédent/Continuer toujours visibles ;
 - un aperçu permanent du plan et des commandes directes ;
 - une progression visible pendant la génération atomique ;
 - un tableau de bord fondé sur l'état réel du disque ;
@@ -39,6 +40,11 @@ indépendant de l'interface :
   redémarrage ;
 - une disposition réduite automatiquement dans les terminaux étroits ;
 - navigation clavier, footer de raccourcis et palette de commandes Textual.
+
+Dans les listes déroulantes, `Entrée` ou `Espace` ouvre les options, les flèches
+haut/bas déplacent la sélection et `Entrée` la valide. La valeur courante et la
+flèche restent visibles quand la liste est fermée. À la souris, un clic ouvre la
+liste puis un clic sur l'option la sélectionne.
 
 Les raccourcis principaux du tableau de bord sont `s` pour démarrer, `x` pour
 arrêter, `r` pour actualiser, `n` pour un nouveau projet, `g` pour le guide
