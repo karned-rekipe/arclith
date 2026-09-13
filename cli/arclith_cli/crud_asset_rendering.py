@@ -145,7 +145,10 @@ def render_crud_documentation(
     contract: EntityContract,
 ) -> str:
     if contract.field_names:
-        fields = ", ".join(f"`{name}`" for name in contract.field_names)
+        create_fields = ", ".join(f"`{name}`" for name in contract.field_names)
+        update_fields = ", ".join(
+            f"`{name}`" for name in contract.update_field_names
+        )
         final_fields = tuple(
             name
             for name in contract.field_names
@@ -158,10 +161,16 @@ def render_crud_documentation(
             if final_fields
             else ""
         )
+        update_projection = (
+            f"Les champs modifiables {update_fields} sont rendus optionnels en "
+            f"présence dans `Update{entity}Command`."
+            if update_fields
+            else f"Aucun champ métier n'est modifiable par `Update{entity}Command`."
+        )
         customization = (
-            f"Les champs métier {fields} ont été copiés depuis `{entity}` dans "
-            f"`Create{entity}Command` et rendus optionnels en présence dans "
-            f"`Update{entity}Command`. Les contraintes Pydantic restent actives."
+            f"Les champs métier {create_fields} ont été copiés depuis `{entity}` "
+            f"dans `Create{entity}Command`. {update_projection} Les contraintes "
+            "Pydantic restent actives."
             f"{update_note} "
             "Ces commandes deviennent propriété du projet et ne seront pas "
             "écrasées par une relance."

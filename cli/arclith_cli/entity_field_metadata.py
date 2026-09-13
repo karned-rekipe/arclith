@@ -5,12 +5,12 @@ from __future__ import annotations
 import ast
 from collections.abc import Callable
 
-from arclith_cli.entity_contract_ast import module_imports
 from arclith_cli.import_origins import (
-    absolute_import,
-    project_module_tree,
+    project_imported_symbol,
+    project_qualified_imported_symbol,
     pydantic_field_info_references,
     pydantic_field_references,
+    uninspectable_external_reference,
 )
 from arclith_cli.project_paths import ProjectPaths
 
@@ -46,7 +46,13 @@ def validate_indirect_field_metadata(
         unsafe_default = (
             field.value is not None
             and not _is_pydantic_field(field.value, names, modules)
-            and contains_project_field_info(paths, tree, module, field.value)
+            and contains_project_field_info(
+                paths,
+                tree,
+                module,
+                field.value,
+                reject_unresolved_imports=True,
+            )
         )
         if unsafe_metadata or unsafe_default:
             raise ValueError(
@@ -88,7 +94,12 @@ def contains_project_field_info(
     for reference in _loaded_references(expression):
         target = _project_reference(paths, tree, module, reference)
         if target is None:
-            if reject_unresolved_imports and _is_imported_reference(tree, reference):
+            if reject_unresolved_imports and uninspectable_external_reference(
+                paths,
+                tree,
+                module,
+                reference,
+            ):
                 return True
             continue
         target_tree, target_module, target_name, target_node = target
@@ -152,7 +163,7 @@ def _project_reference(
         return tree, module, reference, local
     root, separator, attributes = reference.partition(".")
     if separator:
-        imported_root = _imported_symbol(paths, tree, module, root)
+        imported_root = project_imported_symbol(paths, tree, module, root)
         if imported_root is not None:
             imported_tree, imported_module, imported_name = imported_root
             imported_reference = f"{imported_name}.{attributes}"
@@ -165,17 +176,38 @@ def _project_reference(
                     declaration,
                 )
     imported = (
-        _qualified_imported_symbol(paths, tree, module, reference)
+        project_qualified_imported_symbol(paths, tree, module, reference)
         if "." in reference
-        else _imported_symbol(paths, tree, module, reference)
+        else project_imported_symbol(paths, tree, module, reference)
     )
     if imported is None:
         return None
     imported_tree, imported_module, imported_name = imported
-    declaration = _local_declaration(imported_tree, imported_name)
-    if declaration is None:
-        return None
-    return imported_tree, imported_module, imported_name, declaration
+    return _resolve_imported_declaration(
+        paths,
+        imported_tree,
+        imported_module,
+        imported_name,
+    )
+
+
+def _resolve_imported_declaration(
+    paths: ProjectPaths,
+    tree: ast.Module,
+    module: str,
+    name: str,
+) -> tuple[ast.Module, str, str, ast.AST] | None:
+    seen: set[tuple[str, str]] = set()
+    while (module, name) not in seen:
+        seen.add((module, name))
+        declaration = _local_declaration(tree, name)
+        if declaration is not None:
+            return tree, module, name, declaration
+        reexported = project_imported_symbol(paths, tree, module, name)
+        if reexported is None:
+            return None
+        tree, module, name = reexported
+    return None
 
 
 def _local_declaration(tree: ast.Module, reference: str) -> ast.AST | None:
@@ -211,62 +243,6 @@ def _named_declaration(statements: list[ast.stmt], name: str) -> ast.AST | None:
         ):
             return statement.value
     return None
-
-
-def _imported_symbol(
-    paths: ProjectPaths,
-    tree: ast.Module,
-    module: str,
-    name: str,
-) -> tuple[ast.Module, str, str] | None:
-    for statement in module_imports(tree):
-        if not isinstance(statement, ast.ImportFrom):
-            continue
-        for alias in statement.names:
-            if (alias.asname or alias.name) != name:
-                continue
-            imported_module = absolute_import(statement, module)
-            if statement.module is None:
-                imported_module = f"{imported_module}.{alias.name}"
-            imported_tree = project_module_tree(paths, imported_module)
-            if imported_tree is not None:
-                return imported_tree, imported_module, alias.name
-    return None
-
-
-def _qualified_imported_symbol(
-    paths: ProjectPaths,
-    tree: ast.Module,
-    module: str,
-    name: str,
-) -> tuple[ast.Module, str, str] | None:
-    root, *tail = name.split(".")
-    if not tail:
-        return None
-    imported_module: str | None = None
-    for statement in module_imports(tree):
-        if isinstance(statement, ast.Import):
-            for alias in statement.names:
-                local = alias.asname or alias.name.split(".")[0]
-                if local == root:
-                    imported_module = alias.name if alias.asname else root
-                    break
-        elif isinstance(statement, ast.ImportFrom):
-            for alias in statement.names:
-                if (alias.asname or alias.name) == root:
-                    imported_module = (
-                        f"{absolute_import(statement, module)}.{alias.name}"
-                    )
-                    break
-        if imported_module is not None:
-            break
-    if imported_module is None:
-        return None
-    candidate_module = ".".join((imported_module, *tail[:-1]))
-    imported_tree = project_module_tree(paths, candidate_module)
-    if imported_tree is None:
-        return None
-    return imported_tree, candidate_module, tail[-1]
 
 
 def _loaded_references(expression: ast.AST) -> set[str]:
@@ -338,20 +314,6 @@ def _is_pydantic_field_info(
         and function.attr == "FieldInfo"
         and _root_name(function.value) in modules
     )
-
-
-def _is_imported_reference(tree: ast.Module, reference: str) -> bool:
-    root = reference.split(".", maxsplit=1)[0]
-    for statement in module_imports(tree):
-        if isinstance(statement, ast.Import):
-            if any(
-                (alias.asname or alias.name.split(".")[0]) == root
-                for alias in statement.names
-            ):
-                return True
-        elif any((alias.asname or alias.name) == root for alias in statement.names):
-            return True
-    return False
 
 
 def _root_name(node: ast.expr) -> str | None:

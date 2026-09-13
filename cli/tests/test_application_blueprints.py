@@ -148,6 +148,9 @@ class Todo(Entity):
     generated_test = (project / "tests/application/test_todo_crud.py").read_text(
         encoding="utf-8"
     )
+    generated_docs = (project / "docs/blueprints/todo-crud.md").read_text(
+        encoding="utf-8"
+    )
 
     assert "collection" not in create
     assert "category" not in create
@@ -170,6 +173,9 @@ class Todo(Entity):
     assert "status: ProductStatus = _ArclithCrudField(default=None)" in update
     assert "CreateTodoCommand.model_fields" in generated_test
     assert "CreateTodoCommand()" not in generated_test
+    assert "Les champs modifiables `sku`, `price`, `stock`, `status`" in generated_docs
+    assert "`frozen_code` restent réservés à la création" in generated_docs
+    assert "Les champs modifiables `frozen_code`" not in generated_docs
 
     monkeypatch.syspath_prepend(str(project / "src"))
     create_contract = importlib.import_module(
@@ -747,6 +753,43 @@ class Todo(Entity):
         )
 
 
+@pytest.mark.parametrize(
+    "class_options",
+    ("alias_generator=to_camel", "**CLASS_CONFIG"),
+)
+def test_crud_blueprint_rejects_class_keyword_alias_generators(
+    tmp_path: Path,
+    class_options: str,
+) -> None:
+    project = _project(tmp_path, "class-alias-service")
+    entity = project / "src/class_alias_service/domain/models/todo.py"
+    entity.write_text(
+        f"""from arclith.domain.models.entity import Entity
+
+
+def to_camel(value: str) -> str:
+    return value
+
+
+CLASS_CONFIG = {{"alias_generator": to_camel}}
+
+
+class Todo(Entity, {class_options}):
+    external_id: str
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="class.*alias_generator"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
 def test_crud_blueprint_rejects_indirect_model_config(tmp_path: Path) -> None:
     project = _project(tmp_path, "indirect-config-service")
     entity = project / "src/indirect_config_service/domain/models/todo.py"
@@ -908,6 +951,48 @@ class Todo(Entity):
     code: HiddenCode
 """
     (models / "todo.py").write_text(entity_source, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Type alias.*contains Pydantic Field"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+def test_crud_blueprint_rejects_type_alias_reexported_by_package(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path, "package-alias-service")
+    models = project / "src/package_alias_service/domain/models"
+    type_package = models / "product_types"
+    type_package.mkdir()
+    (type_package / "__init__.py").write_text(
+        "from .aliases import HiddenCode\n",
+        encoding="utf-8",
+    )
+    (type_package / "aliases.py").write_text(
+        """from typing import Annotated
+
+from pydantic import Field
+
+type HiddenCode = Annotated[str, Field(exclude=True)]
+""",
+        encoding="utf-8",
+    )
+    (models / "todo.py").write_text(
+        """from .product_types import HiddenCode
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    code: HiddenCode
+""",
+        encoding="utf-8",
+    )
 
     with pytest.raises(ValueError, match="Type alias.*contains Pydantic Field"):
         add_application_blueprint_cmd(
@@ -1095,6 +1180,45 @@ class Todo(Entity):
         )
 
 
+def test_crud_blueprint_rejects_field_metadata_reexported_by_package(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path, "package-field-info-service")
+    models = project / "src/package_field_info_service/domain/models"
+    metadata_package = models / "field_metadata"
+    metadata_package.mkdir()
+    (metadata_package / "__init__.py").write_text(
+        "from .definitions import SECRET\n",
+        encoding="utf-8",
+    )
+    (metadata_package / "definitions.py").write_text(
+        "from pydantic import Field\n\nSECRET = Field(exclude=True)\n",
+        encoding="utf-8",
+    )
+    (models / "todo.py").write_text(
+        """from typing import Annotated
+
+from .field_metadata import SECRET
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    code: Annotated[str, SECRET]
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Indirect Pydantic Field metadata"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
 def test_crud_blueprint_rejects_uninspectable_external_metadata(
     tmp_path: Path,
 ) -> None:
@@ -1115,6 +1239,77 @@ class Todo(Entity):
     )
 
     with pytest.raises(ValueError, match="Indirect Pydantic Field metadata"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+@pytest.mark.parametrize(
+    "field",
+    (
+        "code: ExternalCode",
+        "code: str = shared_contracts.SECRET",
+    ),
+)
+def test_crud_blueprint_rejects_uninspectable_external_field_contracts(
+    tmp_path: Path,
+    field: str,
+) -> None:
+    project = _project(tmp_path, "external-contract-service")
+    entity = project / "src/external_contract_service/domain/models/todo.py"
+    entity.write_text(
+        f"""import shared_contracts
+from shared_contracts import ExternalCode
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    {field}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="(Imported annotation|Indirect Pydantic Field metadata)",
+    ):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+def test_crud_blueprint_rejects_uninspectable_type_checking_alias(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path, "external-guarded-alias-service")
+    entity = project / "src/external_guarded_alias_service/domain/models/todo.py"
+    entity.write_text(
+        """from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from arclith.domain.models.entity import Entity
+
+if TYPE_CHECKING:
+    from shared_contracts import ExternalCode
+
+
+class Todo(Entity):
+    code: ExternalCode
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Imported annotation"):
         add_application_blueprint_cmd(
             project_dir=project,
             blueprint_name="crud",

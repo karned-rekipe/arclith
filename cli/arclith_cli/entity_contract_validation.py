@@ -11,9 +11,10 @@ from arclith_cli.entity_field_metadata import (
     contains_project_field_info,
 )
 from arclith_cli.import_origins import (
-    absolute_import,
-    project_module_tree,
+    project_imported_symbol,
+    project_qualified_imported_symbol,
     pydantic_field_references,
+    uninspectable_external_reference,
 )
 from arclith_cli.project_paths import ProjectPaths
 
@@ -60,6 +61,9 @@ def typing_references(tree: ast.Module) -> TypingReferences:
 
 def validate_model_config(model: ast.ClassDef, entity_name: str) -> None:
     """Reject model configurations whose input aliases cannot be inspected."""
+    class_alias_generator = _keywords_have_key(model.keywords, "alias_generator")
+    if class_alias_generator is not False:
+        _raise_alias_generator_error(entity_name, class_alias_generator, "class")
     for statement in model.body:
         value = _direct_model_config_value(statement)
         if value is None:
@@ -74,12 +78,28 @@ def validate_model_config(model: ast.ClassDef, entity_name: str) -> None:
             continue
         alias_generator = _configuration_has_key(value, "alias_generator")
         if alias_generator is not False:
-            reason = "contains" if alias_generator else "may contain"
-            raise ValueError(
-                f"{entity_name}.model_config {reason} an alias_generator that cannot "
-                "be projected safely; inline a static config and declare explicit "
-                "Field(alias=...) values on business fields"
-            )
+            _raise_alias_generator_error(entity_name, alias_generator, "model_config")
+
+
+def _raise_alias_generator_error(
+    entity_name: str,
+    present: bool | None,
+    source: str,
+) -> None:
+    reason = "contains" if present else "may contain"
+    raise ValueError(
+        f"{entity_name} {source} {reason} an alias_generator that cannot be "
+        "projected safely; inline a static config and declare explicit "
+        "Field(alias=...) values on business fields"
+    )
+
+
+def _keywords_have_key(keywords: list[ast.keyword], key: str) -> bool | None:
+    if any(keyword.arg == key for keyword in keywords):
+        return True
+    if any(keyword.arg is None for keyword in keywords):
+        return None
+    return False
 
 
 def _direct_model_config_value(statement: ast.stmt) -> ast.expr | None:
@@ -282,8 +302,9 @@ def _validate_alias(
         return
     visited.add(reference)
     if "." in name:
-        imported = _qualified_imported_symbol(paths, tree, module, name)
+        imported = project_qualified_imported_symbol(paths, tree, module, name)
         if imported is None:
+            _reject_uninspectable_alias(paths, tree, module, name)
             return
         imported_tree, imported_module, imported_name = imported
         _validate_alias(paths, imported_tree, imported_module, imported_name, visited)
@@ -291,8 +312,9 @@ def _validate_alias(
     typing = typing_references(tree)
     value = _local_alias_value(tree, name, typing)
     if value is None:
-        imported = _imported_symbol(paths, tree, module, name)
+        imported = project_imported_symbol(paths, tree, module, name)
         if imported is None:
+            _reject_uninspectable_alias(paths, tree, module, name)
             return
         imported_tree, imported_module, imported_name = imported
         _validate_alias(paths, imported_tree, imported_module, imported_name, visited)
@@ -326,6 +348,19 @@ def _validate_alias(
         _validate_alias(paths, tree, module, dependency, visited)
 
 
+def _reject_uninspectable_alias(
+    paths: ProjectPaths,
+    tree: ast.Module,
+    module: str,
+    name: str,
+) -> None:
+    if uninspectable_external_reference(paths, tree, module, name):
+        raise ValueError(
+            f"Imported annotation {name!r} cannot be inspected for Pydantic "
+            "metadata; inline the external type alias before projection"
+        )
+
+
 def _local_alias_value(
     tree: ast.Module,
     name: str,
@@ -355,66 +390,6 @@ def _local_alias_value(
         ):
             return statement.value
     return None
-
-
-def _imported_symbol(
-    paths: ProjectPaths,
-    tree: ast.Module,
-    module: str,
-    name: str,
-) -> tuple[ast.Module, str, str] | None:
-    for statement in module_imports(tree):
-        if not isinstance(statement, ast.ImportFrom):
-            continue
-        for alias in statement.names:
-            if (alias.asname or alias.name) != name:
-                continue
-            imported_module = absolute_import(statement, module)
-            if statement.module is None:
-                imported_module = f"{imported_module}.{alias.name}"
-                imported_name = alias.name
-            else:
-                imported_name = alias.name
-            imported_tree = project_module_tree(paths, imported_module)
-            if imported_tree is not None:
-                return imported_tree, imported_module, imported_name
-    return None
-
-
-def _qualified_imported_symbol(
-    paths: ProjectPaths,
-    tree: ast.Module,
-    module: str,
-    name: str,
-) -> tuple[ast.Module, str, str] | None:
-    root, *tail = name.split(".")
-    if not tail:
-        return None
-    imported_module: str | None = None
-    for statement in module_imports(tree):
-        if isinstance(statement, ast.Import):
-            for alias in statement.names:
-                local = alias.asname or alias.name.split(".")[0]
-                if local == root:
-                    imported_module = alias.name if alias.asname else root
-                    break
-        elif isinstance(statement, ast.ImportFrom):
-            for alias in statement.names:
-                if (alias.asname or alias.name) == root:
-                    imported_module = (
-                        f"{absolute_import(statement, module)}.{alias.name}"
-                    )
-                    break
-        if imported_module is not None:
-            break
-    if imported_module is None:
-        return None
-    module_parts = tail[:-1]
-    candidate_module = ".".join((imported_module, *module_parts))
-    imported_tree = project_module_tree(paths, candidate_module)
-    if imported_tree is None:
-        return None
-    return imported_tree, candidate_module, tail[-1]
 
 
 class _PydanticFieldFinder(ast.NodeVisitor):

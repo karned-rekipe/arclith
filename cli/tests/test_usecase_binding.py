@@ -209,6 +209,36 @@ def test_project_reexported_base_models_build_a_functional_http_binding(
     assert response.json() == {"title": "re-exported"}
 
 
+def test_package_reexported_base_model_builds_a_functional_http_binding(project):
+    inbound = project / "src/binding_app/domain/ports/inbound"
+    support = inbound / "support"
+    support.mkdir()
+    (support / "__init__.py").write_text(
+        "from .models import BaseModel\n",
+        encoding="utf-8",
+    )
+    (support / "models.py").write_text(
+        "from pydantic import BaseModel\n",
+        encoding="utf-8",
+    )
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        "from .support import BaseModel\nfrom pydantic import Field",
+    )
+    (inbound / "create_todo.py").write_text(source, encoding="utf-8")
+
+    registry = _bind(project, "fastapi", http_path="/v1/todos", status_code=201)
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+
+    with TestClient(api) as client:
+        response = client.post("/v1/todos", json={"title": "package re-export"})
+
+    assert response.status_code == 201
+    assert response.json() == {"title": "package re-export"}
+
+
 def test_transport_support_aliases_do_not_shadow_application_types(project):
     inbound = project / "src/binding_app/domain/ports/inbound"
     (inbound / "support.py").write_text(
