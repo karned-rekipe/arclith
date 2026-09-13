@@ -2,6 +2,7 @@ import shlex
 from dataclasses import dataclass
 from pathlib import Path
 
+from arclith_cli.adapter_config import read_yaml_mapping
 from arclith_cli.capabilities import CAPABILITY_CATALOG
 from arclith_cli.capability_models import AdapterSpec, CapabilitySpec
 
@@ -64,14 +65,38 @@ def available_adapters(
 
 def default_activation(
     capability: CapabilitySpec,
-    installed: frozenset[str],
+    active: frozenset[str],
 ) -> bool:
     """Avoid replacing an active adapter while allowing parallel observability."""
     if capability.activation_config_key is None:
         return False
     if capability.name == "observability":
         return True
-    return not any(item.startswith(f"{capability.name}/") for item in installed)
+    return not any(item.startswith(f"{capability.name}/") for item in active)
+
+
+def active_adapters(project_root: Path) -> frozenset[str]:
+    """Read active provider selections, including defaults without manifests."""
+    raw = read_yaml_mapping(project_root / "config" / "adapters" / "adapters.yaml")
+    active: set[str] = set()
+    for capability in CAPABILITY_CATALOG:
+        key = capability.activation_config_key
+        if key is None:
+            continue
+        value = raw.get(key)
+        if capability.name == "observability":
+            if not isinstance(value, dict):
+                continue
+            enabled = value.get("enabled")
+            if isinstance(enabled, list):
+                active.update(
+                    f"{capability.name}/{adapter}"
+                    for adapter in enabled
+                    if isinstance(adapter, str) and adapter.strip()
+                )
+        elif isinstance(value, str) and value.strip():
+            active.add(f"{capability.name}/{value.strip()}")
+    return frozenset(active)
 
 
 def configuration_replacements(

@@ -21,8 +21,10 @@ from arclith_cli.tui import (
 from arclith_cli.tui_adapter import AddAdapterScreen
 from arclith_cli.tui_adapter_catalog import (
     AdapterInstallRequest,
+    active_adapters,
     available_adapters,
     configuration_replacements,
+    default_activation,
 )
 from arclith_cli.tui_project_picker import ProjectPickerScreen
 from arclith_cli.recipe import load_recipe
@@ -44,6 +46,23 @@ def _api_project(tmp_path: Path) -> Path:
                 repository=RepositoryChoice.MEMORY,
                 transport_port=8765,
                 public_path="/v1/products",
+            )
+        )
+    ).root
+
+
+def _minimal_project(tmp_path: Path) -> Path:
+    return execute_project_plan(
+        plan_new_project(
+            NewProjectAnswers(
+                parent_dir=tmp_path,
+                project_name="minimal-service",
+                intent=ProjectIntent.MINIMAL,
+                entity=None,
+                usecase=None,
+                repository=RepositoryChoice.MEMORY,
+                transport_port=8000,
+                public_path="/",
             )
         )
     ).root
@@ -338,6 +357,7 @@ async def test_dashboard_opens_catalog_without_installed_adapters(
         assert "repository" in preview
         assert "mongodb" in preview
         assert "--no-activate" in preview
+        assert "--param" not in preview
 
 
 @pytest.mark.asyncio
@@ -408,6 +428,18 @@ def test_catalog_warns_when_an_adapter_replaces_shared_config() -> None:
     assert replacements == ("storage/filesystem",)
 
 
+def test_catalog_reads_active_provider_without_adapter_manifest(tmp_path: Path) -> None:
+    project = _minimal_project(tmp_path)
+    repository = get_capability("repository")
+    assert repository is not None
+    assert not (project / ".arclith/blueprints/repository-memory.yaml").exists()
+
+    active = active_adapters(project)
+
+    assert "repository/memory" in active
+    assert default_activation(repository, active) is False
+
+
 @pytest.mark.asyncio
 async def test_dashboard_can_switch_to_another_existing_project(tmp_path: Path) -> None:
     first_parent = tmp_path / "first"
@@ -463,6 +495,46 @@ async def test_adapter_profile_updates_generated_parameter_fields(
         assert isinstance(capture_inputs, Switch)
         assert capture_inputs.value is False
         assert screen.query_one("#adapter-activate", Switch).value is True
+
+        tracing_mode = screen._parameter_widgets["tracing_mode"]
+        assert isinstance(tracing_mode, Select)
+        tracing_mode.value = "hybrid"
+        await pilot.pause()
+        preview = str(screen.query_one("#adapter-command", Static).render())
+        assert "tracing_mode=hybrid" in preview
+        assert "sampling_rate=0.1" not in preview
+
+
+@pytest.mark.asyncio
+async def test_adapter_install_preserves_untouched_langsmith_values(
+    tmp_path: Path,
+) -> None:
+    project = _api_project(tmp_path)
+    config = project / "config/adapters/outbound/langsmith.yaml"
+    config.write_text(
+        "project: hand-tuned\ntracing:\n  sampling_rate: 0.42\n",
+        encoding="utf-8",
+    )
+    app = ArclithTui(project)
+
+    async with app.run_test(size=(120, 44)) as pilot:
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, AddAdapterScreen)
+        screen.query_one("#adapter-capability", Select).value = "observability"
+        await pilot.pause()
+
+        screen.query_one("#adapter-install", Button).press()
+        for _ in range(100):
+            await pilot.pause(0.05)
+            if isinstance(app.screen, ProjectDashboardScreen):
+                break
+
+    rendered = yaml.safe_load(config.read_text(encoding="utf-8"))
+    assert rendered["project"] == "hand-tuned"
+    assert rendered["tracing"]["sampling_rate"] == 0.42
 
 
 @pytest.mark.asyncio

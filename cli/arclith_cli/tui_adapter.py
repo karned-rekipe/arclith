@@ -27,6 +27,7 @@ from arclith_cli.capabilities import CAPABILITY_CATALOG
 from arclith_cli.capability_models import AdapterSpec, CapabilitySpec, ParameterSpec
 from arclith_cli.tui_adapter_catalog import (
     AdapterInstallRequest,
+    active_adapters,
     available_adapters,
     available_capabilities,
     configuration_replacements,
@@ -48,7 +49,9 @@ class AddAdapterScreen(Screen[str | None]):
         super().__init__()
         self._project_root = project_root.resolve()
         self._installed = frozenset(installed)
+        self._active = active_adapters(self._project_root)
         self._parameter_widgets: dict[str, Widget] = {}
+        self._parameter_defaults: dict[str, str] = {}
         self._profile_adapter_key: str | None = None
         self._busy = False
         self._updating = False
@@ -130,6 +133,10 @@ class AddAdapterScreen(Screen[str | None]):
             await self._select_capability()
         elif event.select.id in {"adapter-choice", "adapter-profile"}:
             await self._render_adapter_form()
+        elif event.select.id is not None and event.select.id.startswith(
+            "adapter-param-"
+        ):
+            self._refresh_preview()
 
     def on_input_changed(self, _event: Input.Changed) -> None:
         self._refresh_preview()
@@ -218,10 +225,12 @@ class AddAdapterScreen(Screen[str | None]):
         parameters = self.query_one("#adapter-parameters", Vertical)
         await parameters.remove_children()
         self._parameter_widgets.clear()
+        self._parameter_defaults.clear()
         fields: list[Vertical] = []
         for index, parameter in enumerate(adapter.parameters):
             widget = self._parameter_widget(parameter, index, profile_values)
             self._parameter_widgets[parameter.name] = widget
+            self._parameter_defaults[parameter.name] = self._widget_value(widget)
             help_text = self._parameter_help(parameter)
             fields.append(
                 Vertical(
@@ -266,10 +275,8 @@ class AddAdapterScreen(Screen[str | None]):
         switch = self.query_one("#adapter-activate", Switch)
         supported = capability.activation_config_key is not None
         field.display = supported
-        switch.value = default_activation(capability, self._installed)
-        existing = any(
-            item.startswith(f"{capability.name}/") for item in self._installed
-        )
+        switch.value = default_activation(capability, self._active)
+        existing = any(item.startswith(f"{capability.name}/") for item in self._active)
         if existing and capability.name != "observability":
             help_text = (
                 "Désactivé par sécurité : l’adapter actuel reste sélectionné. "
@@ -352,7 +359,8 @@ class AddAdapterScreen(Screen[str | None]):
                 )
                 widget.focus()
                 return None
-            parameters.append((parameter.name, value))
+            if value != self._parameter_defaults[parameter.name]:
+                parameters.append((parameter.name, value))
         activate = (
             self.query_one("#adapter-activate", Switch).value
             if capability.activation_config_key is not None
