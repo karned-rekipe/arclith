@@ -19,7 +19,6 @@ from arclith_cli.entity_contract_validation import (
     typing_references,
     validate_input_aliases as _validate_input_aliases,
     validate_model_config as _validate_model_config,
-    validate_type_alias_metadata as _validate_type_alias_metadata,
 )
 from arclith_cli.entity_field_metadata import validate_indirect_field_metadata
 from arclith_cli.import_origins import (
@@ -31,6 +30,9 @@ from arclith_cli.import_origins import (
     pydantic_field_references,
 )
 from arclith_cli.project_paths import ProjectPaths
+from arclith_cli.entity_type_aliases import (
+    validate_type_alias_metadata as _validate_type_alias_metadata,
+)
 
 _ENTITY_MANAGED_FIELDS = (
     "uuid",
@@ -78,7 +80,8 @@ def inspect_entity_contract(
             f"Expected one entity model named {entity.pascal!r} in {entity.file_path}"
         )
 
-    typing = typing_references(tree)
+    model_line = models[0].lineno
+    typing = typing_references(tree, before_line=model_line)
     fields = tuple(_business_fields(models[0], typing))
     fields = qualify_class_dependencies(
         models[0],
@@ -96,26 +99,35 @@ def inspect_entity_contract(
         field_dependencies(fields, typing.kind),
     )
     module = paths.import_path("domain", "models", entity.file_path.stem)
-    pydantic_names, pydantic_modules = pydantic_field_references(paths, tree, module)
+    pydantic_names, pydantic_modules = pydantic_field_references(
+        paths,
+        tree,
+        module,
+        before_line=model_line,
+    )
     field_info_names, field_info_modules = pydantic_field_info_references(
         paths,
         tree,
         module,
+        before_line=model_line,
     )
     alias_path_names, alias_path_modules = pydantic_alias_path_references(
         paths,
         tree,
         module,
+        before_line=model_line,
     )
     alias_choices_names, alias_choices_modules = pydantic_alias_choices_references(
         paths,
         tree,
         module,
+        before_line=model_line,
     )
     config_names, config_modules = pydantic_config_dict_references(
         paths,
         tree,
         module,
+        before_line=model_line,
     )
     names = set(pydantic_names)
     modules = set(pydantic_modules)
@@ -155,7 +167,7 @@ def inspect_entity_contract(
         fields,
         module,
         typing,
-        before_line=models[0].lineno,
+        before_line=model_line,
     )
     return EntityContract(
         imports=imports,
@@ -498,6 +510,13 @@ class _QuotedAnnotationSanitizer(ast.NodeTransformer):
             if isinstance(node.slice, ast.Tuple):
                 if node.slice.elts:
                     node.slice.elts[0] = self.visit(node.slice.elts[0])
+                node.slice.elts[1:] = [
+                    metadata
+                    if isinstance(metadata, ast.Constant)
+                    and isinstance(metadata.value, str)
+                    else self.visit(metadata)
+                    for metadata in node.slice.elts[1:]
+                ]
             else:
                 node.slice = self.visit(node.slice)
             return node

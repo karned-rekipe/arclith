@@ -30,6 +30,7 @@ class BindingAnnotationReferences:
         *,
         pydantic_base_names: Iterable[str] = (),
         pydantic_modules: Iterable[str] = (),
+        before_line: int | None = None,
     ) -> "BindingAnnotationReferences":
         scalar_names = set(_BUILTIN_SCALAR_ANNOTATIONS)
         resolved_base_names = set(pydantic_base_names)
@@ -40,6 +41,8 @@ class BindingAnnotationReferences:
             "decimal": {"Decimal"},
         }
         for statement in tree.body:
+            if before_line is not None and statement.lineno > before_line:
+                continue
             if isinstance(statement, ast.ImportFrom):
                 exported = scalar_modules.get(statement.module or "", set())
                 for alias in statement.names:

@@ -37,7 +37,7 @@ def render_contract(
     imports = tuple(dict.fromkeys((contract.request, *contract.result_names)))
     path_annotations = _path_annotations(contract, path_parameters)
     annotated_import = (
-        ("from typing import Annotated as _Annotated",)
+        (f"from typing import Annotated as {support.annotated}",)
         if any(annotation.metadata for annotation in path_annotations.values())
         else ()
     )
@@ -74,7 +74,8 @@ def render_contract(
         model = model.replace("\n    pass", "\n\n    pass")
     aliases = _path_aliases(contract, path_parameters)
     path_aliases = "".join(
-        f"type {aliases[parameter]} = {path_annotations[parameter].render()}\n"
+        f"type {aliases[parameter]} = "
+        f"{path_annotations[parameter].render(support.annotated)}\n"
         for parameter in path_parameters
     )
     application_payload = "request.model_dump(exclude_unset=True)"
@@ -119,6 +120,7 @@ def render_contract(
 class _TransportSupportNames:
     base_model: str
     config_dict: str
+    annotated: str
 
 
 def _transport_support_names(contract: UseCaseContract) -> _TransportSupportNames:
@@ -128,7 +130,9 @@ def _transport_support_names(contract: UseCaseContract) -> _TransportSupportName
     base_model = _available_name("_ArclithTransportBaseModel", unavailable)
     unavailable.add(base_model)
     config_dict = _available_name("_ArclithTransportConfigDict", unavailable)
-    return _TransportSupportNames(base_model, config_dict)
+    unavailable.add(config_dict)
+    annotated = _available_name("_Annotated", unavailable)
+    return _TransportSupportNames(base_model, config_dict, annotated)
 
 
 def _bound_names(statements: tuple[str, ...]) -> set[str]:
@@ -325,10 +329,10 @@ class _PathAnnotation:
     annotation: str
     metadata: str | None
 
-    def render(self) -> str:
+    def render(self, annotated: str) -> str:
         if self.metadata is None:
             return self.annotation
-        return f"_Annotated[{self.annotation}, {self.metadata}]"
+        return f"{annotated}[{self.annotation}, {self.metadata}]"
 
 
 def _path_annotations(
@@ -366,9 +370,14 @@ def _field_metadata(
     return (isinstance(function, ast.Name) and function.id in names) or (
         isinstance(function, ast.Attribute)
         and function.attr == "Field"
-        and isinstance(function.value, ast.Name)
-        and function.value.id in modules
+        and _root_name(function.value) in modules
     )
+
+
+def _root_name(node: ast.expr) -> str | None:
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
 
 
 def _path_aliases(

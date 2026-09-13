@@ -4,7 +4,7 @@ import ast
 import sys
 from pathlib import Path
 
-from arclith_cli.entity_contract_ast import module_bindings_before, module_imports
+from arclith_cli.entity_contract_ast import module_bindings_before
 from arclith_cli.project_paths import ProjectPaths
 
 
@@ -43,9 +43,11 @@ def project_imported_symbol(
     tree: ast.Module,
     module: str,
     name: str,
+    *,
+    before_line: int | None = None,
 ) -> tuple[ast.Module, str, str] | None:
     """Resolve a directly imported symbol to project-owned source."""
-    binding = _active_import_binding(tree, name)
+    binding = _active_import_binding(tree, name, before_line=before_line)
     if binding is None:
         return None
     statement, alias = binding
@@ -72,12 +74,14 @@ def project_qualified_imported_symbol(
     tree: ast.Module,
     module: str,
     name: str,
+    *,
+    before_line: int | None = None,
 ) -> tuple[ast.Module, str, str] | None:
     """Resolve ``alias.Symbol`` to a project-owned module and declaration."""
     root, *tail = name.split(".")
     if not tail:
         return None
-    binding = _active_import_binding(tree, root)
+    binding = _active_import_binding(tree, root, before_line=before_line)
     if binding is None:
         return None
     statement, alias = binding
@@ -96,12 +100,18 @@ def project_qualified_imported_symbol(
 def _active_import_binding(
     tree: ast.Module,
     name: str,
+    *,
+    before_line: int | None = None,
 ) -> tuple[ast.Import | ast.ImportFrom, ast.alias] | None:
-    last_line = max(
-        (getattr(statement, "lineno", 0) for statement in ast.walk(tree)),
-        default=0,
-    )
-    binding = module_bindings_before(tree, last_line + 1).get(name)
+    if before_line is None:
+        before_line = (
+            max(
+                (getattr(statement, "lineno", 0) for statement in ast.walk(tree)),
+                default=0,
+            )
+            + 1
+        )
+    binding = module_bindings_before(tree, before_line).get(name)
     return binding if binding is not None else None
 
 
@@ -110,6 +120,8 @@ def uninspectable_external_reference(
     tree: ast.Module,
     module: str,
     reference: str,
+    *,
+    before_line: int | None = None,
 ) -> bool:
     """Return whether an imported reference cannot be inspected statically."""
     return _uninspectable_external_reference(
@@ -118,6 +130,7 @@ def uninspectable_external_reference(
         module,
         reference,
         visited=set(),
+        before_line=before_line,
     )
 
 
@@ -128,15 +141,28 @@ def _uninspectable_external_reference(
     reference: str,
     *,
     visited: set[tuple[str, str]],
+    before_line: int | None,
 ) -> bool:
     key = (module, reference)
     if key in visited:
         return False
     visited.add(key)
     project_reference = (
-        project_qualified_imported_symbol(paths, tree, module, reference)
+        project_qualified_imported_symbol(
+            paths,
+            tree,
+            module,
+            reference,
+            before_line=before_line,
+        )
         if "." in reference
-        else project_imported_symbol(paths, tree, module, reference)
+        else project_imported_symbol(
+            paths,
+            tree,
+            module,
+            reference,
+            before_line=before_line,
+        )
     )
     if project_reference is not None:
         imported_tree, project_module, imported_name = project_reference
@@ -146,23 +172,18 @@ def _uninspectable_external_reference(
             project_module,
             imported_name,
             visited=visited,
+            before_line=None,
         )
     root = reference.split(".", maxsplit=1)[0]
+    binding = _active_import_binding(tree, root, before_line=before_line)
     imported_module: str | None = None
-    for statement in module_imports(tree):
-        if isinstance(statement, ast.Import):
-            for alias in statement.names:
-                local = alias.asname or alias.name.split(".")[0]
-                if local == root:
-                    imported_module = alias.name
-                    break
-        elif isinstance(statement, ast.ImportFrom):
-            for alias in statement.names:
-                if (alias.asname or alias.name) == root:
-                    imported_module = project_absolute_import(paths, statement, module)
-                    break
-        if imported_module is not None:
-            break
+    if binding is not None:
+        statement, alias = binding
+        imported_module = (
+            alias.name
+            if isinstance(statement, ast.Import)
+            else project_absolute_import(paths, statement, module)
+        )
     if imported_module is None or project_module_tree(paths, imported_module) is not None:
         return False
     external_root = imported_module.split(".", maxsplit=1)[0]
@@ -178,54 +199,102 @@ def pydantic_field_references(
     paths: ProjectPaths,
     tree: ast.Module,
     module: str,
+    *,
+    before_line: int | None = None,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Keep the local spelling of imports that originate from Pydantic."""
-    return _pydantic_symbol_references(paths, tree, module, "Field")
+    return _pydantic_symbol_references(
+        paths,
+        tree,
+        module,
+        "Field",
+        before_line=before_line,
+    )
 
 
 def pydantic_field_info_references(
     paths: ProjectPaths,
     tree: ast.Module,
     module: str,
+    *,
+    before_line: int | None = None,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Keep local spellings of imports resolving to Pydantic FieldInfo."""
-    return _pydantic_symbol_references(paths, tree, module, "FieldInfo")
+    return _pydantic_symbol_references(
+        paths,
+        tree,
+        module,
+        "FieldInfo",
+        before_line=before_line,
+    )
 
 
 def pydantic_base_model_references(
     paths: ProjectPaths,
     tree: ast.Module,
     module: str,
+    *,
+    before_line: int | None = None,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Keep local spellings of imports resolving to Pydantic BaseModel."""
-    return _pydantic_symbol_references(paths, tree, module, "BaseModel")
+    return _pydantic_symbol_references(
+        paths,
+        tree,
+        module,
+        "BaseModel",
+        before_line=before_line,
+    )
 
 
 def pydantic_config_dict_references(
     paths: ProjectPaths,
     tree: ast.Module,
     module: str,
+    *,
+    before_line: int | None = None,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Keep local spellings of imports resolving to Pydantic ConfigDict."""
-    return _pydantic_symbol_references(paths, tree, module, "ConfigDict")
+    return _pydantic_symbol_references(
+        paths,
+        tree,
+        module,
+        "ConfigDict",
+        before_line=before_line,
+    )
 
 
 def pydantic_alias_path_references(
     paths: ProjectPaths,
     tree: ast.Module,
     module: str,
+    *,
+    before_line: int | None = None,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Keep local spellings of imports resolving to Pydantic AliasPath."""
-    return _pydantic_symbol_references(paths, tree, module, "AliasPath")
+    return _pydantic_symbol_references(
+        paths,
+        tree,
+        module,
+        "AliasPath",
+        before_line=before_line,
+    )
 
 
 def pydantic_alias_choices_references(
     paths: ProjectPaths,
     tree: ast.Module,
     module: str,
+    *,
+    before_line: int | None = None,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Keep local spellings of imports resolving to Pydantic AliasChoices."""
-    return _pydantic_symbol_references(paths, tree, module, "AliasChoices")
+    return _pydantic_symbol_references(
+        paths,
+        tree,
+        module,
+        "AliasChoices",
+        before_line=before_line,
+    )
 
 
 def _pydantic_symbol_references(
@@ -233,6 +302,8 @@ def _pydantic_symbol_references(
     tree: ast.Module,
     module: str,
     symbol: str,
+    *,
+    before_line: int | None,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     names, modules = _module_pydantic_bindings(
         paths,
@@ -240,6 +311,7 @@ def _pydantic_symbol_references(
         module,
         symbol,
         visited=set(),
+        before_line=before_line,
     )
     return tuple(sorted(names)), tuple(sorted(modules))
 
@@ -251,6 +323,7 @@ def _module_pydantic_bindings(
     symbol: str,
     *,
     visited: set[tuple[str, str]],
+    before_line: int | None,
 ) -> tuple[set[str], set[str]]:
     names: set[str] = set()
     modules: set[str] = set()
@@ -260,6 +333,8 @@ def _module_pydantic_bindings(
         modules.discard(name)
 
     for statement in tree.body:
+        if before_line is not None and statement.lineno > before_line:
+            continue
         if isinstance(statement, ast.ImportFrom):
             imported_module = project_absolute_import(paths, statement, module)
             for alias in statement.names:
@@ -407,6 +482,7 @@ def _is_pydantic_symbol(
         module,
         target,
         visited=visited,
+        before_line=None,
     )
     return symbol in names
 

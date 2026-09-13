@@ -1979,6 +1979,157 @@ class Todo(Entity):
         )
 
 
+def test_crud_blueprint_uses_origins_at_the_entity_declaration(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path, "declaration-origin-service")
+    entity = project / "src/declaration_origin_service/domain/models/todo.py"
+    entity.write_text(
+        """from typing import ClassVar
+
+from pydantic import Field
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    collection: ClassVar[str] = "todos"
+    code: str = Field(exclude=True, min_length=2)
+
+
+ClassVar = str
+Field = lambda **kwargs: kwargs
+""",
+        encoding="utf-8",
+    )
+
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+    monkeypatch.syspath_prepend(str(project / "src"))
+    contract = importlib.import_module(
+        "declaration_origin_service.domain.ports.inbound.create_todo"
+    )
+    source = (
+        project
+        / "src/declaration_origin_service/domain/ports/inbound/create_todo.py"
+    ).read_text(encoding="utf-8")
+
+    assert set(contract.CreateTodoCommand.model_fields) == {"code"}
+    assert "exclude=True" not in source
+    with pytest.raises(ValueError):
+        contract.CreateTodoCommand(code="x")
+    assert contract.CreateTodoCommand(code="OK").code == "OK"
+
+    for module in tuple(sys.modules):
+        if module == "declaration_origin_service" or module.startswith(
+            "declaration_origin_service."
+        ):
+            sys.modules.pop(module)
+
+
+@pytest.mark.parametrize(
+    "entity_field",
+    (
+        "code: SAFE",
+        "code: Annotated[str, SECRET]",
+    ),
+)
+def test_crud_blueprint_rejects_imports_rebinding_safe_local_names(
+    tmp_path: Path,
+    entity_field: str,
+) -> None:
+    project = _project(tmp_path, "rebound-external-service")
+    entity = project / "src/rebound_external_service/domain/models/todo.py"
+    entity.write_text(
+        f"""from typing import Annotated
+
+from arclith.domain.models.entity import Entity
+
+SAFE = str
+SECRET = "safe"
+from shared_contracts import SAFE, SECRET
+
+
+class Todo(Entity):
+    {entity_field}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="(Imported annotation|Indirect Pydantic Field metadata)",
+    ):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+def test_crud_blueprint_resolves_isolated_deferred_field_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path, "deferred-metadata-service")
+    entity = project / "src/deferred_metadata_service/domain/models/todo.py"
+    entity.write_text(
+        """from typing import Annotated as A, ClassVar
+
+from pydantic import Field
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    MIN_LENGTH: ClassVar[int] = 2
+    code: "A[str, Field(exclude=True, min_length=MIN_LENGTH)]"
+""",
+        encoding="utf-8",
+    )
+
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+    monkeypatch.syspath_prepend(str(project / "src"))
+    contract = importlib.import_module(
+        "deferred_metadata_service.domain.ports.inbound.create_todo"
+    )
+    source = (
+        project / "src/deferred_metadata_service/domain/ports/inbound/create_todo.py"
+    ).read_text(encoding="utf-8")
+
+    assert any(
+        isinstance(statement, ast.ImportFrom)
+        and statement.module == "pydantic"
+        and any(alias.name == "Field" for alias in statement.names)
+        for statement in ast.parse(source).body
+    )
+    assert "Todo.MIN_LENGTH" in source
+    assert "exclude=True" not in source
+    with pytest.raises(ValueError):
+        contract.CreateTodoCommand(code="x")
+    assert contract.CreateTodoCommand(code="OK").code == "OK"
+
+    for module in tuple(sys.modules):
+        if module == "deferred_metadata_service" or module.startswith(
+            "deferred_metadata_service."
+        ):
+            sys.modules.pop(module)
+
+
 def _run(awaitable: Coroutine[Any, Any, T]) -> T:
     return asyncio.run(awaitable)
 

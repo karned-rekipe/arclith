@@ -813,6 +813,10 @@ def test_aliased_path_field_uses_its_python_name_in_the_drift_guard(project):
     [
         ("from pydantic import BaseModel, Field", "Field"),
         ("from pydantic import BaseModel, Field as F", "F"),
+        (
+            "import pydantic.fields\nfrom pydantic import BaseModel",
+            "pydantic.fields.Field",
+        ),
     ],
 )
 def test_path_constraints_are_reported_as_request_validation(
@@ -886,6 +890,77 @@ def test_path_constraints_follow_a_locally_reexported_pydantic_field(project):
     assert parameter["schema"]["exclusiveMinimum"] == 0
     assert len(use_case.commands) == 1
     assert use_case.commands[0].item_id == 1
+
+
+def test_path_scalar_origin_is_frozen_at_the_request_declaration(project):
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        "from uuid import UUID as Identifier\n"
+        "from pydantic import BaseModel, Field",
+    ).replace(
+        "title: str = Field(min_length=1)",
+        "item_id: Identifier\n    title: str = Field(min_length=1)",
+    ).replace(
+        "class CreateTodoResult(BaseModel):",
+        "Identifier = str\n\nclass CreateTodoResult(BaseModel):",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+    registry = _bind(
+        project,
+        "fastapi",
+        http_path="/v1/todos/{item_id}",
+    )
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+    identifier = uuid4()
+
+    with TestClient(api) as client:
+        invalid = client.post("/v1/todos/not-a-uuid", json={"title": "Invalid"})
+        valid = client.post(f"/v1/todos/{identifier}", json={"title": "Valid"})
+
+    assert invalid.status_code == 422
+    assert valid.status_code == 200
+    assert use_case.commands[0].item_id == identifier
+
+
+def test_path_annotated_alias_avoids_application_symbol_collision(project):
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        "from typing import Literal as _Annotated\n"
+        "from pydantic import BaseModel, Field",
+    ).replace(
+        "title: str = Field(min_length=1)",
+        "item_id: int = Field(gt=0)\n"
+        "    title: _Annotated['valid'] = Field(min_length=1)",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+    registry = _bind(
+        project,
+        "fastapi",
+        http_path="/v1/todos/{item_id}",
+    )
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+    generated = (
+        project / "src/binding_app/adapters/inbound/fastapi/contracts/create_todo.py"
+    ).read_text(encoding="utf-8")
+
+    with TestClient(api) as client:
+        invalid = client.post("/v1/todos/-1", json={"title": "valid"})
+        valid = client.post("/v1/todos/1", json={"title": "valid"})
+
+    assert "from typing import Annotated as _Annotated_" in generated
+    assert "from typing import Literal as _Annotated" in generated
+    assert invalid.status_code == 422
+    assert valid.status_code == 200
 
 
 def test_path_type_aliases_preserve_the_exact_field_identifier(project):

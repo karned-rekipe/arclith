@@ -23,7 +23,13 @@ def validate_indirect_field_metadata(
     typing_kind: Callable[[ast.expr], str | None],
 ) -> None:
     """Reject project-owned references that evaluate to Pydantic FieldInfo."""
-    pydantic_names, pydantic_modules = pydantic_field_references(paths, tree, module)
+    before_line = min((field.lineno for field in fields), default=None)
+    pydantic_names, pydantic_modules = pydantic_field_references(
+        paths,
+        tree,
+        module,
+        before_line=before_line,
+    )
     names = set(pydantic_names)
     modules = set(pydantic_modules)
     for field in fields:
@@ -81,15 +87,18 @@ def contains_project_field_info(
     reject_unresolved_imports: bool = False,
 ) -> bool:
     """Follow project references and report whether they build FieldInfo."""
+    before_line = getattr(expression, "lineno", None)
     pydantic_names, pydantic_modules = pydantic_field_references(
         paths,
         tree,
         module,
+        before_line=before_line,
     )
     field_info_names, field_info_modules = pydantic_field_info_references(
         paths,
         tree,
         module,
+        before_line=before_line,
     )
     if _contains_pydantic_metadata_constructor(
         expression,
@@ -102,13 +111,20 @@ def contains_project_field_info(
 
     visited = set() if visited is None else visited
     for reference in _loaded_references(expression):
-        target = _project_reference(paths, tree, module, reference)
+        target = _project_reference(
+            paths,
+            tree,
+            module,
+            reference,
+            before_line=before_line,
+        )
         if target is None:
             if reject_unresolved_imports and uninspectable_external_reference(
                 paths,
                 tree,
                 module,
                 reference,
+                before_line=before_line,
             ):
                 return True
             continue
@@ -172,13 +188,21 @@ def _project_reference(
     tree: ast.Module,
     module: str,
     reference: str,
+    *,
+    before_line: int | None,
 ) -> tuple[ast.Module, str, str, ast.AST] | None:
-    local = _local_declaration(tree, reference)
+    local = _local_declaration(tree, reference, before_line=before_line)
     if local is not None:
         return tree, module, reference, local
     root, separator, attributes = reference.partition(".")
     if separator:
-        imported_root = project_imported_symbol(paths, tree, module, root)
+        imported_root = project_imported_symbol(
+            paths,
+            tree,
+            module,
+            root,
+            before_line=before_line,
+        )
         if imported_root is not None:
             imported_tree, imported_module, imported_name = imported_root
             for imported_reference in (
@@ -194,9 +218,21 @@ def _project_reference(
                         declaration,
                     )
     imported = (
-        project_qualified_imported_symbol(paths, tree, module, reference)
+        project_qualified_imported_symbol(
+            paths,
+            tree,
+            module,
+            reference,
+            before_line=before_line,
+        )
         if "." in reference
-        else project_imported_symbol(paths, tree, module, reference)
+        else project_imported_symbol(
+            paths,
+            tree,
+            module,
+            reference,
+            before_line=before_line,
+        )
     )
     if imported is None:
         return None
@@ -228,9 +264,14 @@ def _resolve_imported_declaration(
     return None
 
 
-def _local_declaration(tree: ast.Module, reference: str) -> ast.AST | None:
+def _local_declaration(
+    tree: ast.Module,
+    reference: str,
+    *,
+    before_line: int | None = None,
+) -> ast.AST | None:
     root, *attributes = reference.split(".")
-    current = _named_declaration(tree.body, root)
+    current = _named_declaration(tree.body, root, before_line=before_line)
     for attribute in attributes:
         if not isinstance(current, ast.ClassDef):
             return None
@@ -238,8 +279,27 @@ def _local_declaration(tree: ast.Module, reference: str) -> ast.AST | None:
     return current
 
 
-def _named_declaration(statements: list[ast.stmt], name: str) -> ast.AST | None:
-    for statement in statements:
+def _named_declaration(
+    statements: list[ast.stmt],
+    name: str,
+    *,
+    before_line: int | None = None,
+) -> ast.AST | None:
+    candidates = (
+        statement
+        for statement in reversed(statements)
+        if before_line is None or statement.lineno <= before_line
+    )
+    for statement in candidates:
+        if isinstance(statement, ast.ImportFrom) and any(
+            (alias.asname or alias.name) == name for alias in statement.names
+        ):
+            return None
+        if isinstance(statement, ast.Import) and any(
+            (alias.asname or alias.name.split(".")[0]) == name
+            for alias in statement.names
+        ):
+            return None
         if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             if statement.name == name:
                 return statement

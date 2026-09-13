@@ -196,30 +196,35 @@ def _quoted_annotation_dependencies(
 ) -> set[str]:
     names: set[str] = set()
 
-    def visit(node: ast.AST) -> None:
+    def visit(node: ast.AST, *, parse_strings: bool) -> None:
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if not parse_strings:
+                return
             try:
                 parsed = ast.parse(node.value, mode="eval").body
             except SyntaxError:
                 return
-            collector = _FreeNameCollector()
-            collector.visit(parsed)
-            names.update(collector.names)
-            visit(parsed)
+            visit(parsed, parse_strings=True)
+            return
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            names.add(node.id)
             return
         if isinstance(node, ast.Subscript):
             kind = typing_kind(node.value)
+            visit(node.value, parse_strings=parse_strings)
             if kind == "Literal":
                 return
             if kind == "Annotated":
                 arguments = _subscript_arguments(node.slice)
                 if arguments:
-                    visit(arguments[0])
+                    visit(arguments[0], parse_strings=True)
+                for metadata in arguments[1:]:
+                    visit(metadata, parse_strings=False)
                 return
         for child in ast.iter_child_nodes(node):
-            visit(child)
+            visit(child, parse_strings=parse_strings)
 
-    visit(annotation)
+    visit(annotation, parse_strings=True)
     return names
 
 
@@ -416,6 +421,13 @@ class _QuotedClassDependencyQualifier(ast.NodeTransformer):
                 transformed = self.visit(arguments[0])
                 if isinstance(node.slice, ast.Tuple):
                     node.slice.elts[0] = transformed
+                    node.slice.elts[1:] = [
+                        metadata
+                        if isinstance(metadata, ast.Constant)
+                        and isinstance(metadata.value, str)
+                        else self.visit(metadata)
+                        for metadata in node.slice.elts[1:]
+                    ]
                 else:
                     node.slice = transformed
             return node
