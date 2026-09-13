@@ -327,8 +327,11 @@ def _update_use_case(
                     exclude={{"uuid", "version"}}, exclude_unset=True
                 )
                 current_values = {{
-                    field_name: getattr(current, field_name)
-                    for field_name in type(current).model_fields
+                    **(current.model_extra or {{}}),
+                    **{{
+                        field_name: getattr(current, field_name)
+                        for field_name in type(current).model_fields
+                    }},
                 }}
                 candidate = type(current).model_validate(
                     {{

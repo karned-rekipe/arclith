@@ -35,6 +35,8 @@ def pydantic_field_references(
                     paths, imported_module, alias.name, visited=set()
                 ):
                     names.add(local_name)
+                elif imported_module == "pydantic" and alias.name == "fields":
+                    modules.add(local_name)
                 elif statement.module is None and _module_exports_pydantic_field(
                     paths,
                     f"{imported_module}.{alias.name}",

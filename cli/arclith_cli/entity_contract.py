@@ -75,6 +75,7 @@ def inspect_entity_contract(
             field,
             pydantic_names=names,
             pydantic_modules=modules,
+            defer_default_factory=True,
         )
         for field in fields
     )
@@ -211,19 +212,28 @@ def _optional_update_field(
         pydantic_modules=pydantic_modules,
         partial_update=True,
     )
-    if _is_pydantic_field(result.value, pydantic_names, pydantic_modules):
-        assert isinstance(result.value, ast.Call)
-        result.value.keywords.insert(
+    _make_omissible(result, pydantic_names, pydantic_modules)
+    return ast.fix_missing_locations(result)
+
+
+def _make_omissible(
+    field: ast.AnnAssign,
+    pydantic_names: set[str],
+    pydantic_modules: set[str],
+) -> None:
+    """Allow omission without widening the field's accepted input type."""
+    if _is_pydantic_field(field.value, pydantic_names, pydantic_modules):
+        assert isinstance(field.value, ast.Call)
+        field.value.keywords.insert(
             0,
             ast.keyword(arg="default", value=ast.Constant(value=None)),
         )
     else:
-        result.value = ast.Call(
+        field.value = ast.Call(
             func=ast.Name(id="Field", ctx=ast.Load()),
             args=[],
             keywords=[ast.keyword(arg="default", value=ast.Constant(value=None))],
         )
-    return ast.fix_missing_locations(result)
 
 
 def _sanitize_input_field(
@@ -232,11 +242,20 @@ def _sanitize_input_field(
     pydantic_names: set[str],
     pydantic_modules: set[str],
     partial_update: bool = False,
+    defer_default_factory: bool = False,
 ) -> ast.AnnAssign:
+    deferred_factory = defer_default_factory and _has_pydantic_keyword(
+        field,
+        keyword="default_factory",
+        pydantic_names=pydantic_names,
+        pydantic_modules=pydantic_modules,
+    )
     result = deepcopy(field)
     removed = {"exclude", "exclude_if", "serialization_alias"}
     if partial_update:
         removed.update({"default", "default_factory", "validate_default"})
+    elif deferred_factory:
+        removed.update({"default_factory", "validate_default"})
     result.annotation = _QuotedAnnotationSanitizer(
         pydantic_names=pydantic_names,
         pydantic_modules=pydantic_modules,
@@ -250,7 +269,27 @@ def _sanitize_input_field(
         removed=removed,
         clear_default=partial_update,
     )
+    if deferred_factory:
+        _make_omissible(result, pydantic_names, pydantic_modules)
     return ast.fix_missing_locations(result)
+
+
+def _has_pydantic_keyword(
+    field: ast.AnnAssign,
+    *,
+    keyword: str,
+    pydantic_names: set[str],
+    pydantic_modules: set[str],
+) -> bool:
+    finder = _PydanticKeywordFinder(
+        keyword=keyword,
+        pydantic_names=pydantic_names,
+        pydantic_modules=pydantic_modules,
+    )
+    finder.visit(field.annotation)
+    if field.value is not None:
+        finder.visit(field.value)
+    return finder.found
 
 
 def _sanitize_pydantic_field_calls(
@@ -323,6 +362,46 @@ class _QuotedAnnotationSanitizer(ast.NodeTransformer):
 
     def visit_Call(self, node: ast.Call) -> ast.Call:
         return node
+
+
+class _PydanticKeywordFinder(ast.NodeVisitor):
+    def __init__(
+        self,
+        *,
+        keyword: str,
+        pydantic_names: set[str],
+        pydantic_modules: set[str],
+    ) -> None:
+        self._keyword = keyword
+        self._pydantic_names = pydantic_names
+        self._pydantic_modules = pydantic_modules
+        self.found = False
+
+    def visit_Constant(self, node: ast.Constant) -> None:
+        if not isinstance(node.value, str):
+            return
+        try:
+            expression = ast.parse(node.value, mode="eval").body
+        except SyntaxError:
+            return
+        self.visit(expression)
+
+    def visit_Subscript(self, node: ast.Subscript) -> None:
+        if _reference_name(node.value) == "Literal":
+            return
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        if _is_pydantic_field(
+            node,
+            self._pydantic_names,
+            self._pydantic_modules,
+        ):
+            self.found = self.found or any(
+                item.arg == self._keyword for item in node.keywords
+            )
+            return
+        self.generic_visit(node)
 
 
 def _is_pydantic_field(

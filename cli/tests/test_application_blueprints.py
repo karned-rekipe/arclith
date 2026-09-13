@@ -1,3 +1,4 @@
+import ast
 import asyncio
 import importlib
 import json
@@ -23,6 +24,7 @@ from arclith_cli.blueprint_generation import (
     plan_application_blueprint,
 )
 from arclith_cli.core_scaffold import add_entity_cmd
+from arclith_cli.entity_contract_ast import module_imports
 from arclith_cli.feature_manifest import load_feature_manifest
 from arclith_cli.init_project import init_project_cmd
 from arclith_cli.main import app
@@ -459,7 +461,7 @@ def test_crud_blueprint_executes_aliased_business_fields(
         '''from typing import Annotated, ClassVar as CV
 
 import pydantic.fields
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, fields as pf
 
 from arclith.domain.models.entity import Entity
 
@@ -471,6 +473,7 @@ class RelatedProduct(BaseModel):
 
 
 class Todo(Entity):
+    model_config = ConfigDict(extra="allow")
     MIN_SKU_LENGTH: CV[int] = 3
     sku: ProductCode = Field(
         alias="productSku",
@@ -485,6 +488,9 @@ class Todo(Entity):
     related: "RelatedProduct | None" = None
     secret_code: "Annotated[str, Field(exclude=True, min_length=2)]"
     tracking_code: str = pydantic.fields.Field(exclude=True, min_length=2)
+    alternate_tracking_code: str = pf.Field(exclude=True, min_length=2)
+    deferred_code: "Annotated[str, Field(min_length=MIN_SKU_LENGTH)]"
+    external_id: str = Field(default_factory=lambda data: str(data["uuid"]))
 ''',
         encoding="utf-8",
     )
@@ -519,6 +525,7 @@ class Todo(Entity):
     assert "Todo.MIN_SKU_LENGTH" in create_source
     assert "exclude=True" not in create_source
     assert "serialization_alias" not in create_source
+    assert "default_factory" not in create_source
     assert "default_factory" not in update_source
     assert "validate_default=True" not in update_source
     assert set(create_contract.CreateTodoCommand.model_fields) == {
@@ -527,12 +534,17 @@ class Todo(Entity):
         "sku",
         "slug",
         "tracking_code",
+        "alternate_tracking_code",
+        "deferred_code",
+        "external_id",
     }
     request = create_contract.CreateTodoCommand.model_validate(
         {
             "productSku": "SKU-001",
             "secret_code": "S3",
             "tracking_code": "T3",
+            "alternate_tracking_code": "A3",
+            "deferred_code": "DEF",
         }
     )
     assert "productSku" in request.model_dump(by_alias=True)
@@ -546,6 +558,7 @@ class Todo(Entity):
             request
         )
     ).item
+    created.legacy_code = "keep-me"
     unchanged = _run(
         use_cases.update.execute(
             update_contract.UpdateTodoCommand(
@@ -570,7 +583,11 @@ class Todo(Entity):
     assert created.slug == "sku-001"
     assert created.secret_code == "S3"
     assert created.tracking_code == "T3"
+    assert created.alternate_tracking_code == "A3"
+    assert created.deferred_code == "DEF"
+    assert created.external_id == str(created.uuid)
     assert unchanged.sku == "SKU-001"
+    assert unchanged.model_extra == {"legacy_code": "keep-me"}
     assert updated.sku == "SKU-002"
     assert updated.version == 3
 
@@ -618,6 +635,33 @@ class Todo(Entity):
         "from deferred_blueprint_service.domain.models.product_types import Money"
         in create_source
     )
+
+
+def test_module_imports_do_not_flatten_runtime_conditionals() -> None:
+    tree = ast.parse(
+        '''import sys
+from typing import TYPE_CHECKING as TC
+
+if TC:
+    from .product_types import Money
+
+if sys.version_info >= (3, 13):
+    from .new_runtime import RuntimeType
+else:
+    from .legacy_runtime import RuntimeType
+
+try:
+    import optional_dependency
+except ImportError:
+    optional_dependency = None
+'''
+    )
+
+    assert {ast.unparse(statement) for statement in module_imports(tree)} == {
+        "import sys",
+        "from typing import TYPE_CHECKING as TC",
+        "from .product_types import Money",
+    }
 
 
 def _run(awaitable: Coroutine[Any, Any, T]) -> T:

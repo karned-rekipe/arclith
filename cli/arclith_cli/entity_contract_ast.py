@@ -7,20 +7,55 @@ from copy import deepcopy
 
 
 def module_imports(tree: ast.Module) -> tuple[ast.Import | ast.ImportFrom, ...]:
-    """Return module-scope imports, including imports in conditional blocks."""
-    imports: list[ast.Import | ast.ImportFrom] = []
+    """Return unconditional imports and imports guarded by ``TYPE_CHECKING``."""
+    imports = [
+        statement
+        for statement in tree.body
+        if isinstance(statement, (ast.Import, ast.ImportFrom))
+    ]
+    type_checking_names = {"TYPE_CHECKING"}
+    typing_modules = {"typing", "typing_extensions"}
+    for statement in imports:
+        if isinstance(statement, ast.ImportFrom) and statement.module in typing_modules:
+            type_checking_names.update(
+                alias.asname or alias.name
+                for alias in statement.names
+                if alias.name == "TYPE_CHECKING"
+            )
+        elif isinstance(statement, ast.Import):
+            typing_modules.update(
+                alias.asname or alias.name.split(".")[0]
+                for alias in statement.names
+                if alias.name in {"typing", "typing_extensions"}
+            )
 
-    def visit(node: ast.AST) -> None:
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            imports.append(node)
-            return
-        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
-            return
-        for child in ast.iter_child_nodes(node):
-            visit(child)
-
-    visit(tree)
+    for candidate in tree.body:
+        if not isinstance(candidate, ast.If) or not _is_type_checking_guard(
+            candidate.test,
+            names=type_checking_names,
+            modules=typing_modules,
+        ):
+            continue
+        imports.extend(
+            child
+            for child in candidate.body
+            if isinstance(child, (ast.Import, ast.ImportFrom))
+        )
     return tuple(imports)
+
+
+def _is_type_checking_guard(
+    expression: ast.expr,
+    *,
+    names: set[str],
+    modules: set[str],
+) -> bool:
+    return (isinstance(expression, ast.Name) and expression.id in names) or (
+        isinstance(expression, ast.Attribute)
+        and expression.attr == "TYPE_CHECKING"
+        and isinstance(expression.value, ast.Name)
+        and expression.value.id in modules
+    )
 
 
 def field_dependencies(fields: tuple[ast.AnnAssign, ...]) -> set[str]:
@@ -83,6 +118,10 @@ def qualify_class_dependencies(
     for field in fields:
         result = deepcopy(field)
         qualifier = _ClassDependencyQualifier(entity_name, dependencies)
+        result.annotation = _QuotedClassDependencyQualifier(
+            entity_name,
+            dependencies,
+        ).visit(result.annotation)
         result.annotation = qualifier.visit(result.annotation)
         if result.value is not None:
             result.value = qualifier.visit(result.value)
@@ -273,3 +312,46 @@ class _ClassDependencyQualifier(ast.NodeTransformer):
         for owner, attribute in outputs:
             setattr(owner, attribute, self.visit(getattr(owner, attribute)))
         self._bound.pop()
+
+
+class _QuotedClassDependencyQualifier(ast.NodeTransformer):
+    """Qualify class dependencies inside deferred annotation strings only."""
+
+    def __init__(self, entity_name: str, dependencies: set[str]) -> None:
+        self._entity_name = entity_name
+        self._dependencies = dependencies
+
+    def visit_Constant(self, node: ast.Constant) -> ast.Constant:
+        if not isinstance(node.value, str):
+            return node
+        try:
+            expression = ast.parse(node.value, mode="eval").body
+        except SyntaxError:
+            return node
+        expression = self.visit(expression)
+        expression = _ClassDependencyQualifier(
+            self._entity_name,
+            self._dependencies,
+        ).visit(expression)
+        result = deepcopy(node)
+        result.value = ast.unparse(expression)
+        return ast.copy_location(result, node)
+
+    def visit_Subscript(self, node: ast.Subscript) -> ast.Subscript:
+        kind = _reference_name(node.value)
+        if kind == "Literal":
+            return node
+        if kind == "Annotated":
+            arguments = _subscript_arguments(node.slice)
+            if arguments:
+                transformed = self.visit(arguments[0])
+                if isinstance(node.slice, ast.Tuple):
+                    node.slice.elts[0] = transformed
+                else:
+                    node.slice = transformed
+            return node
+        node.slice = self.visit(node.slice)
+        return node
+
+    def visit_Call(self, node: ast.Call) -> ast.Call:
+        return node
