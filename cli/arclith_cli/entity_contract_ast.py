@@ -48,6 +48,54 @@ def module_imports(tree: ast.Module) -> tuple[ast.Import | ast.ImportFrom, ...]:
     return tuple(imports)
 
 
+def module_bindings_before(
+    tree: ast.Module,
+    before_line: int,
+) -> dict[str, tuple[ast.Import | ast.ImportFrom, ast.alias] | None]:
+    """Return the effective import or local binding before a module line."""
+    bindings: dict[str, tuple[ast.Import | ast.ImportFrom, ast.alias] | None] = {}
+    imports = set(module_imports(tree))
+    statements: list[ast.stmt] = [
+        statement for statement in tree.body if statement.lineno <= before_line
+    ]
+    statements.extend(
+        statement
+        for statement in imports
+        if statement not in tree.body and statement.lineno < before_line
+    )
+    for statement in sorted(statements, key=lambda item: item.lineno):
+        if isinstance(statement, (ast.Import, ast.ImportFrom)):
+            if statement not in imports:
+                continue
+            for alias in statement.names:
+                local = alias.asname or (
+                    alias.name
+                    if isinstance(statement, ast.ImportFrom)
+                    else alias.name.split(".")[0]
+                )
+                bindings[local] = (statement, alias)
+            continue
+        if isinstance(statement, (ast.Assign, ast.AnnAssign)):
+            targets = (
+                statement.targets
+                if isinstance(statement, ast.Assign)
+                else [statement.target]
+            )
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    bindings[target.id] = None
+            continue
+        if isinstance(statement, ast.TypeAlias) and isinstance(
+            statement.name,
+            ast.Name,
+        ):
+            bindings[statement.name.id] = None
+            continue
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bindings[statement.name] = None
+    return bindings
+
+
 def _is_type_checking_guard(
     expression: ast.expr,
     *,

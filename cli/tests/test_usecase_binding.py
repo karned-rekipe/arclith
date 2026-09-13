@@ -239,6 +239,59 @@ def test_package_reexported_base_model_builds_a_functional_http_binding(project)
     assert response.json() == {"title": "package re-export"}
 
 
+def test_assignment_reexported_base_model_builds_a_functional_http_binding(project):
+    inbound = project / "src/binding_app/domain/ports/inbound"
+    (inbound / "support.py").write_text(
+        """import pydantic
+
+PydanticBaseModel = pydantic.BaseModel
+BaseModel = PydanticBaseModel
+""",
+        encoding="utf-8",
+    )
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        "from .support import BaseModel\nfrom pydantic import Field",
+    )
+    (inbound / "create_todo.py").write_text(source, encoding="utf-8")
+
+    registry = _bind(project, "fastapi", http_path="/v1/todos", status_code=201)
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+
+    with TestClient(api) as client:
+        response = client.post("/v1/todos", json={"title": "assignment re-export"})
+
+    assert response.status_code == 201
+    assert response.json() == {"title": "assignment re-export"}
+
+
+def test_shadowed_direct_base_model_is_rejected(project):
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        """from pydantic import BaseModel, Field
+
+class BaseModel:
+    pass
+""",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="direct BaseModel request"):
+        plan_binding(
+            project,
+            "create-todo",
+            via="fastapi",
+            feature="todos",
+            http_path="/v1/todos",
+            status_code=201,
+        )
+
+
 def test_transport_support_aliases_do_not_shadow_application_types(project):
     inbound = project / "src/binding_app/domain/ports/inbound"
     (inbound / "support.py").write_text(

@@ -4,7 +4,7 @@ import ast
 import sys
 from pathlib import Path
 
-from arclith_cli.entity_contract_ast import module_imports
+from arclith_cli.entity_contract_ast import module_bindings_before, module_imports
 from arclith_cli.project_paths import ProjectPaths
 
 
@@ -45,19 +45,25 @@ def project_imported_symbol(
     name: str,
 ) -> tuple[ast.Module, str, str] | None:
     """Resolve a directly imported symbol to project-owned source."""
-    for statement in module_imports(tree):
-        if not isinstance(statement, ast.ImportFrom):
-            continue
-        for alias in statement.names:
-            if (alias.asname or alias.name) != name:
-                continue
-            imported_module = project_absolute_import(paths, statement, module)
-            imported_name = alias.name
-            if statement.module is None:
-                imported_module = f"{imported_module}.{alias.name}"
-            imported_tree = project_module_tree(paths, imported_module)
-            if imported_tree is not None:
-                return imported_tree, imported_module, imported_name
+    binding = _active_import_binding(tree, name)
+    if binding is None:
+        return None
+    statement, alias = binding
+    if not isinstance(statement, ast.ImportFrom):
+        return None
+    imported_module = project_absolute_import(paths, statement, module)
+    imported_name = alias.name
+    if statement.module is None:
+        package_tree = project_module_tree(paths, imported_module)
+        if package_tree is not None and _module_binds_name(
+            package_tree,
+            alias.name,
+        ):
+            return package_tree, imported_module, imported_name
+        imported_module = f"{imported_module}.{alias.name}"
+    imported_tree = project_module_tree(paths, imported_module)
+    if imported_tree is not None:
+        return imported_tree, imported_module, imported_name
     return None
 
 
@@ -71,29 +77,32 @@ def project_qualified_imported_symbol(
     root, *tail = name.split(".")
     if not tail:
         return None
-    imported_module: str | None = None
-    for statement in module_imports(tree):
-        if isinstance(statement, ast.Import):
-            for alias in statement.names:
-                local = alias.asname or alias.name.split(".")[0]
-                if local == root:
-                    imported_module = alias.name if alias.asname else root
-                    break
-        elif isinstance(statement, ast.ImportFrom):
-            for alias in statement.names:
-                if (alias.asname or alias.name) == root:
-                    parent = project_absolute_import(paths, statement, module)
-                    imported_module = f"{parent}.{alias.name}"
-                    break
-        if imported_module is not None:
-            break
-    if imported_module is None:
+    binding = _active_import_binding(tree, root)
+    if binding is None:
         return None
+    statement, alias = binding
+    if isinstance(statement, ast.Import):
+        imported_module = alias.name if alias.asname else root
+    else:
+        parent = project_absolute_import(paths, statement, module)
+        imported_module = f"{parent}.{alias.name}"
     candidate_module = ".".join((imported_module, *tail[:-1]))
     imported_tree = project_module_tree(paths, candidate_module)
     if imported_tree is None:
         return None
     return imported_tree, candidate_module, tail[-1]
+
+
+def _active_import_binding(
+    tree: ast.Module,
+    name: str,
+) -> tuple[ast.Import | ast.ImportFrom, ast.alias] | None:
+    last_line = max(
+        (getattr(statement, "lineno", 0) for statement in ast.walk(tree)),
+        default=0,
+    )
+    binding = module_bindings_before(tree, last_line + 1).get(name)
+    return binding if binding is not None else None
 
 
 def uninspectable_external_reference(
@@ -225,19 +234,43 @@ def _pydantic_symbol_references(
     module: str,
     symbol: str,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    names, modules = _module_pydantic_bindings(
+        paths,
+        tree,
+        module,
+        symbol,
+        visited=set(),
+    )
+    return tuple(sorted(names)), tuple(sorted(modules))
+
+
+def _module_pydantic_bindings(
+    paths: ProjectPaths,
+    tree: ast.Module,
+    module: str,
+    symbol: str,
+    *,
+    visited: set[tuple[str, str]],
+) -> tuple[set[str], set[str]]:
     names: set[str] = set()
     modules: set[str] = set()
-    for statement in module_imports(tree):
+
+    def clear(name: str) -> None:
+        names.discard(name)
+        modules.discard(name)
+
+    for statement in tree.body:
         if isinstance(statement, ast.ImportFrom):
             imported_module = project_absolute_import(paths, statement, module)
             for alias in statement.names:
                 local_name = alias.asname or alias.name
+                clear(local_name)
                 if _is_pydantic_symbol(
                     paths,
                     imported_module,
                     alias.name,
                     target=symbol,
-                    visited=set(),
+                    visited=set(visited),
                 ):
                     names.add(local_name)
                 else:
@@ -257,12 +290,13 @@ def _pydantic_symbol_references(
                         paths,
                         candidate_module,
                         symbol=symbol,
-                        visited=set(),
+                        visited=set(visited),
                     ):
                         modules.add(local_name)
         elif isinstance(statement, ast.Import):
             for alias in statement.names:
                 local_name = alias.asname or alias.name.split(".")[0]
+                clear(local_name)
                 if (
                     alias.name == "pydantic"
                     or alias.name.startswith("pydantic.")
@@ -272,56 +306,41 @@ def _pydantic_symbol_references(
                             paths,
                             alias.name,
                             symbol=symbol,
-                            visited=set(),
+                            visited=set(visited),
                         )
                     )
                 ):
                     modules.add(local_name)
-    _apply_local_pydantic_aliases(tree, names, modules, symbol)
-    return tuple(sorted(names)), tuple(sorted(modules))
-
-
-def _apply_local_pydantic_aliases(
-    tree: ast.Module,
-    names: set[str],
-    modules: set[str],
-    symbol: str,
-) -> None:
-    for statement in tree.body:
-        value: ast.expr | None
-        if isinstance(statement, ast.Assign):
-            targets = [
-                target.id
-                for target in statement.targets
-                if isinstance(target, ast.Name)
-            ]
-            value = statement.value
-        elif isinstance(statement, ast.AnnAssign) and isinstance(
-            statement.target,
-            ast.Name,
-        ):
-            targets = [statement.target.id]
-            value = statement.value
+        elif isinstance(statement, (ast.Assign, ast.AnnAssign)):
+            value: ast.expr | None
+            if isinstance(statement, ast.Assign):
+                targets = [
+                    target.id
+                    for target in statement.targets
+                    if isinstance(target, ast.Name)
+                ]
+                value = statement.value
+            elif isinstance(statement.target, ast.Name):
+                targets = [statement.target.id]
+                value = statement.value
+            else:
+                continue
+            symbol_alias = value is not None and _references_pydantic_symbol(
+                value,
+                names,
+                modules,
+                symbol,
+            )
+            module_alias = isinstance(value, ast.Name) and value.id in modules
+            for target in targets:
+                clear(target)
+                if symbol_alias:
+                    names.add(target)
+                elif module_alias:
+                    modules.add(target)
         elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            names.discard(statement.name)
-            modules.discard(statement.name)
-            continue
-        else:
-            continue
-        symbol_alias = value is not None and _references_pydantic_symbol(
-            value,
-            names,
-            modules,
-            symbol,
-        )
-        module_alias = isinstance(value, ast.Name) and value.id in modules
-        for target in targets:
-            names.discard(target)
-            modules.discard(target)
-            if symbol_alias:
-                names.add(target)
-            elif module_alias:
-                modules.add(target)
+            clear(statement.name)
+    return names, modules
 
 
 def _references_pydantic_symbol(
@@ -382,20 +401,47 @@ def _is_pydantic_symbol(
     if source is None:
         return False
     module_tree, _ = source
-    for statement in module_imports(module_tree):
-        if not isinstance(statement, ast.ImportFrom):
-            continue
-        imported_module = project_absolute_import(paths, statement, module)
-        for alias in statement.names:
-            if (alias.asname or alias.name) != symbol:
-                continue
-            return _is_pydantic_symbol(
-                paths,
-                imported_module,
-                alias.name,
-                target=target,
-                visited=visited,
-            )
+    names, _ = _module_pydantic_bindings(
+        paths,
+        module_tree,
+        module,
+        target,
+        visited=visited,
+    )
+    return symbol in names
+
+
+def _module_binds_name(tree: ast.Module, name: str) -> bool:
+    for statement in tree.body:
+        if isinstance(statement, ast.ImportFrom) and any(
+            (alias.asname or alias.name) == name for alias in statement.names
+        ):
+            return True
+        if isinstance(statement, ast.Import) and any(
+            (alias.asname or alias.name.split(".")[0]) == name
+            for alias in statement.names
+        ):
+            return True
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if statement.name == name:
+                return True
+        if isinstance(statement, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == name
+            for target in statement.targets
+        ):
+            return True
+        if (
+            isinstance(statement, ast.AnnAssign)
+            and isinstance(statement.target, ast.Name)
+            and statement.target.id == name
+        ):
+            return True
+        if (
+            isinstance(statement, ast.TypeAlias)
+            and isinstance(statement.name, ast.Name)
+            and statement.name.id == name
+        ):
+            return True
     return False
 
 

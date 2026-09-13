@@ -5,7 +5,6 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 
-from arclith_cli.entity_contract_ast import module_imports
 from arclith_cli.entity_field_metadata import (
     annotation_metadata,
     contains_project_field_info,
@@ -41,19 +40,62 @@ class TypingReferences:
 def typing_references(tree: ast.Module) -> TypingReferences:
     """Resolve aliases for annotation markers imported from typing modules."""
     markers = ("Annotated", "ClassVar", "Final", "Literal", "TypeAlias")
-    names: dict[str, set[str]] = {marker: {marker} for marker in markers}
-    modules = {"typing", "typing_extensions"}
-    for statement in module_imports(tree):
-        if isinstance(statement, ast.ImportFrom) and statement.module in modules:
+    names: dict[str, set[str]] = {marker: set() for marker in markers}
+    modules: set[str] = set()
+
+    def clear(name: str) -> None:
+        modules.discard(name)
+        for values in names.values():
+            values.discard(name)
+
+    for statement in tree.body:
+        if isinstance(statement, ast.ImportFrom):
             for alias in statement.names:
-                if alias.name in names:
-                    names[alias.name].add(alias.asname or alias.name)
+                local = alias.asname or alias.name
+                clear(local)
+                if statement.module in {"typing", "typing_extensions"}:
+                    if alias.name in names:
+                        names[alias.name].add(local)
         elif isinstance(statement, ast.Import):
-            modules.update(
-                alias.asname or alias.name.split(".")[0]
-                for alias in statement.names
-                if alias.name in {"typing", "typing_extensions"}
+            for alias in statement.names:
+                local = alias.asname or alias.name.split(".")[0]
+                clear(local)
+                if alias.name in {"typing", "typing_extensions"}:
+                    modules.add(local)
+        elif isinstance(statement, (ast.Assign, ast.AnnAssign)):
+            targets = (
+                statement.targets
+                if isinstance(statement, ast.Assign)
+                else [statement.target]
             )
+            value = statement.value
+            marker = (
+                next(
+                    (
+                        kind
+                        for kind, values in names.items()
+                        if isinstance(value, ast.Name) and value.id in values
+                    ),
+                    None,
+                )
+                if value is not None
+                else None
+            )
+            module_alias = (
+                isinstance(value, ast.Name) and value.id in modules
+                if value is not None
+                else False
+            )
+            for target in targets:
+                if not isinstance(target, ast.Name):
+                    continue
+                clear(target.id)
+                if marker is not None:
+                    names[marker].add(target.id)
+                elif module_alias:
+                    modules.add(target.id)
+        elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            clear(statement.name)
     return TypingReferences(
         names={kind: frozenset(values) for kind, values in names.items()},
         modules=frozenset(modules),

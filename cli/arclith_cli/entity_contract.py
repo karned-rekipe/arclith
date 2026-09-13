@@ -9,8 +9,7 @@ from dataclasses import dataclass
 
 from arclith_cli.entity_contract_ast import (
     field_dependencies,
-    module_imports,
-    module_declarations,
+    module_bindings_before,
     qualify_class_dependencies,
 )
 from arclith_cli.entity_scanner import EntityInfo
@@ -151,7 +150,13 @@ def inspect_entity_contract(
         )
         for field in fields
     )
-    imports = _field_imports(tree, fields, module, typing)
+    imports = _field_imports(
+        tree,
+        fields,
+        module,
+        typing,
+        before_line=models[0].lineno,
+    )
     return EntityContract(
         imports=imports,
         create_fields=tuple(ast.unparse(field) for field in fields),
@@ -241,36 +246,48 @@ def _field_imports(
     fields: tuple[ast.AnnAssign, ...],
     module: str,
     typing: TypingReferences,
+    *,
+    before_line: int,
 ) -> tuple[str, ...]:
     used = field_dependencies(fields, typing.kind)
-    declared = module_declarations(tree)
-    resolved = set(dir(builtins)) - declared
+    bindings = module_bindings_before(tree, before_line)
+    resolved = set(dir(builtins)) - bindings.keys()
     imports: list[str] = []
-    for statement in module_imports(tree):
-        local_names = {
-            alias.asname or alias.name.split(".")[0]: alias for alias in statement.names
-        }
-        selected = sorted(used & local_names.keys())
+    import_bindings: dict[int, tuple[ast.Import | ast.ImportFrom, list[ast.alias]]] = {}
+    local: list[str] = []
+    for name in sorted(used & bindings.keys()):
+        binding = bindings[name]
+        if binding is None:
+            local.append(name)
+            continue
+        statement, alias = binding
+        key = id(statement)
+        if key not in import_bindings:
+            import_bindings[key] = (statement, [])
+        import_bindings[key][1].append(alias)
+    for statement, aliases in import_bindings.values():
+        selected = sorted(
+            aliases,
+            key=lambda alias: alias.asname or alias.name.split(".")[0],
+        )
         if not selected:
             continue
-        aliases = [local_names[name] for name in selected]
         if isinstance(statement, ast.ImportFrom):
             rendered: ast.Import | ast.ImportFrom = ast.ImportFrom(
                 module=absolute_import(statement, module),
-                names=aliases,
+                names=selected,
                 level=0,
             )
         else:
-            rendered = ast.Import(names=aliases)
+            rendered = ast.Import(names=selected)
         imports.append(ast.unparse(rendered))
-        resolved.update(selected)
+        resolved.update(
+            alias.asname or alias.name.split(".")[0] for alias in selected
+        )
 
-    unresolved = used - resolved
-    if unresolved:
-        local = sorted(unresolved & declared)
-        if local:
-            imports.append(f"from {module} import {', '.join(local)}")
-            resolved.update(local)
+    if local:
+        imports.append(f"from {module} import {', '.join(local)}")
+        resolved.update(local)
 
     unresolved = used - resolved
     if unresolved:
@@ -317,6 +334,12 @@ def _make_omissible(
     """Allow omission without widening the field's accepted input type."""
     if _is_pydantic_field(field.value, pydantic_names, pydantic_modules):
         assert isinstance(field.value, ast.Call)
+        field.value.args = []
+        field.value.keywords = [
+            keyword
+            for keyword in field.value.keywords
+            if keyword.arg not in {"default", "default_factory"}
+        ]
         field.value.keywords.insert(
             0,
             ast.keyword(arg="default", value=ast.Constant(value=None)),

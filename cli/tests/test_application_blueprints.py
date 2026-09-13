@@ -1856,6 +1856,129 @@ if TYPE_CHECKING:
     assert module_imports(shadowed) == ()
 
 
+def test_crud_blueprint_tracks_rebindings_and_positional_factory_defaults(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path, "binding-order-service")
+    models = project / "src/binding_order_service/domain/models"
+    (models / "field_support.py").write_text(
+        """import pydantic
+
+PydanticField = pydantic.Field
+ProjectedField = PydanticField
+""",
+        encoding="utf-8",
+    )
+    (models / "custom_support.py").write_text(
+        """def Field(*, default: str, alias: str) -> str:
+    return default
+""",
+        encoding="utf-8",
+    )
+    (models / "todo.py").write_text(
+        """from decimal import Decimal
+from typing import ClassVar
+
+from pydantic import Field, Field as PydanticField
+
+from arclith.domain.models.entity import Entity
+
+Decimal = str
+ClassVar = str
+from .custom_support import Field
+from .field_support import ProjectedField
+
+
+class Todo(Entity):
+    price: Decimal
+    marker: ClassVar
+    code: str = Field(default="custom", alias="uuid")
+    projected: str = ProjectedField(exclude=True, min_length=2)
+    generated: str = PydanticField(..., default_factory=lambda: "generated")
+""",
+        encoding="utf-8",
+    )
+
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+    monkeypatch.syspath_prepend(str(project / "src"))
+    contract = importlib.import_module(
+        "binding_order_service.domain.ports.inbound.create_todo"
+    )
+    source = (
+        project / "src/binding_order_service/domain/ports/inbound/create_todo.py"
+    ).read_text(encoding="utf-8")
+    request = contract.CreateTodoCommand(
+        price="12.00",
+        marker="regular field",
+        projected="OK",
+    )
+
+    assert set(contract.CreateTodoCommand.model_fields) == {
+        "code",
+        "generated",
+        "marker",
+        "price",
+        "projected",
+    }
+    assert contract.CreateTodoCommand.model_fields["price"].annotation is str
+    assert contract.CreateTodoCommand.model_fields["marker"].annotation is str
+    assert request.code == "custom"
+    assert "generated" not in request.model_fields_set
+    assert "Field(default='custom', alias='uuid')" in source
+    assert "exclude=True" not in source
+    assert "Field(..., default=None)" not in source
+
+    for module in tuple(sys.modules):
+        if module == "binding_order_service" or module.startswith(
+            "binding_order_service."
+        ):
+            sys.modules.pop(module)
+
+
+def test_crud_blueprint_rejects_package_reexported_field_metadata(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path, "package-metadata-service")
+    models = project / "src/package_metadata_service/domain/models"
+    (models / "definitions.py").write_text(
+        "from pydantic import Field\n\nSECRET = Field(exclude=True)\n",
+        encoding="utf-8",
+    )
+    (models / "__init__.py").write_text(
+        "from .definitions import SECRET\n",
+        encoding="utf-8",
+    )
+    (models / "todo.py").write_text(
+        """from typing import Annotated
+
+from arclith.domain.models.entity import Entity
+
+from . import SECRET
+
+
+class Todo(Entity):
+    code: Annotated[str, SECRET]
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Indirect Pydantic Field metadata"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
 def _run(awaitable: Coroutine[Any, Any, T]) -> T:
     return asyncio.run(awaitable)
 

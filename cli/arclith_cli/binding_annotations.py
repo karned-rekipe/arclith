@@ -4,19 +4,13 @@ import ast
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-_SCALAR_ANNOTATIONS = frozenset(
+_BUILTIN_SCALAR_ANNOTATIONS = frozenset(
     {
         "str",
         "int",
         "float",
         "bool",
         "bytes",
-        "UUID",
-        "date",
-        "datetime",
-        "time",
-        "timedelta",
-        "Decimal",
     }
 )
 
@@ -37,7 +31,7 @@ class BindingAnnotationReferences:
         pydantic_base_names: Iterable[str] = (),
         pydantic_modules: Iterable[str] = (),
     ) -> "BindingAnnotationReferences":
-        scalar_names = set(_SCALAR_ANNOTATIONS)
+        scalar_names = set(_BUILTIN_SCALAR_ANNOTATIONS)
         resolved_base_names = set(pydantic_base_names)
         resolved_pydantic_modules = set(pydantic_modules)
         scalar_modules = {
@@ -47,24 +41,34 @@ class BindingAnnotationReferences:
         }
         for statement in tree.body:
             if isinstance(statement, ast.ImportFrom):
-                if statement.module == "pydantic":
-                    resolved_base_names.update(
-                        alias.asname or alias.name
-                        for alias in statement.names
-                        if alias.name == "BaseModel"
-                    )
                 exported = scalar_modules.get(statement.module or "", set())
-                scalar_names.update(
-                    alias.asname or alias.name
-                    for alias in statement.names
-                    if alias.name in exported
+                for alias in statement.names:
+                    local = alias.asname or alias.name
+                    scalar_names.discard(local)
+                    if alias.name in exported:
+                        scalar_names.add(local)
+            elif isinstance(statement, (ast.Assign, ast.AnnAssign)):
+                targets = (
+                    statement.targets
+                    if isinstance(statement, ast.Assign)
+                    else [statement.target]
                 )
-            elif isinstance(statement, ast.Import):
-                resolved_pydantic_modules.update(
-                    alias.asname or alias.name.split(".")[0]
-                    for alias in statement.names
-                    if alias.name == "pydantic" or alias.name.startswith("pydantic.")
+                value = statement.value
+                scalar_alias = (
+                    isinstance(value, ast.Name) and value.id in scalar_names
+                    if value is not None
+                    else False
                 )
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        scalar_names.discard(target.id)
+                        if scalar_alias:
+                            scalar_names.add(target.id)
+            elif isinstance(
+                statement,
+                (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
+            ):
+                scalar_names.discard(statement.name)
         return cls(
             scalar_names=frozenset(scalar_names),
             pydantic_base_names=frozenset(resolved_base_names),
