@@ -80,8 +80,9 @@ async def test_welcome_opens_an_existing_project_with_picker(tmp_path: Path) -> 
 
         picker = app.screen
         assert isinstance(picker, ProjectPickerScreen)
-        picker.query_one("#picker-path", Input).value = str(project / "src")
+        await pilot.press("down", "enter")
         await pilot.pause()
+        assert picker.query_one("#picker-path", Input).value == str(project)
         assert picker.query_one("#picker-open", Button).disabled is False
 
         picker.query_one("#picker-open", Button).press()
