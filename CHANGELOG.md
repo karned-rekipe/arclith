@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+---
+
+## [0.29.1] — 2026-09-13
+
 ### Fixed
 
 - **CRUD réellement métier** — `add-blueprint crud` reprend désormais les
@@ -11,6 +15,11 @@
   manuelle des ports générés. Les aliases, annotations différées, type aliases,
   constantes de classe et factories sont résolus statiquement ; les options de
   sérialisation propres aux réponses ne rendent plus les entrées inexploitées.
+
+### Changed
+
+- **Versions release** — `arclith` passe à `0.29.1`; `arclith-cli` passe à
+  `0.26.1` et dépend de `arclith>=0.29.1`.
 
 ---
 
