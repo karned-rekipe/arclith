@@ -72,7 +72,9 @@ Pour exposer le cycle complet plutôt qu'un seul use case :
 ```bash
 arclith-cli init todo-api
 cd todo-api
-arclith-cli add-entity Todo --profile crud
+arclith-cli add-entity Todo --profile minimal
+# Déclarer ici les champs métier de Todo, puis figer le contrat CRUD.
+arclith-cli add-blueprint crud --entity Todo
 arclith-cli add-adapter --capability api --adapter fastapi \
   --param port=8765 --yes
 arclith-cli expose-feature todo --via fastapi --path /v1/todos
@@ -84,7 +86,10 @@ OpenAPI contient alors les cinq opérations CRUD. Les réponses de création,
 mise à jour et suppression restent typées (`201`, `200`, `200`) ; les erreurs
 d'item absent et de version obsolète sont déclarées en `404` et `409`.
 L'adapter FastAPI doit précéder la projection et aucun repository durable n'est
-choisi implicitement.
+choisi implicitement. Les schémas de requête reprennent les champs métier et
+leurs contraintes Pydantic tels qu'ils existaient au moment de
+`add-blueprint` ; `POST` respecte les champs requis et `PATCH` autorise leur
+omission sans accepter une valeur invalide.
 
 ## Erreur Fréquente
 

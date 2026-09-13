@@ -150,8 +150,8 @@ def test_crud_feature_projection_executes_all_routes_and_error_mappings(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    project = _project(tmp_path, "runtime-feature-api")
-    _install_fastapi(project)
+    project = init_project_cmd(project_name="runtime-feature-api", directory=tmp_path)
+    add_entity_cmd(project_dir=project, entity_name="Todo")
     entity = project / "src/runtime_feature_api/domain/models/todo.py"
     entity.write_text(
         entity.read_text(encoding="utf-8")
@@ -166,26 +166,14 @@ def test_crud_feature_projection_executes_all_routes_and_error_mappings(
         ),
         encoding="utf-8",
     )
-    create_port = (
-        project / "src/runtime_feature_api/domain/ports/inbound/create_todo.py"
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
     )
-    create_port.write_text(
-        create_port.read_text(encoding="utf-8").replace(
-            "    pass\n",
-            "    title: str | None = None\n",
-        ),
-        encoding="utf-8",
-    )
-    update_port = (
-        project / "src/runtime_feature_api/domain/ports/inbound/update_todo.py"
-    )
-    update_port.write_text(
-        update_port.read_text(encoding="utf-8").replace(
-            "    version: int = Field(ge=1)\n",
-            "    version: int = Field(ge=1)\n    title: str | None = None\n",
-        ),
-        encoding="utf-8",
-    )
+    _install_fastapi(project)
     apply_feature_projection(
         plan_feature_projection(
             project,
@@ -210,6 +198,8 @@ def test_crud_feature_projection_executes_all_routes_and_error_mappings(
 
     invalid_create = client.post("/v1/todos", json={"title": "no"})
     assert invalid_create.status_code == 422
+    missing_create = client.post("/v1/todos", json={})
+    assert missing_create.status_code == 422
 
     created = client.post("/v1/todos", json={"title": "Preserved"})
     assert created.status_code == 201
@@ -256,6 +246,11 @@ def test_crud_feature_projection_executes_all_routes_and_error_mappings(
     assert openapi["/v1/todos"]["post"]["responses"]["201"]
     assert openapi["/v1/todos/{uuid}"]["get"]["responses"]["404"]
     assert openapi["/v1/todos/{uuid}"]["patch"]["responses"]["409"]
+    schemas = application.openapi()["components"]["schemas"]
+    assert schemas["CreateTodoRequest"]["required"] == ["title"]
+    assert schemas["CreateTodoRequest"]["properties"]["title"]["minLength"] == 3
+    assert schemas["UpdateTodoRequest"]["required"] == ["version"]
+    assert schemas["UpdateTodoRequest"]["properties"]["title"]["minLength"] == 3
 
     for name in tuple(sys.modules):
         if name == "runtime_feature_api" or name.startswith("runtime_feature_api."):

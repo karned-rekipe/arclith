@@ -61,14 +61,17 @@ ce parcours complet, en alternative au bloc précédent :
 ```bash
 arclith-cli init todo-list-service
 cd todo-list-service
-arclith-cli add-entity Todo --profile crud
+arclith-cli add-entity Todo --profile minimal
+# Déclarer les champs métier de Todo.
+arclith-cli add-blueprint crud --entity Todo
 arclith-cli add-adapter --capability api --adapter fastapi --yes
 arclith-cli expose-feature todo --via fastapi --path /v1/todos
 ```
 
-Le profil crée le cœur applicatif ; `expose-feature` constitue la décision
-séparée qui publie ses cinq opérations sur l'adapter déjà installé. Consulter le
-[blueprint CRUD](blueprints/crud.md) pour le contrat HTTP et ses erreurs.
+Le blueprint crée le cœur applicatif et copie les champs métier déclarés dans
+les commandes validées ; `expose-feature` constitue la décision séparée qui
+publie ses cinq opérations sur l'adapter déjà installé. Consulter le [blueprint
+CRUD](blueprints/crud.md) pour le contrat HTTP et ses erreurs.
 
 `arclith-cli run api` exécute `uv run` dans la racine détectée et conserve le
 serveur en avant-plan jusqu'à `Ctrl+C`. Le port et le reload restent pilotés par

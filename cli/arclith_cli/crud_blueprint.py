@@ -1,6 +1,15 @@
 from pathlib import Path
 from textwrap import dedent
 
+from arclith_cli.crud_asset_rendering import (
+    render_crud_documentation,
+    render_crud_test,
+)
+from arclith_cli.crud_contract_rendering import (
+    render_create_port,
+    render_update_port,
+)
+from arclith_cli.entity_contract import inspect_entity_contract
 from arclith_cli.entity_scanner import EntityInfo
 from arclith_cli.project_paths import ProjectPaths
 
@@ -11,6 +20,7 @@ def render_crud_blueprint(
     feature: str,
 ) -> dict[Path, str]:
     entity_module = paths.import_path("domain", "models", entity.file_path.stem)
+    contract = inspect_entity_contract(paths, entity)
     errors_module = paths.import_path("domain", "errors", feature)
     ports_prefix = paths.import_path("domain", "ports", "inbound")
     use_cases_prefix = paths.import_path("application", "use_cases")
@@ -18,8 +28,8 @@ def render_crud_blueprint(
         paths.package_root / "domain" / "errors" / f"{feature}.py": _errors(
             entity.pascal
         ),
-        paths.inbound_ports / f"create_{feature}.py": _create_port(
-            entity.pascal, entity_module
+        paths.inbound_ports / f"create_{feature}.py": render_create_port(
+            entity.pascal, entity_module, contract
         ),
         paths.inbound_ports / f"get_{feature}.py": _get_port(
             entity.pascal, entity_module
@@ -27,8 +37,8 @@ def render_crud_blueprint(
         paths.inbound_ports / f"list_{feature}.py": _list_port(
             entity.pascal, entity_module
         ),
-        paths.inbound_ports / f"update_{feature}.py": _update_port(
-            entity.pascal, entity_module
+        paths.inbound_ports / f"update_{feature}.py": render_update_port(
+            entity.pascal, entity_module, contract
         ),
         paths.inbound_ports / f"delete_{feature}.py": _delete_port(entity.pascal),
         paths.application_use_cases / f"create_{feature}.py": _create_use_case(
@@ -66,11 +76,17 @@ def render_crud_blueprint(
             use_cases_prefix,
             feature,
         ),
-        paths.root / "tests" / "application" / f"test_{feature}_crud.py": _test(
-            paths.package_name or "", entity.pascal, feature
+        paths.root
+        / "tests"
+        / "application"
+        / f"test_{feature}_crud.py": render_crud_test(
+            paths.package_name or "", entity.pascal, feature, contract
         ),
-        paths.root / "docs" / "blueprints" / f"{feature}-crud.md": _documentation(
-            entity.pascal, feature
+        paths.root
+        / "docs"
+        / "blueprints"
+        / f"{feature}-crud.md": render_crud_documentation(
+            entity.pascal, feature, contract
         ),
     }
     return _with_package_initializers(paths, base)
@@ -101,36 +117,6 @@ def _errors(entity: str) -> str:
 
         class {entity}VersionConflictError(RuntimeError):
             """Raised when an update targets a stale optimistic-lock version."""
-        '''
-    )
-
-
-def _create_port(entity: str, entity_module: str) -> str:
-    return dedent(
-        f'''\
-        from abc import ABC, abstractmethod
-
-        from pydantic import BaseModel
-
-        from {entity_module} import {entity}
-
-
-        class Create{entity}Command(BaseModel):
-            """Validated creation fields; add the entity's writable business fields."""
-
-            pass
-
-
-        class Create{entity}Result(BaseModel):
-            item: {entity}
-
-
-        class Create{entity}Port(ABC):
-            @abstractmethod
-            async def execute(
-                self, command: Create{entity}Command
-            ) -> Create{entity}Result:
-                raise NotImplementedError
         '''
     )
 
@@ -189,38 +175,6 @@ def _list_port(entity: str, entity_module: str) -> str:
             async def execute(self, query: List{entity}Query) -> List{entity}Result:
                 raise NotImplementedError
         """
-    )
-
-
-def _update_port(entity: str, entity_module: str) -> str:
-    return dedent(
-        f'''\
-        from abc import ABC, abstractmethod
-        from uuid import UUID
-
-        from pydantic import BaseModel, Field
-
-        from {entity_module} import {entity}
-
-
-        class Update{entity}Command(BaseModel):
-            """Optimistic update; add the entity's writable business fields."""
-
-            uuid: UUID
-            version: int = Field(ge=1)
-
-
-        class Update{entity}Result(BaseModel):
-            item: {entity}
-
-
-        class Update{entity}Port(ABC):
-            @abstractmethod
-            async def execute(
-                self, command: Update{entity}Command
-            ) -> Update{entity}Result:
-                raise NotImplementedError
-        '''
     )
 
 
@@ -471,85 +425,4 @@ def _container(
                 delete=Delete{entity}UseCase(service),
             )
         '''
-    )
-
-
-def _test(package: str, entity: str, feature: str) -> str:
-    prefix = f"{package}." if package else ""
-    return dedent(
-        f"""\
-        import pytest
-
-        from arclith import Arclith
-
-        from {prefix}domain.errors.{feature} import {entity}NotFoundError
-        from {prefix}domain.ports.inbound.create_{feature} import (
-            Create{entity}Command,
-        )
-        from {prefix}domain.ports.inbound.delete_{feature} import (
-            Delete{entity}Command,
-        )
-        from {prefix}domain.ports.inbound.get_{feature} import Get{entity}Query
-        from {prefix}domain.ports.inbound.list_{feature} import List{entity}Query
-        from {prefix}domain.ports.inbound.update_{feature} import (
-            Update{entity}Command,
-        )
-        from {prefix}infrastructure.containers.{feature} import (
-            build_{feature}_use_cases,
-        )
-
-
-        @pytest.mark.asyncio
-        async def test_{feature}_crud_uses_the_configured_repository() -> None:
-            use_cases = build_{feature}_use_cases(Arclith("config"))
-
-            created = await use_cases.create.execute(Create{entity}Command())
-            found = await use_cases.get.execute(
-                Get{entity}Query(uuid=created.item.uuid)
-            )
-            page = await use_cases.list.execute(List{entity}Query())
-            updated = await use_cases.update.execute(
-                Update{entity}Command(
-                    uuid=created.item.uuid,
-                    version=created.item.version,
-                )
-            )
-            deleted = await use_cases.delete.execute(
-                Delete{entity}Command(uuid=created.item.uuid)
-            )
-
-            assert found.item == created.item
-            assert page.items == [created.item]
-            assert page.total == 1
-            assert updated.item.version == 2
-            assert deleted.deleted is True
-            with pytest.raises({entity}NotFoundError):
-                await use_cases.get.execute(Get{entity}Query(uuid=created.item.uuid))
-        """
-    )
-
-
-def _documentation(entity: str, feature: str) -> str:
-    return dedent(
-        f"""\
-        # Blueprint CRUD `{feature}`
-
-        Cette feature applique le blueprint CRUD version 1 à l'entité `{entity}`.
-
-        Opérations déclarées : `create`, `get`, `list`, `update`, `delete`.
-
-        Les ports inbound et les use cases sont détenus par ce projet. Complétez les
-        champs métier de `Create{entity}Command` et `Update{entity}Command` avant de
-        publier un contrat de transport. Le container compose les primitives CRUD
-        Arclith avec le repository choisi par la configuration ; il ne sélectionne
-        aucun adapter concret.
-
-        Les projections FastAPI, FastMCP, RabbitMQ ou LangGraph sont des décisions
-        séparées. Après installation explicite de FastAPI, projetez ce CRUD avec :
-
-        `arclith-cli expose-feature {feature} --via fastapi --path /v1/<collection>`
-
-        La CLI traduit NotFound et VersionConflict en 404 et 409 au bord HTTP.
-        N'exposez que les opérations compatibles avec le transport visé.
-        """
     )

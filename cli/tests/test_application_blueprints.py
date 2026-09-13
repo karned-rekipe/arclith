@@ -96,6 +96,72 @@ def test_crud_blueprint_generates_canonical_feature_layers(tmp_path: Path) -> No
     assert not (package / "adapters/inbound/fastmcp").exists()
 
 
+def test_crud_blueprint_snapshots_entity_business_fields(tmp_path: Path) -> None:
+    project = _project(tmp_path, "inventory-service")
+    entity = project / "src/inventory_service/domain/models/todo.py"
+    entity.write_text(
+        """from __future__ import annotations
+
+from decimal import Decimal
+from enum import StrEnum
+from typing import ClassVar
+
+from pydantic import Field
+
+from arclith.domain.models.entity import Entity
+
+MIN_SKU_LENGTH = 3
+
+
+class ProductStatus(StrEnum):
+    ACTIVE = "active"
+
+
+class Todo(Entity):
+    collection: ClassVar[str] = "products"
+    sku: str = Field(min_length=MIN_SKU_LENGTH, pattern=r"^[A-Z0-9-]+$")
+    price: Decimal = Field(gt=0)
+    stock: int = 0
+    status: ProductStatus = ProductStatus.ACTIVE
+""",
+        encoding="utf-8",
+    )
+
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+
+    ports = project / "src/inventory_service/domain/ports/inbound"
+    create = (ports / "create_todo.py").read_text(encoding="utf-8")
+    update = (ports / "update_todo.py").read_text(encoding="utf-8")
+    generated_test = (project / "tests/application/test_todo_crud.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "collection" not in create
+    assert "from decimal import Decimal" in create
+    assert "from pydantic import BaseModel, Field" in create
+    assert "from inventory_service.domain.models.todo import (" not in create
+    assert "from inventory_service.domain.models.todo import MIN_SKU_LENGTH" in create
+    assert "ProductStatus" in create
+    assert (
+        "sku: str = Field(min_length=MIN_SKU_LENGTH, pattern='^[A-Z0-9-]+$')" in create
+    )
+    assert "price: Decimal = Field(gt=0)" in create
+    assert "stock: int = 0" in create
+    assert "status: ProductStatus = ProductStatus.ACTIVE" in create
+    assert "sku: str = Field(default=None, min_length=MIN_SKU_LENGTH" in update
+    assert "price: Decimal = Field(default=None, gt=0)" in update
+    assert "stock: int = Field(default=None)" in update
+    assert "status: ProductStatus = Field(default=None)" in update
+    assert "CreateTodoCommand.model_fields" in generated_test
+    assert "CreateTodoCommand()" not in generated_test
+
+
 def test_crud_blueprint_replays_without_overwriting_developer_files(
     tmp_path: Path,
 ) -> None:

@@ -74,6 +74,12 @@ arclith-cli add-adapter --capability api --adapter fastapi --yes
 arclith-cli expose-feature todo --via fastapi --path /v1/todos
 ```
 
+Si l'entité porte déjà ses champs métier au moment de `add-blueprint`, les
+contrats `POST` et `PATCH` générés reprennent automatiquement leurs types et
+contraintes Pydantic. Le schéma de création conserve les champs requis ; celui
+de mise à jour rend leur présence optionnelle et distingue donc omission et
+valeur invalide.
+
 `expose-feature` projette ensemble `POST /v1/todos`, les lectures collection et
 item, `PATCH /v1/todos/{uuid}` et `DELETE /v1/todos/{uuid}`. Le chemin `uuid`
 reste un paramètre FastAPI typé, puis le mapper reconstruit la Command ou Query

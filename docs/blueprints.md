@@ -61,7 +61,11 @@ arclith-cli add-blueprint crud --entity Todo --feature todo --dry-run
 ```
 
 `--feature` accepte un nom Python public en `snake_case`. Par défaut, il reprend
-le nom normalisé de l'entité.
+le nom normalisé de l'entité. Pour CRUD, cette seconde forme est recommandée
+après avoir défini les champs du modèle : le blueprint les projette alors dans
+les commandes de création et de mise à jour avec leurs contraintes Pydantic.
+Les fichiers générés restent des instantanés détenus par le projet et ne sont
+pas resynchronisés implicitement après personnalisation.
 
 ## Manifeste Et Propriété Des Fichiers
 

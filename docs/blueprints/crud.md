@@ -68,12 +68,29 @@ Le document créé dans le projet est local à la feature. Il rappelle les point
 ne font pas partie du CRUD. Ils doivent être ajoutés comme cas d'usage explicites
 si le métier en a besoin.
 
-## Personnalisation Obligatoire
+## Champs Métier Et Validation
 
-Les commandes de création et de mise à jour sont volontairement valides avec
-les seuls champs techniques d'`Entity`. Après avoir ajouté les champs métier au
-modèle, reporter uniquement les champs modifiables dans `CreateTodoCommand` et
-`UpdateTodoCommand`, puis placer les invariants dans le domaine.
+Lorsque le blueprint est appliqué à une entité existante, il copie ses champs
+métier déclaratifs dans `CreateTodoCommand` et `UpdateTodoCommand`. Les types,
+contraintes `Field`, aliases et valeurs par défaut Pydantic sont conservés pour
+la création. Dans la commande de mise à jour, chaque champ métier devient
+optionnel **en présence** : un champ absent n'est pas modifié, tandis qu'une
+valeur fournie reste soumise aux mêmes contraintes. Les champs techniques
+d'`Entity` (`uuid`, audit, soft delete et `version`) ne sont jamais copiés comme
+des données métier modifiables.
+
+Le parcours recommandé pour une entité concrète est donc :
+
+1. `arclith-cli add-entity Todo --profile minimal` ;
+2. déclarer les champs et invariants de `Todo` ;
+3. `arclith-cli add-blueprint crud --entity Todo` ;
+4. installer puis projeter le transport choisi.
+
+Le raccourci `add-entity Todo --profile crud` reste valide pour démarrer avec
+les seuls champs techniques. Comme tous les fichiers du blueprint deviennent
+ensuite propriété du projet, les champs ajoutés au modèle après cette commande
+doivent être reportés explicitement dans les commandes applicatives ; une
+relance ne les écrase pas silencieusement.
 
 Les erreurs `TodoNotFoundError` et `TodoVersionConflictError` sont des erreurs
 applicatives. La projection FastAPI les traduit respectivement en `404` et
