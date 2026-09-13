@@ -12,6 +12,7 @@ from rich.table import Table
 
 from arclith_cli.adapter_generator import GenerationRequest, _generate
 from arclith_cli.adapter_blueprints import (
+    blueprint_digest,
     get_adapter_blueprint,
     render_adapter_blueprint,
 )
@@ -30,8 +31,10 @@ from arclith_cli.adapter_selection import (
 )
 from arclith_cli.adapter_templates import render
 from arclith_cli.capabilities import AdapterSpec, CapabilitySpec
+from arclith_cli.command_recording import record_success
 from arclith_cli.entity_scanner import EntityInfo
 from arclith_cli.project_paths import ProjectPaths, detect_project_paths
+from arclith_cli.recipe import adapter_secret_metadata, snapshot_project_files
 
 console = Console()
 
@@ -47,6 +50,65 @@ class AdapterCommandResult:
     params: dict[str, Any]
     activate: bool
     profile: str | None
+
+
+def add_adapter_and_record(
+    *,
+    project_dir: Path,
+    capability_name: str | None,
+    adapter: str | None,
+    entity_names: list[str] | None,
+    all_entities: bool,
+    activate: bool,
+    db_name: str | None,
+    multitenant: bool | None,
+    duckdb_path: str | None,
+    adapter_params: dict[str, str] | None,
+    profile: str | None,
+    yes: bool,
+    dry_run: bool,
+    record: bool,
+) -> AdapterCommandResult:
+    """Run one adapter installation and record its reproducible CLI recipe."""
+    before = snapshot_project_files(project_dir) if record and not dry_run else {}
+    result = add_adapter_cmd(
+        project_dir=project_dir,
+        capability_name=capability_name,
+        adapter=adapter,
+        entity_names=entity_names,
+        all_entities=all_entities,
+        activate=activate,
+        db_name=db_name,
+        multitenant=multitenant,
+        duckdb_path=duckdb_path,
+        adapter_params=adapter_params,
+        profile=profile,
+        yes=yes,
+        dry_run=dry_run,
+    )
+    if not record or dry_run:
+        return result
+
+    blueprint = get_adapter_blueprint(result.adapter)
+    secret_fields, secret_references = adapter_secret_metadata(result.adapter)
+    record_success(
+        project_dir,
+        command="add-adapter",
+        args={
+            "capability": result.capability.name,
+            "adapter": result.adapter.name,
+            "entities": [entity.pascal for entity in result.entities],
+            "activate": result.activate,
+            "profile": result.profile,
+            "params": result.params,
+            "blueprint_version": blueprint.version,
+            "template_digest": blueprint_digest(blueprint),
+        },
+        before=before,
+        secret_fields=secret_fields,
+        secret_references=secret_references,
+    )
+    return result
 
 
 def add_adapter_cmd(

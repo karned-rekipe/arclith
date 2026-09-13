@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Atelier projet dans la TUI** — l'accueil et le tableau de bord disposent
+  d'un navigateur de dossiers qui valide la structure avant d'ouvrir un projet
+  Arclith existant, y compris depuis l'un de ses sous-dossiers.
+- **Installation native d'adapters** — le cockpit filtre les adapters déjà
+  installés, génère les champs, choix, profils et secrets depuis le catalogue,
+  affiche une commande expurgée puis écrit la même recette reproductible que la
+  commande directe.
+
+### Changed
+
+- **Activation prudente** — l'ajout d'un second adapter à une capability ne
+  remplace pas l'adapter actif sans choix explicite ; les providers
+  d'observabilité conservent leur activation cumulative.
+
 ---
 
 ## [0.28.0] — 2026-09-13

@@ -11,8 +11,7 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 from . import __version__
-from .add_adapter import add_adapter_cmd
-from .adapter_blueprints import blueprint_digest, get_adapter_blueprint
+from .add_adapter import add_adapter_and_record
 from .application_blueprint_cli import (
     add_blueprint_command,
     add_entity_command,
@@ -32,10 +31,7 @@ from .init_project import init_project_cmd
 from .new_project import new_project_cmd as _new_project_cmd
 from .project_status_cli import doctor_command, status_command
 from .project_runtime_cli import run_command
-from .recipe import (
-    adapter_secret_metadata,
-    snapshot_project_files,
-)
+from .recipe import snapshot_project_files
 from .recipe_cli import history_command, replay_command
 from .scaffold_interactive import resolve_usecase_entity_choice
 from .tui import run_tui, tui_command
@@ -306,10 +302,7 @@ def add_adapter(
 ) -> None:
     """Wizard ou mode direct pour scaffolder un nouvel [bold]adapter[/bold] dans le projet courant."""
     project_dir = Path.cwd()
-    before = (
-        snapshot_project_files(project_dir) if not no_record and not dry_run else {}
-    )
-    result = add_adapter_cmd(
+    add_adapter_and_record(
         project_dir=project_dir,
         capability_name=capability,
         adapter=adapter,
@@ -323,27 +316,8 @@ def add_adapter(
         profile=profile,
         yes=yes,
         dry_run=dry_run,
+        record=not no_record,
     )
-    if not no_record and not dry_run:
-        blueprint = get_adapter_blueprint(result.adapter)
-        secret_fields, secret_references = adapter_secret_metadata(result.adapter)
-        _record_success(
-            project_dir,
-            command="add-adapter",
-            args={
-                "capability": result.capability.name,
-                "adapter": result.adapter.name,
-                "entities": [entity.pascal for entity in result.entities],
-                "activate": result.activate,
-                "profile": result.profile,
-                "params": result.params,
-                "blueprint_version": blueprint.version,
-                "template_digest": blueprint_digest(blueprint),
-            },
-            before=before,
-            secret_fields=secret_fields,
-            secret_references=secret_references,
-        )
 
 
 @app.command(name="add-usecase")

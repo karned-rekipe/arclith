@@ -30,11 +30,25 @@ arclith-cli guide
 
 Après la création, le cockpit ouvre le tableau de bord du projet. Il affiche les
 entités, use cases, features, adapters et diagnostics, puis permet de démarrer,
-arrêter ou redémarrer les transports disponibles avec leurs logs. Le bouton
-« Guide complet » rejoint l'interface compacte pour les mutations avancées du
-catalogue. Une création ou un replay complet utilise un staging atomique : la
-cible finale n'apparaît qu'après la réussite de toutes les étapes et une cible
-existante n'est jamais écrasée.
+arrêter ou redémarrer les transports disponibles avec leurs logs. Depuis ce
+même écran, `a` ouvre le catalogue pour ajouter un adapter et `o` permet de
+choisir un autre projet existant avec un navigateur de dossiers. Ces deux
+actions restent visibles dans un terminal compact.
+
+Le formulaire d'adapter est entièrement piloté par le catalogue : paramètres,
+choix, booléens, profils et secrets. Les adapters déjà installés sont masqués et
+la commande reproductible reste affichée avant l'écriture. Ajouter un second
+adapter pour une capability ne remplace pas l'adapter actif par défaut ; cette
+activation reste une décision explicite, sauf pour l'observabilité cumulative.
+Le cockpit avertit séparément lorsqu'un provider partage et remplacera le même
+fichier de configuration qu'un adapter déjà présent.
+Chaque installation réussie alimente `arclith.recipe.yaml` et les secrets y
+restent expurgés.
+
+Le bouton « Guide complet » rejoint l'interface compacte pour les autres
+mutations avancées. Une création ou un replay complet utilise un staging
+atomique : la cible finale n'apparaît qu'après la réussite de toutes les étapes
+et une cible existante n'est jamais écrasée.
 
 Dans un pipe, un script, une CI ou avec `TERM=dumb`, l'appel sans argument reste
 non interactif : il affiche l'aide et termine avec succès. Toutes les commandes

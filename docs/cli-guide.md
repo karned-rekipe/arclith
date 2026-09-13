@@ -36,6 +36,8 @@ indépendant de l'interface :
 - un aperçu permanent du plan et des commandes directes ;
 - une progression visible pendant la génération atomique ;
 - un tableau de bord fondé sur l'état réel du disque ;
+- un sélecteur de dossiers qui valide et ouvre un projet existant ;
+- un catalogue natif pour ajouter et paramétrer de nouveaux adapters ;
 - un cockpit runtime avec sélection du transport, logs, démarrage, arrêt et
   redémarrage ;
 - une disposition réduite automatiquement dans les terminaux étroits ;
@@ -46,10 +48,12 @@ haut/bas déplacent la sélection et `Entrée` la valide. La valeur courante et 
 flèche restent visibles quand la liste est fermée. À la souris, un clic ouvre la
 liste puis un clic sur l'option la sélectionne.
 
-Les raccourcis principaux du tableau de bord sont `s` pour démarrer, `x` pour
-arrêter, `r` pour actualiser, `n` pour un nouveau projet, `g` pour le guide
-avancé et `q` pour quitter. Un runtime actif est arrêté avant la fermeture de
-l'application afin de ne pas laisser de processus orphelin.
+Les raccourcis principaux du tableau de bord sont `a` pour ajouter un adapter,
+`o` pour ouvrir un autre projet, `s` pour démarrer, `x` pour arrêter, `r` pour
+actualiser, `n` pour un nouveau projet, `g` pour le guide avancé et `q` pour
+quitter. Un runtime actif est arrêté avant la fermeture de l'application afin
+de ne pas laisser de processus orphelin. Le changement ou la modification du
+projet est refusé tant que son runtime est actif.
 
 ## Créer par intention
 
@@ -97,10 +101,31 @@ la racine et affiche :
 - les adapters réellement installés ;
 - les anomalies de manifeste ou de recette.
 
-Le guide avancé permet ensuite d'ajouter une entité, un cas d'usage ou n'importe quel
-adapter du catalogue, puis d'exposer un cas d'usage via FastAPI, FastMCP,
-LangGraph ou RabbitMQ. Une action impossible reste désactivée tant que ses
-prérequis ne sont pas présents.
+L'action « Ajouter un adapter » ouvre le catalogue complet sans quitter la TUI.
+Elle masque les adapters déjà présents, adapte les champs aux paramètres et aux
+profils déclarés par le catalogue, et affiche la commande directe équivalente.
+Les valeurs secrètes sont saisies dans un champ masqué et remplacées par
+`<redacted>` dans cet aperçu comme dans la recette.
+
+Lorsqu'une capability possède déjà un adapter actif, par exemple
+`repository/memory`, le nouvel adapter est installé sans remplacer cette
+sélection par défaut. Vous pouvez activer explicitement le nouveau provider dans
+le formulaire. Les providers d'observabilité restent cumulables. Les
+capabilities sans clé d'activation ajoutent uniquement leur configuration et
+leur code. Si deux providers partagent un fichier de configuration exclusif,
+le formulaire indique clairement lequel sera remplacé avant l'installation.
+Une erreur de paramètre ou de prérequis reste affichée dans l'écran, sans fermer
+le cockpit.
+
+Le guide avancé permet toujours d'ajouter une entité ou un cas d'usage, puis
+d'exposer un cas d'usage via FastAPI, FastMCP, LangGraph ou RabbitMQ. Une action
+impossible reste désactivée tant que ses prérequis ne sont pas présents.
+
+L'action « Ouvrir un projet » est disponible depuis l'accueil et depuis le
+tableau de bord. Le navigateur n'affiche que les dossiers utiles, accepte aussi
+un chemin saisi au clavier et vérifie la structure Arclith avant d'ouvrir le
+projet. Un sous-dossier du projet peut être sélectionné : sa racine est retrouvée
+automatiquement.
 
 La CLI ne peut pas changer le répertoire courant du shell parent. À la fin d'une
 création, elle affiche donc la commande `cd <projet>` à copier ; sa propre session
