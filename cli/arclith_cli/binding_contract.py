@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from arclith_cli.binding_annotations import BindingAnnotationReferences
-from arclith_cli.import_origins import absolute_import, pydantic_field_references
+from arclith_cli.import_origins import (
+    absolute_import,
+    pydantic_base_model_references,
+    pydantic_field_references,
+)
 from arclith_cli.project_paths import ProjectPaths
 from arclith_cli.rename import EntityNames
 
@@ -68,14 +72,14 @@ def inspect_usecase(paths: ProjectPaths, raw_name: str) -> UseCaseContract:
     path = matches[0]
     source = path.read_text(encoding="utf-8")
     tree = ast.parse(source, filename=str(path))
-    port = _find_port(tree)
-    method = _execute_method(port)
-    request = _request_model(tree, method)
     relative = path.relative_to(paths.package_root).with_suffix("")
     module = paths.import_path(*relative.parts)
+    port = _find_port(tree)
+    method = _execute_method(port)
+    request = _request_model(paths, tree, module, method)
     result = _annotation(method.returns)
     fields = _request_fields(request)
-    annotations = BindingAnnotationReferences.from_tree(tree)
+    annotations = _binding_annotations(paths, tree, module)
     request_fields = tuple(
         (field.target.id, ast.unparse(_annotation(field.annotation)))
         for field in fields
@@ -161,7 +165,7 @@ def _response_contract(
     entity_model = any(
         ast.unparse(base).split(".")[-1] == "Entity" for base in model.bases
     )
-    annotations = BindingAnnotationReferences.from_tree(model_tree)
+    annotations = _binding_annotations(paths, model_tree, model_module)
     if not entity_model and not any(
         annotations.is_pydantic_base_model(base) for base in model.bases
     ):
@@ -363,7 +367,10 @@ def _execute_method(port: ast.ClassDef) -> ast.FunctionDef | ast.AsyncFunctionDe
 
 
 def _request_model(
-    tree: ast.Module, method: ast.FunctionDef | ast.AsyncFunctionDef
+    paths: ProjectPaths,
+    tree: ast.Module,
+    module: str,
+    method: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> ast.ClassDef:
     annotation = _annotation(method.args.args[1].annotation)
     if not isinstance(annotation, ast.Name):
@@ -376,13 +383,30 @@ def _request_model(
     if len(requests) != 1 or not requests[0].name.endswith(("Command", "Query")):
         raise ValueError("Declare the Command or Query model beside the inbound port")
     request = requests[0]
-    annotations = BindingAnnotationReferences.from_tree(tree)
+    annotations = _binding_annotations(paths, tree, module)
     if len(request.bases) != 1 or not annotations.is_pydantic_base_model(
         request.bases[0]
     ):
         raise ValueError("Automatic binding requires a direct BaseModel request")
     _validate_declarative_request(request)
     return request
+
+
+def _binding_annotations(
+    paths: ProjectPaths,
+    tree: ast.Module,
+    module: str,
+) -> BindingAnnotationReferences:
+    base_names, pydantic_modules = pydantic_base_model_references(
+        paths,
+        tree,
+        module,
+    )
+    return BindingAnnotationReferences.from_tree(
+        tree,
+        pydantic_base_names=base_names,
+        pydantic_modules=pydantic_modules,
+    )
 
 
 def _annotation(node: ast.expr | None) -> ast.expr:

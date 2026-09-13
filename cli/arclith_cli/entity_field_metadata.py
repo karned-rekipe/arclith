@@ -9,6 +9,7 @@ from arclith_cli.entity_contract_ast import module_imports
 from arclith_cli.import_origins import (
     absolute_import,
     project_module_tree,
+    pydantic_field_info_references,
     pydantic_field_references,
 )
 from arclith_cli.project_paths import ProjectPaths
@@ -27,21 +28,27 @@ def validate_indirect_field_metadata(
     modules = set(pydantic_modules)
     for field in fields:
         assert isinstance(field.target, ast.Name)
-        expressions = [
+        metadata = [
             expression
             for expression in annotation_metadata(field.annotation, typing_kind)
             if not _is_pydantic_field(expression, names, modules)
         ]
-        if field.value is not None and not _is_pydantic_field(
-            field.value,
-            names,
-            modules,
-        ):
-            expressions.append(field.value)
-        if any(
-            contains_project_field_info(paths, tree, module, expression)
-            for expression in expressions
-        ):
+        unsafe_metadata = any(
+            contains_project_field_info(
+                paths,
+                tree,
+                module,
+                expression,
+                reject_unresolved_imports=True,
+            )
+            for expression in metadata
+        )
+        unsafe_default = (
+            field.value is not None
+            and not _is_pydantic_field(field.value, names, modules)
+            and contains_project_field_info(paths, tree, module, field.value)
+        )
+        if unsafe_metadata or unsafe_default:
             raise ValueError(
                 f"Indirect Pydantic Field metadata for {field.target.id!r} cannot "
                 "be projected safely; inline Field(...) on the entity field"
@@ -54,6 +61,8 @@ def contains_project_field_info(
     module: str,
     expression: ast.AST,
     visited: set[tuple[str, str]] | None = None,
+    *,
+    reject_unresolved_imports: bool = False,
 ) -> bool:
     """Follow project references and report whether they build FieldInfo."""
     pydantic_names, pydantic_modules = pydantic_field_references(
@@ -61,10 +70,17 @@ def contains_project_field_info(
         tree,
         module,
     )
-    if _contains_pydantic_field(
+    field_info_names, field_info_modules = pydantic_field_info_references(
+        paths,
+        tree,
+        module,
+    )
+    if _contains_pydantic_metadata_constructor(
         expression,
-        names=set(pydantic_names),
-        modules=set(pydantic_modules),
+        field_names=set(pydantic_names),
+        field_modules=set(pydantic_modules),
+        field_info_names=set(field_info_names),
+        field_info_modules=set(field_info_modules),
     ):
         return True
 
@@ -72,6 +88,8 @@ def contains_project_field_info(
     for reference in _loaded_references(expression):
         target = _project_reference(paths, tree, module, reference)
         if target is None:
+            if reject_unresolved_imports and _is_imported_reference(tree, reference):
+                return True
             continue
         target_tree, target_module, target_name, target_node = target
         key = (target_module, target_name)
@@ -84,6 +102,7 @@ def contains_project_field_info(
             target_module,
             target_node,
             visited,
+            reject_unresolved_imports=reject_unresolved_imports,
         ):
             return True
     return False
@@ -269,14 +288,24 @@ def _loaded_references(expression: ast.AST) -> set[str]:
     return references
 
 
-def _contains_pydantic_field(
+def _contains_pydantic_metadata_constructor(
     expression: ast.AST,
     *,
-    names: set[str],
-    modules: set[str],
+    field_names: set[str],
+    field_modules: set[str],
+    field_info_names: set[str],
+    field_info_modules: set[str],
 ) -> bool:
     return any(
-        isinstance(node, ast.expr) and _is_pydantic_field(node, names, modules)
+        isinstance(node, ast.expr)
+        and (
+            _is_pydantic_field(node, field_names, field_modules)
+            or _is_pydantic_field_info(
+                node,
+                field_info_names,
+                field_info_modules,
+            )
+        )
         for node in ast.walk(expression)
     )
 
@@ -294,6 +323,35 @@ def _is_pydantic_field(
         and function.attr == "Field"
         and _root_name(function.value) in modules
     )
+
+
+def _is_pydantic_field_info(
+    node: ast.expr | None,
+    names: set[str],
+    modules: set[str],
+) -> bool:
+    if not isinstance(node, ast.Call):
+        return False
+    function = node.func
+    return (isinstance(function, ast.Name) and function.id in names) or (
+        isinstance(function, ast.Attribute)
+        and function.attr == "FieldInfo"
+        and _root_name(function.value) in modules
+    )
+
+
+def _is_imported_reference(tree: ast.Module, reference: str) -> bool:
+    root = reference.split(".", maxsplit=1)[0]
+    for statement in module_imports(tree):
+        if isinstance(statement, ast.Import):
+            if any(
+                (alias.asname or alias.name.split(".")[0]) == root
+                for alias in statement.names
+            ):
+                return True
+        elif any((alias.asname or alias.name) == root for alias in statement.names):
+            return True
+    return False
 
 
 def _root_name(node: ast.expr) -> str | None:

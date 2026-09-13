@@ -174,6 +174,41 @@ def test_module_qualified_pydantic_models_build_a_functional_http_binding(projec
     assert response.json() == {"title": "qualified"}
 
 
+@pytest.mark.parametrize(
+    ("support_import", "base"),
+    (
+        ("from .support import BaseModel", "BaseModel"),
+        ("from . import support as ps", "ps.BaseModel"),
+    ),
+)
+def test_project_reexported_base_models_build_a_functional_http_binding(
+    project,
+    support_import,
+    base,
+):
+    inbound = project / "src/binding_app/domain/ports/inbound"
+    (inbound / "support.py").write_text(
+        "from pydantic import BaseModel\n",
+        encoding="utf-8",
+    )
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        f"{support_import}\nfrom pydantic import Field",
+    ).replace("(BaseModel)", f"({base})")
+    (inbound / "create_todo.py").write_text(source, encoding="utf-8")
+
+    registry = _bind(project, "fastapi", http_path="/v1/todos", status_code=201)
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+
+    with TestClient(api) as client:
+        response = client.post("/v1/todos", json={"title": "re-exported"})
+
+    assert response.status_code == 201
+    assert response.json() == {"title": "re-exported"}
+
+
 def test_transport_support_aliases_do_not_shadow_application_types(project):
     inbound = project / "src/binding_app/domain/ports/inbound"
     (inbound / "support.py").write_text(

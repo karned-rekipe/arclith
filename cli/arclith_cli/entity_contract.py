@@ -23,7 +23,11 @@ from arclith_cli.entity_contract_validation import (
     validate_type_alias_metadata as _validate_type_alias_metadata,
 )
 from arclith_cli.entity_field_metadata import validate_indirect_field_metadata
-from arclith_cli.import_origins import absolute_import, pydantic_field_references
+from arclith_cli.import_origins import (
+    absolute_import,
+    pydantic_field_info_references,
+    pydantic_field_references,
+)
 from arclith_cli.project_paths import ProjectPaths
 
 _ENTITY_MANAGED_FIELDS = (
@@ -91,10 +95,22 @@ def inspect_entity_contract(
     )
     module = paths.import_path("domain", "models", entity.file_path.stem)
     pydantic_names, pydantic_modules = pydantic_field_references(paths, tree, module)
+    field_info_names, field_info_modules = pydantic_field_info_references(
+        paths,
+        tree,
+        module,
+    )
     names = set(pydantic_names)
     modules = set(pydantic_modules)
     _validate_model_config(models[0], entity.pascal)
-    _validate_input_aliases(fields, names, modules, typing)
+    _validate_input_aliases(
+        fields,
+        names,
+        modules,
+        set(field_info_names),
+        set(field_info_modules),
+        typing,
+    )
     validate_indirect_field_metadata(paths, tree, module, fields, typing.kind)
     _validate_type_alias_metadata(paths, tree, module, fields)
     fields = tuple(

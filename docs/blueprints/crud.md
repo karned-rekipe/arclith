@@ -87,12 +87,15 @@ configuration globale `model_config.alias_generator` n'est pas projetée. La
 CLI refuse aussi une configuration assemblée indirectement (`**CONFIG`) dont
 elle ne peut pas exclure statiquement la présence d'un générateur, ainsi qu'une
 configuration déclarée dans un bloc conditionnel de classe. De même, les
-options dynamiques `Field(**OPTIONS)` et les métadonnées Pydantic encapsulées
-dans un alias de type réutilisable doivent être développées directement sur le
-champ. La CLI interrompt la génération avant toute écriture lorsqu'elle ne peut
-pas prouver que le contrat projeté est équivalent. Elle demande alors de
-déclarer les aliases d'entrée sur chaque champ afin que le contrat public reste
-statique et vérifiable.
+options dynamiques `Field(**OPTIONS)`, les constructeurs bas niveau
+`FieldInfo(...)` et les métadonnées Pydantic encapsulées dans une constante, un
+helper ou un alias de type réutilisable doivent être développés directement sur
+le champ avec `Field(...)`. Une métadonnée `Annotated` importée depuis un paquet
+extérieur au projet est également refusée : la CLI ne peut pas l'inspecter sans
+exécuter ce paquet. La CLI interrompt la génération avant toute écriture
+lorsqu'elle ne peut pas prouver que le contrat projeté est équivalent. Elle
+demande alors de déclarer les aliases d'entrée sur chaque champ afin que le
+contrat public reste statique et vérifiable.
 
 Le parcours recommandé pour une entité concrète est donc :
 

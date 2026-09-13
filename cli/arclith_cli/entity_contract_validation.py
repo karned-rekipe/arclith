@@ -141,6 +141,8 @@ def validate_input_aliases(
     fields: tuple[ast.AnnAssign, ...],
     pydantic_names: set[str],
     pydantic_modules: set[str],
+    field_info_names: set[str],
+    field_info_modules: set[str],
     typing: TypingReferences,
 ) -> None:
     """Reject ambiguous aliases and aliases colliding with CRUD metadata."""
@@ -158,6 +160,8 @@ def validate_input_aliases(
                 reserved=reserved,
                 pydantic_names=pydantic_names,
                 pydantic_modules=pydantic_modules,
+                field_info_names=field_info_names,
+                field_info_modules=field_info_modules,
                 parse_deferred_strings=parse_deferred_strings,
                 typing=typing,
             )
@@ -184,12 +188,16 @@ class _PydanticAliasCollisionFinder(ast.NodeVisitor):
         reserved: set[str],
         pydantic_names: set[str],
         pydantic_modules: set[str],
+        field_info_names: set[str],
+        field_info_modules: set[str],
         parse_deferred_strings: bool,
         typing: TypingReferences,
     ) -> None:
         self._reserved = reserved
         self._pydantic_names = pydantic_names
         self._pydantic_modules = pydantic_modules
+        self._field_info_names = field_info_names
+        self._field_info_modules = field_info_modules
         self._parse_deferred_strings = parse_deferred_strings
         self._typing = typing
         self.collisions: set[str] = set()
@@ -221,6 +229,13 @@ class _PydanticAliasCollisionFinder(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
+        if is_pydantic_field_info(
+            node,
+            self._field_info_names,
+            self._field_info_modules,
+        ):
+            self.has_unresolved_metadata = True
+            return
         if not is_pydantic_field(
             node,
             self._pydantic_names,
@@ -294,7 +309,13 @@ def _validate_alias(
     )
     finder.visit(value)
     if finder.found or any(
-        contains_project_field_info(paths, tree, module, metadata)
+        contains_project_field_info(
+            paths,
+            tree,
+            module,
+            metadata,
+            reject_unresolved_imports=True,
+        )
         for metadata in annotation_metadata(value, typing.kind)
     ):
         raise ValueError(
@@ -513,6 +534,22 @@ def is_pydantic_field(
     return (isinstance(function, ast.Name) and function.id in names) or (
         isinstance(function, ast.Attribute)
         and function.attr == "Field"
+        and root_name(function.value) in modules
+    )
+
+
+def is_pydantic_field_info(
+    node: ast.expr | None,
+    names: set[str],
+    modules: set[str],
+) -> bool:
+    """Return whether an expression constructs Pydantic FieldInfo directly."""
+    if not isinstance(node, ast.Call):
+        return False
+    function = node.func
+    return (isinstance(function, ast.Name) and function.id in names) or (
+        isinstance(function, ast.Attribute)
+        and function.attr == "FieldInfo"
         and root_name(function.value) in modules
     )
 

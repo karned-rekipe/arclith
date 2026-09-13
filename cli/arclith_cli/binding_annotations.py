@@ -1,6 +1,7 @@
 """Resolve annotation spellings accepted by automatic transport bindings."""
 
 import ast
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 _SCALAR_ANNOTATIONS = frozenset(
@@ -29,10 +30,16 @@ class BindingAnnotationReferences:
     pydantic_modules: frozenset[str]
 
     @classmethod
-    def from_tree(cls, tree: ast.Module) -> "BindingAnnotationReferences":
+    def from_tree(
+        cls,
+        tree: ast.Module,
+        *,
+        pydantic_base_names: Iterable[str] = (),
+        pydantic_modules: Iterable[str] = (),
+    ) -> "BindingAnnotationReferences":
         scalar_names = set(_SCALAR_ANNOTATIONS)
-        pydantic_base_names: set[str] = set()
-        pydantic_modules: set[str] = set()
+        resolved_base_names = set(pydantic_base_names)
+        resolved_pydantic_modules = set(pydantic_modules)
         scalar_modules = {
             "uuid": {"UUID"},
             "datetime": {"date", "datetime", "time", "timedelta"},
@@ -41,7 +48,7 @@ class BindingAnnotationReferences:
         for statement in tree.body:
             if isinstance(statement, ast.ImportFrom):
                 if statement.module == "pydantic":
-                    pydantic_base_names.update(
+                    resolved_base_names.update(
                         alias.asname or alias.name
                         for alias in statement.names
                         if alias.name == "BaseModel"
@@ -53,15 +60,15 @@ class BindingAnnotationReferences:
                     if alias.name in exported
                 )
             elif isinstance(statement, ast.Import):
-                pydantic_modules.update(
+                resolved_pydantic_modules.update(
                     alias.asname or alias.name.split(".")[0]
                     for alias in statement.names
                     if alias.name == "pydantic" or alias.name.startswith("pydantic.")
                 )
         return cls(
             scalar_names=frozenset(scalar_names),
-            pydantic_base_names=frozenset(pydantic_base_names),
-            pydantic_modules=frozenset(pydantic_modules),
+            pydantic_base_names=frozenset(resolved_base_names),
+            pydantic_modules=frozenset(resolved_pydantic_modules),
         )
 
     def is_pydantic_base_model(self, base: ast.expr) -> bool:
