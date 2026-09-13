@@ -1,8 +1,10 @@
 from pathlib import Path
 
 import pytest
-from textual.widgets import Button, Input, Select, Static
+import yaml
+from textual.widgets import Button, Input, Select, Static, Switch
 
+from arclith_cli.capabilities import get_capability
 from arclith_cli.guide_executor import execute_project_plan
 from arclith_cli.guide_models import (
     NewProjectAnswers,
@@ -16,6 +18,16 @@ from arclith_cli.tui import (
     ProjectWizardScreen,
     WelcomeScreen,
 )
+from arclith_cli.tui_adapter import AddAdapterScreen
+from arclith_cli.tui_adapter_catalog import (
+    AdapterInstallRequest,
+    active_adapters,
+    available_adapters,
+    configuration_replacements,
+    default_activation,
+)
+from arclith_cli.tui_project_picker import ProjectPickerScreen
+from arclith_cli.recipe import load_recipe
 from arclith_cli.project_runtime import RuntimeCommand
 from arclith_cli.tui_runtime import ManagedRuntime, RuntimeLineSink
 
@@ -39,6 +51,23 @@ def _api_project(tmp_path: Path) -> Path:
     ).root
 
 
+def _minimal_project(tmp_path: Path) -> Path:
+    return execute_project_plan(
+        plan_new_project(
+            NewProjectAnswers(
+                parent_dir=tmp_path,
+                project_name="minimal-service",
+                intent=ProjectIntent.MINIMAL,
+                entity=None,
+                usecase=None,
+                repository=RepositoryChoice.MEMORY,
+                transport_port=8000,
+                public_path="/",
+            )
+        )
+    ).root
+
+
 @pytest.mark.asyncio
 async def test_tui_opens_welcome_then_project_wizard(tmp_path: Path) -> None:
     app = ArclithTui(tmp_path)
@@ -56,6 +85,48 @@ async def test_tui_opens_welcome_then_project_wizard(tmp_path: Path) -> None:
         preview = str(app.screen.query_one("#plan-preview", Static).render())
         assert "5 étapes" in preview
         assert "expose-feature" in preview
+
+
+@pytest.mark.asyncio
+async def test_welcome_opens_an_existing_project_with_picker(tmp_path: Path) -> None:
+    project = _api_project(tmp_path)
+    app = ArclithTui(tmp_path)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.press("o")
+        await pilot.pause()
+
+        picker = app.screen
+        assert isinstance(picker, ProjectPickerScreen)
+        await pilot.press("down", "enter")
+        await pilot.pause()
+        assert picker.query_one("#picker-path", Input).value == str(project)
+        assert picker.query_one("#picker-open", Button).disabled is False
+
+        picker.query_one("#picker-open", Button).press()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectDashboardScreen)
+        assert app.screen._project_root == project
+
+
+@pytest.mark.asyncio
+async def test_project_picker_rejects_a_non_arclith_directory(tmp_path: Path) -> None:
+    app = ArclithTui(tmp_path)
+
+    async with app.run_test(size=(100, 32)) as pilot:
+        await pilot.press("o")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, ProjectPickerScreen)
+
+        picker.query_one("#picker-path", Input).value = str(tmp_path / "missing")
+        await pilot.pause()
+
+        assert picker.query_one("#picker-open", Button).disabled is True
+        status = str(picker.query_one("#picker-status", Static).render())
+        assert "introuvable" in status
 
 
 @pytest.mark.asyncio
@@ -254,6 +325,245 @@ async def test_dashboard_discovers_runtime_and_streams_logs(
 
 
 @pytest.mark.asyncio
+async def test_dashboard_opens_catalog_without_installed_adapters(
+    tmp_path: Path,
+) -> None:
+    project = _api_project(tmp_path)
+    app = ArclithTui(project)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, AddAdapterScreen)
+        capability = screen.query_one("#adapter-capability", Select)
+        adapter = screen.query_one("#adapter-choice", Select)
+        assert capability.value == "repository"
+        assert adapter.value == "mongodb"
+        repository = get_capability("repository")
+        assert repository is not None
+        assert "memory" not in {
+            item.name
+            for item in available_adapters(
+                repository,
+                frozenset({"repository/memory"}),
+            )
+        }
+        assert screen.query_one("#adapter-param-0", Input).value == project.name
+        assert screen.query_one("#adapter-activate", Switch).value is False
+        preview = str(screen.query_one("#adapter-command", Static).render())
+        assert "repository" in preview
+        assert "mongodb" in preview
+        assert "--no-activate" in preview
+        assert "--param" not in preview
+
+
+@pytest.mark.asyncio
+async def test_dashboard_installs_an_additional_repository_and_records_it(
+    tmp_path: Path,
+) -> None:
+    project = _api_project(tmp_path)
+    app = ArclithTui(project)
+
+    async with app.run_test(size=(120, 44)) as pilot:
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, AddAdapterScreen)
+
+        screen.query_one("#adapter-install", Button).press()
+        for _ in range(100):
+            await pilot.pause(0.05)
+            if isinstance(app.screen, ProjectDashboardScreen):
+                break
+
+        assert isinstance(app.screen, ProjectDashboardScreen)
+        manifest = project / ".arclith/blueprints/repository-mongodb.yaml"
+        assert manifest.is_file()
+        adapters = yaml.safe_load(
+            (project / "config/adapters/adapters.yaml").read_text(encoding="utf-8")
+        )
+        assert adapters["repository"] == "memory"
+        assert app.screen._overview is not None
+        assert "repository/mongodb" in app.screen._overview.adapters
+        recipe = load_recipe(project / "arclith.recipe.yaml")
+        assert recipe.steps[-1].command == "add-adapter"
+        assert recipe.steps[-1].args["adapter"] == "mongodb"
+
+
+def test_adapter_command_redacts_secret_values(tmp_path: Path) -> None:
+    capability = get_capability("llm")
+    assert capability is not None
+    adapter = capability.get_adapter("openai")
+    assert adapter is not None
+    request = AdapterInstallRequest(
+        project_root=tmp_path,
+        capability=capability,
+        adapter=adapter,
+        parameters=(("api_key", "super-secret"),),
+        profile=None,
+        activate=False,
+    )
+
+    command = request.command()
+
+    assert "super-secret" not in command
+    assert "api_key=<redacted>" in command
+
+
+def test_catalog_warns_when_an_adapter_replaces_shared_config() -> None:
+    storage = get_capability("storage")
+    assert storage is not None
+    s3 = storage.get_adapter("s3")
+    assert s3 is not None
+
+    replacements = configuration_replacements(
+        s3,
+        frozenset({"storage/filesystem"}),
+    )
+
+    assert replacements == ("storage/filesystem",)
+
+
+def test_catalog_reads_active_provider_without_adapter_manifest(tmp_path: Path) -> None:
+    project = _minimal_project(tmp_path)
+    repository = get_capability("repository")
+    assert repository is not None
+    assert not (project / ".arclith/blueprints/repository-memory.yaml").exists()
+
+    active = active_adapters(project)
+
+    assert "repository/memory" in active
+    assert default_activation(repository, active) is False
+
+
+@pytest.mark.asyncio
+async def test_dashboard_can_switch_to_another_existing_project(tmp_path: Path) -> None:
+    first_parent = tmp_path / "first"
+    second_parent = tmp_path / "second"
+    first_parent.mkdir()
+    second_parent.mkdir()
+    first = _api_project(first_parent)
+    second = _api_project(second_parent)
+    app = ArclithTui(first)
+
+    async with app.run_test(size=(110, 36)) as pilot:
+        await pilot.pause()
+        await pilot.press("o")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, ProjectPickerScreen)
+        picker.query_one("#picker-path", Input).value = str(second)
+        await pilot.pause()
+        picker.query_one("#picker-open", Button).press()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectDashboardScreen)
+        assert app.screen._project_root == second
+
+
+@pytest.mark.asyncio
+async def test_adapter_profile_updates_generated_parameter_fields(
+    tmp_path: Path,
+) -> None:
+    project = _api_project(tmp_path)
+    app = ArclithTui(project)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, AddAdapterScreen)
+
+        screen.query_one("#adapter-capability", Select).value = "observability"
+        await pilot.pause()
+        assert screen.query_one("#adapter-choice", Select).value == "langsmith"
+        profile = screen.query_one("#adapter-profile", Select)
+        assert profile.display is True
+
+        profile.value = "production"
+        await pilot.pause()
+
+        sampling = screen._parameter_widgets["sampling_rate"]
+        capture_inputs = screen._parameter_widgets["capture_inputs"]
+        assert isinstance(sampling, Input)
+        assert sampling.value == "0.1"
+        assert isinstance(capture_inputs, Switch)
+        assert capture_inputs.value is False
+        assert screen.query_one("#adapter-activate", Switch).value is True
+
+        tracing_mode = screen._parameter_widgets["tracing_mode"]
+        assert isinstance(tracing_mode, Select)
+        tracing_mode.value = "hybrid"
+        await pilot.pause()
+        preview = str(screen.query_one("#adapter-command", Static).render())
+        assert "tracing_mode=hybrid" in preview
+        assert "sampling_rate=0.1" not in preview
+
+
+@pytest.mark.asyncio
+async def test_adapter_install_preserves_untouched_langsmith_values(
+    tmp_path: Path,
+) -> None:
+    project = _api_project(tmp_path)
+    config = project / "config/adapters/outbound/langsmith.yaml"
+    config.write_text(
+        "project: hand-tuned\ntracing:\n  sampling_rate: 0.42\n",
+        encoding="utf-8",
+    )
+    app = ArclithTui(project)
+
+    async with app.run_test(size=(120, 44)) as pilot:
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, AddAdapterScreen)
+        screen.query_one("#adapter-capability", Select).value = "observability"
+        await pilot.pause()
+
+        screen.query_one("#adapter-install", Button).press()
+        for _ in range(100):
+            await pilot.pause(0.05)
+            if isinstance(app.screen, ProjectDashboardScreen):
+                break
+
+    rendered = yaml.safe_load(config.read_text(encoding="utf-8"))
+    assert rendered["project"] == "hand-tuned"
+    assert rendered["tracing"]["sampling_rate"] == 0.42
+
+
+@pytest.mark.asyncio
+async def test_adapter_prerequisite_error_keeps_catalog_open(tmp_path: Path) -> None:
+    project = _api_project(tmp_path)
+    app = ArclithTui(project)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, AddAdapterScreen)
+
+        screen.query_one("#adapter-capability", Select).value = "agent-persistence"
+        await pilot.pause()
+        screen.query_one("#adapter-install", Button).press()
+        for _ in range(40):
+            await pilot.pause(0.05)
+            error = str(screen.query_one("#adapter-error", Static).render())
+            if "agent/langgraph" in error:
+                break
+
+        assert app.screen is screen
+        assert "agent/langgraph" in error
+        assert screen.query_one("#adapter-install", Button).disabled is False
+
+
+@pytest.mark.asyncio
 async def test_dashboard_hides_secondary_panels_in_narrow_terminal(
     tmp_path: Path,
 ) -> None:
@@ -264,6 +574,27 @@ async def test_dashboard_hides_secondary_panels_in_narrow_terminal(
 
         assert app.screen.query_one("#project-sidebar").display is False
         assert app.screen.query_one("#project-plan").display is False
+        assert app.screen.query_one("#project-add-adapter", Button).display is True
+        assert app.screen.query_one("#project-open", Button).display is True
+
+
+@pytest.mark.asyncio
+async def test_adapter_actions_remain_visible_in_narrow_terminal(
+    tmp_path: Path,
+) -> None:
+    app = ArclithTui(_api_project(tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, AddAdapterScreen)
+
+        assert screen.query_one("#adapter-sidebar").display is False
+        install = screen.query_one("#adapter-install", Button)
+        assert install.display is True
+        assert install.region.height == 3
 
 
 @pytest.mark.asyncio

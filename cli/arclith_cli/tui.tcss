@@ -17,7 +17,7 @@ Screen {
     color: $text;
 }
 
-WelcomeScreen {
+WelcomeScreen, ProjectPickerScreen {
     align-horizontal: center;
 }
 
@@ -354,6 +354,16 @@ Select > SelectOverlay > .option-list--option-hover {
     height: 4;
 }
 
+#project-actions {
+    height: 4;
+    margin-bottom: 1;
+}
+
+#project-actions Button {
+    width: 1fr;
+    margin-right: 1;
+}
+
 #runtime-mode {
     width: 1fr;
     margin-right: 1;
@@ -380,4 +390,157 @@ Select > SelectOverlay > .option-list--option-hover {
 #project-details, #project-doctor {
     height: auto;
     color: $text-muted;
+}
+
+#picker-shell {
+    width: 96;
+    max-width: 100%;
+    height: 1fr;
+    margin: 1 0;
+    padding: 2 3;
+    background: $surface;
+    border: round $border;
+}
+
+#picker-toolbar {
+    height: 4;
+    margin-top: 1;
+}
+
+#picker-toolbar Button {
+    margin-right: 1;
+}
+
+#picker-tree {
+    height: 1fr;
+    min-height: 8;
+    padding: 1;
+    background: $background;
+    border: round $border;
+}
+
+#picker-tree:focus {
+    border: round $primary;
+}
+
+#picker-status {
+    height: auto;
+    min-height: 2;
+    margin-top: 1;
+    color: $text-muted;
+}
+
+#picker-actions {
+    margin-top: 0;
+}
+
+#adapter-shell {
+    height: 1fr;
+}
+
+#adapter-sidebar {
+    width: 28;
+    min-width: 24;
+    padding: 2 1;
+    background: $surface;
+    border-right: tall $border;
+}
+
+#adapter-brand {
+    height: 3;
+    padding: 1;
+    color: $primary-lighten-1;
+    text-style: bold;
+}
+
+#adapter-steps {
+    height: auto;
+    margin: 2 1;
+    color: $text-muted;
+}
+
+#adapter-installed {
+    height: 1fr;
+    padding: 1;
+    color: $text-muted;
+    overflow-y: auto;
+}
+
+#adapter-main {
+    width: 1fr;
+    min-width: 48;
+    height: 1fr;
+}
+
+#adapter-form {
+    width: 100%;
+    height: 1fr;
+    padding: 2 4;
+}
+
+#adapter-title {
+    height: auto;
+    text-style: bold;
+}
+
+#adapter-parameters {
+    width: 100%;
+    height: auto;
+}
+
+.adapter-parameter {
+    width: 100%;
+    margin-top: 1;
+}
+
+.adapter-parameter Switch {
+    margin-top: 1;
+}
+
+#adapter-activation-field {
+    height: auto;
+    min-height: 5;
+    margin-top: 1;
+    padding: 0 1;
+    background: $surface;
+    border-left: thick $primary;
+}
+
+#adapter-activation-copy {
+    width: 1fr;
+    height: auto;
+}
+
+#adapter-activate {
+    width: 10;
+    margin-top: 1;
+}
+
+#adapter-command {
+    height: auto;
+    min-height: 4;
+    padding: 1 2;
+    background: $surface;
+    border: round $border;
+    color: $text-muted;
+}
+
+#adapter-conflict {
+    height: auto;
+    margin-top: 1;
+    padding: 1 2;
+    background: $surface;
+    border-left: thick $warning;
+}
+
+#adapter-loading {
+    height: 3;
+    color: $primary;
+}
+
+#adapter-actions {
+    width: 100%;
+    height: 4;
+    padding: 0 4;
+    margin-top: 0;
 }
