@@ -6,6 +6,23 @@ import ast
 from copy import deepcopy
 
 
+def module_imports(tree: ast.Module) -> tuple[ast.Import | ast.ImportFrom, ...]:
+    """Return module-scope imports, including imports in conditional blocks."""
+    imports: list[ast.Import | ast.ImportFrom] = []
+
+    def visit(node: ast.AST) -> None:
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            imports.append(node)
+            return
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            return
+        for child in ast.iter_child_nodes(node):
+            visit(child)
+
+    visit(tree)
+    return tuple(imports)
+
+
 def field_dependencies(fields: tuple[ast.AnnAssign, ...]) -> set[str]:
     """Return free Python names required to evaluate field declarations."""
     collector = _FreeNameCollector()

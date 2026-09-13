@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from arclith_cli.entity_contract_ast import (
     field_dependencies,
+    module_imports,
     module_declarations,
     qualify_class_dependencies,
 )
@@ -60,7 +61,10 @@ def inspect_entity_contract(
             f"Expected one entity model named {entity.pascal!r} in {entity.file_path}"
         )
 
-    fields = tuple(_business_fields(models[0]))
+    class_var_names, class_var_modules = _class_var_references(tree)
+    fields = tuple(
+        _business_fields(models[0], class_var_names, class_var_modules)
+    )
     fields = qualify_class_dependencies(models[0], fields, entity.pascal)
     module = paths.import_path("domain", "models", entity.file_path.stem)
     pydantic_names, pydantic_modules = pydantic_field_references(paths, tree, module)
@@ -94,7 +98,11 @@ def inspect_entity_contract(
     )
 
 
-def _business_fields(model: ast.ClassDef) -> list[ast.AnnAssign]:
+def _business_fields(
+    model: ast.ClassDef,
+    class_var_names: set[str],
+    class_var_modules: set[str],
+) -> list[ast.AnnAssign]:
     return [
         statement
         for statement in model.body
@@ -103,14 +111,46 @@ def _business_fields(model: ast.ClassDef) -> list[ast.AnnAssign]:
         and not statement.target.id.startswith("_")
         and statement.target.id != "model_config"
         and statement.target.id not in _ENTITY_MANAGED_FIELDS
-        and not _is_class_var(statement.annotation)
+        and not _is_class_var(
+            statement.annotation,
+            names=class_var_names,
+            modules=class_var_modules,
+        )
     ]
 
 
-def _is_class_var(annotation: ast.expr) -> bool:
+def _class_var_references(tree: ast.Module) -> tuple[set[str], set[str]]:
+    names = {"ClassVar"}
+    modules = {"typing", "typing_extensions"}
+    for statement in module_imports(tree):
+        if isinstance(statement, ast.ImportFrom) and statement.module in modules:
+            names.update(
+                alias.asname or alias.name
+                for alias in statement.names
+                if alias.name == "ClassVar"
+            )
+        elif isinstance(statement, ast.Import):
+            modules.update(
+                alias.asname or alias.name.split(".")[0]
+                for alias in statement.names
+                if alias.name in {"typing", "typing_extensions"}
+            )
+    return names, modules
+
+
+def _is_class_var(
+    annotation: ast.expr,
+    *,
+    names: set[str],
+    modules: set[str],
+) -> bool:
     return any(
-        (isinstance(node, ast.Name) and node.id == "ClassVar")
-        or (isinstance(node, ast.Attribute) and node.attr == "ClassVar")
+        (isinstance(node, ast.Name) and node.id in names)
+        or (
+            isinstance(node, ast.Attribute)
+            and node.attr == "ClassVar"
+            and _root_name(node.value) in modules
+        )
         for node in ast.walk(annotation)
     )
 
@@ -123,9 +163,7 @@ def _field_imports(
     used = field_dependencies(fields)
     resolved = set(dir(builtins))
     imports: list[str] = []
-    for statement in tree.body:
-        if not isinstance(statement, (ast.Import, ast.ImportFrom)):
-            continue
+    for statement in module_imports(tree):
         local_names = {
             alias.asname or alias.name.split(".")[0]: alias for alias in statement.names
         }
@@ -196,21 +234,95 @@ def _sanitize_input_field(
     partial_update: bool = False,
 ) -> ast.AnnAssign:
     result = deepcopy(field)
-    removed = {"exclude", "exclude_if"}
+    removed = {"exclude", "exclude_if", "serialization_alias"}
     if partial_update:
         removed.update({"default", "default_factory", "validate_default"})
-    for node in ast.walk(result):
+    result.annotation = _QuotedAnnotationSanitizer(
+        pydantic_names=pydantic_names,
+        pydantic_modules=pydantic_modules,
+        removed=removed,
+        clear_default=partial_update,
+    ).visit(result.annotation)
+    _sanitize_pydantic_field_calls(
+        result,
+        pydantic_names=pydantic_names,
+        pydantic_modules=pydantic_modules,
+        removed=removed,
+        clear_default=partial_update,
+    )
+    return ast.fix_missing_locations(result)
+
+
+def _sanitize_pydantic_field_calls(
+    tree: ast.AST,
+    *,
+    pydantic_names: set[str],
+    pydantic_modules: set[str],
+    removed: set[str],
+    clear_default: bool,
+) -> None:
+    for node in ast.walk(tree):
         if not isinstance(node, ast.expr):
             continue
         if not _is_pydantic_field(node, pydantic_names, pydantic_modules):
             continue
         assert isinstance(node, ast.Call)
-        if partial_update:
+        if clear_default:
             node.args = []
         node.keywords = [
             keyword for keyword in node.keywords if keyword.arg not in removed
         ]
-    return ast.fix_missing_locations(result)
+
+
+class _QuotedAnnotationSanitizer(ast.NodeTransformer):
+    def __init__(
+        self,
+        *,
+        pydantic_names: set[str],
+        pydantic_modules: set[str],
+        removed: set[str],
+        clear_default: bool,
+    ) -> None:
+        self._pydantic_names = pydantic_names
+        self._pydantic_modules = pydantic_modules
+        self._removed = removed
+        self._clear_default = clear_default
+
+    def visit_Constant(self, node: ast.Constant) -> ast.Constant:
+        if not isinstance(node.value, str):
+            return node
+        try:
+            expression = ast.parse(node.value, mode="eval").body
+        except SyntaxError:
+            return node
+        expression = self.visit(expression)
+        _sanitize_pydantic_field_calls(
+            expression,
+            pydantic_names=self._pydantic_names,
+            pydantic_modules=self._pydantic_modules,
+            removed=self._removed,
+            clear_default=self._clear_default,
+        )
+        result = deepcopy(node)
+        result.value = ast.unparse(expression)
+        return ast.copy_location(result, node)
+
+    def visit_Subscript(self, node: ast.Subscript) -> ast.Subscript:
+        kind = _reference_name(node.value)
+        if kind == "Literal":
+            return node
+        if kind == "Annotated":
+            if isinstance(node.slice, ast.Tuple):
+                if node.slice.elts:
+                    node.slice.elts[0] = self.visit(node.slice.elts[0])
+            else:
+                node.slice = self.visit(node.slice)
+            return node
+        node.slice = self.visit(node.slice)
+        return node
+
+    def visit_Call(self, node: ast.Call) -> ast.Call:
+        return node
 
 
 def _is_pydantic_field(
@@ -224,6 +336,19 @@ def _is_pydantic_field(
     return (isinstance(function, ast.Name) and function.id in names) or (
         isinstance(function, ast.Attribute)
         and function.attr == "Field"
-        and isinstance(function.value, ast.Name)
-        and function.value.id in modules
+        and _root_name(function.value) in modules
     )
+
+
+def _root_name(node: ast.expr) -> str | None:
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
+
+
+def _reference_name(node: ast.expr) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None

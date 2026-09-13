@@ -456,8 +456,9 @@ def test_crud_blueprint_executes_aliased_business_fields(
     project = _project(tmp_path, "aliased-blueprint-service")
     entity = project / "src/aliased_blueprint_service/domain/models/todo.py"
     entity.write_text(
-        '''from typing import ClassVar
+        '''from typing import Annotated, ClassVar as CV
 
+import pydantic.fields
 from pydantic import BaseModel, Field
 
 from arclith.domain.models.entity import Entity
@@ -470,9 +471,10 @@ class RelatedProduct(BaseModel):
 
 
 class Todo(Entity):
-    MIN_SKU_LENGTH: ClassVar[int] = 3
+    MIN_SKU_LENGTH: CV[int] = 3
     sku: ProductCode = Field(
         alias="productSku",
+        serialization_alias="publicSku",
         min_length=MIN_SKU_LENGTH,
         exclude=True,
     )
@@ -481,6 +483,8 @@ class Todo(Entity):
         validate_default=True,
     )
     related: "RelatedProduct | None" = None
+    secret_code: "Annotated[str, Field(exclude=True, min_length=2)]"
+    tracking_code: str = pydantic.fields.Field(exclude=True, min_length=2)
 ''',
         encoding="utf-8",
     )
@@ -514,17 +518,32 @@ class Todo(Entity):
     use_cases = container.build_todo_use_cases(Arclith(project / "config"))
     assert "Todo.MIN_SKU_LENGTH" in create_source
     assert "exclude=True" not in create_source
+    assert "serialization_alias" not in create_source
     assert "default_factory" not in update_source
     assert "validate_default=True" not in update_source
+    assert set(create_contract.CreateTodoCommand.model_fields) == {
+        "related",
+        "secret_code",
+        "sku",
+        "slug",
+        "tracking_code",
+    }
+    request = create_contract.CreateTodoCommand.model_validate(
+        {
+            "productSku": "SKU-001",
+            "secret_code": "S3",
+            "tracking_code": "T3",
+        }
+    )
+    assert "productSku" in request.model_dump(by_alias=True)
+    assert "publicSku" not in request.model_dump(by_alias=True)
     assert (
         create_contract.CreateTodoCommand.model_fields["related"].annotation
         == create_contract.RelatedProduct | None
     )
     created = _run(
         use_cases.create.execute(
-            create_contract.CreateTodoCommand.model_validate(
-                {"productSku": "SKU-001"}
-            )
+            request
         )
     ).item
     unchanged = _run(
@@ -549,6 +568,8 @@ class Todo(Entity):
 
     assert created.sku == "SKU-001"
     assert created.slug == "sku-001"
+    assert created.secret_code == "S3"
+    assert created.tracking_code == "T3"
     assert unchanged.sku == "SKU-001"
     assert updated.sku == "SKU-002"
     assert updated.version == 3
@@ -558,6 +579,45 @@ class Todo(Entity):
             "aliased_blueprint_service."
         ):
             sys.modules.pop(module)
+
+
+def test_crud_blueprint_resolves_type_checking_imports(tmp_path: Path) -> None:
+    project = _project(tmp_path, "deferred-blueprint-service")
+    models = project / "src/deferred_blueprint_service/domain/models"
+    (models / "product_types.py").write_text("type Money = int\n", encoding="utf-8")
+    (models / "todo.py").write_text(
+        '''from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from arclith.domain.models.entity import Entity
+
+if TYPE_CHECKING:
+    from .product_types import Money
+
+
+class Todo(Entity):
+    price: Money
+''',
+        encoding="utf-8",
+    )
+
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+
+    create_source = (
+        project
+        / "src/deferred_blueprint_service/domain/ports/inbound/create_todo.py"
+    ).read_text(encoding="utf-8")
+    assert (
+        "from deferred_blueprint_service.domain.models.product_types import Money"
+        in create_source
+    )
 
 
 def _run(awaitable: Coroutine[Any, Any, T]) -> T:
