@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from textual.widgets import Button, Select, Static
+from textual.widgets import Button, Input, Select, Static
 
 from arclith_cli.guide_executor import execute_project_plan
 from arclith_cli.guide_models import (
@@ -93,6 +93,34 @@ async def test_wizard_select_value_and_options_are_visible(tmp_path: Path) -> No
         assert str(repository_current.query_one("#label", Static).render()) == (
             "Mémoire — rapide et non persistant"
         )
+
+
+@pytest.mark.asyncio
+async def test_wizard_domain_fields_accept_keyboard_input(tmp_path: Path) -> None:
+    app = ArclithTui(tmp_path)
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.press("n")
+        await pilot.pause()
+        wizard = app.screen
+        assert isinstance(wizard, ProjectWizardScreen)
+
+        wizard.query_one("#next-step", Button).press()
+        await pilot.pause()
+        assert app.focused is not None
+        assert app.focused.id == "parent-dir"
+
+        project_name = wizard.query_one("#project-name", Input)
+        project_name.value = ""
+        project_name.focus()
+        await pilot.press(*"api-service")
+        assert project_name.value == "api-service"
+
+        entity = wizard.query_one("#entity", Input)
+        entity.value = ""
+        await pilot.press("tab", *"Order")
+        assert app.focused is entity
+        assert entity.value == "Order"
 
 
 @pytest.mark.parametrize(
