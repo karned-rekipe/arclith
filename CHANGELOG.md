@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+---
+
+## [0.28.0] — 2026-09-13
+
 ### Added
 
 - **Cockpit plein écran** — l'appel `arclith-cli` et la commande explicite `tui`
@@ -32,6 +36,8 @@
   `TERM=dumb`, la commande racine continue d'afficher l'aide avec succès ; les
   commandes directes restent disponibles et le guide ne crée aucun adapter
   implicitement.
+- **Versions release** — `arclith` passe à `0.28.0`; `arclith-cli` passe à
+  `0.25.0` et dépend de `arclith>=0.28.0`.
 
 ### Fixed
 
