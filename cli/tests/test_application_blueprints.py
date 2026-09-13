@@ -461,7 +461,7 @@ def test_crud_blueprint_executes_aliased_business_fields(
         '''from typing import Annotated, ClassVar as CV
 
 import pydantic.fields
-from pydantic import BaseModel, ConfigDict, Field, fields as pf
+from pydantic import AliasPath, BaseModel, ConfigDict, Field, fields as pf
 
 from arclith.domain.models.entity import Entity
 
@@ -496,6 +496,8 @@ class Todo(Entity):
         str,
         pf.Field(default_factory=lambda data: str(data["uuid"])),
     ]
+    nested_code: str = Field(validation_alias=AliasPath("payload", "uuid"))
+    note: str = "Field(alias='uuid', default_factory=make_note)"
 ''',
         encoding="utf-8",
     )
@@ -530,8 +532,14 @@ class Todo(Entity):
     assert "Todo.MIN_SKU_LENGTH" in create_source
     assert "exclude=True" not in create_source
     assert "serialization_alias" not in create_source
-    assert "default_factory" not in create_source
-    assert "default_factory" not in update_source
+    assert not any(
+        isinstance(node, ast.keyword) and node.arg == "default_factory"
+        for node in ast.walk(ast.parse(create_source))
+    )
+    assert not any(
+        isinstance(node, ast.keyword) and node.arg == "default_factory"
+        for node in ast.walk(ast.parse(update_source))
+    )
     assert "validate_default=True" not in update_source
     assert set(create_contract.CreateTodoCommand.model_fields) == {
         "related",
@@ -543,6 +551,8 @@ class Todo(Entity):
         "deferred_code",
         "external_id",
         "annotated_external_id",
+        "nested_code",
+        "note",
     }
     request = create_contract.CreateTodoCommand.model_validate(
         {
@@ -551,6 +561,7 @@ class Todo(Entity):
             "tracking_code": "T3",
             "alternate_tracking_code": "A3",
             "deferred_code": "DEF",
+            "payload": {"uuid": "N3"},
         }
     )
     assert "productSku" in request.model_dump(by_alias=True)
@@ -593,6 +604,8 @@ class Todo(Entity):
     assert created.deferred_code == "DEF"
     assert created.external_id == str(created.uuid)
     assert created.annotated_external_id == str(created.uuid)
+    assert created.nested_code == "N3"
+    assert created.note == "Field(alias='uuid', default_factory=make_note)"
     assert unchanged.sku == "SKU-001"
     assert unchanged.model_extra == {"legacy_code": "keep-me"}
     assert updated.sku == "SKU-002"
@@ -645,12 +658,17 @@ class Todo(Entity):
 
 
 @pytest.mark.parametrize(
-    "alias",
-    ('alias="uuid"', 'validation_alias="version"'),
+    ("alias", "message"),
+    (
+        ('alias="uuid"', "collide with technical CRUD fields"),
+        ('validation_alias="version"', "collide with technical CRUD fields"),
+        ("alias=INPUT_KEY", "cannot be resolved statically"),
+    ),
 )
 def test_crud_blueprint_rejects_technical_input_alias_collisions(
     tmp_path: Path,
     alias: str,
+    message: str,
 ) -> None:
     project = _project(tmp_path, "colliding-alias-service")
     entity = project / "src/colliding_alias_service/domain/models/todo.py"
@@ -659,6 +677,8 @@ def test_crud_blueprint_rejects_technical_input_alias_collisions(
 
 from arclith.domain.models.entity import Entity
 
+INPUT_KEY = "uuid"
+
 
 class Todo(Entity):
     external_id: str = Field({alias})
@@ -666,7 +686,7 @@ class Todo(Entity):
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="collide with technical CRUD fields"):
+    with pytest.raises(ValueError, match=message):
         add_application_blueprint_cmd(
             project_dir=project,
             blueprint_name="crud",
@@ -696,7 +716,36 @@ class Todo(Entity):
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="alias_generator cannot be projected"):
+    with pytest.raises(ValueError, match="alias_generator.*cannot be projected"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+def test_crud_blueprint_rejects_indirect_model_config(tmp_path: Path) -> None:
+    project = _project(tmp_path, "indirect-config-service")
+    entity = project / "src/indirect_config_service/domain/models/todo.py"
+    entity.write_text(
+        '''from pydantic import ConfigDict
+
+from arclith.domain.models.entity import Entity
+
+
+ALIAS_CONFIG = {"alias_generator": str.upper}
+
+
+class Todo(Entity):
+    model_config = ConfigDict(**ALIAS_CONFIG)
+    external_id: str
+''',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="may contain an alias_generator"):
         add_application_blueprint_cmd(
             project_dir=project,
             blueprint_name="crud",

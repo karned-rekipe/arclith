@@ -80,11 +80,14 @@ d'`Entity` (`uuid`, audit, soft delete et `version`) ne sont jamais copiés comm
 des données métier modifiables.
 
 Les aliases explicites définis avec `Field(alias=...)` ou
-`Field(validation_alias=...)` sont conservés, à condition de ne pas réutiliser
+`Field(validation_alias=...)` sont conservés, à condition d'être exprimés par
+des chaînes littérales, `AliasPath` ou `AliasChoices`, et de ne pas réutiliser
 les clés techniques `uuid` ou `version` de la commande de mise à jour. Une
-configuration globale `model_config.alias_generator` n'est pas projetée : la
-CLI interrompt la génération et demande de déclarer les aliases d'entrée sur
-chaque champ afin que le contrat public reste statique et vérifiable.
+configuration globale `model_config.alias_generator` n'est pas projetée. La
+CLI refuse aussi une configuration assemblée indirectement (`**CONFIG`) dont
+elle ne peut pas exclure statiquement la présence d'un générateur. Elle demande
+alors de déclarer les aliases d'entrée sur chaque champ afin que le contrat
+public reste statique et vérifiable.
 
 Le parcours recommandé pour une entité concrète est donc :
 
