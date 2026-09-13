@@ -377,7 +377,12 @@ async def test_dashboard_installs_an_additional_repository_and_records_it(
         screen.query_one("#adapter-install", Button).press()
         for _ in range(100):
             await pilot.pause(0.05)
-            if isinstance(app.screen, ProjectDashboardScreen):
+            dashboard = app.screen
+            if (
+                isinstance(dashboard, ProjectDashboardScreen)
+                and dashboard._overview is not None
+                and "repository/mongodb" in dashboard._overview.adapters
+            ):
                 break
 
         assert isinstance(app.screen, ProjectDashboardScreen)
