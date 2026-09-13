@@ -1219,6 +1219,49 @@ class Todo(Entity):
         )
 
 
+@pytest.mark.parametrize(
+    "field",
+    (
+        "code: Annotated[str, SECRET]",
+        "code: str = SECRET",
+    ),
+)
+def test_crud_blueprint_rejects_external_metadata_reexported_by_package(
+    tmp_path: Path,
+    field: str,
+) -> None:
+    project = _project(tmp_path, "external-package-field-service")
+    models = project / "src/external_package_field_service/domain/models"
+    metadata_package = models / "field_metadata"
+    metadata_package.mkdir()
+    (metadata_package / "__init__.py").write_text(
+        "from shared_contracts import SECRET\n",
+        encoding="utf-8",
+    )
+    (models / "todo.py").write_text(
+        f"""from typing import Annotated
+
+from .field_metadata import SECRET
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    {field}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Indirect Pydantic Field metadata"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
 def test_crud_blueprint_rejects_uninspectable_external_metadata(
     tmp_path: Path,
 ) -> None:

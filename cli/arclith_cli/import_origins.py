@@ -103,6 +103,41 @@ def uninspectable_external_reference(
     reference: str,
 ) -> bool:
     """Return whether an imported reference cannot be inspected statically."""
+    return _uninspectable_external_reference(
+        paths,
+        tree,
+        module,
+        reference,
+        visited=set(),
+    )
+
+
+def _uninspectable_external_reference(
+    paths: ProjectPaths,
+    tree: ast.Module,
+    module: str,
+    reference: str,
+    *,
+    visited: set[tuple[str, str]],
+) -> bool:
+    key = (module, reference)
+    if key in visited:
+        return False
+    visited.add(key)
+    project_reference = (
+        project_qualified_imported_symbol(paths, tree, module, reference)
+        if "." in reference
+        else project_imported_symbol(paths, tree, module, reference)
+    )
+    if project_reference is not None:
+        imported_tree, project_module, imported_name = project_reference
+        return _uninspectable_external_reference(
+            paths,
+            imported_tree,
+            project_module,
+            imported_name,
+            visited=visited,
+        )
     root = reference.split(".", maxsplit=1)[0]
     imported_module: str | None = None
     for statement in module_imports(tree):
