@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+---
+
+## [0.29.0] — 2026-09-13
+
 ### Added
 
 - **Atelier projet dans la TUI** — l'accueil et le tableau de bord disposent
@@ -17,6 +21,8 @@
 - **Activation prudente** — l'ajout d'un second adapter à une capability ne
   remplace pas l'adapter actif sans choix explicite ; les providers
   d'observabilité conservent leur activation cumulative.
+- **Versions release** — `arclith` passe à `0.29.0`; `arclith-cli` passe à
+  `0.26.0` et dépend de `arclith>=0.29.0`.
 
 ---
 
