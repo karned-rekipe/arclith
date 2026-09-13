@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from collections.abc import Callable
 from copy import deepcopy
 
 
@@ -61,14 +62,20 @@ def _is_type_checking_guard(
     )
 
 
-def field_dependencies(fields: tuple[ast.AnnAssign, ...]) -> set[str]:
+def field_dependencies(
+    fields: tuple[ast.AnnAssign, ...],
+    typing_kind: Callable[[ast.expr], str | None] | None = None,
+) -> set[str]:
     """Return free Python names required to evaluate field declarations."""
+    typing_kind = typing_kind or _reference_name
     collector = _FreeNameCollector()
     for field in fields:
         collector.visit(field.annotation)
         if field.value is not None:
             collector.visit(field.value)
-        collector.names.update(_quoted_annotation_dependencies(field.annotation))
+        collector.names.update(
+            _quoted_annotation_dependencies(field.annotation, typing_kind)
+        )
     return collector.names
 
 
@@ -95,8 +102,10 @@ def qualify_class_dependencies(
     model: ast.ClassDef,
     fields: tuple[ast.AnnAssign, ...],
     entity_name: str,
+    typing_kind: Callable[[ast.expr], str | None] | None = None,
 ) -> tuple[ast.AnnAssign, ...]:
     """Qualify constants declared on the entity as ``Entity.CONSTANT``."""
+    typing_kind = typing_kind or _reference_name
     business_names = {
         field.target.id for field in fields if isinstance(field.target, ast.Name)
     }
@@ -124,6 +133,7 @@ def qualify_class_dependencies(
         result.annotation = _QuotedClassDependencyQualifier(
             entity_name,
             dependencies,
+            typing_kind,
         ).visit(result.annotation)
         result.annotation = qualifier.visit(result.annotation)
         if result.value is not None:
@@ -132,7 +142,10 @@ def qualify_class_dependencies(
     return tuple(qualified)
 
 
-def _quoted_annotation_dependencies(annotation: ast.expr) -> set[str]:
+def _quoted_annotation_dependencies(
+    annotation: ast.expr,
+    typing_kind: Callable[[ast.expr], str | None],
+) -> set[str]:
     names: set[str] = set()
 
     def visit(node: ast.AST) -> None:
@@ -147,7 +160,7 @@ def _quoted_annotation_dependencies(annotation: ast.expr) -> set[str]:
             visit(parsed)
             return
         if isinstance(node, ast.Subscript):
-            kind = _reference_name(node.value)
+            kind = typing_kind(node.value)
             if kind == "Literal":
                 return
             if kind == "Annotated":
@@ -180,8 +193,7 @@ def _bound_names(node: ast.AST) -> set[str]:
     return {
         child.id
         for child in ast.walk(node)
-        if isinstance(child, ast.Name)
-        and isinstance(child.ctx, (ast.Store, ast.Param))
+        if isinstance(child, ast.Name) and isinstance(child.ctx, (ast.Store, ast.Param))
     }
 
 
@@ -320,9 +332,15 @@ class _ClassDependencyQualifier(ast.NodeTransformer):
 class _QuotedClassDependencyQualifier(ast.NodeTransformer):
     """Qualify class dependencies inside deferred annotation strings only."""
 
-    def __init__(self, entity_name: str, dependencies: set[str]) -> None:
+    def __init__(
+        self,
+        entity_name: str,
+        dependencies: set[str],
+        typing_kind: Callable[[ast.expr], str | None] = _reference_name,
+    ) -> None:
         self._entity_name = entity_name
         self._dependencies = dependencies
+        self._typing_kind = typing_kind
 
     def visit_Constant(self, node: ast.Constant) -> ast.Constant:
         if not isinstance(node.value, str):
@@ -341,7 +359,7 @@ class _QuotedClassDependencyQualifier(ast.NodeTransformer):
         return ast.copy_location(result, node)
 
     def visit_Subscript(self, node: ast.Subscript) -> ast.Subscript:
-        kind = _reference_name(node.value)
+        kind = self._typing_kind(node.value)
         if kind == "Literal":
             return node
         if kind == "Annotated":

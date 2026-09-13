@@ -12,7 +12,13 @@ def render_crud_test(
     contract: EntityContract,
 ) -> str:
     if contract.field_names:
-        return _business_entity_test(package, entity, feature, contract.field_names)
+        return _business_entity_test(
+            package,
+            entity,
+            feature,
+            contract.field_names,
+            contract.update_field_names,
+        )
     prefix = f"{package}." if package else ""
     return dedent(
         f"""\
@@ -72,9 +78,13 @@ def _business_entity_test(
     entity: str,
     feature: str,
     field_names: tuple[str, ...],
+    update_field_names: tuple[str, ...],
 ) -> str:
     prefix = f"{package}." if package else ""
     business_fields = "{" + ", ".join(repr(name) for name in sorted(field_names)) + "}"
+    update_fields = (
+        "{" + ", ".join(repr(name) for name in sorted(update_field_names)) + "}"
+    )
     return dedent(
         f"""\
         from uuid import uuid4
@@ -105,12 +115,13 @@ def _business_entity_test(
             use_cases = build_{feature}_use_cases(Arclith("config"))
             missing_uuid = uuid4()
             business_fields = {business_fields}
+            update_fields = {update_fields}
 
             page = await use_cases.list.execute(List{entity}Query())
 
             assert set(Create{entity}Command.model_fields) == business_fields
             assert set(Update{entity}Command.model_fields) == (
-                {{"uuid", "version"}} | business_fields
+                {{"uuid", "version"}} | update_fields
             )
             assert page.items == []
             assert page.total == 0
@@ -135,10 +146,23 @@ def render_crud_documentation(
 ) -> str:
     if contract.field_names:
         fields = ", ".join(f"`{name}`" for name in contract.field_names)
+        final_fields = tuple(
+            name
+            for name in contract.field_names
+            if name not in contract.update_field_names
+        )
+        update_note = (
+            " Les champs immuables "
+            + ", ".join(f"`{name}`" for name in final_fields)
+            + " restent réservés à la création."
+            if final_fields
+            else ""
+        )
         customization = (
             f"Les champs métier {fields} ont été copiés depuis `{entity}` dans "
             f"`Create{entity}Command` et rendus optionnels en présence dans "
-            f"`Update{entity}Command`. Les contraintes Pydantic restent actives. "
+            f"`Update{entity}Command`. Les contraintes Pydantic restent actives."
+            f"{update_note} "
             "Ces commandes deviennent propriété du projet et ne seront pas "
             "écrasées par une relance."
         )

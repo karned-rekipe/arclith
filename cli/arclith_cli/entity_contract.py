@@ -15,9 +15,9 @@ from arclith_cli.entity_contract_ast import (
 )
 from arclith_cli.entity_scanner import EntityInfo
 from arclith_cli.entity_contract_validation import (
+    TypingReferences,
     is_pydantic_field as _is_pydantic_field,
-    reference_name as _reference_name,
-    root_name as _root_name,
+    typing_references,
     validate_input_aliases as _validate_input_aliases,
     validate_model_config as _validate_model_config,
     validate_type_alias_metadata as _validate_type_alias_metadata,
@@ -45,6 +45,8 @@ class EntityContract:
     create_fields: tuple[str, ...]
     update_fields: tuple[str, ...]
     field_names: tuple[str, ...]
+    update_field_names: tuple[str, ...]
+    support_field_name: str
 
 
 def inspect_entity_contract(
@@ -53,7 +55,7 @@ def inspect_entity_contract(
 ) -> EntityContract:
     """Return public, entity-owned Pydantic fields as static source snapshots."""
     if not entity.file_path.is_file():
-        return EntityContract((), (), (), ())
+        return EntityContract((), (), (), (), (), "_ArclithCrudField")
 
     tree = ast.parse(
         entity.file_path.read_text(encoding="utf-8"),
@@ -69,17 +71,29 @@ def inspect_entity_contract(
             f"Expected one entity model named {entity.pascal!r} in {entity.file_path}"
         )
 
-    class_var_names, final_names, typing_modules = _typing_marker_references(tree)
-    fields = tuple(
-        _business_fields(models[0], class_var_names, final_names, typing_modules)
+    typing = typing_references(tree)
+    fields = tuple(_business_fields(models[0], typing))
+    fields = qualify_class_dependencies(
+        models[0],
+        fields,
+        entity.pascal,
+        typing.kind,
     )
-    fields = qualify_class_dependencies(models[0], fields, entity.pascal)
+    update_fields = tuple(
+        field
+        for field in fields
+        if not _is_typing_marker(field.annotation, "Final", typing)
+    )
+    support_field_name = _available_support_name(
+        "_ArclithCrudField",
+        field_dependencies(fields, typing.kind),
+    )
     module = paths.import_path("domain", "models", entity.file_path.stem)
     pydantic_names, pydantic_modules = pydantic_field_references(paths, tree, module)
     names = set(pydantic_names)
     modules = set(pydantic_modules)
     _validate_model_config(models[0], entity.pascal)
-    _validate_input_aliases(fields, names, modules)
+    _validate_input_aliases(fields, names, modules, typing)
     _validate_type_alias_metadata(paths, tree, module, fields)
     fields = tuple(
         _sanitize_input_field(
@@ -87,10 +101,12 @@ def inspect_entity_contract(
             pydantic_names=names,
             pydantic_modules=modules,
             defer_default_factory=True,
+            typing=typing,
+            support_field_name=support_field_name,
         )
         for field in fields
     )
-    imports = _field_imports(tree, fields, module)
+    imports = _field_imports(tree, fields, module, typing)
     return EntityContract(
         imports=imports,
         create_fields=tuple(ast.unparse(field) for field in fields),
@@ -100,21 +116,27 @@ def inspect_entity_contract(
                     field,
                     pydantic_names=names,
                     pydantic_modules=modules,
+                    typing=typing,
+                    support_field_name=support_field_name,
                 )
             )
-            for field in fields
+            for field in update_fields
         ),
         field_names=tuple(
             field.target.id for field in fields if isinstance(field.target, ast.Name)
         ),
+        update_field_names=tuple(
+            field.target.id
+            for field in update_fields
+            if isinstance(field.target, ast.Name)
+        ),
+        support_field_name=support_field_name,
     )
 
 
 def _business_fields(
     model: ast.ClassDef,
-    class_var_names: set[str],
-    final_names: set[str],
-    typing_modules: set[str],
+    typing: TypingReferences,
 ) -> list[ast.AnnAssign]:
     return [
         statement
@@ -124,60 +146,21 @@ def _business_fields(
         and not statement.target.id.startswith("_")
         and statement.target.id != "model_config"
         and statement.target.id not in _ENTITY_MANAGED_FIELDS
-        and not _is_class_var(
-            statement.annotation,
-            names=class_var_names,
-            modules=typing_modules,
-        )
+        and not _is_typing_marker(statement.annotation, "ClassVar", typing)
         and not (
             statement.value is not None
-            and _is_class_var(
-                statement.annotation,
-                names=final_names,
-                modules=typing_modules,
-                attribute="Final",
-            )
+            and _is_typing_marker(statement.annotation, "Final", typing)
         )
     ]
 
 
-def _typing_marker_references(
-    tree: ast.Module,
-) -> tuple[set[str], set[str], set[str]]:
-    class_var_names = {"ClassVar"}
-    final_names = {"Final"}
-    modules = {"typing", "typing_extensions"}
-    for statement in module_imports(tree):
-        if isinstance(statement, ast.ImportFrom) and statement.module in modules:
-            for alias in statement.names:
-                if alias.name == "ClassVar":
-                    class_var_names.add(alias.asname or alias.name)
-                elif alias.name == "Final":
-                    final_names.add(alias.asname or alias.name)
-        elif isinstance(statement, ast.Import):
-            modules.update(
-                alias.asname or alias.name.split(".")[0]
-                for alias in statement.names
-                if alias.name in {"typing", "typing_extensions"}
-            )
-    return class_var_names, final_names, modules
-
-
-def _is_class_var(
+def _is_typing_marker(
     annotation: ast.expr,
-    *,
-    names: set[str],
-    modules: set[str],
-    attribute: str = "ClassVar",
+    marker: str,
+    typing: TypingReferences,
 ) -> bool:
     def visit(node: ast.AST) -> bool:
-        if isinstance(node, ast.Name) and node.id in names:
-            return True
-        if (
-            isinstance(node, ast.Attribute)
-            and node.attr == attribute
-            and _root_name(node.value) in modules
-        ):
+        if isinstance(node, ast.expr) and typing.kind(node) == marker:
             return True
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
             try:
@@ -186,7 +169,7 @@ def _is_class_var(
                 return False
             return visit(expression)
         if isinstance(node, ast.Subscript):
-            kind = _reference_name(node.value)
+            kind = typing.kind(node.value)
             if kind == "Literal":
                 return False
             if kind == "Annotated":
@@ -201,12 +184,20 @@ def _is_class_var(
     return visit(annotation)
 
 
+def _available_support_name(preferred: str, unavailable: set[str]) -> str:
+    candidate = preferred
+    while candidate in unavailable:
+        candidate += "_"
+    return candidate
+
+
 def _field_imports(
     tree: ast.Module,
     fields: tuple[ast.AnnAssign, ...],
     module: str,
+    typing: TypingReferences,
 ) -> tuple[str, ...]:
-    used = field_dependencies(fields)
+    used = field_dependencies(fields, typing.kind)
     resolved = set(dir(builtins))
     imports: list[str] = []
     for statement in module_imports(tree):
@@ -250,14 +241,23 @@ def _optional_update_field(
     *,
     pydantic_names: set[str],
     pydantic_modules: set[str],
+    typing: TypingReferences,
+    support_field_name: str,
 ) -> ast.AnnAssign:
     result = _sanitize_input_field(
         field,
         pydantic_names=pydantic_names,
         pydantic_modules=pydantic_modules,
         partial_update=True,
+        typing=typing,
+        support_field_name=support_field_name,
     )
-    _make_omissible(result, pydantic_names, pydantic_modules)
+    _make_omissible(
+        result,
+        pydantic_names,
+        pydantic_modules,
+        support_field_name=support_field_name,
+    )
     return ast.fix_missing_locations(result)
 
 
@@ -267,6 +267,7 @@ def _make_omissible(
     pydantic_modules: set[str],
     *,
     constructor: ast.expr | None = None,
+    support_field_name: str,
 ) -> None:
     """Allow omission without widening the field's accepted input type."""
     if _is_pydantic_field(field.value, pydantic_names, pydantic_modules):
@@ -277,7 +278,7 @@ def _make_omissible(
         )
     else:
         field.value = ast.Call(
-            func=constructor or ast.Name(id="_ArclithCrudField", ctx=ast.Load()),
+            func=constructor or ast.Name(id=support_field_name, ctx=ast.Load()),
             args=[],
             keywords=[ast.keyword(arg="default", value=ast.Constant(value=None))],
         )
@@ -290,6 +291,8 @@ def _sanitize_input_field(
     pydantic_modules: set[str],
     partial_update: bool = False,
     defer_default_factory: bool = False,
+    typing: TypingReferences,
+    support_field_name: str,
 ) -> ast.AnnAssign:
     factory_constructor = (
         _pydantic_keyword_constructor(
@@ -297,6 +300,7 @@ def _sanitize_input_field(
             keyword="default_factory",
             pydantic_names=pydantic_names,
             pydantic_modules=pydantic_modules,
+            typing=typing,
         )
         if defer_default_factory
         else None
@@ -313,6 +317,7 @@ def _sanitize_input_field(
         pydantic_modules=pydantic_modules,
         removed=removed,
         clear_default=partial_update,
+        typing=typing,
     ).visit(result.annotation)
     _sanitize_pydantic_field_calls(
         result,
@@ -327,6 +332,7 @@ def _sanitize_input_field(
             pydantic_names,
             pydantic_modules,
             constructor=factory_constructor,
+            support_field_name=support_field_name,
         )
     return ast.fix_missing_locations(result)
 
@@ -337,12 +343,14 @@ def _pydantic_keyword_constructor(
     keyword: str,
     pydantic_names: set[str],
     pydantic_modules: set[str],
+    typing: TypingReferences,
 ) -> ast.expr | None:
     annotation_finder = _PydanticKeywordFinder(
         keyword=keyword,
         pydantic_names=pydantic_names,
         pydantic_modules=pydantic_modules,
         parse_deferred_strings=True,
+        typing=typing,
     )
     annotation_finder.visit(field.annotation)
     if annotation_finder.constructor is not None or field.value is None:
@@ -352,6 +360,7 @@ def _pydantic_keyword_constructor(
         pydantic_names=pydantic_names,
         pydantic_modules=pydantic_modules,
         parse_deferred_strings=False,
+        typing=typing,
     )
     value_finder.visit(field.value)
     return value_finder.constructor
@@ -386,11 +395,13 @@ class _QuotedAnnotationSanitizer(ast.NodeTransformer):
         pydantic_modules: set[str],
         removed: set[str],
         clear_default: bool,
+        typing: TypingReferences,
     ) -> None:
         self._pydantic_names = pydantic_names
         self._pydantic_modules = pydantic_modules
         self._removed = removed
         self._clear_default = clear_default
+        self._typing = typing
 
     def visit_Constant(self, node: ast.Constant) -> ast.Constant:
         if not isinstance(node.value, str):
@@ -412,7 +423,7 @@ class _QuotedAnnotationSanitizer(ast.NodeTransformer):
         return ast.copy_location(result, node)
 
     def visit_Subscript(self, node: ast.Subscript) -> ast.Subscript:
-        kind = _reference_name(node.value)
+        kind = self._typing.kind(node.value)
         if kind == "Literal":
             return node
         if kind == "Annotated":
@@ -437,11 +448,13 @@ class _PydanticKeywordFinder(ast.NodeVisitor):
         pydantic_names: set[str],
         pydantic_modules: set[str],
         parse_deferred_strings: bool,
+        typing: TypingReferences,
     ) -> None:
         self._keyword = keyword
         self._pydantic_names = pydantic_names
         self._pydantic_modules = pydantic_modules
         self._parse_deferred_strings = parse_deferred_strings
+        self._typing = typing
         self.constructor: ast.expr | None = None
 
     def visit_Constant(self, node: ast.Constant) -> None:
@@ -454,7 +467,7 @@ class _PydanticKeywordFinder(ast.NodeVisitor):
         self.visit(expression)
 
     def visit_Subscript(self, node: ast.Subscript) -> None:
-        kind = _reference_name(node.value)
+        kind = self._typing.kind(node.value)
         if kind == "Literal":
             return
         if kind == "Annotated":

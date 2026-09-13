@@ -1,0 +1,161 @@
+"""Resolve annotation spellings accepted by automatic transport bindings."""
+
+import ast
+from dataclasses import dataclass
+
+_SCALAR_ANNOTATIONS = frozenset(
+    {
+        "str",
+        "int",
+        "float",
+        "bool",
+        "bytes",
+        "UUID",
+        "date",
+        "datetime",
+        "time",
+        "timedelta",
+        "Decimal",
+    }
+)
+
+
+@dataclass(frozen=True)
+class BindingAnnotationReferences:
+    """Imported names needed to inspect Pydantic and scalar annotations."""
+
+    scalar_names: frozenset[str]
+    pydantic_base_names: frozenset[str]
+    pydantic_modules: frozenset[str]
+
+    @classmethod
+    def from_tree(cls, tree: ast.Module) -> "BindingAnnotationReferences":
+        scalar_names = set(_SCALAR_ANNOTATIONS)
+        pydantic_base_names: set[str] = set()
+        pydantic_modules: set[str] = set()
+        scalar_modules = {
+            "uuid": {"UUID"},
+            "datetime": {"date", "datetime", "time", "timedelta"},
+            "decimal": {"Decimal"},
+        }
+        for statement in tree.body:
+            if isinstance(statement, ast.ImportFrom):
+                if statement.module == "pydantic":
+                    pydantic_base_names.update(
+                        alias.asname or alias.name
+                        for alias in statement.names
+                        if alias.name == "BaseModel"
+                    )
+                exported = scalar_modules.get(statement.module or "", set())
+                scalar_names.update(
+                    alias.asname or alias.name
+                    for alias in statement.names
+                    if alias.name in exported
+                )
+            elif isinstance(statement, ast.Import):
+                pydantic_modules.update(
+                    alias.asname or alias.name.split(".")[0]
+                    for alias in statement.names
+                    if alias.name == "pydantic" or alias.name.startswith("pydantic.")
+                )
+        return cls(
+            scalar_names=frozenset(scalar_names),
+            pydantic_base_names=frozenset(pydantic_base_names),
+            pydantic_modules=frozenset(pydantic_modules),
+        )
+
+    def is_pydantic_base_model(self, base: ast.expr) -> bool:
+        """Return whether ``base`` resolves to Pydantic's BaseModel."""
+        if isinstance(base, ast.Name):
+            return base.id in self.pydantic_base_names
+        return (
+            isinstance(base, ast.Attribute)
+            and base.attr == "BaseModel"
+            and _root_name(base.value) in self.pydantic_modules
+        )
+
+    def query_compatible(self, node: ast.expr) -> bool:
+        """Return whether FastAPI can decode the annotation from a query."""
+        node = _annotation(node)
+        if isinstance(node, ast.Name):
+            return node.id in self.scalar_names
+        if isinstance(node, ast.Constant):
+            return node.value is None
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+            return self.query_compatible(node.left) and self.query_compatible(
+                node.right
+            )
+        if isinstance(node, ast.Subscript):
+            return self._query_generic(node)
+        return False
+
+    def path_compatible(self, node: ast.expr) -> bool:
+        """Return whether FastAPI can decode the annotation from one path segment."""
+        node = _annotation(node)
+        if isinstance(node, ast.Name):
+            return node.id in self.scalar_names
+        if isinstance(node, ast.Constant):
+            return False
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+            return self._path_union((node.left, node.right))
+        if not isinstance(node, ast.Subscript):
+            return False
+        name = node.value.id if isinstance(node.value, ast.Name) else ""
+        args = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
+        if name == "Annotated":
+            return self.path_compatible(args[0])
+        if name == "Literal":
+            return all(
+                isinstance(value, ast.Constant)
+                and isinstance(value.value, (str, int, float, bool))
+                for value in args
+            )
+        if name in {"Optional", "Union"}:
+            return self._path_union(tuple(args))
+        return False
+
+    def _path_union(self, nodes: tuple[ast.expr, ...]) -> bool:
+        members = [
+            node
+            for node in nodes
+            if not (
+                isinstance(normalized := _annotation(node), ast.Constant)
+                and normalized.value is None
+            )
+        ]
+        return bool(members) and all(self.path_compatible(node) for node in members)
+
+    def _query_generic(self, node: ast.Subscript) -> bool:
+        name = node.value.id if isinstance(node.value, ast.Name) else ""
+        args = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
+        if name == "Annotated":
+            return self.query_compatible(args[0])
+        if name == "Literal":
+            return all(
+                isinstance(value, ast.Constant)
+                and isinstance(value.value, (str, int, float, bool))
+                for value in args
+            )
+        if name in {
+            "list",
+            "set",
+            "frozenset",
+            "List",
+            "Set",
+            "Optional",
+            "Union",
+        }:
+            return all(self.query_compatible(value) for value in args)
+        return False
+
+
+def _annotation(node: ast.expr) -> ast.expr:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return ast.parse(node.value, mode="eval").body
+    return node
+
+
+def _root_name(node: ast.expr) -> str | None:
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None

@@ -148,6 +148,82 @@ async def test_http_mcp_and_broker_share_one_typed_use_case(project):
     assert use_case.commands[0] == use_case.commands[1] == use_case.commands[2]
 
 
+def test_module_qualified_pydantic_models_build_a_functional_http_binding(project):
+    source = (
+        PORT_SOURCE.replace(
+            "from pydantic import BaseModel, Field",
+            "import pydantic",
+        )
+        .replace("BaseModel", "pydantic.BaseModel")
+        .replace("Field(", "pydantic.Field(")
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+
+    registry = _bind(project, "fastapi", http_path="/v1/todos", status_code=201)
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+
+    with TestClient(api) as client:
+        response = client.post("/v1/todos", json={"title": "qualified"})
+
+    assert response.status_code == 201
+    assert response.json() == {"title": "qualified"}
+
+
+def test_transport_support_aliases_do_not_shadow_application_types(project):
+    inbound = project / "src/binding_app/domain/ports/inbound"
+    (inbound / "support.py").write_text(
+        "_ArclithTransportBaseModel = str\n_ArclithTransportConfigDict = str\n",
+        encoding="utf-8",
+    )
+    source = (
+        PORT_SOURCE.replace(
+            "from pydantic import BaseModel, Field",
+            "from pydantic import BaseModel, Field\n"
+            "from .support import (\n"
+            "    _ArclithTransportBaseModel,\n"
+            "    _ArclithTransportConfigDict,\n"
+            ")",
+        )
+        .replace(
+            "title: str = Field",
+            "title: _ArclithTransportBaseModel = Field",
+        )
+        .replace(
+            "title: str\n\nclass CreateTodoPort",
+            "title: _ArclithTransportConfigDict\n\nclass CreateTodoPort",
+        )
+    )
+    (inbound / "create_todo.py").write_text(source, encoding="utf-8")
+
+    apply_binding(
+        plan_binding(
+            project,
+            "create-todo",
+            via="fastapi",
+            feature="todos",
+            http_path="/v1/todos",
+            status_code=201,
+        )
+    )
+    generated_path = (
+        project / "src/binding_app/adapters/inbound/fastapi/contracts/create_todo.py"
+    )
+    generated = generated_path.read_text(encoding="utf-8")
+    contract = importlib.import_module(
+        "binding_app.adapters.inbound.fastapi.contracts.create_todo"
+    )
+
+    assert "BaseModel as _ArclithTransportBaseModel_" in generated
+    assert "ConfigDict as _ArclithTransportConfigDict_" in generated
+    assert contract.CreateTodoRequest.model_fields["title"].annotation is str
+    assert contract.CreateTodoResponse.model_fields["title"].annotation is str
+
+
 @pytest.mark.asyncio
 async def test_langgraph_binding_runs_and_resumes_with_explicit_state(project):
     from langgraph.checkpoint.memory import InMemorySaver
@@ -493,17 +569,24 @@ def test_list_fields_cannot_be_mapped_to_one_path_segment(project):
 
 
 @pytest.mark.parametrize(
-    ("annotation", "typing_import"),
-    [("UUID | None", ""), ("Optional[UUID]", "from typing import Optional\n")],
+    ("annotation", "support_import"),
+    [
+        ("UUID | None", "from uuid import UUID\n"),
+        (
+            "Optional[UUID]",
+            "from typing import Optional\nfrom uuid import UUID\n",
+        ),
+        ("_CrudUUID", "from uuid import UUID as _CrudUUID\n"),
+    ],
 )
 def test_nullable_scalar_path_annotations_are_supported_consistently(
     project,
     annotation,
-    typing_import,
+    support_import,
 ):
     source = PORT_SOURCE.replace(
         "from pydantic import BaseModel, Field",
-        f"{typing_import}from uuid import UUID\nfrom pydantic import BaseModel, Field",
+        f"{support_import}from pydantic import BaseModel, Field",
     ).replace(
         "title: str = Field(min_length=1)",
         f"uuid: {annotation}",

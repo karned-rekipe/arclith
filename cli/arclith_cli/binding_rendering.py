@@ -33,6 +33,7 @@ def render_contract(
     path_parameters: tuple[str, ...] = (),
 ) -> str:
     """Snapshot a transport input model so later application edits are explicit."""
+    support = _transport_support_names(contract)
     imports = tuple(dict.fromkeys((contract.request, *contract.result_names)))
     path_annotations = _path_annotations(contract, path_parameters)
     annotated_import = (
@@ -47,8 +48,8 @@ def render_contract(
                 *contract.response_imports,
                 *annotated_import,
                 "from pydantic import (",
-                "    BaseModel as _ArclithTransportBaseModel,",
-                "    ConfigDict as _ArclithTransportConfigDict,",
+                f"    BaseModel as {support.base_model},",
+                f"    ConfigDict as {support.config_dict},",
                 ")",
             )
         )
@@ -99,8 +100,8 @@ def render_contract(
         + model
         + "\n\n\nclass "
         + contract.transport_response
-        + "(_ArclithTransportBaseModel):\n"
-        + "    model_config = _ArclithTransportConfigDict(from_attributes=True)\n"
+        + f"({support.base_model}):\n"
+        + f"    model_config = {support.config_dict}(from_attributes=True)\n"
         + (
             "\n".join(f"    {field}" for field in contract.response_fields)
             if contract.response_fields
@@ -112,6 +113,52 @@ def render_contract(
         + '    """Map the application result into the versioned transport response."""\n'
         + f"    return {contract.transport_response}.model_validate(result, from_attributes=True)\n"
     )
+
+
+@dataclass(frozen=True)
+class _TransportSupportNames:
+    base_model: str
+    config_dict: str
+
+
+def _transport_support_names(contract: UseCaseContract) -> _TransportSupportNames:
+    unavailable = _contract_symbols(contract) | _bound_names(
+        (*contract.request_imports, *contract.response_imports)
+    )
+    base_model = _available_name("_ArclithTransportBaseModel", unavailable)
+    unavailable.add(base_model)
+    config_dict = _available_name("_ArclithTransportConfigDict", unavailable)
+    return _TransportSupportNames(base_model, config_dict)
+
+
+def _bound_names(statements: tuple[str, ...]) -> set[str]:
+    names: set[str] = set()
+    for rendered in statements:
+        statement = ast.parse(rendered).body[0]
+        if isinstance(statement, ast.Import):
+            names.update(
+                alias.asname or alias.name.split(".")[0] for alias in statement.names
+            )
+        elif isinstance(statement, ast.ImportFrom):
+            names.update(alias.asname or alias.name for alias in statement.names)
+        elif isinstance(statement, ast.Assign):
+            names.update(
+                target.id
+                for target in statement.targets
+                if isinstance(target, ast.Name)
+            )
+        elif isinstance(statement, ast.AnnAssign) and isinstance(
+            statement.target, ast.Name
+        ):
+            names.add(statement.target.id)
+    return names
+
+
+def _available_name(preferred: str, unavailable: set[str]) -> str:
+    candidate = preferred
+    while candidate in unavailable:
+        candidate += "_"
+    return candidate
 
 
 def native_module(contract: UseCaseContract, options: BindingOptions) -> str:

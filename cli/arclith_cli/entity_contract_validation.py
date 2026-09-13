@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
 
 from arclith_cli.entity_contract_ast import module_imports
 from arclith_cli.import_origins import (
@@ -11,6 +12,46 @@ from arclith_cli.import_origins import (
     pydantic_field_references,
 )
 from arclith_cli.project_paths import ProjectPaths
+
+
+@dataclass(frozen=True)
+class TypingReferences:
+    """Local spellings of typing markers used while walking annotations."""
+
+    names: dict[str, frozenset[str]]
+    modules: frozenset[str]
+
+    def kind(self, node: ast.expr) -> str | None:
+        if isinstance(node, ast.Name):
+            return next(
+                (kind for kind, names in self.names.items() if node.id in names),
+                None,
+            )
+        if isinstance(node, ast.Attribute) and root_name(node.value) in self.modules:
+            return node.attr if node.attr in self.names else None
+        return None
+
+
+def typing_references(tree: ast.Module) -> TypingReferences:
+    """Resolve aliases for annotation markers imported from typing modules."""
+    markers = ("Annotated", "ClassVar", "Final", "Literal", "TypeAlias")
+    names: dict[str, set[str]] = {marker: {marker} for marker in markers}
+    modules = {"typing", "typing_extensions"}
+    for statement in module_imports(tree):
+        if isinstance(statement, ast.ImportFrom) and statement.module in modules:
+            for alias in statement.names:
+                if alias.name in names:
+                    names[alias.name].add(alias.asname or alias.name)
+        elif isinstance(statement, ast.Import):
+            modules.update(
+                alias.asname or alias.name.split(".")[0]
+                for alias in statement.names
+                if alias.name in {"typing", "typing_extensions"}
+            )
+    return TypingReferences(
+        names={kind: frozenset(values) for kind, values in names.items()},
+        modules=frozenset(modules),
+    )
 
 
 def validate_model_config(model: ast.ClassDef, entity_name: str) -> None:
@@ -96,6 +137,7 @@ def validate_input_aliases(
     fields: tuple[ast.AnnAssign, ...],
     pydantic_names: set[str],
     pydantic_modules: set[str],
+    typing: TypingReferences,
 ) -> None:
     """Reject ambiguous aliases and aliases colliding with CRUD metadata."""
     reserved = {"uuid", "version"}
@@ -113,12 +155,11 @@ def validate_input_aliases(
                 pydantic_names=pydantic_names,
                 pydantic_modules=pydantic_modules,
                 parse_deferred_strings=parse_deferred_strings,
+                typing=typing,
             )
             finder.visit(expression)
             finders.append(finder)
-        collisions: set[str] = set().union(
-            *(finder.collisions for finder in finders)
-        )
+        collisions: set[str] = set().union(*(finder.collisions for finder in finders))
         if collisions:
             raise ValueError(
                 f"Input aliases for {field.target.id!r} collide with technical CRUD "
@@ -140,11 +181,13 @@ class _PydanticAliasCollisionFinder(ast.NodeVisitor):
         pydantic_names: set[str],
         pydantic_modules: set[str],
         parse_deferred_strings: bool,
+        typing: TypingReferences,
     ) -> None:
         self._reserved = reserved
         self._pydantic_names = pydantic_names
         self._pydantic_modules = pydantic_modules
         self._parse_deferred_strings = parse_deferred_strings
+        self._typing = typing
         self.collisions: set[str] = set()
         self.has_unresolved_metadata = False
 
@@ -158,7 +201,7 @@ class _PydanticAliasCollisionFinder(ast.NodeVisitor):
         self.visit(expression)
 
     def visit_Subscript(self, node: ast.Subscript) -> None:
-        kind = reference_name(node.value)
+        kind = self._typing.kind(node.value)
         if kind == "Literal":
             return
         if kind == "Annotated":
@@ -202,8 +245,9 @@ def validate_type_alias_metadata(
 ) -> None:
     """Reject project aliases whose Pydantic metadata cannot be sanitized safely."""
     visited: set[tuple[str, str]] = set()
+    typing = typing_references(tree)
     for field in fields:
-        for name in _annotation_names(field.annotation):
+        for name in _annotation_names(field.annotation, typing):
             _validate_alias(paths, tree, module, name, visited)
 
 
@@ -218,7 +262,15 @@ def _validate_alias(
     if reference in visited:
         return
     visited.add(reference)
-    value = _local_alias_value(tree, name)
+    if "." in name:
+        imported = _qualified_imported_symbol(paths, tree, module, name)
+        if imported is None:
+            return
+        imported_tree, imported_module, imported_name = imported
+        _validate_alias(paths, imported_tree, imported_module, imported_name, visited)
+        return
+    typing = typing_references(tree)
+    value = _local_alias_value(tree, name, typing)
     if value is None:
         imported = _imported_symbol(paths, tree, module, name)
         if imported is None:
@@ -242,11 +294,15 @@ def _validate_alias(
             f"Type alias {name!r} contains Pydantic Field metadata that cannot be "
             "projected safely; inline Annotated metadata on the entity field"
         )
-    for dependency in _annotation_names(value):
+    for dependency in _annotation_names(value, typing):
         _validate_alias(paths, tree, module, dependency, visited)
 
 
-def _local_alias_value(tree: ast.Module, name: str) -> ast.expr | None:
+def _local_alias_value(
+    tree: ast.Module,
+    name: str,
+    typing: TypingReferences,
+) -> ast.expr | None:
     for statement in tree.body:
         if (
             isinstance(statement, ast.TypeAlias)
@@ -258,7 +314,7 @@ def _local_alias_value(tree: ast.Module, name: str) -> ast.expr | None:
             isinstance(statement, ast.AnnAssign)
             and isinstance(statement.target, ast.Name)
             and statement.target.id == name
-            and reference_name(statement.annotation) == "TypeAlias"
+            and typing.kind(statement.annotation) == "TypeAlias"
         ):
             return statement.value
         if (
@@ -267,7 +323,7 @@ def _local_alias_value(tree: ast.Module, name: str) -> ast.expr | None:
             and isinstance(statement.targets[0], ast.Name)
             and statement.targets[0].id == name
             and isinstance(statement.value, ast.Subscript)
-            and reference_name(statement.value.value) == "Annotated"
+            and typing.kind(statement.value.value) == "Annotated"
         ):
             return statement.value
     return None
@@ -286,10 +342,51 @@ def _imported_symbol(
             if (alias.asname or alias.name) != name:
                 continue
             imported_module = absolute_import(statement, module)
+            if statement.module is None:
+                imported_module = f"{imported_module}.{alias.name}"
+                imported_name = alias.name
+            else:
+                imported_name = alias.name
             imported_tree = project_module_tree(paths, imported_module)
             if imported_tree is not None:
-                return imported_tree, imported_module, alias.name
+                return imported_tree, imported_module, imported_name
     return None
+
+
+def _qualified_imported_symbol(
+    paths: ProjectPaths,
+    tree: ast.Module,
+    module: str,
+    name: str,
+) -> tuple[ast.Module, str, str] | None:
+    root, *tail = name.split(".")
+    if not tail:
+        return None
+    imported_module: str | None = None
+    for statement in module_imports(tree):
+        if isinstance(statement, ast.Import):
+            for alias in statement.names:
+                local = alias.asname or alias.name.split(".")[0]
+                if local == root:
+                    imported_module = alias.name if alias.asname else root
+                    break
+        elif isinstance(statement, ast.ImportFrom) and statement.module is None:
+            for alias in statement.names:
+                if (alias.asname or alias.name) == root:
+                    imported_module = (
+                        f"{absolute_import(statement, module)}.{alias.name}"
+                    )
+                    break
+        if imported_module is not None:
+            break
+    if imported_module is None:
+        return None
+    module_parts = tail[:-1]
+    candidate_module = ".".join((imported_module, *module_parts))
+    imported_tree = project_module_tree(paths, candidate_module)
+    if imported_tree is None:
+        return None
+    return imported_tree, candidate_module, tail[-1]
 
 
 class _PydanticFieldFinder(ast.NodeVisitor):
@@ -310,13 +407,21 @@ class _PydanticFieldFinder(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def _annotation_names(annotation: ast.expr) -> set[str]:
+def _annotation_names(
+    annotation: ast.expr,
+    typing: TypingReferences,
+) -> set[str]:
     names: set[str] = set()
 
     def visit(node: ast.AST, *, parse_string: bool) -> None:
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
             names.add(node.id)
             return
+        if isinstance(node, ast.Attribute):
+            dotted = _dotted_name(node)
+            if dotted is not None:
+                names.add(dotted)
+                return
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
             if not parse_string:
                 return
@@ -327,7 +432,7 @@ def _annotation_names(annotation: ast.expr) -> set[str]:
             visit(expression, parse_string=True)
             return
         if isinstance(node, ast.Subscript):
-            kind = reference_name(node.value)
+            kind = typing.kind(node.value)
             if kind == "Literal":
                 return
             if kind == "Annotated":
@@ -342,6 +447,18 @@ def _annotation_names(annotation: ast.expr) -> set[str]:
 
     visit(annotation, parse_string=True)
     return names
+
+
+def _dotted_name(node: ast.Attribute) -> str | None:
+    parts = [node.attr]
+    value = node.value
+    while isinstance(value, ast.Attribute):
+        parts.append(value.attr)
+        value = value.value
+    if not isinstance(value, ast.Name):
+        return None
+    parts.append(value.id)
+    return ".".join(reversed(parts))
 
 
 def _static_input_aliases(kind: str, value: ast.expr) -> set[str] | None:

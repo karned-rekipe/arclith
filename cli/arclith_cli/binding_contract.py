@@ -6,26 +6,10 @@ import keyword
 from dataclasses import dataclass
 from pathlib import Path
 
+from arclith_cli.binding_annotations import BindingAnnotationReferences
 from arclith_cli.import_origins import absolute_import, pydantic_field_references
 from arclith_cli.project_paths import ProjectPaths
 from arclith_cli.rename import EntityNames
-
-_SCALAR_ANNOTATIONS = frozenset(
-    {
-        "str",
-        "int",
-        "float",
-        "bool",
-        "bytes",
-        "UUID",
-        "_ArclithCrudUUID",
-        "date",
-        "datetime",
-        "time",
-        "timedelta",
-        "Decimal",
-    }
-)
 
 
 @dataclass(frozen=True)
@@ -91,6 +75,7 @@ def inspect_usecase(paths: ProjectPaths, raw_name: str) -> UseCaseContract:
     module = paths.import_path(*relative.parts)
     result = _annotation(method.returns)
     fields = _request_fields(request)
+    annotations = BindingAnnotationReferences.from_tree(tree)
     request_fields = tuple(
         (field.target.id, ast.unparse(_annotation(field.annotation)))
         for field in fields
@@ -124,7 +109,8 @@ def inspect_usecase(paths: ProjectPaths, raw_name: str) -> UseCaseContract:
         path_compatible_fields=tuple(
             field.target.id
             for field in fields
-            if isinstance(field.target, ast.Name) and _path_annotation(field.annotation)
+            if isinstance(field.target, ast.Name)
+            and annotations.path_compatible(field.annotation)
         ),
         result=ast.unparse(result),
         result_names=tuple(sorted(_loaded_names(result) - set(dir(builtins)))),
@@ -136,7 +122,9 @@ def inspect_usecase(paths: ProjectPaths, raw_name: str) -> UseCaseContract:
         repository_entity=repository[1] if repository is not None else None,
         requires_container=requires_container,
         asynchronous=isinstance(method, ast.AsyncFunctionDef),
-        query_compatible=all(_query_annotation(field.annotation) for field in fields),
+        query_compatible=all(
+            annotations.query_compatible(field.annotation) for field in fields
+        ),
     )
 
 
@@ -170,18 +158,23 @@ def _response_contract(
         module,
         result.id,
     )
-    bases = {ast.unparse(base).split(".")[-1] for base in model.bases}
-    if not bases & (_pydantic_base_model_names(model_tree) | {"Entity"}):
+    entity_model = any(
+        ast.unparse(base).split(".")[-1] == "Entity" for base in model.bases
+    )
+    annotations = BindingAnnotationReferences.from_tree(model_tree)
+    if not entity_model and not any(
+        annotations.is_pydantic_base_model(base) for base in model.bases
+    ):
         raise ValueError("Automatic binding requires a Pydantic result model")
     fields = _request_fields(model)
     rendered = tuple(ast.unparse(field) for field in fields)
-    if "Entity" in bases:
+    if entity_model:
         rendered = (*_ENTITY_RESPONSE_FIELDS, *rendered)
     used: set[str] = set()
     for field in fields:
         used.update(_loaded_names(field))
     imports = _request_imports(model_tree, used, model_module)
-    if "Entity" in bases:
+    if entity_model:
         imports = ("from datetime import datetime", "from uuid import UUID", *imports)
     return rendered, tuple(dict.fromkeys(imports))
 
@@ -383,25 +376,13 @@ def _request_model(
     if len(requests) != 1 or not requests[0].name.endswith(("Command", "Query")):
         raise ValueError("Declare the Command or Query model beside the inbound port")
     request = requests[0]
-    base_model_names = _pydantic_base_model_names(tree)
-    if (
-        len(request.bases) != 1
-        or not isinstance(request.bases[0], ast.Name)
-        or request.bases[0].id not in base_model_names
+    annotations = BindingAnnotationReferences.from_tree(tree)
+    if len(request.bases) != 1 or not annotations.is_pydantic_base_model(
+        request.bases[0]
     ):
         raise ValueError("Automatic binding requires a direct BaseModel request")
     _validate_declarative_request(request)
     return request
-
-
-def _pydantic_base_model_names(tree: ast.Module) -> set[str]:
-    return {
-        alias.asname or alias.name
-        for statement in tree.body
-        if isinstance(statement, ast.ImportFrom) and statement.module == "pydantic"
-        for alias in statement.names
-        if alias.name == "BaseModel"
-    }
 
 
 def _annotation(node: ast.expr | None) -> ast.expr:
@@ -454,73 +435,6 @@ def _validate_declarative_request(request: ast.ClassDef) -> None:
             "Request methods and validators require an explicit transport mapper; "
             "only declarative fields are snapshotted"
         )
-
-
-def _query_annotation(node: ast.expr) -> bool:
-    node = _annotation(node)
-    if isinstance(node, ast.Name):
-        return node.id in _SCALAR_ANNOTATIONS
-    if isinstance(node, ast.Constant):
-        return node.value is None
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
-        return _query_annotation(node.left) and _query_annotation(node.right)
-    if isinstance(node, ast.Subscript):
-        return _query_generic(node)
-    return False
-
-
-def _path_annotation(node: ast.expr) -> bool:
-    """Accept values FastAPI can decode from one path segment."""
-    node = _annotation(node)
-    if isinstance(node, ast.Name):
-        return node.id in _SCALAR_ANNOTATIONS
-    if isinstance(node, ast.Constant):
-        return False
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
-        return _path_union((node.left, node.right))
-    if not isinstance(node, ast.Subscript):
-        return False
-    name = node.value.id if isinstance(node.value, ast.Name) else ""
-    args = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
-    if name == "Annotated":
-        return _path_annotation(args[0])
-    if name == "Literal":
-        return all(
-            isinstance(value, ast.Constant)
-            and isinstance(value.value, (str, int, float, bool))
-            for value in args
-        )
-    if name in {"Optional", "Union"}:
-        return _path_union(tuple(args))
-    return False
-
-
-def _path_union(nodes: tuple[ast.expr, ...]) -> bool:
-    members = [
-        node
-        for node in nodes
-        if not (
-            isinstance(normalized := _annotation(node), ast.Constant)
-            and normalized.value is None
-        )
-    ]
-    return bool(members) and all(_path_annotation(node) for node in members)
-
-
-def _query_generic(node: ast.Subscript) -> bool:
-    name = node.value.id if isinstance(node.value, ast.Name) else ""
-    args = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
-    if name == "Annotated":
-        return _query_annotation(args[0])
-    if name == "Literal":
-        return all(
-            isinstance(value, ast.Constant)
-            and isinstance(value.value, (str, int, float, bool))
-            for value in args
-        )
-    if name in {"list", "set", "frozenset", "List", "Set", "Optional", "Union"}:
-        return all(_query_annotation(value) for value in args)
-    return False
 
 
 def _selected_import(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
 from textwrap import dedent
 
 from arclith_cli.entity_contract import EntityContract
@@ -13,10 +14,12 @@ def render_create_port(
     entity_module: str,
     contract: EntityContract,
 ) -> str:
+    support = _support_names(entity, contract, include_uuid=False)
     imports = _port_imports(
         entity,
         entity_module,
         contract,
+        support,
         include_uuid=False,
         require_field=False,
     )
@@ -27,18 +30,18 @@ def render_create_port(
         __PORT_IMPORTS__
 
 
-        class Create{entity}Command(_ArclithCrudBaseModel):
+        class Create{entity}Command({support.base_model}):
             """Validated writable fields snapshotted from the entity."""
 
         __ENTITY_FIELDS__
 
 
-        class Create{entity}Result(_ArclithCrudBaseModel):
+        class Create{entity}Result({support.base_model}):
             item: {entity}
 
 
-        class Create{entity}Port(_ArclithCrudABC):
-            @_arclith_crud_abstractmethod
+        class Create{entity}Port({support.abc}):
+            @{support.abstractmethod}
             async def execute(
                 self, command: Create{entity}Command
             ) -> Create{entity}Result:
@@ -56,10 +59,12 @@ def render_update_port(
     entity_module: str,
     contract: EntityContract,
 ) -> str:
+    support = _support_names(entity, contract, include_uuid=True)
     imports = _port_imports(
         entity,
         entity_module,
         contract,
+        support,
         include_uuid=True,
         require_field=True,
     )
@@ -70,20 +75,20 @@ def render_update_port(
         __PORT_IMPORTS__
 
 
-        class Update{entity}Command(_ArclithCrudBaseModel):
+        class Update{entity}Command({support.base_model}):
             """Optimistic partial update of the entity's writable fields."""
 
-            uuid: _ArclithCrudUUID
-            version: int = _ArclithCrudField(ge=1)
+            uuid: {support.uuid}
+            version: int = {support.field}(ge=1)
         __ENTITY_FIELDS__
 
 
-        class Update{entity}Result(_ArclithCrudBaseModel):
+        class Update{entity}Result({support.base_model}):
             item: {entity}
 
 
-        class Update{entity}Port(_ArclithCrudABC):
-            @_arclith_crud_abstractmethod
+        class Update{entity}Port({support.abc}):
+            @{support.abstractmethod}
             async def execute(
                 self, command: Update{entity}Command
             ) -> Update{entity}Result:
@@ -102,20 +107,68 @@ def _class_fields(fields: tuple[str, ...]) -> str:
     return "\n".join(f"    {field}" for field in fields)
 
 
+@dataclass(frozen=True)
+class _SupportNames:
+    base_model: str
+    field: str
+    uuid: str
+    abc: str
+    abstractmethod: str
+
+
+def _support_names(
+    entity: str,
+    contract: EntityContract,
+    *,
+    include_uuid: bool,
+) -> _SupportNames:
+    unavailable = _bound_import_names(contract.imports) | {entity}
+    field = contract.support_field_name
+    unavailable.add(field)
+    base_model = _available_name("_ArclithCrudBaseModel", unavailable)
+    unavailable.add(base_model)
+    uuid = _available_name("_ArclithCrudUUID", unavailable)
+    if include_uuid:
+        unavailable.add(uuid)
+    abc = _available_name("_ArclithCrudABC", unavailable)
+    unavailable.add(abc)
+    abstractmethod = _available_name("_arclith_crud_abstractmethod", unavailable)
+    return _SupportNames(base_model, field, uuid, abc, abstractmethod)
+
+
+def _bound_import_names(imports: tuple[str, ...]) -> set[str]:
+    names: set[str] = set()
+    for rendered in imports:
+        statement = ast.parse(rendered).body[0]
+        if isinstance(statement, ast.Import):
+            names.update(
+                alias.asname or alias.name.split(".")[0] for alias in statement.names
+            )
+        elif isinstance(statement, ast.ImportFrom):
+            names.update(alias.asname or alias.name for alias in statement.names)
+    return names
+
+
+def _available_name(preferred: str, unavailable: set[str]) -> str:
+    candidate = preferred
+    while candidate in unavailable:
+        candidate += "_"
+    return candidate
+
+
 def _port_imports(
     entity: str,
     entity_module: str,
     contract: EntityContract,
+    support: _SupportNames,
     *,
     include_uuid: bool,
     require_field: bool,
 ) -> str:
     remaining: list[str] = []
-    pydantic_names = [ast.alias(name="BaseModel", asname="_ArclithCrudBaseModel")]
+    pydantic_names = [ast.alias(name="BaseModel", asname=support.base_model)]
     if require_field:
-        pydantic_names.append(
-            ast.alias(name="Field", asname="_ArclithCrudField")
-        )
+        pydantic_names.append(ast.alias(name="Field", asname=support.field))
     entity_names = [ast.alias(name=entity)]
     for rendered in contract.imports:
         statement = ast.parse(rendered).body[0]
@@ -129,11 +182,11 @@ def _port_imports(
             remaining.append(rendered)
 
     lines = [
-        "from abc import ABC as _ArclithCrudABC, "
-        "abstractmethod as _arclith_crud_abstractmethod"
+        f"from abc import ABC as {support.abc}, "
+        f"abstractmethod as {support.abstractmethod}"
     ]
     if include_uuid:
-        lines.append("from uuid import UUID as _ArclithCrudUUID")
+        lines.append(f"from uuid import UUID as {support.uuid}")
     lines.extend(remaining)
     lines.append(_from_import("pydantic", pydantic_names))
     lines.append(_from_import(entity_module, entity_names))
