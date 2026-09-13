@@ -68,12 +68,53 @@ Le document créé dans le projet est local à la feature. Il rappelle les point
 ne font pas partie du CRUD. Ils doivent être ajoutés comme cas d'usage explicites
 si le métier en a besoin.
 
-## Personnalisation Obligatoire
+## Champs Métier Et Validation
 
-Les commandes de création et de mise à jour sont volontairement valides avec
-les seuls champs techniques d'`Entity`. Après avoir ajouté les champs métier au
-modèle, reporter uniquement les champs modifiables dans `CreateTodoCommand` et
-`UpdateTodoCommand`, puis placer les invariants dans le domaine.
+Lorsque le blueprint est appliqué à une entité existante, il copie ses champs
+métier déclaratifs dans `CreateTodoCommand`. Les types, contraintes `Field`,
+aliases et valeurs par défaut Pydantic sont conservés pour la création. Les
+champs modifiables sont aussi projetés dans `UpdateTodoCommand`, où chacun
+devient optionnel **en présence** : un champ absent n'est pas modifié, tandis
+qu'une valeur fournie reste soumise aux mêmes contraintes. Un champ `Final`
+requis est réservé à la création et n'est jamais ajouté à la commande de mise à
+jour. Les champs techniques
+d'`Entity` (`uuid`, audit, soft delete et `version`) ne sont jamais copiés comme
+des données métier modifiables.
+
+Les aliases explicites définis avec `Field(alias=...)` ou
+`Field(validation_alias=...)` sont conservés, à condition d'être exprimés par
+des chaînes littérales, `AliasPath` ou `AliasChoices`, et de ne pas réutiliser
+les clés techniques `uuid` ou `version` de la commande de mise à jour. Une
+configuration globale `model_config.alias_generator`, y compris déclarée comme
+paramètre de la classe Pydantic, n'est pas projetée. La
+CLI refuse aussi une configuration assemblée indirectement (`**CONFIG`) dont
+elle ne peut pas exclure statiquement la présence d'un générateur, ainsi qu'une
+configuration déclarée dans un bloc conditionnel de classe. De même, les
+options dynamiques `Field(**OPTIONS)`, les constructeurs bas niveau
+`FieldInfo(...)` et les métadonnées Pydantic encapsulées dans une constante, un
+helper ou un alias de type réutilisable doivent être développés directement sur
+le champ avec `Field(...)`. Une métadonnée `Annotated` importée depuis un paquet
+extérieur au projet est également refusée : la CLI ne peut pas l'inspecter sans
+exécuter ce paquet. La même règle s'applique aux valeurs par défaut et annotations
+issues d'un paquet tiers non inspectable ; les types sûrs de la bibliothèque
+standard, de Pydantic et d'Arclith restent acceptés. La CLI interrompt la
+génération avant toute écriture lorsqu'elle ne peut pas prouver que le contrat
+projeté est équivalent. Elle
+demande alors de déclarer les aliases d'entrée sur chaque champ afin que le
+contrat public reste statique et vérifiable.
+
+Le parcours recommandé pour une entité concrète est donc :
+
+1. `arclith-cli add-entity Todo --profile minimal` ;
+2. déclarer les champs et invariants de `Todo` ;
+3. `arclith-cli add-blueprint crud --entity Todo` ;
+4. installer puis projeter le transport choisi.
+
+Le raccourci `add-entity Todo --profile crud` reste valide pour démarrer avec
+les seuls champs techniques. Comme tous les fichiers du blueprint deviennent
+ensuite propriété du projet, les champs ajoutés au modèle après cette commande
+doivent être reportés explicitement dans les commandes applicatives ; une
+relance ne les écrase pas silencieusement.
 
 Les erreurs `TodoNotFoundError` et `TodoVersionConflictError` sont des erreurs
 applicatives. La projection FastAPI les traduit respectivement en `404` et

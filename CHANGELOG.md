@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **CRUD réellement métier** — `add-blueprint crud` reprend désormais les
+  champs déclaratifs d'une entité existante, leurs imports et contraintes
+  Pydantic dans les commandes `Create` et `Update`. La projection FastAPI
+  expose ainsi un `POST` requis et un `PATCH` partiel cohérents sans édition
+  manuelle des ports générés. Les aliases, annotations différées, type aliases,
+  constantes de classe et factories sont résolus statiquement ; les options de
+  sérialisation propres aux réponses ne rendent plus les entrées inexploitées.
+
 ---
 
 ## [0.29.0] — 2026-09-13

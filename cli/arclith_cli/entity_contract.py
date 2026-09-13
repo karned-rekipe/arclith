@@ -1,0 +1,550 @@
+"""Inspect project-owned entity fields without importing application code."""
+
+from __future__ import annotations
+
+import ast
+from copy import deepcopy
+from dataclasses import dataclass
+
+from arclith_cli.entity_contract_ast import (
+    field_dependencies,
+    qualify_class_dependencies,
+)
+from arclith_cli.entity_contract_imports import field_imports
+from arclith_cli.entity_scanner import EntityInfo
+from arclith_cli.entity_contract_validation import (
+    TypingReferences,
+    is_pydantic_field as _is_pydantic_field,
+    typing_references,
+    validate_input_aliases as _validate_input_aliases,
+    validate_model_config as _validate_model_config,
+)
+from arclith_cli.entity_field_metadata import validate_indirect_field_metadata
+from arclith_cli.import_origins import (
+    pydantic_alias_choices_references,
+    pydantic_alias_path_references,
+    pydantic_config_dict_references,
+    pydantic_field_info_references,
+    pydantic_field_references,
+)
+from arclith_cli.module_bindings import uncertain_module_bindings_before
+from arclith_cli.project_paths import ProjectPaths
+from arclith_cli.entity_type_aliases import (
+    validate_type_alias_metadata as _validate_type_alias_metadata,
+)
+
+_ENTITY_MANAGED_FIELDS = (
+    "uuid",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "deleted_at",
+    "deleted_by",
+    "version",
+)
+
+
+@dataclass(frozen=True)
+class EntityContract:
+    """Declarative business fields that may be copied into CRUD inputs."""
+
+    imports: tuple[str, ...]
+    create_fields: tuple[str, ...]
+    update_fields: tuple[str, ...]
+    field_names: tuple[str, ...]
+    update_field_names: tuple[str, ...]
+    support_field_name: str
+
+
+def inspect_entity_contract(
+    paths: ProjectPaths,
+    entity: EntityInfo,
+) -> EntityContract:
+    """Return public, entity-owned Pydantic fields as static source snapshots."""
+    if not entity.file_path.is_file():
+        return EntityContract((), (), (), (), (), "_ArclithCrudField")
+
+    tree = ast.parse(
+        entity.file_path.read_text(encoding="utf-8"),
+        filename=str(entity.file_path),
+    )
+    models = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == entity.pascal
+    ]
+    if len(models) != 1:
+        raise ValueError(
+            f"Expected one entity model named {entity.pascal!r} in {entity.file_path}"
+        )
+
+    model_line = models[0].lineno
+    typing = typing_references(tree, before_line=model_line)
+    fields = tuple(_business_fields(models[0], typing))
+    uncertain_dependencies = field_dependencies(fields, typing.kind) & set(
+        uncertain_module_bindings_before(tree, model_line)
+    )
+    if uncertain_dependencies:
+        raise ValueError(
+            "Entity field dependencies rebound through module control flow "
+            "cannot be projected safely: "
+            + ", ".join(sorted(uncertain_dependencies))
+        )
+    fields = qualify_class_dependencies(
+        models[0],
+        fields,
+        entity.pascal,
+        typing.kind,
+    )
+    update_fields = tuple(
+        field
+        for field in fields
+        if not _is_typing_marker(field.annotation, "Final", typing)
+    )
+    support_field_name = _available_support_name(
+        "_ArclithCrudField",
+        field_dependencies(fields, typing.kind),
+    )
+    module = paths.import_path("domain", "models", entity.file_path.stem)
+    pydantic_names, pydantic_modules = pydantic_field_references(
+        paths,
+        tree,
+        module,
+        before_line=model_line,
+    )
+    field_info_names, field_info_modules = pydantic_field_info_references(
+        paths,
+        tree,
+        module,
+        before_line=model_line,
+    )
+    alias_path_names, alias_path_modules = pydantic_alias_path_references(
+        paths,
+        tree,
+        module,
+        before_line=model_line,
+    )
+    alias_choices_names, alias_choices_modules = pydantic_alias_choices_references(
+        paths,
+        tree,
+        module,
+        before_line=model_line,
+    )
+    config_names, config_modules = pydantic_config_dict_references(
+        paths,
+        tree,
+        module,
+        before_line=model_line,
+    )
+    names = set(pydantic_names)
+    modules = set(pydantic_modules)
+    _validate_model_config(
+        models[0],
+        entity.pascal,
+        set(config_names),
+        set(config_modules),
+    )
+    _validate_input_aliases(
+        fields,
+        names,
+        modules,
+        set(field_info_names),
+        set(field_info_modules),
+        set(alias_path_names),
+        set(alias_path_modules),
+        set(alias_choices_names),
+        set(alias_choices_modules),
+        typing,
+    )
+    validate_indirect_field_metadata(paths, tree, module, fields, typing.kind)
+    _validate_type_alias_metadata(
+        paths,
+        tree,
+        module,
+        fields,
+        model=models[0],
+    )
+    fields = tuple(
+        _sanitize_input_field(
+            field,
+            pydantic_names=names,
+            pydantic_modules=modules,
+            defer_default_factory=True,
+            typing=typing,
+            support_field_name=support_field_name,
+        )
+        for field in fields
+    )
+    imports = field_imports(
+        tree,
+        fields,
+        module,
+        typing.kind,
+        before_line=model_line,
+    )
+    return EntityContract(
+        imports=imports,
+        create_fields=tuple(ast.unparse(field) for field in fields),
+        update_fields=tuple(
+            ast.unparse(
+                _optional_update_field(
+                    field,
+                    pydantic_names=names,
+                    pydantic_modules=modules,
+                    typing=typing,
+                    support_field_name=support_field_name,
+                )
+            )
+            for field in update_fields
+        ),
+        field_names=tuple(
+            field.target.id for field in fields if isinstance(field.target, ast.Name)
+        ),
+        update_field_names=tuple(
+            field.target.id
+            for field in update_fields
+            if isinstance(field.target, ast.Name)
+        ),
+        support_field_name=support_field_name,
+    )
+
+
+def _business_fields(
+    model: ast.ClassDef,
+    typing: TypingReferences,
+) -> list[ast.AnnAssign]:
+    return [
+        statement
+        for statement in model.body
+        if isinstance(statement, ast.AnnAssign)
+        and isinstance(statement.target, ast.Name)
+        and not statement.target.id.startswith("_")
+        and statement.target.id != "model_config"
+        and statement.target.id not in _ENTITY_MANAGED_FIELDS
+        and not _is_typing_marker(statement.annotation, "ClassVar", typing)
+        and not (
+            statement.value is not None
+            and _is_typing_marker(statement.annotation, "Final", typing)
+        )
+    ]
+
+
+def _is_typing_marker(
+    annotation: ast.expr,
+    marker: str,
+    typing: TypingReferences,
+) -> bool:
+    def visit(node: ast.AST) -> bool:
+        if isinstance(node, ast.expr) and typing.kind(node) == marker:
+            return True
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            try:
+                expression = ast.parse(node.value, mode="eval").body
+            except SyntaxError:
+                return False
+            return visit(expression)
+        if isinstance(node, ast.Subscript):
+            kind = typing.kind(node.value)
+            if kind == "Literal":
+                return False
+            if kind == "Annotated":
+                arguments = (
+                    tuple(node.slice.elts)
+                    if isinstance(node.slice, ast.Tuple)
+                    else (node.slice,)
+                )
+                return bool(arguments) and visit(arguments[0])
+        return any(visit(child) for child in ast.iter_child_nodes(node))
+
+    return visit(annotation)
+
+
+def _available_support_name(preferred: str, unavailable: set[str]) -> str:
+    candidate = preferred
+    while candidate in unavailable:
+        candidate += "_"
+    return candidate
+
+
+def _optional_update_field(
+    field: ast.AnnAssign,
+    *,
+    pydantic_names: set[str],
+    pydantic_modules: set[str],
+    typing: TypingReferences,
+    support_field_name: str,
+) -> ast.AnnAssign:
+    result = _sanitize_input_field(
+        field,
+        pydantic_names=pydantic_names,
+        pydantic_modules=pydantic_modules,
+        partial_update=True,
+        typing=typing,
+        support_field_name=support_field_name,
+    )
+    _make_omissible(
+        result,
+        pydantic_names,
+        pydantic_modules,
+        support_field_name=support_field_name,
+    )
+    return ast.fix_missing_locations(result)
+
+
+def _make_omissible(
+    field: ast.AnnAssign,
+    pydantic_names: set[str],
+    pydantic_modules: set[str],
+    *,
+    constructor: ast.expr | None = None,
+    support_field_name: str,
+) -> None:
+    """Allow omission without widening the field's accepted input type."""
+    if _is_pydantic_field(field.value, pydantic_names, pydantic_modules):
+        assert isinstance(field.value, ast.Call)
+        field.value.args = []
+        field.value.keywords = [
+            keyword
+            for keyword in field.value.keywords
+            if keyword.arg not in {"default", "default_factory"}
+        ]
+        field.value.keywords.insert(
+            0,
+            ast.keyword(arg="default", value=ast.Constant(value=None)),
+        )
+    else:
+        field.value = ast.Call(
+            func=constructor or ast.Name(id=support_field_name, ctx=ast.Load()),
+            args=[],
+            keywords=[ast.keyword(arg="default", value=ast.Constant(value=None))],
+        )
+
+
+def _sanitize_input_field(
+    field: ast.AnnAssign,
+    *,
+    pydantic_names: set[str],
+    pydantic_modules: set[str],
+    partial_update: bool = False,
+    defer_default_factory: bool = False,
+    typing: TypingReferences,
+    support_field_name: str,
+) -> ast.AnnAssign:
+    factory_constructor = (
+        _pydantic_keyword_constructor(
+            field,
+            keyword="default_factory",
+            pydantic_names=pydantic_names,
+            pydantic_modules=pydantic_modules,
+            typing=typing,
+        )
+        if defer_default_factory
+        else None
+    )
+    deferred_factory = factory_constructor is not None
+    result = deepcopy(field)
+    removed = {"exclude", "exclude_if", "serialization_alias"}
+    if partial_update:
+        removed.update({"default", "default_factory", "validate_default"})
+    elif deferred_factory:
+        removed.update({"default_factory", "validate_default"})
+    result.annotation = _QuotedAnnotationSanitizer(
+        pydantic_names=pydantic_names,
+        pydantic_modules=pydantic_modules,
+        removed=removed,
+        clear_default=partial_update,
+        typing=typing,
+    ).visit(result.annotation)
+    _sanitize_pydantic_field_calls(
+        result,
+        pydantic_names=pydantic_names,
+        pydantic_modules=pydantic_modules,
+        removed=removed,
+        clear_default=partial_update,
+    )
+    if deferred_factory:
+        _make_omissible(
+            result,
+            pydantic_names,
+            pydantic_modules,
+            constructor=factory_constructor,
+            support_field_name=support_field_name,
+        )
+    return ast.fix_missing_locations(result)
+
+
+def _pydantic_keyword_constructor(
+    field: ast.AnnAssign,
+    *,
+    keyword: str,
+    pydantic_names: set[str],
+    pydantic_modules: set[str],
+    typing: TypingReferences,
+) -> ast.expr | None:
+    annotation_finder = _PydanticKeywordFinder(
+        keyword=keyword,
+        pydantic_names=pydantic_names,
+        pydantic_modules=pydantic_modules,
+        parse_deferred_strings=True,
+        typing=typing,
+    )
+    annotation_finder.visit(field.annotation)
+    if annotation_finder.constructor is not None or field.value is None:
+        return annotation_finder.constructor
+    value_finder = _PydanticKeywordFinder(
+        keyword=keyword,
+        pydantic_names=pydantic_names,
+        pydantic_modules=pydantic_modules,
+        parse_deferred_strings=False,
+        typing=typing,
+    )
+    value_finder.visit(field.value)
+    return value_finder.constructor
+
+
+def _sanitize_pydantic_field_calls(
+    tree: ast.AST,
+    *,
+    pydantic_names: set[str],
+    pydantic_modules: set[str],
+    removed: set[str],
+    clear_default: bool,
+) -> None:
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.expr):
+            continue
+        if not _is_pydantic_field(node, pydantic_names, pydantic_modules):
+            continue
+        assert isinstance(node, ast.Call)
+        if clear_default:
+            node.args = []
+        node.keywords = [
+            keyword for keyword in node.keywords if keyword.arg not in removed
+        ]
+
+
+class _QuotedAnnotationSanitizer(ast.NodeTransformer):
+    def __init__(
+        self,
+        *,
+        pydantic_names: set[str],
+        pydantic_modules: set[str],
+        removed: set[str],
+        clear_default: bool,
+        typing: TypingReferences,
+    ) -> None:
+        self._pydantic_names = pydantic_names
+        self._pydantic_modules = pydantic_modules
+        self._removed = removed
+        self._clear_default = clear_default
+        self._typing = typing
+        self._opaque_metadata = False
+
+    def visit_Constant(self, node: ast.Constant) -> ast.Constant:
+        if self._opaque_metadata or not isinstance(node.value, str):
+            return node
+        try:
+            expression = ast.parse(node.value, mode="eval").body
+        except SyntaxError:
+            return node
+        expression = self.visit(expression)
+        _sanitize_pydantic_field_calls(
+            expression,
+            pydantic_names=self._pydantic_names,
+            pydantic_modules=self._pydantic_modules,
+            removed=self._removed,
+            clear_default=self._clear_default,
+        )
+        result = deepcopy(node)
+        result.value = ast.unparse(expression)
+        return ast.copy_location(result, node)
+
+    def visit_Subscript(self, node: ast.Subscript) -> ast.Subscript:
+        kind = self._typing.kind(node.value)
+        if kind == "Literal":
+            return node
+        if kind == "Annotated":
+            if isinstance(node.slice, ast.Tuple):
+                if node.slice.elts:
+                    node.slice.elts[0] = self.visit(node.slice.elts[0])
+                node.slice.elts[1:] = [
+                    self._visit_metadata(metadata)
+                    for metadata in node.slice.elts[1:]
+                ]
+            else:
+                node.slice = self.visit(node.slice)
+            return node
+        node.slice = self.visit(node.slice)
+        return node
+
+    def visit_Call(self, node: ast.Call) -> ast.Call:
+        return node
+
+    def _visit_metadata(self, node: ast.expr) -> ast.expr:
+        opaque_metadata = self._opaque_metadata
+        self._opaque_metadata = True
+        try:
+            result = self.visit(node)
+        finally:
+            self._opaque_metadata = opaque_metadata
+        assert isinstance(result, ast.expr)
+        return result
+
+
+class _PydanticKeywordFinder(ast.NodeVisitor):
+    def __init__(
+        self,
+        *,
+        keyword: str,
+        pydantic_names: set[str],
+        pydantic_modules: set[str],
+        parse_deferred_strings: bool,
+        typing: TypingReferences,
+    ) -> None:
+        self._keyword = keyword
+        self._pydantic_names = pydantic_names
+        self._pydantic_modules = pydantic_modules
+        self._parse_deferred_strings = parse_deferred_strings
+        self._typing = typing
+        self.constructor: ast.expr | None = None
+
+    def visit_Constant(self, node: ast.Constant) -> None:
+        if not self._parse_deferred_strings or not isinstance(node.value, str):
+            return
+        try:
+            expression = ast.parse(node.value, mode="eval").body
+        except SyntaxError:
+            return
+        self.visit(expression)
+
+    def visit_Subscript(self, node: ast.Subscript) -> None:
+        kind = self._typing.kind(node.value)
+        if kind == "Literal":
+            return
+        if kind == "Annotated":
+            arguments = (
+                tuple(node.slice.elts)
+                if isinstance(node.slice, ast.Tuple)
+                else (node.slice,)
+            )
+            if arguments:
+                self.visit(arguments[0])
+            parse_deferred_strings = self._parse_deferred_strings
+            self._parse_deferred_strings = False
+            for metadata in arguments[1:]:
+                self.visit(metadata)
+            self._parse_deferred_strings = parse_deferred_strings
+            return
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        if _is_pydantic_field(
+            node,
+            self._pydantic_names,
+            self._pydantic_modules,
+        ):
+            if any(item.arg == self._keyword for item in node.keywords):
+                self.constructor = deepcopy(node.func)
+            return
+        self.generic_visit(node)

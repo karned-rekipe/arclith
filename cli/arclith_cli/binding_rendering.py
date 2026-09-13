@@ -33,10 +33,11 @@ def render_contract(
     path_parameters: tuple[str, ...] = (),
 ) -> str:
     """Snapshot a transport input model so later application edits are explicit."""
+    support = _transport_support_names(contract)
     imports = tuple(dict.fromkeys((contract.request, *contract.result_names)))
     path_annotations = _path_annotations(contract, path_parameters)
     annotated_import = (
-        ("from typing import Annotated as _Annotated",)
+        (f"from typing import Annotated as {support.annotated}",)
         if any(annotation.metadata for annotation in path_annotations.values())
         else ()
     )
@@ -46,7 +47,10 @@ def render_contract(
                 *contract.request_imports,
                 *contract.response_imports,
                 *annotated_import,
-                "from pydantic import ConfigDict",
+                "from pydantic import (",
+                f"    BaseModel as {support.base_model},",
+                f"    ConfigDict as {support.config_dict},",
+                ")",
             )
         )
     )
@@ -54,6 +58,7 @@ def render_contract(
     declaration = tree.body[0]
     assert isinstance(declaration, ast.ClassDef)
     declaration.name = contract.transport_request
+    declaration.bases = [ast.Name(id=support.base_model, ctx=ast.Load())]
     declaration.body = [
         statement
         for statement in declaration.body
@@ -70,7 +75,8 @@ def render_contract(
         model = model.replace("\n    pass", "\n\n    pass")
     aliases = _path_aliases(contract, path_parameters)
     path_aliases = "".join(
-        f"type {aliases[parameter]} = {path_annotations[parameter].render()}\n"
+        f"type {aliases[parameter]} = "
+        f"{path_annotations[parameter].render(support.annotated)}\n"
         for parameter in path_parameters
     )
     application_payload = "request.model_dump(exclude_unset=True)"
@@ -96,8 +102,8 @@ def render_contract(
         + model
         + "\n\n\nclass "
         + contract.transport_response
-        + "(BaseModel):\n"
-        + "    model_config = ConfigDict(from_attributes=True)\n"
+        + f"({support.base_model}):\n"
+        + f"    model_config = {support.config_dict}(from_attributes=True)\n"
         + (
             "\n".join(f"    {field}" for field in contract.response_fields)
             if contract.response_fields
@@ -109,6 +115,55 @@ def render_contract(
         + '    """Map the application result into the versioned transport response."""\n'
         + f"    return {contract.transport_response}.model_validate(result, from_attributes=True)\n"
     )
+
+
+@dataclass(frozen=True)
+class _TransportSupportNames:
+    base_model: str
+    config_dict: str
+    annotated: str
+
+
+def _transport_support_names(contract: UseCaseContract) -> _TransportSupportNames:
+    unavailable = _contract_symbols(contract) | _bound_names(
+        (*contract.request_imports, *contract.response_imports)
+    )
+    base_model = _available_name("_ArclithTransportBaseModel", unavailable)
+    unavailable.add(base_model)
+    config_dict = _available_name("_ArclithTransportConfigDict", unavailable)
+    unavailable.add(config_dict)
+    annotated = _available_name("_Annotated", unavailable)
+    return _TransportSupportNames(base_model, config_dict, annotated)
+
+
+def _bound_names(statements: tuple[str, ...]) -> set[str]:
+    names: set[str] = set()
+    for rendered in statements:
+        statement = ast.parse(rendered).body[0]
+        if isinstance(statement, ast.Import):
+            names.update(
+                alias.asname or alias.name.split(".")[0] for alias in statement.names
+            )
+        elif isinstance(statement, ast.ImportFrom):
+            names.update(alias.asname or alias.name for alias in statement.names)
+        elif isinstance(statement, ast.Assign):
+            names.update(
+                target.id
+                for target in statement.targets
+                if isinstance(target, ast.Name)
+            )
+        elif isinstance(statement, ast.AnnAssign) and isinstance(
+            statement.target, ast.Name
+        ):
+            names.add(statement.target.id)
+    return names
+
+
+def _available_name(preferred: str, unavailable: set[str]) -> str:
+    candidate = preferred
+    while candidate in unavailable:
+        candidate += "_"
+    return candidate
 
 
 def native_module(contract: UseCaseContract, options: BindingOptions) -> str:
@@ -275,10 +330,10 @@ class _PathAnnotation:
     annotation: str
     metadata: str | None
 
-    def render(self) -> str:
+    def render(self, annotated: str) -> str:
         if self.metadata is None:
             return self.annotation
-        return f"_Annotated[{self.annotation}, {self.metadata}]"
+        return f"{annotated}[{self.annotation}, {self.metadata}]"
 
 
 def _path_annotations(
@@ -316,9 +371,14 @@ def _field_metadata(
     return (isinstance(function, ast.Name) and function.id in names) or (
         isinstance(function, ast.Attribute)
         and function.attr == "Field"
-        and isinstance(function.value, ast.Name)
-        and function.value.id in modules
+        and _root_name(function.value) in modules
     )
+
+
+def _root_name(node: ast.expr) -> str | None:
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
 
 
 def _path_aliases(
