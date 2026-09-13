@@ -449,6 +449,73 @@ def test_crud_blueprint_executes_the_framework_crud_primitives(
             sys.modules.pop(module)
 
 
+def test_crud_blueprint_executes_aliased_business_fields(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path, "aliased-blueprint-service")
+    entity = project / "src/aliased_blueprint_service/domain/models/todo.py"
+    entity.write_text(
+        '''from pydantic import Field
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    sku: str = Field(alias="productSku", min_length=3)
+''',
+        encoding="utf-8",
+    )
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+    monkeypatch.syspath_prepend(str(project / "src"))
+    container = importlib.import_module(
+        "aliased_blueprint_service.infrastructure.containers.todo"
+    )
+    create_contract = importlib.import_module(
+        "aliased_blueprint_service.domain.ports.inbound.create_todo"
+    )
+    update_contract = importlib.import_module(
+        "aliased_blueprint_service.domain.ports.inbound.update_todo"
+    )
+    from arclith import Arclith
+
+    use_cases = container.build_todo_use_cases(Arclith(project / "config"))
+    created = _run(
+        use_cases.create.execute(
+            create_contract.CreateTodoCommand.model_validate(
+                {"productSku": "SKU-001"}
+            )
+        )
+    ).item
+    updated = _run(
+        use_cases.update.execute(
+            update_contract.UpdateTodoCommand.model_validate(
+                {
+                    "uuid": created.uuid,
+                    "version": created.version,
+                    "productSku": "SKU-002",
+                }
+            )
+        )
+    ).item
+
+    assert created.sku == "SKU-001"
+    assert updated.sku == "SKU-002"
+    assert updated.version == 2
+
+    for module in tuple(sys.modules):
+        if module == "aliased_blueprint_service" or module.startswith(
+            "aliased_blueprint_service."
+        ):
+            sys.modules.pop(module)
+
+
 def _run(awaitable: Coroutine[Any, Any, T]) -> T:
     return asyncio.run(awaitable)
 

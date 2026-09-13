@@ -331,7 +331,8 @@ def _update_use_case(
                         **current.model_dump(),
                         **changes,
                         "version": command.version,
-                    }}
+                    }},
+                    by_name=True,
                 )
                 return Update{entity}Result(
                     item=await self._service.update(candidate)
