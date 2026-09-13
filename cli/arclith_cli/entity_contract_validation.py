@@ -6,6 +6,10 @@ import ast
 from dataclasses import dataclass
 
 from arclith_cli.entity_contract_ast import module_imports
+from arclith_cli.entity_field_metadata import (
+    annotation_metadata,
+    contains_project_field_info,
+)
 from arclith_cli.import_origins import (
     absolute_import,
     project_module_tree,
@@ -289,7 +293,10 @@ def _validate_alias(
         pydantic_modules=set(pydantic_modules),
     )
     finder.visit(value)
-    if finder.found:
+    if finder.found or any(
+        contains_project_field_info(paths, tree, module, metadata)
+        for metadata in annotation_metadata(value, typing.kind)
+    ):
         raise ValueError(
             f"Type alias {name!r} contains Pydantic Field metadata that cannot be "
             "projected safely; inline Annotated metadata on the entity field"
@@ -370,7 +377,7 @@ def _qualified_imported_symbol(
                 if local == root:
                     imported_module = alias.name if alias.asname else root
                     break
-        elif isinstance(statement, ast.ImportFrom) and statement.module is None:
+        elif isinstance(statement, ast.ImportFrom):
             for alias in statement.names:
                 if (alias.asname or alias.name) == root:
                     imported_module = (

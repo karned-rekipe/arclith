@@ -832,7 +832,10 @@ class Todo(Entity):
         )
 
 
-@pytest.mark.parametrize("mode", ("local", "imported", "qualified", "legacy"))
+@pytest.mark.parametrize(
+    "mode",
+    ("local", "imported", "qualified", "nested_qualified", "legacy"),
+)
 def test_crud_blueprint_rejects_pydantic_metadata_in_type_aliases(
     tmp_path: Path,
     mode: str,
@@ -858,19 +861,16 @@ HiddenCode: TA = Annotated[str, Field(exclude=True)]
 class Todo(Entity):
     code: HiddenCode
 """
-    elif mode in {"imported", "qualified"}:
-        (models / "product_types.py").write_text(alias_source, encoding="utf-8")
-        entity_source = (
-            """from .product_types import HiddenCode
-
-from arclith.domain.models.entity import Entity
-
-
-class Todo(Entity):
-    code: HiddenCode
-"""
-            if mode == "imported"
-            else """from . import product_types as pt
+    elif mode in {"imported", "qualified", "nested_qualified"}:
+        if mode == "nested_qualified":
+            type_package = models / "product_types"
+            type_package.mkdir()
+            (type_package / "__init__.py").write_text("", encoding="utf-8")
+            (type_package / "aliases.py").write_text(
+                alias_source,
+                encoding="utf-8",
+            )
+            entity_source = """from .product_types import aliases as pt
 
 from arclith.domain.models.entity import Entity
 
@@ -878,7 +878,27 @@ from arclith.domain.models.entity import Entity
 class Todo(Entity):
     code: pt.HiddenCode
 """
-        )
+        else:
+            (models / "product_types.py").write_text(alias_source, encoding="utf-8")
+            entity_source = (
+                """from .product_types import HiddenCode
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    code: HiddenCode
+"""
+                if mode == "imported"
+                else """from . import product_types as pt
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    code: pt.HiddenCode
+"""
+            )
     else:
         entity_source = f"""{alias_source}
 from arclith.domain.models.entity import Entity
@@ -890,6 +910,107 @@ class Todo(Entity):
     (models / "todo.py").write_text(entity_source, encoding="utf-8")
 
     with pytest.raises(ValueError, match="Type alias.*contains Pydantic Field"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+@pytest.mark.parametrize(
+    ("declaration", "field"),
+    (
+        ("SECRET = Field(exclude=True)", "code: str = SECRET"),
+        ("SECRET = Field(exclude=True)", "code: Annotated[str, SECRET]"),
+        (
+            "SECRET = Field(exclude=True)\ntype HiddenCode = Annotated[str, SECRET]",
+            "code: HiddenCode",
+        ),
+        (
+            "def hidden_field():\n    return Field(exclude=True)",
+            "code: str = hidden_field()",
+        ),
+    ),
+)
+def test_crud_blueprint_rejects_indirect_pydantic_field_metadata(
+    tmp_path: Path,
+    declaration: str,
+    field: str,
+) -> None:
+    project = _project(tmp_path, "indirect-field-service")
+    entity = project / "src/indirect_field_service/domain/models/todo.py"
+    entity.write_text(
+        f"""from typing import Annotated
+
+from pydantic import Field
+
+from arclith.domain.models.entity import Entity
+
+{declaration}
+
+
+class Todo(Entity):
+    {field}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="(Indirect Pydantic Field metadata|Type alias.*contains Pydantic Field)",
+    ):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+@pytest.mark.parametrize(
+    ("import_source", "field"),
+    (
+        ("from .field_metadata import SECRET", "code: str = SECRET"),
+        ("from . import field_metadata as fm", "code: Annotated[str, fm.SECRET]"),
+        ("from .field_metadata import Metadata", "code: str = Metadata.SECRET"),
+    ),
+)
+def test_crud_blueprint_rejects_imported_indirect_field_metadata(
+    tmp_path: Path,
+    import_source: str,
+    field: str,
+) -> None:
+    project = _project(tmp_path, "imported-field-service")
+    models = project / "src/imported_field_service/domain/models"
+    (models / "field_metadata.py").write_text(
+        """from pydantic import Field
+
+SECRET = Field(exclude=True)
+
+
+class Metadata:
+    SECRET = Field(exclude=True)
+""",
+        encoding="utf-8",
+    )
+    (models / "todo.py").write_text(
+        f"""from typing import Annotated
+
+{import_source}
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    {field}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Indirect Pydantic Field metadata"):
         add_application_blueprint_cmd(
             project_dir=project,
             blueprint_name="crud",
