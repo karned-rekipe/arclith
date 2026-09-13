@@ -25,6 +25,8 @@ from arclith_cli.entity_contract_validation import (
 from arclith_cli.entity_field_metadata import validate_indirect_field_metadata
 from arclith_cli.import_origins import (
     absolute_import,
+    pydantic_alias_choices_references,
+    pydantic_alias_path_references,
     pydantic_field_info_references,
     pydantic_field_references,
 )
@@ -100,6 +102,16 @@ def inspect_entity_contract(
         tree,
         module,
     )
+    alias_path_names, alias_path_modules = pydantic_alias_path_references(
+        paths,
+        tree,
+        module,
+    )
+    alias_choices_names, alias_choices_modules = pydantic_alias_choices_references(
+        paths,
+        tree,
+        module,
+    )
     names = set(pydantic_names)
     modules = set(pydantic_modules)
     _validate_model_config(models[0], entity.pascal)
@@ -109,6 +121,10 @@ def inspect_entity_contract(
         modules,
         set(field_info_names),
         set(field_info_modules),
+        set(alias_path_names),
+        set(alias_path_modules),
+        set(alias_choices_names),
+        set(alias_choices_modules),
         typing,
     )
     validate_indirect_field_metadata(paths, tree, module, fields, typing.kind)
@@ -216,7 +232,8 @@ def _field_imports(
     typing: TypingReferences,
 ) -> tuple[str, ...]:
     used = field_dependencies(fields, typing.kind)
-    resolved = set(dir(builtins))
+    declared = module_declarations(tree)
+    resolved = set(dir(builtins)) - declared
     imports: list[str] = []
     for statement in module_imports(tree):
         local_names = {
@@ -239,7 +256,6 @@ def _field_imports(
 
     unresolved = used - resolved
     if unresolved:
-        declared = module_declarations(tree)
         local = sorted(unresolved & declared)
         if local:
             imports.append(f"from {module} import {', '.join(local)}")

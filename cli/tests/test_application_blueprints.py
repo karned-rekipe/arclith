@@ -684,6 +684,44 @@ class Todo(Entity):
     )
 
 
+def test_crud_blueprint_imports_project_type_shadowing_builtin(tmp_path: Path) -> None:
+    project = _project(tmp_path, "shadowed-builtin-service")
+    entity = project / "src/shadowed_builtin_service/domain/models/todo.py"
+    entity.write_text(
+        """from arclith.domain.models.entity import Entity
+
+
+class CustomType(str):
+    pass
+
+
+list = CustomType
+
+
+class Todo(Entity):
+    value: list
+""",
+        encoding="utf-8",
+    )
+
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+
+    create_source = (
+        project
+        / "src/shadowed_builtin_service/domain/ports/inbound/create_todo.py"
+    ).read_text(encoding="utf-8")
+    assert (
+        "from shadowed_builtin_service.domain.models.todo import Todo, list"
+        in create_source
+    )
+
+
 @pytest.mark.parametrize(
     ("alias", "message"),
     (
@@ -714,6 +752,124 @@ class Todo(Entity):
     )
 
     with pytest.raises(ValueError, match=message):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+@pytest.mark.parametrize(
+    "alias_declaration",
+    (
+        'AliasPath("payload", shared_contracts.KEY)',
+        'AliasPath("payload", dynamic_segment())',
+        'AliasPath("payload", **OPTIONS)',
+    ),
+)
+def test_crud_blueprint_rejects_dynamic_alias_path_segments(
+    tmp_path: Path,
+    alias_declaration: str,
+) -> None:
+    project = _project(tmp_path, "dynamic-alias-path-service")
+    entity = project / "src/dynamic_alias_path_service/domain/models/todo.py"
+    entity.write_text(
+        f"""import shared_contracts
+from pydantic import AliasPath, Field
+
+from arclith.domain.models.entity import Entity
+
+OPTIONS = {{"path": "uuid"}}
+
+
+def dynamic_segment() -> str:
+    return "uuid"
+
+
+class Todo(Entity):
+    code: str = Field(validation_alias={alias_declaration})
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="cannot be resolved statically"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+@pytest.mark.parametrize(
+    ("constructor", "arguments"),
+    (
+        ("AliasPath", '"payload", "uuid"'),
+        ("AliasChoices", '"publicCode", "uuid"'),
+    ),
+)
+def test_crud_blueprint_rejects_fake_alias_constructor(
+    tmp_path: Path,
+    constructor: str,
+    arguments: str,
+) -> None:
+    project = _project(tmp_path, "fake-alias-path-service")
+    entity = project / "src/fake_alias_path_service/domain/models/todo.py"
+    entity.write_text(
+        f"""from pydantic import Field
+
+from arclith.domain.models.entity import Entity
+
+
+def {constructor}(*segments: str) -> tuple[str, ...]:
+    return segments
+
+
+class Todo(Entity):
+    code: str = Field(validation_alias={constructor}({arguments}))
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="cannot be resolved statically"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+@pytest.mark.parametrize(
+    "alias_declaration",
+    (
+        'AliasChoices("uuid", "publicCode")',
+        'AliasChoices(AliasPath("version", "nested"), "publicCode")',
+    ),
+)
+def test_crud_blueprint_resolves_pydantic_alias_choices(
+    tmp_path: Path,
+    alias_declaration: str,
+) -> None:
+    project = _project(tmp_path, "alias-choices-service")
+    entity = project / "src/alias_choices_service/domain/models/todo.py"
+    entity.write_text(
+        f"""from pydantic import AliasChoices, AliasPath, Field
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    code: str = Field(validation_alias={alias_declaration})
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="collide with technical CRUD fields"):
         add_application_blueprint_cmd(
             project_dir=project,
             blueprint_name="crud",
@@ -1055,11 +1211,113 @@ class Todo(Entity):
         )
 
 
+def test_crud_blueprint_rejects_pydantic_metadata_through_local_alias_chain(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path, "chained-alias-field-service")
+    entity = project / "src/chained_alias_field_service/domain/models/todo.py"
+    entity.write_text(
+        """from typing import Annotated
+
+from pydantic import Field
+
+from arclith.domain.models.entity import Entity
+
+Hidden = Annotated[str, Field(exclude=True)]
+Public = Hidden
+
+
+class Todo(Entity):
+    code: Public
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Type alias.*contains Pydantic Field"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+@pytest.mark.parametrize(
+    ("declaration", "default"),
+    (
+        ("import shared_contracts", "shared_contracts.DEFAULT"),
+        ("from pydantic import Field\n\nSECRET = Field(exclude=True)", "SECRET"),
+    ),
+)
+def test_crud_blueprint_rejects_indirect_metadata_inside_direct_field(
+    tmp_path: Path,
+    declaration: str,
+    default: str,
+) -> None:
+    project = _project(tmp_path, "nested-direct-field-service")
+    entity = project / "src/nested_direct_field_service/domain/models/todo.py"
+    entity.write_text(
+        f"""{declaration}
+from pydantic import Field
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    code: str = Field(default={default})
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Indirect Pydantic Field metadata"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+def test_crud_blueprint_rejects_helper_with_local_import(tmp_path: Path) -> None:
+    project = _project(tmp_path, "local-import-field-service")
+    entity = project / "src/local_import_field_service/domain/models/todo.py"
+    entity.write_text(
+        """from arclith.domain.models.entity import Entity
+
+
+def hidden_field():
+    from pydantic import Field
+
+    return Field(exclude=True)
+
+
+class Todo(Entity):
+    code: str = hidden_field()
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Indirect Pydantic Field metadata"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
 @pytest.mark.parametrize(
     ("import_source", "field"),
     (
         ("from .field_metadata import SECRET", "code: str = SECRET"),
         ("from . import field_metadata as fm", "code: Annotated[str, fm.SECRET]"),
+        (
+            "from . import field_metadata as fm",
+            "code: str = fm.Metadata.SECRET",
+        ),
         ("from .field_metadata import Metadata", "code: str = Metadata.SECRET"),
     ),
 )

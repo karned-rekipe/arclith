@@ -192,6 +192,24 @@ def pydantic_base_model_references(
     return _pydantic_symbol_references(paths, tree, module, "BaseModel")
 
 
+def pydantic_alias_path_references(
+    paths: ProjectPaths,
+    tree: ast.Module,
+    module: str,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Keep local spellings of imports resolving to Pydantic AliasPath."""
+    return _pydantic_symbol_references(paths, tree, module, "AliasPath")
+
+
+def pydantic_alias_choices_references(
+    paths: ProjectPaths,
+    tree: ast.Module,
+    module: str,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Keep local spellings of imports resolving to Pydantic AliasChoices."""
+    return _pydantic_symbol_references(paths, tree, module, "AliasChoices")
+
+
 def _pydantic_symbol_references(
     paths: ProjectPaths,
     tree: ast.Module,

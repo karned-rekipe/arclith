@@ -10,6 +10,7 @@ from arclith_cli.entity_field_metadata import (
     annotation_metadata,
     contains_project_field_info,
 )
+from arclith_cli.entity_input_aliases import static_input_aliases
 from arclith_cli.import_origins import (
     project_imported_symbol,
     project_qualified_imported_symbol,
@@ -163,6 +164,10 @@ def validate_input_aliases(
     pydantic_modules: set[str],
     field_info_names: set[str],
     field_info_modules: set[str],
+    alias_path_names: set[str],
+    alias_path_modules: set[str],
+    alias_choices_names: set[str],
+    alias_choices_modules: set[str],
     typing: TypingReferences,
 ) -> None:
     """Reject ambiguous aliases and aliases colliding with CRUD metadata."""
@@ -182,6 +187,10 @@ def validate_input_aliases(
                 pydantic_modules=pydantic_modules,
                 field_info_names=field_info_names,
                 field_info_modules=field_info_modules,
+                alias_path_names=alias_path_names,
+                alias_path_modules=alias_path_modules,
+                alias_choices_names=alias_choices_names,
+                alias_choices_modules=alias_choices_modules,
                 parse_deferred_strings=parse_deferred_strings,
                 typing=typing,
             )
@@ -210,6 +219,10 @@ class _PydanticAliasCollisionFinder(ast.NodeVisitor):
         pydantic_modules: set[str],
         field_info_names: set[str],
         field_info_modules: set[str],
+        alias_path_names: set[str],
+        alias_path_modules: set[str],
+        alias_choices_names: set[str],
+        alias_choices_modules: set[str],
         parse_deferred_strings: bool,
         typing: TypingReferences,
     ) -> None:
@@ -218,6 +231,10 @@ class _PydanticAliasCollisionFinder(ast.NodeVisitor):
         self._pydantic_modules = pydantic_modules
         self._field_info_names = field_info_names
         self._field_info_modules = field_info_modules
+        self._alias_path_names = alias_path_names
+        self._alias_path_modules = alias_path_modules
+        self._alias_choices_names = alias_choices_names
+        self._alias_choices_modules = alias_choices_modules
         self._parse_deferred_strings = parse_deferred_strings
         self._typing = typing
         self.collisions: set[str] = set()
@@ -269,7 +286,14 @@ class _PydanticAliasCollisionFinder(ast.NodeVisitor):
         for keyword in node.keywords:
             if keyword.arg not in {"alias", "validation_alias"}:
                 continue
-            aliases = _static_input_aliases(keyword.arg, keyword.value)
+            aliases = static_input_aliases(
+                keyword.arg,
+                keyword.value,
+                alias_path_names=self._alias_path_names,
+                alias_path_modules=self._alias_path_modules,
+                alias_choices_names=self._alias_choices_names,
+                alias_choices_modules=self._alias_choices_modules,
+            )
             if aliases is None:
                 self.has_unresolved_metadata = True
             else:
@@ -385,8 +409,6 @@ def _local_alias_value(
             and len(statement.targets) == 1
             and isinstance(statement.targets[0], ast.Name)
             and statement.targets[0].id == name
-            and isinstance(statement.value, ast.Subscript)
-            and typing.kind(statement.value.value) == "Annotated"
         ):
             return statement.value
     return None
@@ -464,39 +486,6 @@ def _dotted_name(node: ast.Attribute) -> str | None:
     return ".".join(reversed(parts))
 
 
-def _static_input_aliases(kind: str, value: ast.expr) -> set[str] | None:
-    if isinstance(value, ast.Constant) and isinstance(value.value, str):
-        return {value.value}
-    if kind == "alias" or not isinstance(value, ast.Call):
-        return None
-    reference = reference_name(value.func)
-    if reference == "AliasPath":
-        return _static_alias_path(value)
-    if reference != "AliasChoices":
-        return None
-    aliases: set[str] = set()
-    for choice in value.args:
-        resolved = (
-            _static_alias_path(choice)
-            if isinstance(choice, ast.Call)
-            and reference_name(choice.func) == "AliasPath"
-            else _static_input_aliases("validation_alias", choice)
-        )
-        if resolved is None:
-            return None
-        aliases.update(resolved)
-    return aliases
-
-
-def _static_alias_path(value: ast.Call) -> set[str] | None:
-    if not value.args:
-        return None
-    first = value.args[0]
-    if isinstance(first, ast.Constant) and isinstance(first.value, str):
-        return {first.value}
-    return None
-
-
 def is_pydantic_field(
     node: ast.expr | None,
     names: set[str],
@@ -534,15 +523,6 @@ def root_name(node: ast.expr) -> str | None:
     while isinstance(node, ast.Attribute):
         node = node.value
     return node.id if isinstance(node, ast.Name) else None
-
-
-def reference_name(node: ast.expr) -> str | None:
-    """Return the final identifier represented by an expression."""
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return node.attr
-    return None
 
 
 def _subscript_arguments(node: ast.expr) -> tuple[ast.expr, ...]:

@@ -43,17 +43,23 @@ def validate_indirect_field_metadata(
             )
             for expression in metadata
         )
-        unsafe_default = (
-            field.value is not None
-            and not _is_pydantic_field(field.value, names, modules)
-            and contains_project_field_info(
-                paths,
-                tree,
-                module,
-                field.value,
-                reject_unresolved_imports=True,
+        unsafe_default = False
+        if field.value is not None:
+            expressions = (
+                _call_arguments(field.value)
+                if _is_pydantic_field(field.value, names, modules)
+                else (field.value,)
             )
-        )
+            unsafe_default = any(
+                contains_project_field_info(
+                    paths,
+                    tree,
+                    module,
+                    expression,
+                    reject_unresolved_imports=True,
+                )
+                for expression in expressions
+            )
         if unsafe_metadata or unsafe_default:
             raise ValueError(
                 f"Indirect Pydantic Field metadata for {field.target.id!r} cannot "
@@ -107,6 +113,11 @@ def contains_project_field_info(
         if key in visited:
             continue
         visited.add(key)
+        if isinstance(target_node, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
+            isinstance(node, (ast.Import, ast.ImportFrom))
+            for node in ast.walk(target_node)
+        ):
+            return True
         if contains_project_field_info(
             paths,
             target_tree,
@@ -166,15 +177,18 @@ def _project_reference(
         imported_root = project_imported_symbol(paths, tree, module, root)
         if imported_root is not None:
             imported_tree, imported_module, imported_name = imported_root
-            imported_reference = f"{imported_name}.{attributes}"
-            declaration = _local_declaration(imported_tree, imported_reference)
-            if declaration is not None:
-                return (
-                    imported_tree,
-                    imported_module,
-                    imported_reference,
-                    declaration,
-                )
+            for imported_reference in (
+                attributes,
+                f"{imported_name}.{attributes}",
+            ):
+                declaration = _local_declaration(imported_tree, imported_reference)
+                if declaration is not None:
+                    return (
+                        imported_tree,
+                        imported_module,
+                        imported_reference,
+                        declaration,
+                    )
     imported = (
         project_qualified_imported_symbol(paths, tree, module, reference)
         if "." in reference
@@ -338,3 +352,8 @@ def _subscript_arguments(node: ast.expr) -> tuple[ast.expr, ...]:
     if isinstance(node, ast.Tuple):
         return tuple(node.elts)
     return (node,)
+
+
+def _call_arguments(node: ast.expr) -> tuple[ast.expr, ...]:
+    assert isinstance(node, ast.Call)
+    return (*node.args, *(keyword.value for keyword in node.keywords))
