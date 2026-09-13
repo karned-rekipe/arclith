@@ -27,6 +27,7 @@ def validate_type_alias_metadata(
     tree: ast.Module,
     module: str,
     fields: tuple[ast.AnnAssign, ...],
+    model: ast.ClassDef,
 ) -> None:
     """Reject project aliases whose Pydantic metadata cannot be sanitized safely."""
     if not fields:
@@ -43,6 +44,7 @@ def validate_type_alias_metadata(
                 name,
                 visited,
                 before_line=before_line,
+                class_model=model,
             )
 
 
@@ -54,12 +56,29 @@ def _validate_alias(
     visited: set[tuple[str, str]],
     *,
     before_line: int | None,
+    class_model: ast.ClassDef | None,
 ) -> None:
     reference = (module, name)
     if reference in visited:
         return
     visited.add(reference)
-    if "." in name:
+    class_name = (
+        name.removeprefix(f"{class_model.name}.")
+        if class_model is not None
+        else name
+    )
+    typing = typing_references(tree, before_line=before_line)
+    value = (
+        _alias_value(
+            class_model.body,
+            class_name,
+            typing,
+            before_line=before_line,
+        )
+        if class_model is not None and "." not in class_name
+        else None
+    )
+    if value is None and "." in name:
         imported = project_qualified_imported_symbol(
             paths,
             tree,
@@ -84,15 +103,16 @@ def _validate_alias(
             imported_name,
             visited,
             before_line=None,
+            class_model=None,
         )
         return
-    typing = typing_references(tree, before_line=before_line)
-    value = _local_alias_value(
-        tree,
-        name,
-        typing,
-        before_line=before_line,
-    )
+    if value is None:
+        value = _local_alias_value(
+            tree,
+            name,
+            typing,
+            before_line=before_line,
+        )
     if value is None:
         imported = project_imported_symbol(
             paths,
@@ -118,6 +138,7 @@ def _validate_alias(
             imported_name,
             visited,
             before_line=None,
+            class_model=None,
         )
         return
 
@@ -132,7 +153,7 @@ def _validate_alias(
         pydantic_modules=set(pydantic_modules),
     )
     finder.visit(value)
-    if finder.found or any(
+    if finder.found or any(isinstance(node, ast.Call) for node in ast.walk(value)) or any(
         contains_project_field_info(
             paths,
             tree,
@@ -154,6 +175,7 @@ def _validate_alias(
             dependency,
             visited,
             before_line=before_line,
+            class_model=class_model,
         )
 
 
@@ -185,9 +207,24 @@ def _local_alias_value(
     *,
     before_line: int | None,
 ) -> ast.expr | None:
+    return _alias_value(
+        tree.body,
+        name,
+        typing,
+        before_line=before_line,
+    )
+
+
+def _alias_value(
+    source_statements: list[ast.stmt],
+    name: str,
+    typing: TypingReferences,
+    *,
+    before_line: int | None,
+) -> ast.expr | None:
     statements = (
         statement
-        for statement in reversed(tree.body)
+        for statement in reversed(source_statements)
         if before_line is None or statement.lineno <= before_line
     )
     for statement in statements:
@@ -218,9 +255,10 @@ def _local_alias_value(
             return statement.value
         if (
             isinstance(statement, ast.Assign)
-            and len(statement.targets) == 1
-            and isinstance(statement.targets[0], ast.Name)
-            and statement.targets[0].id == name
+            and any(
+                isinstance(target, ast.Name) and target.id == name
+                for target in statement.targets
+            )
         ):
             return statement.value
     return None

@@ -19,7 +19,11 @@ def request_imports(
     bindings = module_bindings_before(tree, before_line)
     resolved = set(dir(builtins)) - bindings.keys()
     selected_nodes: dict[int, tuple[ast.stmt, set[str]]] = {}
-    for name in sorted(used & bindings.keys()):
+    pending = set(used)
+    inspected: set[str] = set()
+    while pending_names := sorted((pending & bindings.keys()) - inspected):
+        name = pending_names[0]
+        inspected.add(name)
         binding = bindings[name]
         if binding is not None:
             node, _ = binding
@@ -28,6 +32,8 @@ def request_imports(
             if node is None:
                 continue
         selected_nodes.setdefault(id(node), (node, set()))[1].add(name)
+        if isinstance(node, ast.TypeAlias):
+            pending.update(_type_alias_dependencies(node))
     for node, names in sorted(
         selected_nodes.values(),
         key=lambda selected: selected[0].lineno,
@@ -37,11 +43,13 @@ def request_imports(
             selected = _selected_import(node, names, module)
         elif isinstance(node, (ast.Assign, ast.AnnAssign)):
             selected = _literal_constant(node, names)
+        elif isinstance(node, ast.TypeAlias):
+            selected = ast.unparse(node), names
         if selected is not None:
             statement, selected_names = selected
             statements.append(statement)
             resolved.update(selected_names)
-    unresolved = used - resolved
+    unresolved = pending - resolved
     if unresolved:
         raise ValueError(
             "Unresolved local request dependencies require an explicit mapper: "
@@ -110,7 +118,29 @@ def _local_binding_statement(
             and statement.target.id == name
         ):
             return statement
+        if (
+            isinstance(statement, ast.TypeAlias)
+            and isinstance(statement.name, ast.Name)
+            and statement.name.id == name
+        ):
+            return statement
         if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             if statement.name == name:
                 return statement
     return None
+
+
+def _type_alias_dependencies(node: ast.TypeAlias) -> set[str]:
+    """Return module names needed to evaluate a local PEP 695 alias."""
+    local = {
+        parameter.name
+        for parameter in node.type_params
+        if isinstance(parameter, (ast.TypeVar, ast.ParamSpec, ast.TypeVarTuple))
+    }
+    return {
+        candidate.id
+        for candidate in ast.walk(node.value)
+        if isinstance(candidate, ast.Name)
+        and isinstance(candidate.ctx, ast.Load)
+        and candidate.id not in local
+    }

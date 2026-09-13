@@ -2130,6 +2130,167 @@ class Todo(Entity):
             sys.modules.pop(module)
 
 
+@pytest.mark.parametrize(
+    "declaration",
+    (
+        """class Todo(Entity):
+    type Hidden = Annotated[str, Field(exclude=True)]
+    code: Hidden
+""",
+        """Hidden = Public = Annotated[str, Field(exclude=True)]
+
+
+class Todo(Entity):
+    code: Hidden
+""",
+        """def hidden_field():
+    F = Field
+    return F(exclude=True)
+
+
+class Todo(Entity):
+    code: str = hidden_field()
+""",
+        """def build_metadata():
+    F = Field
+    return Annotated[str, F(exclude=True)]
+
+
+type Hidden = build_metadata()
+
+
+class Todo(Entity):
+    code: Hidden
+""",
+    ),
+)
+def test_crud_blueprint_rejects_unprovable_local_metadata_forms(
+    tmp_path: Path,
+    declaration: str,
+) -> None:
+    project = _project(tmp_path, "review-edge-service")
+    entity = project / "src/review_edge_service/domain/models/todo.py"
+    entity.write_text(
+        f"""from typing import Annotated
+
+from pydantic import Field
+
+from arclith.domain.models.entity import Entity
+
+
+{declaration}""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="(Type alias.*Pydantic Field|Indirect Pydantic Field metadata)",
+    ):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+def test_pep_695_rebinding_of_typing_marker_remains_a_business_field(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path, "typing-rebind-service")
+    entity = project / "src/typing_rebind_service/domain/models/todo.py"
+    entity.write_text(
+        """from typing import ClassVar
+
+from arclith.domain.models.entity import Entity
+
+type ClassVar = str
+
+
+class Todo(Entity):
+    code: ClassVar
+""",
+        encoding="utf-8",
+    )
+
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+    monkeypatch.syspath_prepend(str(project / "src"))
+    contract = importlib.import_module(
+        "typing_rebind_service.domain.ports.inbound.create_todo"
+    )
+
+    assert set(contract.CreateTodoCommand.model_fields) == {"code"}
+    assert contract.CreateTodoCommand(code="kept").code == "kept"
+
+    for module in tuple(sys.modules):
+        if module == "typing_rebind_service" or module.startswith(
+            "typing_rebind_service."
+        ):
+            sys.modules.pop(module)
+
+
+def test_nested_strings_in_deferred_annotated_metadata_remain_opaque(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path, "opaque-metadata-service")
+    entity = project / "src/opaque_metadata_service/domain/models/todo.py"
+    entity.write_text(
+        '''from typing import Annotated, ClassVar
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    MIN_LENGTH: ClassVar[int] = 2
+    code: "Annotated[str, ('MIN_LENGTH',), ('Field(exclude=True)',)]"
+''',
+        encoding="utf-8",
+    )
+
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+    monkeypatch.syspath_prepend(str(project / "src"))
+    contract = importlib.import_module(
+        "opaque_metadata_service.domain.ports.inbound.create_todo"
+    )
+    source = (
+        project / "src/opaque_metadata_service/domain/ports/inbound/create_todo.py"
+    ).read_text(encoding="utf-8")
+    field = next(
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.AnnAssign)
+        and isinstance(node.target, ast.Name)
+        and node.target.id == "code"
+    )
+
+    assert isinstance(field.annotation, ast.Constant)
+    assert "'MIN_LENGTH'" in field.annotation.value
+    assert "'Field(exclude=True)'" in field.annotation.value
+    assert "Todo.MIN_LENGTH" not in field.annotation.value
+    assert contract.CreateTodoCommand(code="opaque").code == "opaque"
+
+    for module in tuple(sys.modules):
+        if module == "opaque_metadata_service" or module.startswith(
+            "opaque_metadata_service."
+        ):
+            sys.modules.pop(module)
+
+
 def _run(awaitable: Coroutine[Any, Any, T]) -> T:
     return asyncio.run(awaitable)
 

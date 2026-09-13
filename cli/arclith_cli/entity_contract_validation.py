@@ -89,6 +89,10 @@ def typing_references(
                     names[marker].add(target.id)
                 elif module_alias:
                     modules.add(target.id)
+        elif isinstance(statement, ast.TypeAlias) and isinstance(
+            statement.name, ast.Name
+        ):
+            clear(statement.name.id)
         elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             clear(statement.name)
     return TypingReferences(

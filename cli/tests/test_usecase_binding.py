@@ -927,6 +927,43 @@ def test_path_scalar_origin_is_frozen_at_the_request_declaration(project):
     assert use_case.commands[0].item_id == identifier
 
 
+def test_local_pep_695_scalar_alias_is_copied_into_fastapi_contract(project):
+    source = PORT_SOURCE.replace(
+        "from pydantic import BaseModel, Field",
+        "from uuid import UUID\nfrom pydantic import BaseModel, Field\n\n"
+        "type ItemId = UUID",
+    ).replace(
+        "title: str = Field(min_length=1)",
+        "item_id: ItemId\n    title: str = Field(min_length=1)",
+    )
+    (project / "src/binding_app/domain/ports/inbound/create_todo.py").write_text(
+        source,
+        encoding="utf-8",
+    )
+    registry = _bind(
+        project,
+        "fastapi",
+        http_path="/v1/todos/{item_id}",
+    )
+    use_case = _usecase()
+    api = FastAPI()
+    _register_api(api, registry, create_todo=use_case)
+    identifier = uuid4()
+    generated = (
+        project / "src/binding_app/adapters/inbound/fastapi/contracts/create_todo.py"
+    ).read_text(encoding="utf-8")
+
+    with TestClient(api) as client:
+        invalid = client.post("/v1/todos/not-a-uuid", json={"title": "Invalid"})
+        valid = client.post(f"/v1/todos/{identifier}", json={"title": "Valid"})
+
+    assert "from uuid import UUID" in generated
+    assert "type ItemId = UUID" in generated
+    assert invalid.status_code == 422
+    assert valid.status_code == 200
+    assert use_case.commands[0].item_id == identifier
+
+
 def test_path_annotated_alias_avoids_application_symbol_collision(project):
     source = PORT_SOURCE.replace(
         "from pydantic import BaseModel, Field",

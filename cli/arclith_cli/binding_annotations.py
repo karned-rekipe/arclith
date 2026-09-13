@@ -67,6 +67,15 @@ class BindingAnnotationReferences:
                         scalar_names.discard(target.id)
                         if scalar_alias:
                             scalar_names.add(target.id)
+            elif isinstance(statement, ast.TypeAlias) and isinstance(
+                statement.name, ast.Name
+            ):
+                scalar_names.discard(statement.name.id)
+                if (
+                    isinstance(statement.value, ast.Name)
+                    and statement.value.id in scalar_names
+                ):
+                    scalar_names.add(statement.name.id)
             elif isinstance(
                 statement,
                 (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),

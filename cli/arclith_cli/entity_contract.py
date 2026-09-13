@@ -150,7 +150,13 @@ def inspect_entity_contract(
         typing,
     )
     validate_indirect_field_metadata(paths, tree, module, fields, typing.kind)
-    _validate_type_alias_metadata(paths, tree, module, fields)
+    _validate_type_alias_metadata(
+        paths,
+        tree,
+        module,
+        fields,
+        model=models[0],
+    )
     fields = tuple(
         _sanitize_input_field(
             field,
@@ -482,9 +488,10 @@ class _QuotedAnnotationSanitizer(ast.NodeTransformer):
         self._removed = removed
         self._clear_default = clear_default
         self._typing = typing
+        self._opaque_metadata = False
 
     def visit_Constant(self, node: ast.Constant) -> ast.Constant:
-        if not isinstance(node.value, str):
+        if self._opaque_metadata or not isinstance(node.value, str):
             return node
         try:
             expression = ast.parse(node.value, mode="eval").body
@@ -511,10 +518,7 @@ class _QuotedAnnotationSanitizer(ast.NodeTransformer):
                 if node.slice.elts:
                     node.slice.elts[0] = self.visit(node.slice.elts[0])
                 node.slice.elts[1:] = [
-                    metadata
-                    if isinstance(metadata, ast.Constant)
-                    and isinstance(metadata.value, str)
-                    else self.visit(metadata)
+                    self._visit_metadata(metadata)
                     for metadata in node.slice.elts[1:]
                 ]
             else:
@@ -525,6 +529,16 @@ class _QuotedAnnotationSanitizer(ast.NodeTransformer):
 
     def visit_Call(self, node: ast.Call) -> ast.Call:
         return node
+
+    def _visit_metadata(self, node: ast.expr) -> ast.expr:
+        opaque_metadata = self._opaque_metadata
+        self._opaque_metadata = True
+        try:
+            result = self.visit(node)
+        finally:
+            self._opaque_metadata = opaque_metadata
+        assert isinstance(result, ast.expr)
+        return result
 
 
 class _PydanticKeywordFinder(ast.NodeVisitor):

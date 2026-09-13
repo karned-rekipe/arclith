@@ -100,12 +100,33 @@ def contains_project_field_info(
         module,
         before_line=before_line,
     )
+    pydantic_names = set(pydantic_names)
+    pydantic_modules = set(pydantic_modules)
+    field_info_names = set(field_info_names)
+    field_info_modules = set(field_info_modules)
+    if isinstance(expression, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        (
+            local_fields,
+            local_field_modules,
+            local_field_infos,
+            local_field_info_modules,
+        ) = _function_pydantic_aliases(
+            expression,
+            pydantic_names,
+            pydantic_modules,
+            field_info_names,
+            field_info_modules,
+        )
+        pydantic_names.update(local_fields)
+        pydantic_modules.update(local_field_modules)
+        field_info_names.update(local_field_infos)
+        field_info_modules.update(local_field_info_modules)
     if _contains_pydantic_metadata_constructor(
         expression,
-        field_names=set(pydantic_names),
-        field_modules=set(pydantic_modules),
-        field_info_names=set(field_info_names),
-        field_info_modules=set(field_info_modules),
+        field_names=pydantic_names,
+        field_modules=pydantic_modules,
+        field_info_names=field_info_names,
+        field_info_modules=field_info_modules,
     ):
         return True
 
@@ -148,6 +169,58 @@ def contains_project_field_info(
         ):
             return True
     return False
+
+
+def _function_pydantic_aliases(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    field_names: set[str],
+    field_modules: set[str],
+    field_info_names: set[str],
+    field_info_modules: set[str],
+) -> tuple[set[str], set[str], set[str], set[str]]:
+    """Resolve direct constructor aliases inside a project helper."""
+    local_fields: set[str] = set()
+    local_field_modules: set[str] = set()
+    local_field_infos: set[str] = set()
+    local_field_info_modules: set[str] = set()
+    assignments = [
+        node
+        for node in ast.walk(function)
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None
+    ]
+    changed = True
+    while changed:
+        changed = False
+        for assignment in assignments:
+            targets = (
+                assignment.targets
+                if isinstance(assignment, ast.Assign)
+                else [assignment.target]
+            )
+            names = {
+                target.id for target in targets if isinstance(target, ast.Name)
+            }
+            value = assignment.value
+            groups = (
+                (field_names | local_fields, local_fields),
+                (field_modules | local_field_modules, local_field_modules),
+                (field_info_names | local_field_infos, local_field_infos),
+                (
+                    field_info_modules | local_field_info_modules,
+                    local_field_info_modules,
+                ),
+            )
+            for known, destination in groups:
+                if isinstance(value, ast.Name) and value.id in known:
+                    previous = len(destination)
+                    destination.update(names)
+                    changed = changed or len(destination) != previous
+    return (
+        local_fields,
+        local_field_modules,
+        local_field_infos,
+        local_field_info_modules,
+    )
 
 
 def annotation_metadata(
