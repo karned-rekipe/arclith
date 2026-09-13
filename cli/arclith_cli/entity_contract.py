@@ -70,6 +70,8 @@ def inspect_entity_contract(
     pydantic_names, pydantic_modules = pydantic_field_references(paths, tree, module)
     names = set(pydantic_names)
     modules = set(pydantic_modules)
+    _validate_model_config(models[0], entity.pascal)
+    _validate_input_aliases(fields, names, modules)
     fields = tuple(
         _sanitize_input_field(
             field,
@@ -120,6 +122,60 @@ def _business_fields(
     ]
 
 
+def _validate_model_config(model: ast.ClassDef, entity_name: str) -> None:
+    for statement in model.body:
+        value: ast.expr | None = None
+        if isinstance(statement, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "model_config"
+            for target in statement.targets
+        ):
+            value = statement.value
+        elif (
+            isinstance(statement, ast.AnnAssign)
+            and isinstance(statement.target, ast.Name)
+            and statement.target.id == "model_config"
+        ):
+            value = statement.value
+        if value is not None and _configuration_has_key(value, "alias_generator"):
+            raise ValueError(
+                f"{entity_name}.model_config alias_generator cannot be projected "
+                "safely; declare explicit Field(alias=...) values on business fields"
+            )
+
+
+def _configuration_has_key(value: ast.expr, key: str) -> bool:
+    if isinstance(value, ast.Call):
+        return any(keyword.arg == key for keyword in value.keywords)
+    if isinstance(value, ast.Dict):
+        return any(
+            isinstance(item, ast.Constant) and item.value == key for item in value.keys
+        )
+    return False
+
+
+def _validate_input_aliases(
+    fields: tuple[ast.AnnAssign, ...],
+    pydantic_names: set[str],
+    pydantic_modules: set[str],
+) -> None:
+    reserved = {"uuid", "version"}
+    for field in fields:
+        finder = _PydanticAliasCollisionFinder(
+            reserved=reserved,
+            pydantic_names=pydantic_names,
+            pydantic_modules=pydantic_modules,
+        )
+        finder.visit(field.annotation)
+        if field.value is not None:
+            finder.visit(field.value)
+        if finder.collisions:
+            assert isinstance(field.target, ast.Name)
+            raise ValueError(
+                f"Input aliases for {field.target.id!r} collide with technical CRUD "
+                f"fields: {', '.join(sorted(finder.collisions))}"
+            )
+
+
 def _class_var_references(tree: ast.Module) -> tuple[set[str], set[str]]:
     names = {"ClassVar"}
     modules = {"typing", "typing_extensions"}
@@ -145,15 +201,35 @@ def _is_class_var(
     names: set[str],
     modules: set[str],
 ) -> bool:
-    return any(
-        (isinstance(node, ast.Name) and node.id in names)
-        or (
+    def visit(node: ast.AST) -> bool:
+        if isinstance(node, ast.Name) and node.id in names:
+            return True
+        if (
             isinstance(node, ast.Attribute)
             and node.attr == "ClassVar"
             and _root_name(node.value) in modules
-        )
-        for node in ast.walk(annotation)
-    )
+        ):
+            return True
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            try:
+                expression = ast.parse(node.value, mode="eval").body
+            except SyntaxError:
+                return False
+            return visit(expression)
+        if isinstance(node, ast.Subscript):
+            kind = _reference_name(node.value)
+            if kind == "Literal":
+                return False
+            if kind == "Annotated":
+                arguments = (
+                    tuple(node.slice.elts)
+                    if isinstance(node.slice, ast.Tuple)
+                    else (node.slice,)
+                )
+                return bool(arguments) and visit(arguments[0])
+        return any(visit(child) for child in ast.iter_child_nodes(node))
+
+    return visit(annotation)
 
 
 def _field_imports(
@@ -220,6 +296,8 @@ def _make_omissible(
     field: ast.AnnAssign,
     pydantic_names: set[str],
     pydantic_modules: set[str],
+    *,
+    constructor: ast.expr | None = None,
 ) -> None:
     """Allow omission without widening the field's accepted input type."""
     if _is_pydantic_field(field.value, pydantic_names, pydantic_modules):
@@ -230,7 +308,7 @@ def _make_omissible(
         )
     else:
         field.value = ast.Call(
-            func=ast.Name(id="Field", ctx=ast.Load()),
+            func=constructor or ast.Name(id="Field", ctx=ast.Load()),
             args=[],
             keywords=[ast.keyword(arg="default", value=ast.Constant(value=None))],
         )
@@ -244,12 +322,17 @@ def _sanitize_input_field(
     partial_update: bool = False,
     defer_default_factory: bool = False,
 ) -> ast.AnnAssign:
-    deferred_factory = defer_default_factory and _has_pydantic_keyword(
-        field,
-        keyword="default_factory",
-        pydantic_names=pydantic_names,
-        pydantic_modules=pydantic_modules,
+    factory_constructor = (
+        _pydantic_keyword_constructor(
+            field,
+            keyword="default_factory",
+            pydantic_names=pydantic_names,
+            pydantic_modules=pydantic_modules,
+        )
+        if defer_default_factory
+        else None
     )
+    deferred_factory = factory_constructor is not None
     result = deepcopy(field)
     removed = {"exclude", "exclude_if", "serialization_alias"}
     if partial_update:
@@ -270,17 +353,22 @@ def _sanitize_input_field(
         clear_default=partial_update,
     )
     if deferred_factory:
-        _make_omissible(result, pydantic_names, pydantic_modules)
+        _make_omissible(
+            result,
+            pydantic_names,
+            pydantic_modules,
+            constructor=factory_constructor,
+        )
     return ast.fix_missing_locations(result)
 
 
-def _has_pydantic_keyword(
+def _pydantic_keyword_constructor(
     field: ast.AnnAssign,
     *,
     keyword: str,
     pydantic_names: set[str],
     pydantic_modules: set[str],
-) -> bool:
+) -> ast.expr | None:
     finder = _PydanticKeywordFinder(
         keyword=keyword,
         pydantic_names=pydantic_names,
@@ -289,7 +377,7 @@ def _has_pydantic_keyword(
     finder.visit(field.annotation)
     if field.value is not None:
         finder.visit(field.value)
-    return finder.found
+    return finder.constructor
 
 
 def _sanitize_pydantic_field_calls(
@@ -375,7 +463,7 @@ class _PydanticKeywordFinder(ast.NodeVisitor):
         self._keyword = keyword
         self._pydantic_names = pydantic_names
         self._pydantic_modules = pydantic_modules
-        self.found = False
+        self.constructor: ast.expr | None = None
 
     def visit_Constant(self, node: ast.Constant) -> None:
         if not isinstance(node.value, str):
@@ -397,11 +485,57 @@ class _PydanticKeywordFinder(ast.NodeVisitor):
             self._pydantic_names,
             self._pydantic_modules,
         ):
-            self.found = self.found or any(
-                item.arg == self._keyword for item in node.keywords
-            )
+            if any(item.arg == self._keyword for item in node.keywords):
+                self.constructor = deepcopy(node.func)
             return
         self.generic_visit(node)
+
+
+class _PydanticAliasCollisionFinder(ast.NodeVisitor):
+    def __init__(
+        self,
+        *,
+        reserved: set[str],
+        pydantic_names: set[str],
+        pydantic_modules: set[str],
+    ) -> None:
+        self._reserved = reserved
+        self._pydantic_names = pydantic_names
+        self._pydantic_modules = pydantic_modules
+        self.collisions: set[str] = set()
+
+    def visit_Constant(self, node: ast.Constant) -> None:
+        if not isinstance(node.value, str):
+            return
+        try:
+            expression = ast.parse(node.value, mode="eval").body
+        except SyntaxError:
+            return
+        self.visit(expression)
+
+    def visit_Subscript(self, node: ast.Subscript) -> None:
+        if _reference_name(node.value) == "Literal":
+            return
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        if not _is_pydantic_field(
+            node,
+            self._pydantic_names,
+            self._pydantic_modules,
+        ):
+            self.generic_visit(node)
+            return
+        for keyword in node.keywords:
+            if keyword.arg not in {"alias", "validation_alias"}:
+                continue
+            self.collisions.update(
+                child.value
+                for child in ast.walk(keyword.value)
+                if isinstance(child, ast.Constant)
+                and isinstance(child.value, str)
+                and child.value in self._reserved
+            )
 
 
 def _is_pydantic_field(

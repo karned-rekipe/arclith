@@ -79,6 +79,13 @@ valeur fournie reste soumise aux mêmes contraintes. Les champs techniques
 d'`Entity` (`uuid`, audit, soft delete et `version`) ne sont jamais copiés comme
 des données métier modifiables.
 
+Les aliases explicites définis avec `Field(alias=...)` ou
+`Field(validation_alias=...)` sont conservés, à condition de ne pas réutiliser
+les clés techniques `uuid` ou `version` de la commande de mise à jour. Une
+configuration globale `model_config.alias_generator` n'est pas projetée : la
+CLI interrompt la génération et demande de déclarer les aliases d'entrée sur
+chaque champ afin que le contrat public reste statique et vérifiable.
+
 Le parcours recommandé pour une entité concrète est donc :
 
 1. `arclith-cli add-entity Todo --profile minimal` ;

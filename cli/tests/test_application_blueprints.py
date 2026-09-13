@@ -474,6 +474,7 @@ class RelatedProduct(BaseModel):
 
 class Todo(Entity):
     model_config = ConfigDict(extra="allow")
+    collection: "CV[str]" = "todos"
     MIN_SKU_LENGTH: CV[int] = 3
     sku: ProductCode = Field(
         alias="productSku",
@@ -491,6 +492,10 @@ class Todo(Entity):
     alternate_tracking_code: str = pf.Field(exclude=True, min_length=2)
     deferred_code: "Annotated[str, Field(min_length=MIN_SKU_LENGTH)]"
     external_id: str = Field(default_factory=lambda data: str(data["uuid"]))
+    annotated_external_id: Annotated[
+        str,
+        pf.Field(default_factory=lambda data: str(data["uuid"])),
+    ]
 ''',
         encoding="utf-8",
     )
@@ -537,6 +542,7 @@ class Todo(Entity):
         "alternate_tracking_code",
         "deferred_code",
         "external_id",
+        "annotated_external_id",
     }
     request = create_contract.CreateTodoCommand.model_validate(
         {
@@ -586,6 +592,7 @@ class Todo(Entity):
     assert created.alternate_tracking_code == "A3"
     assert created.deferred_code == "DEF"
     assert created.external_id == str(created.uuid)
+    assert created.annotated_external_id == str(created.uuid)
     assert unchanged.sku == "SKU-001"
     assert unchanged.model_extra == {"legacy_code": "keep-me"}
     assert updated.sku == "SKU-002"
@@ -635,6 +642,68 @@ class Todo(Entity):
         "from deferred_blueprint_service.domain.models.product_types import Money"
         in create_source
     )
+
+
+@pytest.mark.parametrize(
+    "alias",
+    ('alias="uuid"', 'validation_alias="version"'),
+)
+def test_crud_blueprint_rejects_technical_input_alias_collisions(
+    tmp_path: Path,
+    alias: str,
+) -> None:
+    project = _project(tmp_path, "colliding-alias-service")
+    entity = project / "src/colliding_alias_service/domain/models/todo.py"
+    entity.write_text(
+        f'''from pydantic import Field
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    external_id: str = Field({alias})
+''',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="collide with technical CRUD fields"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+def test_crud_blueprint_rejects_entity_alias_generators(tmp_path: Path) -> None:
+    project = _project(tmp_path, "generated-alias-service")
+    entity = project / "src/generated_alias_service/domain/models/todo.py"
+    entity.write_text(
+        '''from pydantic import ConfigDict
+
+from arclith.domain.models.entity import Entity
+
+
+def to_camel(value: str) -> str:
+    return value
+
+
+class Todo(Entity):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+    external_id: str
+''',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="alias_generator cannot be projected"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
 
 
 def test_module_imports_do_not_flatten_runtime_conditionals() -> None:
