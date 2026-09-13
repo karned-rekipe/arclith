@@ -85,9 +85,14 @@ des chaînes littérales, `AliasPath` ou `AliasChoices`, et de ne pas réutilise
 les clés techniques `uuid` ou `version` de la commande de mise à jour. Une
 configuration globale `model_config.alias_generator` n'est pas projetée. La
 CLI refuse aussi une configuration assemblée indirectement (`**CONFIG`) dont
-elle ne peut pas exclure statiquement la présence d'un générateur. Elle demande
-alors de déclarer les aliases d'entrée sur chaque champ afin que le contrat
-public reste statique et vérifiable.
+elle ne peut pas exclure statiquement la présence d'un générateur, ainsi qu'une
+configuration déclarée dans un bloc conditionnel de classe. De même, les
+options dynamiques `Field(**OPTIONS)` et les métadonnées Pydantic encapsulées
+dans un alias de type réutilisable doivent être développées directement sur le
+champ. La CLI interrompt la génération avant toute écriture lorsqu'elle ne peut
+pas prouver que le contrat projeté est équivalent. Elle demande alors de
+déclarer les aliases d'entrée sur chaque champ afin que le contrat public reste
+statique et vérifiable.
 
 Le parcours recommandé pour une entité concrète est donc :
 

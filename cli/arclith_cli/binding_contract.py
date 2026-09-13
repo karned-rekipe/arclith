@@ -18,6 +18,7 @@ _SCALAR_ANNOTATIONS = frozenset(
         "bool",
         "bytes",
         "UUID",
+        "_ArclithCrudUUID",
         "date",
         "datetime",
         "time",
@@ -170,7 +171,7 @@ def _response_contract(
         result.id,
     )
     bases = {ast.unparse(base).split(".")[-1] for base in model.bases}
-    if not bases & {"BaseModel", "Entity"}:
+    if not bases & (_pydantic_base_model_names(model_tree) | {"Entity"}):
         raise ValueError("Automatic binding requires a Pydantic result model")
     fields = _request_fields(model)
     rendered = tuple(ast.unparse(field) for field in fields)
@@ -382,10 +383,25 @@ def _request_model(
     if len(requests) != 1 or not requests[0].name.endswith(("Command", "Query")):
         raise ValueError("Declare the Command or Query model beside the inbound port")
     request = requests[0]
-    if [ast.unparse(base) for base in request.bases] != ["BaseModel"]:
+    base_model_names = _pydantic_base_model_names(tree)
+    if (
+        len(request.bases) != 1
+        or not isinstance(request.bases[0], ast.Name)
+        or request.bases[0].id not in base_model_names
+    ):
         raise ValueError("Automatic binding requires a direct BaseModel request")
     _validate_declarative_request(request)
     return request
+
+
+def _pydantic_base_model_names(tree: ast.Module) -> set[str]:
+    return {
+        alias.asname or alias.name
+        for statement in tree.body
+        if isinstance(statement, ast.ImportFrom) and statement.module == "pydantic"
+        for alias in statement.names
+        if alias.name == "BaseModel"
+    }
 
 
 def _annotation(node: ast.expr | None) -> ast.expr:

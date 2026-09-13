@@ -20,6 +20,7 @@ from arclith_cli.entity_contract_validation import (
     root_name as _root_name,
     validate_input_aliases as _validate_input_aliases,
     validate_model_config as _validate_model_config,
+    validate_type_alias_metadata as _validate_type_alias_metadata,
 )
 from arclith_cli.import_origins import absolute_import, pydantic_field_references
 from arclith_cli.project_paths import ProjectPaths
@@ -68,9 +69,9 @@ def inspect_entity_contract(
             f"Expected one entity model named {entity.pascal!r} in {entity.file_path}"
         )
 
-    class_var_names, class_var_modules = _class_var_references(tree)
+    class_var_names, final_names, typing_modules = _typing_marker_references(tree)
     fields = tuple(
-        _business_fields(models[0], class_var_names, class_var_modules)
+        _business_fields(models[0], class_var_names, final_names, typing_modules)
     )
     fields = qualify_class_dependencies(models[0], fields, entity.pascal)
     module = paths.import_path("domain", "models", entity.file_path.stem)
@@ -79,6 +80,7 @@ def inspect_entity_contract(
     modules = set(pydantic_modules)
     _validate_model_config(models[0], entity.pascal)
     _validate_input_aliases(fields, names, modules)
+    _validate_type_alias_metadata(paths, tree, module, fields)
     fields = tuple(
         _sanitize_input_field(
             field,
@@ -111,7 +113,8 @@ def inspect_entity_contract(
 def _business_fields(
     model: ast.ClassDef,
     class_var_names: set[str],
-    class_var_modules: set[str],
+    final_names: set[str],
+    typing_modules: set[str],
 ) -> list[ast.AnnAssign]:
     return [
         statement
@@ -124,28 +127,40 @@ def _business_fields(
         and not _is_class_var(
             statement.annotation,
             names=class_var_names,
-            modules=class_var_modules,
+            modules=typing_modules,
+        )
+        and not (
+            statement.value is not None
+            and _is_class_var(
+                statement.annotation,
+                names=final_names,
+                modules=typing_modules,
+                attribute="Final",
+            )
         )
     ]
 
 
-def _class_var_references(tree: ast.Module) -> tuple[set[str], set[str]]:
-    names = {"ClassVar"}
+def _typing_marker_references(
+    tree: ast.Module,
+) -> tuple[set[str], set[str], set[str]]:
+    class_var_names = {"ClassVar"}
+    final_names = {"Final"}
     modules = {"typing", "typing_extensions"}
     for statement in module_imports(tree):
         if isinstance(statement, ast.ImportFrom) and statement.module in modules:
-            names.update(
-                alias.asname or alias.name
-                for alias in statement.names
-                if alias.name == "ClassVar"
-            )
+            for alias in statement.names:
+                if alias.name == "ClassVar":
+                    class_var_names.add(alias.asname or alias.name)
+                elif alias.name == "Final":
+                    final_names.add(alias.asname or alias.name)
         elif isinstance(statement, ast.Import):
             modules.update(
                 alias.asname or alias.name.split(".")[0]
                 for alias in statement.names
                 if alias.name in {"typing", "typing_extensions"}
             )
-    return names, modules
+    return class_var_names, final_names, modules
 
 
 def _is_class_var(
@@ -153,13 +168,14 @@ def _is_class_var(
     *,
     names: set[str],
     modules: set[str],
+    attribute: str = "ClassVar",
 ) -> bool:
     def visit(node: ast.AST) -> bool:
         if isinstance(node, ast.Name) and node.id in names:
             return True
         if (
             isinstance(node, ast.Attribute)
-            and node.attr == "ClassVar"
+            and node.attr == attribute
             and _root_name(node.value) in modules
         ):
             return True
@@ -261,7 +277,7 @@ def _make_omissible(
         )
     else:
         field.value = ast.Call(
-            func=constructor or ast.Name(id="Field", ctx=ast.Load()),
+            func=constructor or ast.Name(id="_ArclithCrudField", ctx=ast.Load()),
             args=[],
             keywords=[ast.keyword(arg="default", value=ast.Constant(value=None))],
         )
@@ -438,9 +454,25 @@ class _PydanticKeywordFinder(ast.NodeVisitor):
         self.visit(expression)
 
     def visit_Subscript(self, node: ast.Subscript) -> None:
-        if _reference_name(node.value) == "Literal":
+        kind = _reference_name(node.value)
+        if kind == "Literal":
+            return
+        if kind == "Annotated":
+            arguments = (
+                tuple(node.slice.elts)
+                if isinstance(node.slice, ast.Tuple)
+                else (node.slice,)
+            )
+            if arguments:
+                self.visit(arguments[0])
+            parse_deferred_strings = self._parse_deferred_strings
+            self._parse_deferred_strings = False
+            for metadata in arguments[1:]:
+                self.visit(metadata)
+            self._parse_deferred_strings = parse_deferred_strings
             return
         self.generic_visit(node)
+
     def visit_Call(self, node: ast.Call) -> None:
         if _is_pydantic_field(
             node,

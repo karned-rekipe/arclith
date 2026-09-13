@@ -69,6 +69,11 @@ def _module_exports_pydantic_field(
     return _is_pydantic_field(paths, module, "Field", visited=visited)
 
 
+def project_module_tree(paths: ProjectPaths, module: str) -> ast.Module | None:
+    """Return the syntax tree for a module owned by the generated project."""
+    return _project_module_tree(paths, module)
+
+
 def _is_pydantic_field(
     paths: ProjectPaths,
     module: str,

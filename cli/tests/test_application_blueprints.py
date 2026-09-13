@@ -106,7 +106,7 @@ def test_crud_blueprint_snapshots_entity_business_fields(tmp_path: Path) -> None
 
 from decimal import Decimal
 from enum import StrEnum
-from typing import ClassVar
+from typing import ClassVar, Final
 
 from pydantic import Field
 
@@ -121,10 +121,12 @@ class ProductStatus(StrEnum):
 
 class Todo(Entity):
     collection: ClassVar[str] = "products"
+    category: Final[str] = "catalog"
     sku: str = Field(min_length=MIN_SKU_LENGTH, pattern=r"^[A-Z0-9-]+$")
     price: Decimal = Field(gt=0)
     stock: int = 0
     status: ProductStatus = ProductStatus.ACTIVE
+    frozen_code: Final[str]
 """,
         encoding="utf-8",
     )
@@ -145,8 +147,11 @@ class Todo(Entity):
     )
 
     assert "collection" not in create
+    assert "category" not in create
     assert "from decimal import Decimal" in create
-    assert "from pydantic import BaseModel, Field" in create
+    assert (
+        "from pydantic import BaseModel as _ArclithCrudBaseModel, Field" in create
+    )
     assert "from inventory_service.domain.models.todo import (" not in create
     assert "from inventory_service.domain.models.todo import MIN_SKU_LENGTH" in create
     assert "ProductStatus" in create
@@ -156,10 +161,11 @@ class Todo(Entity):
     assert "price: Decimal = Field(gt=0)" in create
     assert "stock: int = 0" in create
     assert "status: ProductStatus = ProductStatus.ACTIVE" in create
+    assert "frozen_code: Final[str]" in create
     assert "sku: str = Field(default=None, min_length=MIN_SKU_LENGTH" in update
     assert "price: Decimal = Field(default=None, gt=0)" in update
-    assert "stock: int = Field(default=None)" in update
-    assert "status: ProductStatus = Field(default=None)" in update
+    assert "stock: int = _ArclithCrudField(default=None)" in update
+    assert "status: ProductStatus = _ArclithCrudField(default=None)" in update
     assert "CreateTodoCommand.model_fields" in generated_test
     assert "CreateTodoCommand()" not in generated_test
 
@@ -498,6 +504,10 @@ class Todo(Entity):
     ]
     nested_code: str = Field(validation_alias=AliasPath("payload", "uuid"))
     note: str = "Field(alias='uuid', default_factory=make_note)"
+    string_metadata: Annotated[
+        str,
+        "Field(alias='uuid', default_factory=make_note)",
+    ]
 ''',
         encoding="utf-8",
     )
@@ -553,6 +563,7 @@ class Todo(Entity):
         "annotated_external_id",
         "nested_code",
         "note",
+        "string_metadata",
     }
     request = create_contract.CreateTodoCommand.model_validate(
         {
@@ -562,6 +573,7 @@ class Todo(Entity):
             "alternate_tracking_code": "A3",
             "deferred_code": "DEF",
             "payload": {"uuid": "N3"},
+            "string_metadata": "opaque",
         }
     )
     assert "productSku" in request.model_dump(by_alias=True)
@@ -606,6 +618,7 @@ class Todo(Entity):
     assert created.annotated_external_id == str(created.uuid)
     assert created.nested_code == "N3"
     assert created.note == "Field(alias='uuid', default_factory=make_note)"
+    assert created.string_metadata == "opaque"
     assert unchanged.sku == "SKU-001"
     assert unchanged.model_extra == {"legacy_code": "keep-me"}
     assert updated.sku == "SKU-002"
@@ -753,6 +766,151 @@ class Todo(Entity):
             feature_name="todo",
             dry_run=False,
         )
+
+
+def test_crud_blueprint_rejects_conditional_model_config(tmp_path: Path) -> None:
+    project = _project(tmp_path, "conditional-config-service")
+    entity = project / "src/conditional_config_service/domain/models/todo.py"
+    entity.write_text(
+        '''from pydantic import ConfigDict
+
+from arclith.domain.models.entity import Entity
+
+USE_CAMEL = True
+
+
+class Todo(Entity):
+    if USE_CAMEL:
+        model_config = ConfigDict(alias_generator=str.upper)
+    external_id: str
+''',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="class control flow"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+def test_crud_blueprint_rejects_unpacked_field_options(tmp_path: Path) -> None:
+    project = _project(tmp_path, "unpacked-field-service")
+    entity = project / "src/unpacked_field_service/domain/models/todo.py"
+    entity.write_text(
+        '''from pydantic import Field
+
+from arclith.domain.models.entity import Entity
+
+OPTIONS = {"alias": "uuid"}
+
+
+class Todo(Entity):
+    external_id: str = Field(**OPTIONS)
+''',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Field metadata.*cannot be resolved"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+@pytest.mark.parametrize("imported", (False, True))
+def test_crud_blueprint_rejects_pydantic_metadata_in_type_aliases(
+    tmp_path: Path,
+    imported: bool,
+) -> None:
+    project = _project(tmp_path, "alias-metadata-service")
+    models = project / "src/alias_metadata_service/domain/models"
+    alias_source = '''from typing import Annotated
+
+from pydantic import Field
+
+type HiddenCode = Annotated[str, Field(exclude=True)]
+'''
+    if imported:
+        (models / "product_types.py").write_text(alias_source, encoding="utf-8")
+        entity_source = '''from .product_types import HiddenCode
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    code: HiddenCode
+'''
+    else:
+        entity_source = f'''{alias_source}
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    code: HiddenCode
+'''
+    (models / "todo.py").write_text(entity_source, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Type alias.*contains Pydantic Field"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+def test_crud_blueprint_isolates_generated_support_imports(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path, "support-name-service")
+    models = project / "src/support_name_service/domain/models"
+    (models / "support.py").write_text(
+        "BaseModel = str\nField = int\n",
+        encoding="utf-8",
+    )
+    (models / "todo.py").write_text(
+        '''from .support import BaseModel, Field
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    payload: BaseModel
+    rank: Field
+''',
+        encoding="utf-8",
+    )
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+    monkeypatch.syspath_prepend(str(project / "src"))
+    contract = importlib.import_module(
+        "support_name_service.domain.ports.inbound.create_todo"
+    )
+
+    assert contract.CreateTodoCommand.model_fields["payload"].annotation is str
+    assert contract.CreateTodoCommand.model_fields["rank"].annotation is int
+    command = contract.CreateTodoCommand(payload="ok", rank=2)
+    assert command.model_dump() == {"payload": "ok", "rank": 2}
+
+    for module in tuple(sys.modules):
+        if module == "support_name_service" or module.startswith(
+            "support_name_service."
+        ):
+            sys.modules.pop(module)
 
 
 def test_module_imports_do_not_flatten_runtime_conditionals() -> None:

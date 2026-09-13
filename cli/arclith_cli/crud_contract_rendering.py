@@ -27,18 +27,18 @@ def render_create_port(
         __PORT_IMPORTS__
 
 
-        class Create{entity}Command(BaseModel):
+        class Create{entity}Command(_ArclithCrudBaseModel):
             """Validated writable fields snapshotted from the entity."""
 
         __ENTITY_FIELDS__
 
 
-        class Create{entity}Result(BaseModel):
+        class Create{entity}Result(_ArclithCrudBaseModel):
             item: {entity}
 
 
-        class Create{entity}Port(ABC):
-            @abstractmethod
+        class Create{entity}Port(_ArclithCrudABC):
+            @_arclith_crud_abstractmethod
             async def execute(
                 self, command: Create{entity}Command
             ) -> Create{entity}Result:
@@ -70,20 +70,20 @@ def render_update_port(
         __PORT_IMPORTS__
 
 
-        class Update{entity}Command(BaseModel):
+        class Update{entity}Command(_ArclithCrudBaseModel):
             """Optimistic partial update of the entity's writable fields."""
 
-            uuid: UUID
-            version: int = Field(ge=1)
+            uuid: _ArclithCrudUUID
+            version: int = _ArclithCrudField(ge=1)
         __ENTITY_FIELDS__
 
 
-        class Update{entity}Result(BaseModel):
+        class Update{entity}Result(_ArclithCrudBaseModel):
             item: {entity}
 
 
-        class Update{entity}Port(ABC):
-            @abstractmethod
+        class Update{entity}Port(_ArclithCrudABC):
+            @_arclith_crud_abstractmethod
             async def execute(
                 self, command: Update{entity}Command
             ) -> Update{entity}Result:
@@ -111,9 +111,11 @@ def _port_imports(
     require_field: bool,
 ) -> str:
     remaining: list[str] = []
-    pydantic_names = [ast.alias(name="BaseModel")]
+    pydantic_names = [ast.alias(name="BaseModel", asname="_ArclithCrudBaseModel")]
     if require_field:
-        pydantic_names.append(ast.alias(name="Field"))
+        pydantic_names.append(
+            ast.alias(name="Field", asname="_ArclithCrudField")
+        )
     entity_names = [ast.alias(name=entity)]
     for rendered in contract.imports:
         statement = ast.parse(rendered).body[0]
@@ -126,9 +128,12 @@ def _port_imports(
         else:
             remaining.append(rendered)
 
-    lines = ["from abc import ABC, abstractmethod"]
+    lines = [
+        "from abc import ABC as _ArclithCrudABC, "
+        "abstractmethod as _arclith_crud_abstractmethod"
+    ]
     if include_uuid:
-        lines.append("from uuid import UUID")
+        lines.append("from uuid import UUID as _ArclithCrudUUID")
     lines.extend(remaining)
     lines.append(_from_import("pydantic", pydantic_names))
     lines.append(_from_import(entity_module, entity_names))

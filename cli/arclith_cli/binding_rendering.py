@@ -46,7 +46,10 @@ def render_contract(
                 *contract.request_imports,
                 *contract.response_imports,
                 *annotated_import,
-                "from pydantic import ConfigDict",
+                "from pydantic import (",
+                "    BaseModel as _ArclithTransportBaseModel,",
+                "    ConfigDict as _ArclithTransportConfigDict,",
+                ")",
             )
         )
     )
@@ -96,8 +99,8 @@ def render_contract(
         + model
         + "\n\n\nclass "
         + contract.transport_response
-        + "(BaseModel):\n"
-        + "    model_config = ConfigDict(from_attributes=True)\n"
+        + "(_ArclithTransportBaseModel):\n"
+        + "    model_config = _ArclithTransportConfigDict(from_attributes=True)\n"
         + (
             "\n".join(f"    {field}" for field in contract.response_fields)
             if contract.response_fields
