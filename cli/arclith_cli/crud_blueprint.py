@@ -1,6 +1,7 @@
 from pathlib import Path
 from textwrap import dedent
 
+from arclith_cli.application_blueprint_files import with_package_initializers
 from arclith_cli.crud_asset_rendering import (
     render_crud_documentation,
     render_crud_test,
@@ -89,23 +90,7 @@ def render_crud_blueprint(
             entity.pascal, feature, contract
         ),
     }
-    return _with_package_initializers(paths, base)
-
-
-def _with_package_initializers(
-    paths: ProjectPaths,
-    files: dict[Path, str],
-) -> dict[Path, str]:
-    result = dict(files)
-    for path in tuple(files):
-        for parent in path.parents:
-            if parent in {paths.root, paths.package_root.parent}:
-                break
-            if parent.is_relative_to(paths.package_root) or parent.is_relative_to(
-                paths.root / "tests"
-            ):
-                result.setdefault(parent / "__init__.py", "")
-    return result
+    return with_package_initializers(paths, base)
 
 
 def _errors(entity: str) -> str:

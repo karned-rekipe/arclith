@@ -164,7 +164,7 @@ arclith-cli new Todo todo-service --profile crud
 |--------|--------|-------------|
 | `--port` / `-p` | `8000` | Port à proposer lors du futur ajout explicite de FastAPI |
 | `--dir` / `-d` | `.` | Répertoire parent |
-| `--profile` | `minimal` | Profil applicatif initial (`minimal` ou `crud`) |
+| `--profile` | `minimal` | Profil applicatif initial (`minimal`, `crud` ou `append-only`) |
 
 Le projet généré utilise un layout `src/<package>/...` pour le code applicatif et un dossier
 `config/` structuré par adapter (voir section [Configuration](#configuration)). Utiliser ensuite
@@ -195,9 +195,25 @@ src/<package>/domain/models/shopping_item.py
 
 Sans `--profile`, le mode direct conserve le profil `minimal` et ne génère aucun
 CRUD, port repository, adapter ou endpoint. En interactif, la CLI demande de
-choisir `minimal` ou `crud`. Le profil `crud` initialise les ports inbound, use
+choisir `minimal`, `crud` ou `append-only`. Le profil `crud` initialise les ports inbound, use
 cases, erreurs, composition et tests du cycle `create/get/list/update/delete`,
 sans créer d'adapter.
+
+Pour des faits immuables, le profil `append-only` crée un `ImmutableRecord` (pas
+une `Entity` CRUD), son use case `append`, les contrats typés, une composition par
+injection explicite du store et des tests :
+
+```bash
+arclith-cli add-entity Measurement --profile append-only
+# Ou dans un nouveau service :
+arclith-cli new Measurement measurement-service --profile append-only
+```
+
+Un record déjà déclaré peut recevoir une feature avec `add-blueprint append-only
+--entity Measurement --feature measurement_ingestion`. Le store mémoire est une
+référence locale non durable. Aucun transport ni query n'est généré. Consulter le
+[contrat append-only](https://karned-rekipe.github.io/arclith/blueprints/append-only/)
+pour l'immutabilité, l'idempotence, les timestamps et les limites.
 
 ---
 
@@ -215,7 +231,7 @@ arclith-cli add-blueprint crud --entity ShoppingItem
 
 La première application écrit `.arclith/features/shopping_item.yaml`. Un replay
 préserve les fichiers applicatifs déjà personnalisés et complète uniquement les
-fichiers manquants. Le CRUD est une possibilité parmi les futurs blueprints ;
+fichiers manquants. CRUD et append-only sont deux comportements explicites ;
 il n'est jamais inféré depuis un adapter. Voir le
 [contrat détaillé](https://karned-rekipe.github.io/arclith/blueprints/).
 

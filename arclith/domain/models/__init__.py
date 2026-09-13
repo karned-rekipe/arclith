@@ -8,6 +8,7 @@ from arclith.domain.models.channel import (
     ChannelOutgoingMessage,
     ResolvedChannelIdentity,
 )
+from arclith.domain.models.immutable_record import ImmutableRecord
 
 __all__ = [
     "ChannelAttachment",
@@ -18,4 +19,5 @@ __all__ = [
     "ChannelIncomingMessage",
     "ChannelOutgoingMessage",
     "ResolvedChannelIdentity",
+    "ImmutableRecord",
 ]

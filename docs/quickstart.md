@@ -73,6 +73,21 @@ les commandes validées ; `expose-feature` constitue la décision séparée qui
 publie ses cinq opérations sur l'adapter déjà installé. Consulter le [blueprint
 CRUD](blueprints/crud.md) pour le contrat HTTP et ses erreurs.
 
+Pour enregistrer des faits immuables, choisir explicitement l'autre archétype :
+
+```bash
+arclith-cli init measurement-service
+cd measurement-service
+arclith-cli add-entity Measurement --profile append-only
+uv sync
+uv run pytest tests/application -q
+```
+
+Ce parcours génère un `ImmutableRecord` et une feature d'append idempotent sans
+transport, query ou CRUD. Le container exige un store explicite ; lire le
+[blueprint append-only](blueprints/append-only.md) pour l'identité stable des retries,
+les deux timestamps et les limites du store mémoire.
+
 `arclith-cli run api` exécute `uv run` dans la racine détectée et conserve le
 serveur en avant-plan jusqu'à `Ctrl+C`. Le port et le reload restent pilotés par
 la configuration FastAPI générée.
@@ -93,7 +108,7 @@ uv tool install --force "git+https://github.com/karned-rekipe/arclith.git@feat/h
 Pour compatibilité, `new` reste disponible. Il équivaut à `init` suivi de
 `add-entity`; il ne télécharge plus un projet complet et n'ajoute aucun adapter.
 Le mode interactif demande le profil applicatif après l'entité ; le mode direct
-peut utiliser `--profile crud`, sinon il reste `minimal`.
+peut utiliser `--profile crud` ou `--profile append-only`, sinon il reste `minimal`.
 
 ```bash
 mkdir -p ~/Perso/projets/demo

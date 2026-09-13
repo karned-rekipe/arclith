@@ -33,8 +33,7 @@ def new_project_cmd(
     and runtime files remain explicit ``add-adapter`` decisions.
     """
     _validate_suggested_api_port(port)
-    if profile != "minimal":
-        get_application_blueprint(profile)
+    blueprint = get_application_blueprint(profile) if profile != "minimal" else None
     _ = repo_ref, template_dir  # Retained for replay compatibility with old recipes.
     entity_names = EntityNames.from_input(entity)
 
@@ -43,8 +42,12 @@ def new_project_cmd(
         directory=directory,
         target_path=target_path,
     )
-    add_entity_cmd(project_dir=target_dir, entity_name=entity)
-    if profile != "minimal":
+    add_entity_cmd(
+        project_dir=target_dir,
+        entity_name=entity,
+        model_base=blueprint.model_base if blueprint is not None else "entity",
+    )
+    if blueprint is not None:
         add_application_blueprint_cmd(
             project_dir=target_dir,
             blueprint_name=profile,
@@ -57,7 +60,10 @@ def new_project_cmd(
         f"[bold cyan]arclith-cli add-usecase Create{entity_names.pascal} "
         f"--entity {entity_names.pascal}[/bold cyan]"
         if profile == "minimal"
-        else "[bold cyan]Compléter les commandes et invariants du CRUD généré[/bold cyan]"
+        else (
+            "[bold cyan]Compléter les champs et invariants du blueprint "
+            f"{profile} généré[/bold cyan]"
+        )
     )
 
     console.print(

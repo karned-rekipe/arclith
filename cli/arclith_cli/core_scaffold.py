@@ -8,7 +8,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from .entity_scanner import EntityInfo, scan_entities
+from .entity_scanner import EntityInfo, ModelBase, scan_entities
 from .project_paths import ProjectPaths, detect_project_paths
 from .rename import EntityNames
 from .scaffold_templates import (
@@ -65,7 +65,12 @@ class IntentInterpreterNames:
         return cls(pascal=pascal, snake=snake)
 
 
-def add_entity_cmd(*, project_dir: Path | None = None, entity_name: str) -> Path:
+def add_entity_cmd(
+    *,
+    project_dir: Path | None = None,
+    entity_name: str,
+    model_base: ModelBase = "entity",
+) -> Path:
     project_dir = project_dir or Path.cwd()
     entity_name = entity_name.strip()
     _assert_project_root(project_dir, command="add-entity")
@@ -77,7 +82,8 @@ def add_entity_cmd(*, project_dir: Path | None = None, entity_name: str) -> Path
     _assert_missing(entity_file, project_dir)
     _ensure_package_dirs(paths, "domain", "models")
     entity_file.write_text(
-        render_entity_template(class_name=names.pascal), encoding="utf-8"
+        render_entity_template(class_name=names.pascal, model_base=model_base),
+        encoding="utf-8",
     )
     console.print(
         f"[green]✓[/green] Entité {names.pascal} créée : "
