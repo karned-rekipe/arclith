@@ -326,9 +326,13 @@ def _update_use_case(
                 changes = command.model_dump(
                     exclude={{"uuid", "version"}}, exclude_unset=True
                 )
+                current_values = {{
+                    field_name: getattr(current, field_name)
+                    for field_name in type(current).model_fields
+                }}
                 candidate = type(current).model_validate(
                     {{
-                        **current.model_dump(),
+                        **current_values,
                         **changes,
                         "version": command.version,
                     }},

@@ -456,13 +456,31 @@ def test_crud_blueprint_executes_aliased_business_fields(
     project = _project(tmp_path, "aliased-blueprint-service")
     entity = project / "src/aliased_blueprint_service/domain/models/todo.py"
     entity.write_text(
-        '''from pydantic import Field
+        '''from typing import ClassVar
+
+from pydantic import BaseModel, Field
 
 from arclith.domain.models.entity import Entity
 
+type ProductCode = str
+
+
+class RelatedProduct(BaseModel):
+    code: str
+
 
 class Todo(Entity):
-    sku: str = Field(alias="productSku", min_length=3)
+    MIN_SKU_LENGTH: ClassVar[int] = 3
+    sku: ProductCode = Field(
+        alias="productSku",
+        min_length=MIN_SKU_LENGTH,
+        exclude=True,
+    )
+    slug: str = Field(
+        default_factory=lambda data: data["sku"].lower(),
+        validate_default=True,
+    )
+    related: "RelatedProduct | None" = None
 ''',
         encoding="utf-8",
     )
@@ -483,13 +501,37 @@ class Todo(Entity):
     update_contract = importlib.import_module(
         "aliased_blueprint_service.domain.ports.inbound.update_todo"
     )
+    create_source = (
+        project
+        / "src/aliased_blueprint_service/domain/ports/inbound/create_todo.py"
+    ).read_text(encoding="utf-8")
+    update_source = (
+        project
+        / "src/aliased_blueprint_service/domain/ports/inbound/update_todo.py"
+    ).read_text(encoding="utf-8")
     from arclith import Arclith
 
     use_cases = container.build_todo_use_cases(Arclith(project / "config"))
+    assert "Todo.MIN_SKU_LENGTH" in create_source
+    assert "exclude=True" not in create_source
+    assert "default_factory" not in update_source
+    assert "validate_default=True" not in update_source
+    assert (
+        create_contract.CreateTodoCommand.model_fields["related"].annotation
+        == create_contract.RelatedProduct | None
+    )
     created = _run(
         use_cases.create.execute(
             create_contract.CreateTodoCommand.model_validate(
                 {"productSku": "SKU-001"}
+            )
+        )
+    ).item
+    unchanged = _run(
+        use_cases.update.execute(
+            update_contract.UpdateTodoCommand(
+                uuid=created.uuid,
+                version=created.version,
             )
         )
     ).item
@@ -498,7 +540,7 @@ class Todo(Entity):
             update_contract.UpdateTodoCommand.model_validate(
                 {
                     "uuid": created.uuid,
-                    "version": created.version,
+                    "version": unchanged.version,
                     "productSku": "SKU-002",
                 }
             )
@@ -506,8 +548,10 @@ class Todo(Entity):
     ).item
 
     assert created.sku == "SKU-001"
+    assert created.slug == "sku-001"
+    assert unchanged.sku == "SKU-001"
     assert updated.sku == "SKU-002"
-    assert updated.version == 2
+    assert updated.version == 3
 
     for module in tuple(sys.modules):
         if module == "aliased_blueprint_service" or module.startswith(

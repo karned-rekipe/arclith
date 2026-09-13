@@ -7,6 +7,11 @@ import builtins
 from copy import deepcopy
 from dataclasses import dataclass
 
+from arclith_cli.entity_contract_ast import (
+    field_dependencies,
+    module_declarations,
+    qualify_class_dependencies,
+)
 from arclith_cli.entity_scanner import EntityInfo
 from arclith_cli.import_origins import absolute_import, pydantic_field_references
 from arclith_cli.project_paths import ProjectPaths
@@ -56,9 +61,20 @@ def inspect_entity_contract(
         )
 
     fields = tuple(_business_fields(models[0]))
+    fields = qualify_class_dependencies(models[0], fields, entity.pascal)
     module = paths.import_path("domain", "models", entity.file_path.stem)
-    imports = _field_imports(tree, fields, module)
     pydantic_names, pydantic_modules = pydantic_field_references(paths, tree, module)
+    names = set(pydantic_names)
+    modules = set(pydantic_modules)
+    fields = tuple(
+        _sanitize_input_field(
+            field,
+            pydantic_names=names,
+            pydantic_modules=modules,
+        )
+        for field in fields
+    )
+    imports = _field_imports(tree, fields, module)
     return EntityContract(
         imports=imports,
         create_fields=tuple(ast.unparse(field) for field in fields),
@@ -66,13 +82,15 @@ def inspect_entity_contract(
             ast.unparse(
                 _optional_update_field(
                     field,
-                    pydantic_names=set(pydantic_names),
-                    pydantic_modules=set(pydantic_modules),
+                    pydantic_names=names,
+                    pydantic_modules=modules,
                 )
             )
             for field in fields
         ),
-        field_names=tuple(field.target.id for field in fields),
+        field_names=tuple(
+            field.target.id for field in fields if isinstance(field.target, ast.Name)
+        ),
     )
 
 
@@ -102,12 +120,7 @@ def _field_imports(
     fields: tuple[ast.AnnAssign, ...],
     module: str,
 ) -> tuple[str, ...]:
-    used = {
-        node.id
-        for field in fields
-        for node in ast.walk(field)
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
-    }
+    used = field_dependencies(fields)
     resolved = set(dir(builtins))
     imports: list[str] = []
     for statement in tree.body:
@@ -133,22 +146,7 @@ def _field_imports(
 
     unresolved = used - resolved
     if unresolved:
-        declared = {
-            node.name
-            for node in tree.body
-            if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
-        }
-        declared.update(
-            target.id
-            for statement in tree.body
-            if isinstance(statement, (ast.Assign, ast.AnnAssign))
-            for target in (
-                statement.targets
-                if isinstance(statement, ast.Assign)
-                else [statement.target]
-            )
-            if isinstance(target, ast.Name)
-        )
+        declared = module_declarations(tree)
         local = sorted(unresolved & declared)
         if local:
             imports.append(f"from {module} import {', '.join(local)}")
@@ -169,15 +167,14 @@ def _optional_update_field(
     pydantic_names: set[str],
     pydantic_modules: set[str],
 ) -> ast.AnnAssign:
-    result = deepcopy(field)
+    result = _sanitize_input_field(
+        field,
+        pydantic_names=pydantic_names,
+        pydantic_modules=pydantic_modules,
+        partial_update=True,
+    )
     if _is_pydantic_field(result.value, pydantic_names, pydantic_modules):
         assert isinstance(result.value, ast.Call)
-        result.value.args = []
-        result.value.keywords = [
-            keyword
-            for keyword in result.value.keywords
-            if keyword.arg not in {"default", "default_factory"}
-        ]
         result.value.keywords.insert(
             0,
             ast.keyword(arg="default", value=ast.Constant(value=None)),
@@ -188,6 +185,31 @@ def _optional_update_field(
             args=[],
             keywords=[ast.keyword(arg="default", value=ast.Constant(value=None))],
         )
+    return ast.fix_missing_locations(result)
+
+
+def _sanitize_input_field(
+    field: ast.AnnAssign,
+    *,
+    pydantic_names: set[str],
+    pydantic_modules: set[str],
+    partial_update: bool = False,
+) -> ast.AnnAssign:
+    result = deepcopy(field)
+    removed = {"exclude", "exclude_if"}
+    if partial_update:
+        removed.update({"default", "default_factory", "validate_default"})
+    for node in ast.walk(result):
+        if not isinstance(node, ast.expr):
+            continue
+        if not _is_pydantic_field(node, pydantic_names, pydantic_modules):
+            continue
+        assert isinstance(node, ast.Call)
+        if partial_update:
+            node.args = []
+        node.keywords = [
+            keyword for keyword in node.keywords if keyword.arg not in removed
+        ]
     return ast.fix_missing_locations(result)
 
 

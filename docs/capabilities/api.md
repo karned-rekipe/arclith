@@ -69,7 +69,9 @@ Lorsqu'une feature possède un manifeste de blueprint CRUD, exposer son contrat
 REST complet sans répéter cinq commandes :
 
 ```bash
-arclith-cli add-entity Todo --profile crud
+arclith-cli add-entity Todo --profile minimal
+# Déclarer ici les champs métier de Todo.
+arclith-cli add-blueprint crud --entity Todo --feature todo
 arclith-cli add-adapter --capability api --adapter fastapi --yes
 arclith-cli expose-feature todo --via fastapi --path /v1/todos
 ```
