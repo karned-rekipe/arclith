@@ -60,7 +60,12 @@ def typing_references(tree: ast.Module) -> TypingReferences:
     )
 
 
-def validate_model_config(model: ast.ClassDef, entity_name: str) -> None:
+def validate_model_config(
+    model: ast.ClassDef,
+    entity_name: str,
+    config_names: set[str],
+    config_modules: set[str],
+) -> None:
     """Reject model configurations whose input aliases cannot be inspected."""
     class_alias_generator = _keywords_have_key(model.keywords, "alias_generator")
     if class_alias_generator is not False:
@@ -77,7 +82,12 @@ def validate_model_config(model: ast.ClassDef, entity_name: str) -> None:
                     "direct static assignment"
                 )
             continue
-        alias_generator = _configuration_has_key(value, "alias_generator")
+        alias_generator = _configuration_has_key(
+            value,
+            "alias_generator",
+            config_names,
+            config_modules,
+        )
         if alias_generator is not False:
             _raise_alias_generator_error(entity_name, alias_generator, "model_config")
 
@@ -139,9 +149,24 @@ class _ModelConfigReferenceFinder(ast.NodeVisitor):
         return
 
 
-def _configuration_has_key(value: ast.expr, key: str) -> bool | None:
+def _configuration_has_key(
+    value: ast.expr,
+    key: str,
+    config_names: set[str],
+    config_modules: set[str],
+) -> bool | None:
     if isinstance(value, ast.Call):
-        if any(keyword.arg is None for keyword in value.keywords):
+        function = value.func
+        recognized = (
+            isinstance(function, ast.Name) and function.id in config_names
+        ) or (
+            isinstance(function, ast.Attribute)
+            and function.attr == "ConfigDict"
+            and root_name(function.value) in config_modules
+        )
+        if not recognized:
+            return None
+        if value.args or any(keyword.arg is None for keyword in value.keywords):
             return None
         return any(keyword.arg == key for keyword in value.keywords)
     if isinstance(value, ast.Dict):

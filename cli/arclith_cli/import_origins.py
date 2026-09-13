@@ -192,6 +192,15 @@ def pydantic_base_model_references(
     return _pydantic_symbol_references(paths, tree, module, "BaseModel")
 
 
+def pydantic_config_dict_references(
+    paths: ProjectPaths,
+    tree: ast.Module,
+    module: str,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Keep local spellings of imports resolving to Pydantic ConfigDict."""
+    return _pydantic_symbol_references(paths, tree, module, "ConfigDict")
+
+
 def pydantic_alias_path_references(
     paths: ProjectPaths,
     tree: ast.Module,
@@ -268,7 +277,70 @@ def _pydantic_symbol_references(
                     )
                 ):
                     modules.add(local_name)
+    _apply_local_pydantic_aliases(tree, names, modules, symbol)
     return tuple(sorted(names)), tuple(sorted(modules))
+
+
+def _apply_local_pydantic_aliases(
+    tree: ast.Module,
+    names: set[str],
+    modules: set[str],
+    symbol: str,
+) -> None:
+    for statement in tree.body:
+        value: ast.expr | None
+        if isinstance(statement, ast.Assign):
+            targets = [
+                target.id
+                for target in statement.targets
+                if isinstance(target, ast.Name)
+            ]
+            value = statement.value
+        elif isinstance(statement, ast.AnnAssign) and isinstance(
+            statement.target,
+            ast.Name,
+        ):
+            targets = [statement.target.id]
+            value = statement.value
+        elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.discard(statement.name)
+            modules.discard(statement.name)
+            continue
+        else:
+            continue
+        symbol_alias = value is not None and _references_pydantic_symbol(
+            value,
+            names,
+            modules,
+            symbol,
+        )
+        module_alias = isinstance(value, ast.Name) and value.id in modules
+        for target in targets:
+            names.discard(target)
+            modules.discard(target)
+            if symbol_alias:
+                names.add(target)
+            elif module_alias:
+                modules.add(target)
+
+
+def _references_pydantic_symbol(
+    value: ast.expr,
+    names: set[str],
+    modules: set[str],
+    symbol: str,
+) -> bool:
+    return (isinstance(value, ast.Name) and value.id in names) or (
+        isinstance(value, ast.Attribute)
+        and value.attr == symbol
+        and _root_name(value.value) in modules
+    )
+
+
+def _root_name(node: ast.expr) -> str | None:
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
 
 
 def _module_exports_pydantic_symbol(

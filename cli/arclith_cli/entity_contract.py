@@ -27,6 +27,7 @@ from arclith_cli.import_origins import (
     absolute_import,
     pydantic_alias_choices_references,
     pydantic_alias_path_references,
+    pydantic_config_dict_references,
     pydantic_field_info_references,
     pydantic_field_references,
 )
@@ -112,9 +113,19 @@ def inspect_entity_contract(
         tree,
         module,
     )
+    config_names, config_modules = pydantic_config_dict_references(
+        paths,
+        tree,
+        module,
+    )
     names = set(pydantic_names)
     modules = set(pydantic_modules)
-    _validate_model_config(models[0], entity.pascal)
+    _validate_model_config(
+        models[0],
+        entity.pascal,
+        set(config_names),
+        set(config_modules),
+    )
     _validate_input_aliases(
         fields,
         names,

@@ -28,11 +28,15 @@ def validate_indirect_field_metadata(
     modules = set(pydantic_modules)
     for field in fields:
         assert isinstance(field.target, ast.Name)
-        metadata = [
-            expression
+        metadata = tuple(
+            nested
             for expression in annotation_metadata(field.annotation, typing_kind)
-            if not _is_pydantic_field(expression, names, modules)
-        ]
+            for nested in (
+                _call_arguments(expression)
+                if _is_pydantic_field(expression, names, modules)
+                else (expression,)
+            )
+        )
         unsafe_metadata = any(
             contains_project_field_info(
                 paths,

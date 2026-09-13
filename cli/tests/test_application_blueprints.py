@@ -559,6 +559,15 @@ class Todo(Entity):
 
     use_cases = container.build_todo_use_cases(Arclith(project / "config"))
     assert "Todo.MIN_SKU_LENGTH" in create_source
+    deferred_field = next(
+        node
+        for node in ast.walk(ast.parse(create_source))
+        if isinstance(node, ast.AnnAssign)
+        and isinstance(node.target, ast.Name)
+        and node.target.id == "deferred_code"
+    )
+    assert isinstance(deferred_field.annotation, ast.Constant)
+    assert "Todo.MIN_SKU_LENGTH" in deferred_field.annotation.value
     assert "exclude=True" not in create_source
     assert "serialization_alias" not in create_source
     assert not any(
@@ -946,20 +955,57 @@ class Todo(Entity, {class_options}):
         )
 
 
-def test_crud_blueprint_rejects_indirect_model_config(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "configuration",
+    ("ConfigDict(**ALIAS_CONFIG)", "ConfigDict(ALIAS_CONFIG)"),
+)
+def test_crud_blueprint_rejects_indirect_model_config(
+    tmp_path: Path,
+    configuration: str,
+) -> None:
     project = _project(tmp_path, "indirect-config-service")
     entity = project / "src/indirect_config_service/domain/models/todo.py"
+    entity.write_text(
+        f"""from pydantic import ConfigDict
+
+from arclith.domain.models.entity import Entity
+
+
+ALIAS_CONFIG = {{"alias_generator": str.upper}}
+
+
+class Todo(Entity):
+    model_config = {configuration}
+    external_id: str
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="may contain an alias_generator"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+def test_crud_blueprint_rejects_dynamic_model_config_factory(tmp_path: Path) -> None:
+    project = _project(tmp_path, "dynamic-config-service")
+    entity = project / "src/dynamic_config_service/domain/models/todo.py"
     entity.write_text(
         """from pydantic import ConfigDict
 
 from arclith.domain.models.entity import Entity
 
 
-ALIAS_CONFIG = {"alias_generator": str.upper}
+def build_config():
+    return ConfigDict(alias_generator=str.upper)
 
 
 class Todo(Entity):
-    model_config = ConfigDict(**ALIAS_CONFIG)
+    model_config = build_config()
     external_id: str
 """,
         encoding="utf-8",
@@ -1295,6 +1341,70 @@ def hidden_field():
 
 class Todo(Entity):
     code: str = hidden_field()
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Indirect Pydantic Field metadata"):
+        add_application_blueprint_cmd(
+            project_dir=project,
+            blueprint_name="crud",
+            entity_name="Todo",
+            feature_name="todo",
+            dry_run=False,
+        )
+
+
+def test_crud_blueprint_resolves_local_pydantic_constructor_alias(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path, "aliased-constructor-field-service")
+    entity = project / "src/aliased_constructor_field_service/domain/models/todo.py"
+    entity.write_text(
+        """from pydantic import Field as PydanticField
+
+from arclith.domain.models.entity import Entity
+
+Field = PydanticField
+
+
+class Todo(Entity):
+    code: str = Field(exclude=True)
+""",
+        encoding="utf-8",
+    )
+
+    add_application_blueprint_cmd(
+        project_dir=project,
+        blueprint_name="crud",
+        entity_name="Todo",
+        feature_name="todo",
+        dry_run=False,
+    )
+
+    create_source = (
+        project
+        / "src/aliased_constructor_field_service/domain/ports/inbound/create_todo.py"
+    ).read_text(encoding="utf-8")
+    assert "exclude=True" not in create_source
+
+
+def test_crud_blueprint_rejects_nested_field_info_in_direct_metadata(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path, "nested-annotated-field-service")
+    entity = project / "src/nested_annotated_field_service/domain/models/todo.py"
+    entity.write_text(
+        """from typing import Annotated
+
+from pydantic import Field
+from pydantic.fields import FieldInfo
+
+from arclith.domain.models.entity import Entity
+
+
+class Todo(Entity):
+    code: Annotated[str, Field(default=FieldInfo(exclude=True))]
 """,
         encoding="utf-8",
     )
