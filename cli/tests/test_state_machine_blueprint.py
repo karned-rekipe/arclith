@@ -676,7 +676,7 @@ def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
     entity.write_text(
         entity.read_text(encoding="utf-8").replace(
             'Field(default="draft", frozen=True)',
-            "Field(default=StatusAlias.DRAFT, frozen=True)",
+            "Field(default=InvoiceStatus.DRAFT, frozen=True)",
         ),
         encoding="utf-8",
     )
@@ -767,6 +767,40 @@ def test_existing_enum_rejects_use_enum_values(tmp_path: Path) -> None:
             feature_name="invoice_lifecycle",
             parameters=_parameters(),
         )
+
+
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        'Field(default="unknown", frozen=True)',
+        'Field(default_factory=lambda: "draft", frozen=True)',
+        "Field(frozen=True, **options)",
+    ],
+)
+def test_existing_literal_requires_a_static_declared_default(
+    tmp_path: Path,
+    replacement: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            'Field(default="draft", frozen=True)',
+            replacement,
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="static default"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+    assert not (project / ".arclith/features/invoice_lifecycle.yaml").exists()
 
 
 def test_existing_imported_enum_alias_is_inspected(tmp_path: Path) -> None:
@@ -924,8 +958,7 @@ def test_existing_conventional_state_module_is_preserved(tmp_path: Path) -> None
         entity.read_text(encoding="utf-8")
         .replace(
             "from typing import Any, Literal, Self\n",
-            "from typing import Any, Self\n\n"
-            "from .invoice_state import InvoiceState\n",
+            "from typing import Any, Self\n\nfrom .invoice_state import InvoiceState\n",
         )
         .replace(
             'Literal["draft", "submitted", "approved", "rejected"]',
@@ -990,6 +1023,42 @@ def test_existing_entity_rejects_a_deceptive_state_copy_helper(
             '{"status": target}',
             '{"created_by": target}',
         ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="reject generic model_copy updates"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        (
+            '        if update is not None and "status" in update:\n',
+            '        if "status" in update and update is not None:\n',
+        ),
+        (
+            "from arclith.domain.models.entity import Entity\n",
+            "from arclith.domain.models.entity import Entity\n\n"
+            "super = lambda: object()\n",
+        ),
+    ],
+)
+def test_existing_entity_rejects_unsafe_public_copy_guards(
+    tmp_path: Path,
+    before: str,
+    after: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(before, after),
         encoding="utf-8",
     )
 
@@ -1085,6 +1154,37 @@ def test_existing_entity_rejects_reassigned_model_config(
         .replace(
             'Field(default="draft", frozen=True)',
             'Field(default="draft")',
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="must reject assignment"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        "ConfigDict(validate_assignment=True, use_enum_values=USE_ENUM_VALUES)",
+        "ConfigDict(validate_assignment=True, **CONFIG_OPTIONS)",
+    ],
+)
+def test_existing_entity_rejects_dynamic_model_config(
+    tmp_path: Path,
+    replacement: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            "ConfigDict(validate_assignment=True)",
+            replacement,
         ),
         encoding="utf-8",
     )
@@ -1514,6 +1614,31 @@ def test_full_recipe_preflights_all_blueprint_metadata_before_init(
     assert "Traceback" not in cli_result.output
     assert not target.exists()
 
+    unknown_step = replace(
+        recipe.steps[-1],
+        args={**recipe.steps[-1].args, "profile": "missing-blueprint"},
+    )
+    unknown_recipe = replace(
+        recipe,
+        steps=(*recipe.steps[:-1], unknown_step),
+    )
+    save_recipe(unknown_recipe, project / "unknown.recipe.yaml")
+    cli_result = runner.invoke(
+        app,
+        [
+            "replay",
+            str(project / "unknown.recipe.yaml"),
+            "--dir",
+            str(target),
+            "--strict",
+        ],
+    )
+    assert cli_result.exit_code == 1
+    assert "Recette CLI invalide" in cli_result.output
+    assert "invalid blueprint" in " ".join(cli_result.output.split())
+    assert "Traceback" not in cli_result.output
+    assert not target.exists()
+
 
 def test_full_recipe_preflights_add_blueprint_metadata_before_init(
     tmp_path: Path,
@@ -1659,6 +1784,41 @@ def test_new_state_machine_profile_records_portable_parameters(tmp_path: Path) -
             strict=True,
         )
     assert not drift_target.exists()
+
+
+def test_new_state_machine_entity_name_does_not_collide_with_state_module(
+    tmp_path: Path,
+) -> None:
+    spec_path = tmp_path / "invoice-lifecycle.yaml"
+    spec_path.write_text(
+        yaml.safe_dump(_spec_document(), sort_keys=False),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "new",
+            "InvoiceLifecycleState",
+            "lifecycle-state-service",
+            "--dir",
+            str(tmp_path),
+            "--profile",
+            "state-machine",
+            "--spec",
+            str(spec_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    models = (
+        tmp_path / "lifecycle-state-service/src/lifecycle_state_service/domain/models"
+    )
+    entity = models / "invoice_lifecycle_state.py"
+    state = models / "invoice_lifecycle_state_lifecycle_state.py"
+    assert entity.is_file()
+    assert state.is_file()
+    assert entity != state
 
 
 def test_state_machine_requires_spec_and_non_parameterized_blueprints_reject_it(

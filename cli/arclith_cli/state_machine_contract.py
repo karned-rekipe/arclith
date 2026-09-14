@@ -5,9 +5,16 @@ from __future__ import annotations
 import ast
 
 
-def state_copy_is_controlled(model: ast.ClassDef, state_field: str) -> bool:
+def state_copy_is_controlled(
+    model: ast.ClassDef,
+    state_field: str,
+    *,
+    tree: ast.Module,
+) -> bool:
     """Prove the public guard and private lifecycle copy can be called safely."""
 
+    if any(_binds_module_name(statement, "super") for statement in tree.body):
+        return False
     public_copy = _single_method_binding(model, "model_copy")
     lifecycle_copy = _single_method_binding(model, f"_copy_with_{state_field}")
     if public_copy is None or lifecycle_copy is None:
@@ -51,6 +58,47 @@ def _binds_name(statement: ast.stmt, name: str) -> bool:
         and isinstance(node.ctx, (ast.Store, ast.Del))
         for node in ast.walk(statement)
     )
+
+
+def _binds_module_name(statement: ast.stmt, name: str) -> bool:
+    """Detect module bindings without descending into nested local scopes."""
+
+    if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return statement.name == name
+    if isinstance(statement, (ast.Import, ast.ImportFrom)):
+        return any(
+            (item.asname or item.name.split(".", 1)[0]) == name
+            for item in statement.names
+        )
+
+    class ModuleBindingVisitor(ast.NodeVisitor):
+        found = False
+
+        def visit_Name(self, node: ast.Name) -> None:  # noqa: N802
+            if node.id == name and isinstance(node.ctx, (ast.Store, ast.Del)):
+                self.found = True
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
+            if node.name == name:
+                self.found = True
+
+        def visit_AsyncFunctionDef(  # noqa: N802
+            self,
+            node: ast.AsyncFunctionDef,
+        ) -> None:
+            if node.name == name:
+                self.found = True
+
+        def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
+            if node.name == name:
+                self.found = True
+
+        def visit_Lambda(self, node: ast.Lambda) -> None:  # noqa: N802
+            return
+
+    visitor = ModuleBindingVisitor()
+    visitor.visit(statement)
+    return visitor.found
 
 
 def _has_public_copy_signature(method: ast.FunctionDef) -> bool:
@@ -111,8 +159,9 @@ def _is_state_update_guard(statement: ast.stmt, state_field: str) -> bool:
         or len(statement.test.values) != 2
     ):
         return False
-    return any(_is_update_not_none(value) for value in statement.test.values) and any(
-        _is_state_in_update(value, state_field) for value in statement.test.values
+    return _is_update_not_none(statement.test.values[0]) and _is_state_in_update(
+        statement.test.values[1],
+        state_field,
     )
 
 
@@ -143,7 +192,9 @@ def _is_state_in_update(expression: ast.expr, state_field: str) -> bool:
 
 
 def _is_public_model_copy_return(statement: ast.stmt) -> bool:
-    if not isinstance(statement, ast.Return) or not isinstance(statement.value, ast.Call):
+    if not isinstance(statement, ast.Return) or not isinstance(
+        statement.value, ast.Call
+    ):
         return False
     call = statement.value
     keywords = {keyword.arg: keyword.value for keyword in call.keywords}
@@ -161,7 +212,9 @@ def _is_public_model_copy_return(statement: ast.stmt) -> bool:
 
 
 def _is_lifecycle_model_copy_return(statement: ast.stmt, state_field: str) -> bool:
-    if not isinstance(statement, ast.Return) or not isinstance(statement.value, ast.Call):
+    if not isinstance(statement, ast.Return) or not isinstance(
+        statement.value, ast.Call
+    ):
         return False
     call = statement.value
     if not _is_super_model_copy(call) or call.args or len(call.keywords) != 1:

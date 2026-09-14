@@ -91,7 +91,12 @@ def validate_application_recipe_metadata(
 
     if blueprint_name == "minimal":
         return
-    blueprint = get_application_blueprint(blueprint_name)
+    try:
+        blueprint = get_application_blueprint(blueprint_name)
+    except ValueError as exc:
+        raise RecipeError(
+            f"Recipe references an invalid blueprint {blueprint_name!r}: {exc}"
+        ) from exc
     recorded_template = args.get("template_digest")
     recorded_parameters = args.get("parameters_digest")
     if blueprint.parameterized and (

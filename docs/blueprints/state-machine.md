@@ -167,13 +167,16 @@ class Invoice(Entity):
 ```
 
 La prévalidation est volontairement stricte : `model_config` doit avoir une
-seule affectation effective fondée sur le vrai `pydantic.ConfigDict`. Les deux
-helpers de copie doivent être des méthodes d’instance synchrones, sans décorateur
-(leur effet ne serait pas prouvable statiquement), et conserver les signatures
-appelées par le code généré (`model_copy(update=..., deep=...)` et
-`_copy_with_status(target)`). Une
-réaffectation de configuration, un argument obligatoire supplémentaire ou un
-`staticmethod` est refusé avant toute écriture.
+seule affectation effective fondée sur le vrai `pydantic.ConfigDict`, sans
+expansion `**options` dynamique. `use_enum_values` doit être absent ou être le
+littéral `False`. Les deux helpers de copie doivent être des méthodes d’instance
+synchrones, sans décorateur (leur effet ne serait pas prouvable statiquement), et
+conserver les signatures appelées par le code généré
+(`model_copy(update=..., deep=...)` et `_copy_with_status(target)`). La garde
+`update is not None` doit précéder le test d'appartenance et le builtin `super`
+ne doit pas être masqué au niveau module. Une réaffectation de configuration, un
+argument obligatoire supplémentaire ou un `staticmethod` est refusé avant toute
+écriture.
 
 ```bash
 arclith-cli add-blueprint state-machine \
@@ -202,9 +205,11 @@ et les méthodes de copie asynchrones, dont le comportement ne peut pas satisfai
 le contrat synchrone du cycle de vie. Pour un champ enum,
 `ConfigDict(use_enum_values=True)` est également refusé : cette option stockerait
 une chaîne et romprait la garantie de restitution du type enum. Le champ doit
-être requis ou déclarer un membre de son enum comme valeur par défaut ; une chaîne
-brute n'est pas acceptée comme default non validé. Les tests générés construisent
-la valeur depuis l'annotation Pydantic réelle et vérifient le type après chaque
+être requis ou déclarer une valeur par défaut visible statiquement : membre de
+l'enum réellement résolue, ou chaîne appartenant au `Literal`. Une chaîne brute
+n'est pas acceptée pour un enum ; `default_factory` et les expansions d'arguments
+dynamiques sont refusées pour les deux types. Les tests générés construisent la
+valeur depuis l'annotation Pydantic réelle et vérifient le type après chaque
 transition, y compris `str` pour un `Literal`. Un nom de fichier non canonique
 comme `invoice_record.py` reste accepté : les imports générés
 distinguent le module réel de l'entité du module d'état interne
@@ -385,8 +390,9 @@ source a été déplacé ou supprimé. Avant toute écriture, le replay compare 
 deux digests obligatoires au renderer, au contrat de validation et aux paramètres
 courants pour toutes les étapes sélectionnées, avant même d'exécuter un éventuel
 `init` ; une métadonnée absente ou une dérive ne laisse donc aucun projet partiel.
-Des paramètres enregistrés absents ou mal formés sont eux aussi normalisés en
-erreur de recette et produisent le diagnostic CLI habituel sans traceback.
+Des paramètres enregistrés absents ou mal formés, ainsi qu'un nom de blueprint
+inconnu, sont eux aussi normalisés en erreur de recette et produisent le
+diagnostic CLI habituel sans traceback.
 Les digests CRUD et append-only existants restent stables, les recettes non
 paramétrées historiques restent tolérantes à leur absence, et les manifests V1
 restent lus sans conversion vers V2.

@@ -27,7 +27,7 @@ __all__ = [
 
 
 # Bump whenever ``validate_existing_state_field`` accepts or rejects new forms.
-STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 4
+STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 5
 
 
 def validate_existing_state_field(
@@ -89,15 +89,18 @@ def validate_existing_state_field(
             "without coercing enum values; use ConfigDict(validate_assignment=True) "
             "with Field(..., frozen=True) and keep use_enum_values disabled"
         )
-    if enum_states is not None and not _enum_default_preserves_type(
+    if not _state_default_is_valid(
         field,
+        literal_states=literal_states,
+        enum_states=enum_states,
         tree=tree,
+        entity_file=entity.file_path,
     ):
         raise ValueError(
             f"Entity field {entity.pascal}.{spec.state_field} must use its declared "
-            "enum type for any default; use an enum member or make the field required"
+            "enum type or a declared Literal value as its static default, or be required"
         )
-    if not state_copy_is_controlled(models[0], spec.state_field):
+    if not state_copy_is_controlled(models[0], spec.state_field, tree=tree):
         raise ValueError(
             f"Entity field {entity.pascal}.{spec.state_field} must reject generic "
             f"model_copy updates and expose a private _copy_with_{spec.state_field} "
@@ -137,9 +140,7 @@ def _resolve_literal_values(
     if key in visited:
         return None
     bindings = [
-        statement
-        for statement in tree.body
-        if annotation.id in _bound_names(statement)
+        statement for statement in tree.body if annotation.id in _bound_names(statement)
     ]
     if len(bindings) != 1:
         return None
@@ -155,11 +156,7 @@ def _resolve_literal_values(
     if not isinstance(binding, ast.ImportFrom):
         return None
     imported = next(
-        (
-            item
-            for item in binding.names
-            if (item.asname or item.name) == annotation.id
-        ),
+        (item for item in binding.names if (item.asname or item.name) == annotation.id),
         None,
     )
     module_file = _resolve_module_file(entity_file, binding)
@@ -187,21 +184,44 @@ def _resolve_enum_values(
     entity_file: Path,
     visited: frozenset[tuple[Path, str]] = frozenset(),
 ) -> set[str] | None:
+    resolved = _resolve_enum_declaration(
+        annotation,
+        tree=tree,
+        entity_file=entity_file,
+        visited=visited,
+    )
+    if resolved is None:
+        return None
+    declaration, declaration_tree, _ = resolved
+    return _enum_values(declaration, declaration_tree)
+
+
+def _resolve_enum_declaration(
+    annotation: ast.expr,
+    *,
+    tree: ast.Module,
+    entity_file: Path,
+    visited: frozenset[tuple[Path, str]] = frozenset(),
+) -> tuple[ast.ClassDef, ast.Module, Path] | None:
     if not isinstance(annotation, ast.Name):
         return None
     symbol = annotation.id
     key = (entity_file, symbol)
     if key in visited:
         return None
-    bindings = [statement for statement in tree.body if symbol in _bound_names(statement)]
+    bindings = [
+        statement for statement in tree.body if symbol in _bound_names(statement)
+    ]
     if len(bindings) != 1:
         return None
     binding = bindings[0]
     if isinstance(binding, ast.ClassDef):
-        return _enum_values(binding, tree)
+        if _enum_values(binding, tree) is None:
+            return None
+        return binding, tree, entity_file
     alias_value = _alias_value(binding, symbol)
     if alias_value is not None:
-        return _resolve_enum_values(
+        return _resolve_enum_declaration(
             alias_value,
             tree=tree,
             entity_file=entity_file,
@@ -223,7 +243,7 @@ def _resolve_enum_values(
         )
     except (OSError, SyntaxError):
         return None
-    return _resolve_enum_values(
+    return _resolve_enum_declaration(
         ast.Name(id=imported.name),
         tree=imported_tree,
         entity_file=module_file,
@@ -247,6 +267,14 @@ def _resolve_module_file(entity_file: Path, statement: ast.ImportFrom) -> Path |
 
 
 def _enum_values(declaration: ast.ClassDef, tree: ast.Module) -> set[str] | None:
+    members = _enum_members(declaration, tree)
+    return set(members.values()) if members is not None else None
+
+
+def _enum_members(
+    declaration: ast.ClassDef,
+    tree: ast.Module,
+) -> dict[str, str] | None:
     if not any(
         _is_imported_symbol(
             base,
@@ -257,7 +285,7 @@ def _enum_values(declaration: ast.ClassDef, tree: ast.Module) -> set[str] | None
         for base in declaration.bases
     ):
         return None
-    values: list[str] = []
+    members: dict[str, str] = {}
     for statement in declaration.body:
         member_name: str | None = None
         value: ast.expr | None = None
@@ -277,18 +305,15 @@ def _enum_values(declaration: ast.ClassDef, tree: ast.Module) -> set[str] | None
             continue
         if not isinstance(value, ast.Constant) or not isinstance(value.value, str):
             return None
-        values.append(value.value)
-    return set(values) if values else None
+        members[member_name] = value.value
+    return members or None
 
 
 def _bound_names(statement: ast.stmt) -> set[str]:
     if isinstance(statement, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
         return {statement.name}
     if isinstance(statement, (ast.Import, ast.ImportFrom)):
-        return {
-            item.asname or item.name.split(".", 1)[0]
-            for item in statement.names
-        }
+        return {item.asname or item.name.split(".", 1)[0] for item in statement.names}
     if isinstance(statement, ast.Assign):
         return {
             target.id for target in statement.targets if isinstance(target, ast.Name)
@@ -341,8 +366,7 @@ def _is_imported_symbol(
             statement.level == 0
             and statement.module in modules
             and any(
-                item.name in symbols
-                and (item.asname or item.name) == expression.id
+                item.name in symbols and (item.asname or item.name) == expression.id
                 for item in statement.names
             )
         )
@@ -382,6 +406,18 @@ def _state_assignment_is_protected(
         and isinstance(config.targets[0], ast.Name)
         and isinstance(config.value, ast.Call)
         and _is_pydantic_callable(config.value.func, "ConfigDict", tree)
+    ):
+        return False
+    if any(option.arg is None for option in config.value.keywords):
+        return False
+    config_values = {
+        option.arg: option.value
+        for option in config.value.keywords
+        if option.arg is not None
+    }
+    use_enum_values = config_values.get("use_enum_values")
+    if use_enum_values is not None and not (
+        isinstance(use_enum_values, ast.Constant) and use_enum_values.value is False
     ):
         return False
     config_options = {
@@ -425,36 +461,82 @@ def _binds_model_config(statement: ast.stmt) -> bool:
     )
 
 
-def _enum_default_preserves_type(
+def _state_default_is_valid(
     field: ast.AnnAssign,
     *,
+    literal_states: set[str] | None,
+    enum_states: set[str] | None,
     tree: ast.Module,
+    entity_file: Path,
 ) -> bool:
-    default = field.value
+    inspectable, default = _static_field_default(field.value, tree=tree)
+    if not inspectable:
+        return False
     if default is None:
         return True
+    if literal_states is not None:
+        return (
+            isinstance(default, ast.Constant)
+            and isinstance(default.value, str)
+            and default.value in literal_states
+        )
+    if enum_states is None or not isinstance(default, ast.Attribute):
+        return False
+    annotation_enum = _resolve_enum_declaration(
+        field.annotation,
+        tree=tree,
+        entity_file=entity_file,
+    )
+    default_enum = _resolve_enum_declaration(
+        default.value,
+        tree=tree,
+        entity_file=entity_file,
+    )
+    if annotation_enum is None or default_enum is None:
+        return False
+    annotation_class, annotation_tree, annotation_file = annotation_enum
+    default_class, _, default_file = default_enum
+    members = _enum_members(annotation_class, annotation_tree)
+    return (
+        annotation_file.resolve() == default_file.resolve()
+        and annotation_class.name == default_class.name
+        and members is not None
+        and default.attr in members
+    )
+
+
+def _static_field_default(
+    value: ast.expr | None,
+    *,
+    tree: ast.Module,
+) -> tuple[bool, ast.expr | None]:
+    if value is None:
+        return True, None
+    default = value
     if isinstance(default, ast.Call):
         if not _is_pydantic_callable(default.func, "Field", tree):
-            return False
+            return False, None
+        if any(option.arg is None for option in default.keywords):
+            return False, None
         default_keywords = [
             option.value for option in default.keywords if option.arg == "default"
         ]
-        if len(default.args) > 1 or (default.args and default_keywords):
-            return False
-        if any(option.arg == "default_factory" for option in default.keywords):
-            return False
+        if (
+            len(default.args) > 1
+            or len(default_keywords) > 1
+            or (default.args and default_keywords)
+            or any(option.arg == "default_factory" for option in default.keywords)
+        ):
+            return False, None
         if default.args:
             default = default.args[0]
         elif default_keywords:
             default = default_keywords[0]
         else:
-            return True
+            return True, None
     if isinstance(default, ast.Constant) and default.value is Ellipsis:
-        return True
-    return (
-        isinstance(default, ast.Attribute)
-        and ast.dump(default.value) == ast.dump(field.annotation)
-    )
+        return True, None
+    return True, default
 
 
 def _is_pydantic_callable(
