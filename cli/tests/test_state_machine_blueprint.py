@@ -1196,11 +1196,19 @@ def test_existing_entity_rejects_reassigned_model_config(
 @pytest.mark.parametrize(
     "override",
     [
-        "    def __setattr__(self, name: str, value: object) -> None:\n"
-        "        object.__setattr__(self, name, value)\n\n",
-        "    if True:\n"
-        "        def __setattr__(self, name: str, value: object) -> None:\n"
-        "            object.__setattr__(self, name, value)\n\n",
+        "".join(
+            [
+                "    def __setattr__(self, name: str, value: object) -> None:\n",
+                "        object.__setattr__(self, name, value)\n\n",
+            ]
+        ),
+        "".join(
+            [
+                "    if True:\n",
+                "        def __setattr__(self, name: str, value: object) -> None:\n",
+                "            object.__setattr__(self, name, value)\n\n",
+            ]
+        ),
     ],
 )
 def test_existing_entity_rejects_class_scope_setattr_override(
