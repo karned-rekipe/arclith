@@ -169,8 +169,9 @@ class Invoice(Entity):
 La prévalidation est volontairement stricte : `model_config` doit avoir une
 seule affectation effective fondée sur le vrai `pydantic.ConfigDict`. Les deux
 helpers de copie doivent être des méthodes d’instance synchrones, sans décorateur
-qui change leur liaison, et conserver les signatures appelées par le code généré
-(`model_copy(update=..., deep=...)` et `_copy_with_status(target)`). Une
+(leur effet ne serait pas prouvable statiquement), et conserver les signatures
+appelées par le code généré (`model_copy(update=..., deep=...)` et
+`_copy_with_status(target)`). Une
 réaffectation de configuration, un argument obligatoire supplémentaire ou un
 `staticmethod` est refusé avant toute écriture.
 

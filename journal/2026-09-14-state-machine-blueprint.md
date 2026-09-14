@@ -27,7 +27,7 @@ spécification métier plutôt que d'un catalogue statique.
   `typing`/stdlib, y compris via alias ; les homonymes locaux et helpers de copie
   asynchrones sont refusés, comme `use_enum_values=True` pour un champ enum. Une
   seule affectation effective de `model_config` est admise ; les helpers doivent
-  garder leurs signatures d’instance sans décorateur de liaison. Les defaults enum
+  garder leurs signatures d’instance sans décorateur. Les defaults enum
   doivent être des membres typés. Les tests générés dérivent la valeur de
   l'annotation réelle et en vérifient le type. Les erreurs not-found incluent
   l'UUID demandé et les conflits exposent versions observée/attendue.
