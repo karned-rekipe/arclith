@@ -185,9 +185,13 @@ ou un `Enum`/`StrEnum` à valeurs chaînes, quel que soit son nom (`Status`,
 exactement les valeurs persistées de la spec. Le champ doit rejeter l'affectation
 et la copie générique : utiliser un modèle entièrement frozen, ou les vrais
 `ConfigDict` et `Field` importés de `pydantic`, surcharger `model_copy` et fournir
-la méthode privée montrée ci-dessus. La vérification résout statiquement l'origine
-de ces helpers et refuse un homonyme applicatif non prouvable. Un nom de fichier
-non canonique comme `invoice_record.py` reste accepté : les imports générés
+la méthode privée synchrone montrée ci-dessus. Les alias importés de
+`typing.Literal` et les alias de type locaux sont résolus récursivement. La
+vérification prouve aussi l'origine de `Literal`, des bases stdlib
+`Enum`/`StrEnum` et des helpers Pydantic ; elle refuse les homonymes applicatifs
+et les méthodes de copie asynchrones, dont le comportement ne peut pas satisfaire
+le contrat synchrone du cycle de vie. Un nom de fichier non canonique comme
+`invoice_record.py` reste accepté : les imports générés
 distinguent le module réel de l'entité du module d'état interne
 `invoice_lifecycle_state.py`. Ce module généré porte délibérément le suffixe
 `_lifecycle_state` : une enum métier importée depuis le chemin conventionnel

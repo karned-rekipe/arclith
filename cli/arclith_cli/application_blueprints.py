@@ -199,11 +199,19 @@ def _state_machine_renderer_contract_digest() -> str:
     """Hash all state-machine rendering and existing-entity validation branches."""
     import inspect
 
-    from arclith_cli import state_machine_blueprint, state_machine_entity
+    from arclith_cli import (
+        state_machine_blueprint,
+        state_machine_entity,
+        state_machine_rendering,
+    )
 
     source = "\0".join(
         inspect.getsource(module)
-        for module in (state_machine_blueprint, state_machine_entity)
+        for module in (
+            state_machine_blueprint,
+            state_machine_entity,
+            state_machine_rendering,
+        )
     ).encode("utf-8")
     return "sha256:" + hashlib.sha256(source).hexdigest()
 

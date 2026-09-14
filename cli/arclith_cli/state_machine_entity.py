@@ -4,168 +4,28 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-from textwrap import dedent
 
 from arclith_cli.entity_scanner import EntityInfo
-from arclith_cli.project_paths import ProjectPaths
-from arclith_cli.rename import EntityNames
-from arclith_cli.state_machine_spec import StateMachineSpec, StateTransitionSpec
+from arclith_cli.state_machine_rendering import (
+    render_state_documentation,
+    render_state_errors,
+    render_state_machine_entity,
+    render_state_model,
+    state_machine_state_module,
+)
+from arclith_cli.state_machine_spec import StateMachineSpec
+
+__all__ = [
+    "render_state_documentation",
+    "render_state_errors",
+    "render_state_machine_entity",
+    "render_state_model",
+    "state_machine_state_module",
+]
 
 
 # Bump whenever ``validate_existing_state_field`` accepts or rejects new forms.
-STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 1
-
-
-def state_machine_state_module(entity: EntityInfo) -> str:
-    """Return the dedicated generated lifecycle-enum module stem."""
-
-    return f"{entity.snake}_lifecycle_state"
-
-
-def render_state_machine_entity(
-    paths: ProjectPaths,
-    entity: EntityInfo,
-    spec: StateMachineSpec,
-) -> str:
-    """Render the state field atomically with a new entity profile."""
-
-    state_module = paths.import_path(
-        "domain", "models", state_machine_state_module(entity)
-    )
-    return dedent(
-        f'''\
-        from __future__ import annotations
-
-        from collections.abc import Mapping
-        from typing import Any, Self
-
-        from pydantic import ConfigDict, Field
-
-        from arclith.domain.models.entity import Entity
-        from {state_module} import {entity.pascal}State
-
-
-        class {entity.pascal}(Entity):
-            """TODO: add business fields without exposing a generic status setter."""
-
-            model_config = ConfigDict(validate_assignment=True)
-
-            {spec.state_field}: {entity.pascal}State = Field(
-                default={entity.pascal}State.{spec.initial_state.upper()},
-                frozen=True,
-            )
-
-            def model_copy(
-                self,
-                *,
-                update: Mapping[str, Any] | None = None,
-                deep: bool = False,
-            ) -> Self:
-                if update is not None and "{spec.state_field}" in update:
-                    raise ValueError(
-                        "{spec.state_field} changes must use the generated lifecycle"
-                    )
-                return super().model_copy(update=update, deep=deep)
-
-            def _copy_with_{spec.state_field}(
-                self,
-                target: {entity.pascal}State,
-            ) -> Self:
-                """Controlled state replacement used only by the lifecycle service."""
-                return super().model_copy(update={{"{spec.state_field}": target}})
-
-            # Example business field:
-            # title: str = Field(min_length=1, max_length=140)
-        '''
-    )
-
-
-def render_state_model(entity: str, spec: StateMachineSpec) -> str:
-    members = "\n".join(f'    {state.upper()} = "{state}"' for state in spec.states)
-    return (
-        "from enum import StrEnum\n\n\n"
-        f"class {entity}State(StrEnum):\n"
-        f'    """Stable persisted values for the {entity} business lifecycle."""\n\n'
-        f"{members}\n"
-    )
-
-
-def render_state_errors(entity: str, spec: StateMachineSpec) -> str:
-    transition_errors = "\n\n".join(
-        dedent(
-            f'''\
-            class {_transition_error(entity, transition)}({entity}TransitionNotAllowedError):
-                """Raised when `{transition.name}` is requested from a forbidden state."""
-
-                operation = "{transition.name}"
-            '''
-        ).rstrip()
-        for transition in spec.transitions
-    )
-    base = dedent(
-        f'''\
-        class {entity}LifecycleError(Exception):
-            """Base error for the generated {entity} lifecycle."""
-
-
-        class {entity}NotFoundError({entity}LifecycleError, LookupError):
-            """Raised when a transition targets a missing aggregate."""
-
-
-        class {entity}VersionConflictError({entity}LifecycleError, RuntimeError):
-            """Raised when compare-and-swap observes another persisted version."""
-
-
-        class {entity}TransitionNotAllowedError({entity}LifecycleError):
-            """Base error for an explicitly forbidden business transition."""
-
-            operation = "unknown"
-
-            def __init__(self, current_state: object) -> None:
-                super().__init__(
-                    f"{{self.operation}} is not allowed from state {{current_state}}"
-                )
-        '''
-    )
-    return base + "\n" + transition_errors + "\n"
-
-
-def render_state_documentation(
-    entity: str,
-    feature: str,
-    spec: StateMachineSpec,
-) -> str:
-    transitions = "\n".join(
-        f"- `{item.name}` : {', '.join(item.sources)} -> `{item.target}`"
-        for item in spec.transitions
-    )
-    return (
-        f"# Blueprint state-machine `{feature}`\n\n"
-        f"Cette feature applique le blueprint `state-machine` version 1 à `{entity}`.\n"
-        f"Le champ `{spec.state_field}` démarre à `{spec.initial_state}` et ses valeurs\n"
-        f"persistées sont définies par `{entity}State`.\n\n"
-        "## Transitions explicites\n\n"
-        f"{transitions}\n\n"
-        "Chaque verbe possède son propre port inbound et son propre use case. Il\n"
-        "n'existe ni setter ni mise à jour `model_copy` générique du statut, ni\n"
-        "moteur runtime\n"
-        '`transition("nom")`. Le service de domaine vérifie d\'abord la matrice,\n'
-        "puis appelle `_ensure_<verbe>_preconditions`, point d'extension local pour\n"
-        "les gardes métier du projet. Une transition interdite lève une erreur typée\n"
-        "et retourne sans muter l'agrégat reçu.\n\n"
-        f"Le container exige un `{entity}LifecycleStore`. Son opération\n"
-        "`compare_and_swap` doit vérifier atomiquement la version persistée,\n"
-        "enregistrer le candidat, incrémenter la version et actualiser l'audit. La\n"
-        "vérification préalable du use case améliore le diagnostic local, mais ne\n"
-        "remplace jamais ce CAS dans un adapter multi-processus.\n\n"
-        "Cette machine décrit l'état métier d'un agrégat. Elle n'est ni un CRUD\n"
-        "générique, ni l'état d'exécution d'un workflow durable. Aucun transport,\n"
-        "broker, événement publié ou moteur de workflow n'est ajouté implicitement.\n\n"
-        "Avant de renommer ou supprimer un état en production, inventorier les\n"
-        "valeurs historiques et prévoir une migration explicite. Le manifeste\n"
-        "version 2 embarque la configuration résolue et ses digests ; il ne dépend\n"
-        "pas du chemin local de la spec utilisée à l'installation.\n"
-    )
+STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 2
 
 
 def validate_existing_state_field(
@@ -228,10 +88,35 @@ def _compatible_state_annotation(
     tree: ast.Module,
     entity_file: Path,
 ) -> bool:
-    if isinstance(annotation, ast.Subscript) and ast.unparse(annotation.value) in {
-        "Literal",
-        "typing.Literal",
-    }:
+    literal_states = _resolve_literal_values(
+        annotation,
+        tree=tree,
+        entity_file=entity_file,
+    )
+    if literal_states is not None:
+        return literal_states == set(spec.states)
+    return _resolve_enum_values(
+        annotation,
+        tree=tree,
+        entity_file=entity_file,
+    ) == set(spec.states)
+
+
+def _resolve_literal_values(
+    annotation: ast.expr,
+    *,
+    tree: ast.Module,
+    entity_file: Path,
+    visited: frozenset[tuple[Path, str]] = frozenset(),
+) -> set[str] | None:
+    if isinstance(annotation, ast.Subscript):
+        if not _is_imported_symbol(
+            annotation.value,
+            symbols=frozenset({"Literal"}),
+            modules=frozenset({"typing", "typing_extensions"}),
+            tree=tree,
+        ):
+            return None
         values = (
             annotation.slice.elts
             if isinstance(annotation.slice, ast.Tuple)
@@ -242,12 +127,54 @@ def _compatible_state_annotation(
             for value in values
             if isinstance(value, ast.Constant) and isinstance(value.value, str)
         }
-        return len(literal_states) == len(values) and literal_states == set(spec.states)
-    return _resolve_enum_values(
-        annotation,
-        tree=tree,
-        entity_file=entity_file,
-    ) == set(spec.states)
+        return literal_states if len(literal_states) == len(values) else None
+    if not isinstance(annotation, ast.Name):
+        return None
+    key = (entity_file, annotation.id)
+    if key in visited:
+        return None
+    bindings = [
+        statement
+        for statement in tree.body
+        if annotation.id in _bound_names(statement)
+    ]
+    if len(bindings) != 1:
+        return None
+    binding = bindings[0]
+    alias_value = _alias_value(binding, annotation.id)
+    if alias_value is not None:
+        return _resolve_literal_values(
+            alias_value,
+            tree=tree,
+            entity_file=entity_file,
+            visited=visited | {key},
+        )
+    if not isinstance(binding, ast.ImportFrom):
+        return None
+    imported = next(
+        (
+            item
+            for item in binding.names
+            if (item.asname or item.name) == annotation.id
+        ),
+        None,
+    )
+    module_file = _resolve_module_file(entity_file, binding)
+    if imported is None or module_file is None:
+        return None
+    try:
+        imported_tree = ast.parse(
+            module_file.read_text(encoding="utf-8"),
+            filename=str(module_file),
+        )
+    except (OSError, SyntaxError):
+        return None
+    return _resolve_literal_values(
+        ast.Name(id=imported.name),
+        tree=imported_tree,
+        entity_file=module_file,
+        visited=visited | {key},
+    )
 
 
 def _resolve_enum_values(
@@ -255,34 +182,42 @@ def _resolve_enum_values(
     *,
     tree: ast.Module,
     entity_file: Path,
+    visited: frozenset[tuple[Path, str]] = frozenset(),
 ) -> set[str] | None:
     if not isinstance(annotation, ast.Name):
         return None
     symbol = annotation.id
-    local = _enum_values(tree, symbol)
-    if local is not None:
-        return local
-    for statement in tree.body:
-        if not isinstance(statement, ast.ImportFrom):
-            continue
-        imported = next(
-            (item for item in statement.names if (item.asname or item.name) == symbol),
-            None,
+    key = (entity_file, symbol)
+    if key in visited:
+        return None
+    bindings = [statement for statement in tree.body if symbol in _bound_names(statement)]
+    if len(bindings) != 1:
+        return None
+    binding = bindings[0]
+    if isinstance(binding, ast.ClassDef):
+        return _enum_values(binding, tree)
+    if not isinstance(binding, ast.ImportFrom):
+        return None
+    imported = next(
+        (item for item in binding.names if (item.asname or item.name) == symbol),
+        None,
+    )
+    module_file = _resolve_module_file(entity_file, binding)
+    if imported is None or module_file is None:
+        return None
+    try:
+        imported_tree = ast.parse(
+            module_file.read_text(encoding="utf-8"),
+            filename=str(module_file),
         )
-        if imported is None:
-            continue
-        module_file = _resolve_module_file(entity_file, statement)
-        if module_file is None:
-            return None
-        try:
-            imported_tree = ast.parse(
-                module_file.read_text(encoding="utf-8"),
-                filename=str(module_file),
-            )
-        except (OSError, SyntaxError):
-            return None
-        return _enum_values(imported_tree, imported.name)
-    return None
+    except (OSError, SyntaxError):
+        return None
+    return _resolve_enum_values(
+        ast.Name(id=imported.name),
+        tree=imported_tree,
+        entity_file=module_file,
+        visited=visited | {key},
+    )
 
 
 def _resolve_module_file(entity_file: Path, statement: ast.ImportFrom) -> Path | None:
@@ -300,17 +235,14 @@ def _resolve_module_file(entity_file: Path, statement: ast.ImportFrom) -> Path |
     return None
 
 
-def _enum_values(tree: ast.Module, symbol: str) -> set[str] | None:
-    declaration = next(
-        (
-            node
-            for node in tree.body
-            if isinstance(node, ast.ClassDef) and node.name == symbol
-        ),
-        None,
-    )
-    if declaration is None or not any(
-        ast.unparse(base).rsplit(".", 1)[-1] in {"Enum", "StrEnum"}
+def _enum_values(declaration: ast.ClassDef, tree: ast.Module) -> set[str] | None:
+    if not any(
+        _is_imported_symbol(
+            base,
+            symbols=frozenset({"Enum", "StrEnum"}),
+            modules=frozenset({"enum"}),
+            tree=tree,
+        )
         for base in declaration.bases
     ):
         return None
@@ -336,6 +268,89 @@ def _enum_values(tree: ast.Module, symbol: str) -> set[str] | None:
             return None
         values.append(value.value)
     return set(values) if values else None
+
+
+def _bound_names(statement: ast.stmt) -> set[str]:
+    if isinstance(statement, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+        return {statement.name}
+    if isinstance(statement, (ast.Import, ast.ImportFrom)):
+        return {
+            item.asname or item.name.split(".", 1)[0]
+            for item in statement.names
+        }
+    if isinstance(statement, ast.Assign):
+        return {
+            target.id for target in statement.targets if isinstance(target, ast.Name)
+        }
+    if isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
+        return {statement.target.id}
+    if isinstance(statement, ast.TypeAlias) and isinstance(statement.name, ast.Name):
+        return {statement.name.id}
+    return set()
+
+
+def _alias_value(statement: ast.stmt, symbol: str) -> ast.expr | None:
+    if isinstance(statement, ast.Assign) and any(
+        isinstance(target, ast.Name) and target.id == symbol
+        for target in statement.targets
+    ):
+        return statement.value
+    if (
+        isinstance(statement, ast.AnnAssign)
+        and isinstance(statement.target, ast.Name)
+        and statement.target.id == symbol
+    ):
+        return statement.value
+    if (
+        isinstance(statement, ast.TypeAlias)
+        and isinstance(statement.name, ast.Name)
+        and statement.name.id == symbol
+    ):
+        return statement.value
+    return None
+
+
+def _is_imported_symbol(
+    expression: ast.expr,
+    *,
+    symbols: frozenset[str],
+    modules: frozenset[str],
+    tree: ast.Module,
+) -> bool:
+    if isinstance(expression, ast.Name):
+        bindings = [
+            statement
+            for statement in tree.body
+            if expression.id in _bound_names(statement)
+        ]
+        if len(bindings) != 1 or not isinstance(bindings[0], ast.ImportFrom):
+            return False
+        statement = bindings[0]
+        return (
+            statement.level == 0
+            and statement.module in modules
+            and any(
+                item.name in symbols
+                and (item.asname or item.name) == expression.id
+                for item in statement.names
+            )
+        )
+    if not (
+        isinstance(expression, ast.Attribute)
+        and expression.attr in symbols
+        and isinstance(expression.value, ast.Name)
+    ):
+        return False
+    module_alias = expression.value.id
+    bindings = [
+        statement for statement in tree.body if module_alias in _bound_names(statement)
+    ]
+    if len(bindings) != 1 or not isinstance(bindings[0], ast.Import):
+        return False
+    return any(
+        item.name in modules and (item.asname or item.name) == module_alias
+        for item in bindings[0].names
+    )
 
 
 def _state_assignment_is_protected(
@@ -423,7 +438,7 @@ def _state_copy_is_controlled(model: ast.ClassDef, state_field: str) -> bool:
     methods = {
         statement.name: statement
         for statement in model.body
-        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef))
+        if isinstance(statement, ast.FunctionDef)
     }
     public_copy = methods.get("model_copy")
     lifecycle_copy = methods.get(f"_copy_with_{state_field}")
@@ -441,7 +456,7 @@ def _state_copy_is_controlled(model: ast.ClassDef, state_field: str) -> bool:
 
 
 def _method_body(
-    method: ast.FunctionDef | ast.AsyncFunctionDef,
+    method: ast.FunctionDef,
 ) -> list[ast.stmt]:
     body = list(method.body)
     if (
@@ -545,7 +560,3 @@ def _is_super_model_copy(call: ast.Call) -> bool:
         and not function.value.args
         and not function.value.keywords
     )
-
-
-def _transition_error(entity: str, transition: StateTransitionSpec) -> str:
-    return f"{EntityNames.from_input(transition.name).pascal}{entity}NotAllowedError"

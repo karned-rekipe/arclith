@@ -277,7 +277,7 @@ def _transition_use_case(
             ) -> {operation_class}{entity}Result:
                 current = await self._store.read(command.uuid)
                 if current is None:
-                    raise {entity}NotFoundError
+                    raise {entity}NotFoundError(str(command.uuid))
                 if current.version != command.expected_version:
                     raise {entity}VersionConflictError(
                         "Persisted version differs from expected_version"
@@ -573,7 +573,7 @@ def _application_test(
                 uuid=UUID("01951234-5678-7abc-8ef0-123456789abc"),
                 expected_version=1,
             )
-            with pytest.raises({entity}NotFoundError):
+            with pytest.raises({entity}NotFoundError, match=str(command.uuid)):
                 await missing_use_cases.{entry.name}.execute(command)
 
             item = make_{_snake_entity(entity)}()

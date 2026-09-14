@@ -625,6 +625,102 @@ def test_existing_imported_enum_alias_is_inspected(tmp_path: Path) -> None:
     )
 
 
+def test_existing_typing_literal_import_alias_is_inspected(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8")
+        .replace(
+            "from typing import Any, Literal, Self",
+            "from typing import Any, Literal as StateLiteral, Self",
+        )
+        .replace("Literal[", "StateLiteral["),
+        encoding="utf-8",
+    )
+
+    plan_application_blueprint(
+        project,
+        blueprint_name="state-machine",
+        entity_name="Invoice",
+        feature_name="invoice_lifecycle",
+        parameters=_parameters(),
+    )
+
+
+def test_existing_local_literal_alias_is_inspected(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    literal = 'Literal["draft", "submitted", "approved", "rejected"]'
+    entity.write_text(
+        entity.read_text(encoding="utf-8")
+        .replace(
+            "class Invoice(Entity):\n",
+            f"InvoiceStatus = {literal}\n\n\nclass Invoice(Entity):\n",
+        )
+        .replace(f"status: {literal}", "status: InvoiceStatus"),
+        encoding="utf-8",
+    )
+
+    plan_application_blueprint(
+        project,
+        blueprint_name="state-machine",
+        entity_name="Invoice",
+        feature_name="invoice_lifecycle",
+        parameters=_parameters(),
+    )
+
+
+def test_existing_entity_rejects_a_shadowed_literal_helper(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            "from typing import Any, Literal, Self",
+            "from typing import Any, Self\n\nLiteral = str",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="statically inspectable"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+def test_existing_entity_rejects_a_project_local_enum_base(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    literal = 'Literal["draft", "submitted", "approved", "rejected"]'
+    fake_enum = (
+        "class Enum:\n"
+        "    pass\n\n\n"
+        "class InvoiceStatus(Enum):\n"
+        '    DRAFT = "draft"\n'
+        '    SUBMITTED = "submitted"\n'
+        '    APPROVED = "approved"\n'
+        '    REJECTED = "rejected"\n\n\n'
+    )
+    entity.write_text(
+        entity.read_text(encoding="utf-8")
+        .replace("class Invoice(Entity):\n", fake_enum + "class Invoice(Entity):\n")
+        .replace(f"status: {literal}", "status: InvoiceStatus"),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="statically inspectable"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
 def test_existing_conventional_state_module_is_preserved(tmp_path: Path) -> None:
     framework_root = Path(__file__).resolve().parents[2]
     project = _project(tmp_path)
@@ -705,6 +801,31 @@ def test_existing_entity_rejects_a_deceptive_state_copy_helper(
         entity.read_text(encoding="utf-8").replace(
             '{"status": target}',
             '{"created_by": target}',
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="reject generic model_copy updates"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+@pytest.mark.parametrize("method", ["model_copy", "_copy_with_status"])
+def test_existing_entity_rejects_async_copy_helpers(
+    tmp_path: Path,
+    method: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            f"    def {method}(",
+            f"    async def {method}(",
         ),
         encoding="utf-8",
     )
