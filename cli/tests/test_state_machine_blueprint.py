@@ -239,18 +239,29 @@ def test_template_digest_includes_the_complete_renderer_contract(
 
 @pytest.mark.parametrize(
     "module_name",
-    ["module_bindings", "state_machine_spec", "state_machine_contract"],
+    [
+        "import_origins",
+        "module_bindings",
+        "state_machine_spec",
+        "state_machine_contract",
+    ],
 )
 def test_template_digest_includes_every_state_machine_contract_module(
     monkeypatch: pytest.MonkeyPatch,
     module_name: str,
 ) -> None:
-    from arclith_cli import module_bindings, state_machine_contract, state_machine_spec
+    from arclith_cli import (
+        import_origins,
+        module_bindings,
+        state_machine_contract,
+        state_machine_spec,
+    )
 
     blueprint = get_application_blueprint("state-machine")
     before = application_blueprint_digest(blueprint)
     original_getsource = inspect.getsource
     contract_module = {
+        "import_origins": import_origins,
         "module_bindings": module_bindings,
         "state_machine_contract": state_machine_contract,
         "state_machine_spec": state_machine_spec,
@@ -1054,6 +1065,14 @@ def test_existing_entity_rejects_a_deceptive_state_copy_helper(
             '            raise ValueError("status changes must use the lifecycle") '
             "from (super := RuntimeError)\n",
         ),
+        (
+            '            raise ValueError("status changes must use the lifecycle")\n',
+            '            raise RuntimeError("status changes must use the lifecycle")\n',
+        ),
+        (
+            '            raise ValueError("status changes must use the lifecycle")\n',
+            '            raise ValueError("status update rejected")\n',
+        ),
     ],
 )
 def test_existing_entity_rejects_unsafe_public_copy_guards(
@@ -1175,6 +1194,40 @@ def test_existing_entity_rejects_reassigned_model_config(
 
 
 @pytest.mark.parametrize(
+    "override",
+    [
+        "    def __setattr__(self, name: str, value: object) -> None:\n"
+        "        object.__setattr__(self, name, value)\n\n",
+        "    if True:\n"
+        "        def __setattr__(self, name: str, value: object) -> None:\n"
+        "            object.__setattr__(self, name, value)\n\n",
+    ],
+)
+def test_existing_entity_rejects_class_scope_setattr_override(
+    tmp_path: Path,
+    override: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            "    model_config = ConfigDict(validate_assignment=True)\n",
+            override + "    model_config = ConfigDict(validate_assignment=True)\n",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="must reject assignment"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+@pytest.mark.parametrize(
     "replacement",
     [
         "ConfigDict(validate_assignment=True, use_enum_values=USE_ENUM_VALUES)",
@@ -1219,6 +1272,35 @@ def test_existing_entity_requires_real_pydantic_assignment_helpers(
     )
 
     with pytest.raises(ValueError, match="must reject assignment"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+@pytest.mark.parametrize(
+    "relative_module",
+    [
+        "typing.py",
+        "src/enum.py",
+        "pydantic/__init__.py",
+        "src/typing_extensions.py",
+    ],
+)
+def test_existing_entity_rejects_shadowed_trusted_import_modules(
+    tmp_path: Path,
+    relative_module: str,
+) -> None:
+    project = _project(tmp_path)
+    _stateful_entity(project)
+    shadow = project / relative_module
+    shadow.parent.mkdir(parents=True, exist_ok=True)
+    shadow.write_text("# Project-owned import shadow.\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="shadows trusted state contract modules"):
         plan_application_blueprint(
             project,
             blueprint_name="state-machine",

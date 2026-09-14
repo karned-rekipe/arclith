@@ -109,6 +109,22 @@ def render_state_errors(entity: str, spec: StateMachineSpec) -> str:
         class {entity}VersionConflictError({entity}LifecycleError, RuntimeError):
             """Raised when compare-and-swap observes another persisted version."""
 
+            def __init__(
+                self,
+                *,
+                expected_version: int,
+                observed_version: int | None,
+            ) -> None:
+                self.expected_version = expected_version
+                self.observed_version = observed_version
+                observed = (
+                    "missing" if observed_version is None else str(observed_version)
+                )
+                super().__init__(
+                    f"Persisted version {{observed}} differs from expected version "
+                    f"{{expected_version}}"
+                )
+
 
         class {entity}TransitionNotAllowedError({entity}LifecycleError):
             """Base error for an explicitly forbidden business transition."""
@@ -149,8 +165,10 @@ def render_state_documentation(
         "et retourne sans muter l'agrégat reçu.\n\n"
         f"Le container exige un `{entity}LifecycleStore`. Son opération\n"
         "`compare_and_swap` doit vérifier atomiquement la version persistée,\n"
-        "enregistrer le candidat, incrémenter la version et actualiser l'audit. La\n"
-        "vérification préalable du use case améliore le diagnostic local, mais ne\n"
+        "enregistrer le candidat, incrémenter la version et actualiser l'audit.\n"
+        f"Toute course doit lever `{entity}VersionConflictError` avec les versions\n"
+        "`expected_version` et `observed_version` (`None` si l'agrégat a disparu).\n"
+        "La vérification préalable du use case améliore le diagnostic local, mais ne\n"
         "remplace jamais ce CAS dans un adapter multi-processus.\n\n"
         "Cette machine décrit l'état métier d'un agrégat. Elle n'est ni un CRUD\n"
         "générique, ni l'état d'exécution d'un workflow durable. Aucun transport,\n"

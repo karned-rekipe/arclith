@@ -2,6 +2,7 @@
 
 import ast
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 
 from arclith_cli.module_bindings import (
@@ -9,6 +10,27 @@ from arclith_cli.module_bindings import (
     module_bindings_before,
 )
 from arclith_cli.project_paths import ProjectPaths
+
+
+def project_shadowed_top_level_modules(
+    paths: ProjectPaths,
+    modules: Iterable[str],
+) -> frozenset[str]:
+    """Return trusted top-level modules shadowed by project import roots."""
+
+    import_roots = {paths.root}
+    if paths.package_name is not None:
+        import_roots.add(paths.package_root.parent)
+    shadowed: set[str] = set()
+    for module in modules:
+        relative = Path(*module.split("."))
+        if any(
+            (root / relative).with_suffix(".py").is_file()
+            or (root / relative / "__init__.py").is_file()
+            for root in import_roots
+        ):
+            shadowed.add(module)
+    return frozenset(shadowed)
 
 
 def absolute_import(node: ast.ImportFrom, module: str) -> str:

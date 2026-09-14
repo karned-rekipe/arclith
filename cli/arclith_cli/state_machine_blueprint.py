@@ -31,7 +31,7 @@ def render_state_machine_blueprint(
     """Render one explicit state machine; runtime dispatch stays out of the domain."""
 
     if not creating_entity:
-        _validate_existing_state_field(entity, spec)
+        _validate_existing_state_field(paths, entity, spec)
     entity_module = paths.import_path("domain", "models", entity.file_path.stem)
     state_module_name = _state_module(entity)
     state_module = paths.import_path("domain", "models", state_module_name)
@@ -198,7 +198,8 @@ def _store_port(entity: str, entity_module: str) -> str:
                 """Atomically verify, persist, increment version and update audit time.
 
                 Implementations must raise `{entity}VersionConflictError` if the
-                persisted version differs from `expected_version`.
+                persisted version differs from `expected_version`, populated with
+                both `expected_version` and the observed version (`None` if missing).
                 """
                 raise NotImplementedError
         '''
@@ -279,8 +280,8 @@ def _transition_use_case(
                     raise {entity}NotFoundError(str(command.uuid))
                 if current.version != command.expected_version:
                     raise {entity}VersionConflictError(
-                        f"Persisted version {{current.version}} differs from "
-                        f"expected version {{command.expected_version}}"
+                        expected_version=command.expected_version,
+                        observed_version=current.version,
                     )
                 candidate = self._lifecycle.{operation}(current).model_copy(
                     update={{"updated_by": command.updated_by}}
@@ -447,8 +448,14 @@ def _application_test(
 
 
         class FakeStore({entity}LifecycleStore):
-            def __init__(self, item: {entity} | None) -> None:
+            def __init__(
+                self,
+                item: {entity} | None,
+                *,
+                observed_version_at_compare: int | None = None,
+            ) -> None:
                 self.item = item
+                self.observed_version_at_compare = observed_version_at_compare
                 self.writes = 0
 
             async def read(self, uuid: UUID) -> {entity} | None:
@@ -462,8 +469,16 @@ def _application_test(
                 *,
                 expected_version: int,
             ) -> {entity}:
-                if self.item is None or self.item.version != expected_version:
-                    raise {entity}VersionConflictError
+                observed_version = (
+                    self.observed_version_at_compare
+                    if self.observed_version_at_compare is not None
+                    else (None if self.item is None else self.item.version)
+                )
+                if observed_version != expected_version:
+                    raise {entity}VersionConflictError(
+                        expected_version=expected_version,
+                        observed_version=observed_version,
+                    )
                 self.writes += 1
                 self.item = candidate.model_copy(
                     update={{
@@ -497,7 +512,7 @@ def _application_test(
 
 
         @pytest.mark.asyncio
-        async def test_missing_and_stale_versions_are_distinct() -> None:
+        async def test_missing_stale_and_raced_versions_are_distinct() -> None:
             missing = FakeStore(None)
             missing_use_cases = build_{feature}_use_cases(missing)
             command = {operation_class}{entity}Command(
@@ -510,11 +525,23 @@ def _application_test(
             item = make_{_snake_entity(entity)}()
             stale = FakeStore(item)
             stale_use_cases = build_{feature}_use_cases(stale)
-            with pytest.raises({entity}VersionConflictError):
+            with pytest.raises({entity}VersionConflictError) as stale_error:
                 await stale_use_cases.{entry.name}.execute(
                     command.model_copy(update={{"uuid": item.uuid, "expected_version": 2}})
                 )
+            assert stale_error.value.expected_version == 2
+            assert stale_error.value.observed_version == 1
             assert stale.writes == 0
+
+            raced = FakeStore(item, observed_version_at_compare=2)
+            raced_use_cases = build_{feature}_use_cases(raced)
+            with pytest.raises({entity}VersionConflictError) as race_error:
+                await raced_use_cases.{entry.name}.execute(
+                    command.model_copy(update={{"uuid": item.uuid}})
+                )
+            assert race_error.value.expected_version == 1
+            assert race_error.value.observed_version == 2
+            assert raced.writes == 0
         """
         )
         + forbidden_test

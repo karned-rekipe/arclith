@@ -5,6 +5,21 @@ from __future__ import annotations
 import ast
 
 
+def node_line_or_module_end(node: ast.AST, tree: ast.Module) -> int:
+    """Return a usable source boundary for synthetic or parsed AST nodes."""
+
+    line = int(getattr(node, "lineno", 0))
+    if line:
+        return line
+    return (
+        max(
+            (int(getattr(candidate, "lineno", 0)) for candidate in ast.walk(tree)),
+            default=0,
+        )
+        + 1
+    )
+
+
 def module_imports(tree: ast.Module) -> tuple[ast.Import | ast.ImportFrom, ...]:
     """Return unconditional imports and imports guarded by ``TYPE_CHECKING``."""
     imports = [

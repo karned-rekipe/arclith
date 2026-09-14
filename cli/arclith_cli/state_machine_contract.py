@@ -43,6 +43,12 @@ def class_shadowed_contract_dependencies(
     return dependencies & class_bindings.keys()
 
 
+def class_scope_binds_name(model: ast.ClassDef, name: str) -> bool:
+    """Return whether the class binds a name directly or through control flow."""
+
+    return any(_binds_module_name(statement, name) for statement in model.body)
+
+
 def state_copy_is_controlled(
     model: ast.ClassDef,
     state_field: str,
@@ -51,15 +57,23 @@ def state_copy_is_controlled(
 ) -> bool:
     """Prove the public guard and private lifecycle copy can be called safely."""
 
-    if any(_binds_module_name(statement, "super") for statement in tree.body):
+    guarded_builtins = ("super", "ValueError")
+    if any(
+        _binds_module_name(statement, name)
+        for name in guarded_builtins
+        for statement in tree.body
+    ):
+        return False
+    if any(class_scope_binds_name(model, name) for name in guarded_builtins):
         return False
     public_copy = _single_method_binding(model, "model_copy")
     lifecycle_copy = _single_method_binding(model, f"_copy_with_{state_field}")
     if public_copy is None or lifecycle_copy is None:
         return False
-    if _method_binds_name(public_copy, "super") or _method_binds_name(
-        lifecycle_copy,
-        "super",
+    if any(
+        _method_binds_name(method, name)
+        for method in (public_copy, lifecycle_copy)
+        for name in guarded_builtins
     ):
         return False
     if not _has_public_copy_signature(public_copy) or not _has_lifecycle_signature(
@@ -216,9 +230,29 @@ def _is_state_update_guard(statement: ast.stmt, state_field: str) -> bool:
         or len(statement.test.values) != 2
     ):
         return False
-    return _is_update_not_none(statement.test.values[0]) and _is_state_in_update(
-        statement.test.values[1],
-        state_field,
+    return (
+        _is_update_not_none(statement.test.values[0])
+        and _is_state_in_update(statement.test.values[1], state_field)
+        and _is_lifecycle_value_error(statement.body[0])
+    )
+
+
+def _is_lifecycle_value_error(statement: ast.Raise) -> bool:
+    error = statement.exc
+    if (
+        statement.cause is not None
+        or not isinstance(error, ast.Call)
+        or not isinstance(error.func, ast.Name)
+        or error.func.id != "ValueError"
+        or len(error.args) != 1
+        or error.keywords
+    ):
+        return False
+    message = error.args[0]
+    return (
+        isinstance(message, ast.Constant)
+        and isinstance(message.value, str)
+        and "lifecycle" in message.value.lower()
     )
 
 

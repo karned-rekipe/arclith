@@ -6,11 +6,15 @@ import ast
 from pathlib import Path
 
 from arclith_cli.entity_scanner import EntityInfo
+from arclith_cli.import_origins import project_shadowed_top_level_modules
 from arclith_cli.module_bindings import (
     module_bindings_before,
+    node_line_or_module_end,
     uncertain_module_bindings_before,
 )
+from arclith_cli.project_paths import ProjectPaths
 from arclith_cli.state_machine_contract import (
+    class_scope_binds_name,
     class_shadowed_contract_dependencies,
     state_copy_is_controlled,
 )
@@ -34,13 +38,23 @@ __all__ = [
 
 
 # Bump whenever ``validate_existing_state_field`` accepts or rejects new forms.
-STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 6
+STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 7
 
 
 def validate_existing_state_field(
+    paths: ProjectPaths,
     entity: EntityInfo,
     spec: StateMachineSpec,
 ) -> None:
+    shadowed_modules = project_shadowed_top_level_modules(
+        paths,
+        ("enum", "pydantic", "typing", "typing_extensions"),
+    )
+    if shadowed_modules:
+        raise ValueError(
+            "Project shadows trusted state contract modules at an import root: "
+            + ", ".join(sorted(shadowed_modules))
+        )
     tree = ast.parse(
         entity.file_path.read_text(encoding="utf-8"),
         filename=str(entity.file_path),
@@ -154,7 +168,7 @@ def _resolve_literal_values(
         return None
     if annotation.id in uncertain_module_bindings_before(
         tree,
-        _node_line_or_module_end(annotation, tree),
+        node_line_or_module_end(annotation, tree),
     ):
         return None
     bindings = [
@@ -229,7 +243,7 @@ def _resolve_enum_declaration(
         return None
     if symbol in uncertain_module_bindings_before(
         tree,
-        _node_line_or_module_end(annotation, tree),
+        node_line_or_module_end(annotation, tree),
     ):
         return None
     bindings = [
@@ -379,7 +393,7 @@ def _is_imported_symbol(
     if isinstance(expression, ast.Name):
         binding = module_bindings_before(
             tree,
-            _node_line_or_module_end(expression, tree),
+            node_line_or_module_end(expression, tree),
         ).get(expression.id)
         if binding is None:
             return False
@@ -401,7 +415,7 @@ def _is_imported_symbol(
     module_alias = expression.value.id
     binding = module_bindings_before(
         tree,
-        _node_line_or_module_end(expression, tree),
+        node_line_or_module_end(expression, tree),
     ).get(module_alias)
     if binding is None:
         return False
@@ -414,25 +428,14 @@ def _is_imported_symbol(
     )
 
 
-def _node_line_or_module_end(node: ast.AST, tree: ast.Module) -> int:
-    line = int(getattr(node, "lineno", 0))
-    if line:
-        return line
-    return (
-        max(
-            (int(getattr(candidate, "lineno", 0)) for candidate in ast.walk(tree)),
-            default=0,
-        )
-        + 1
-    )
-
-
 def _state_assignment_is_protected(
     model: ast.ClassDef,
     field: ast.AnnAssign,
     *,
     tree: ast.Module,
 ) -> bool:
+    if class_scope_binds_name(model, "__setattr__"):
+        return False
     config_bindings = [
         statement for statement in model.body if _binds_model_config(statement)
     ]

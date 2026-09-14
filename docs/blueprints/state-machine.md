@@ -174,9 +174,12 @@ synchrones, sans décorateur (leur effet ne serait pas prouvable statiquement), 
 conserver les signatures appelées par le code généré
 (`model_copy(update=..., deep=...)` et `_copy_with_status(target)`). La garde
 `update is not None` doit précéder le test d'appartenance et le builtin `super`
-ne doit être masqué ni au niveau module ni localement dans l'un des helpers. Une
-réaffectation de configuration, un argument obligatoire supplémentaire ou un
-`staticmethod` est refusé avant toute écriture.
+ne doit être masqué ni au niveau module ni localement dans l'un des helpers. La
+garde doit lever le builtin `ValueError` avec un message contenant `lifecycle`,
+ce que vérifie le test généré. Toute liaison de `__setattr__` dans le scope de
+classe est refusée, y compris sous un contrôle de flux, car elle pourrait
+contourner le gel Pydantic. Une réaffectation de configuration, un argument
+obligatoire supplémentaire ou un `staticmethod` est refusé avant toute écriture.
 
 ```bash
 arclith-cli add-blueprint state-machine \
@@ -204,7 +207,10 @@ vérification prouve aussi l'origine de `Literal`, des bases stdlib
 et toute redéfinition de leurs noms dans le scope de classe ou dans un contrôle
 de flux de niveau module (`if`, boucle, `try`…), ainsi que les méthodes de copie
 asynchrones dont le comportement ne peut pas satisfaire le contrat synchrone du
-cycle de vie. Pour un champ enum,
+cycle de vie. Elle refuse aussi un module projet `typing.py`, `enum.py`,
+`typing_extensions.py` ou un package `pydantic` placé sur une racine d'import :
+un tel fichier intercepterait les imports absolus au lieu de leurs origines de
+confiance. Pour un champ enum,
 `ConfigDict(use_enum_values=True)` est également refusé : cette option stockerait
 une chaîne et romprait la garantie de restitution du type enum. Le champ doit
 être requis ou déclarer une valeur par défaut visible statiquement : membre de
@@ -305,6 +311,13 @@ la persistance, l'incrément de version et la mise à jour de l'audit. La
 comparaison effectuée juste après le chargement améliore le diagnostic et évite
 un travail inutile, mais elle ne protège pas contre une autre écriture entre la
 lecture et la persistance.
+
+Sur l'écart initial comme sur une course observée dans `compare_and_swap`,
+l'erreur `InvoiceVersionConflictError` reçoit obligatoirement
+`expected_version` et `observed_version`. Ces valeurs restent disponibles comme
+attributs de l'exception ; `observed_version` vaut `None` si l'agrégat a disparu
+entre la lecture et le CAS. L'adapter doit donc relever la version réellement
+observée au point atomique, et non réutiliser celle de la lecture précédente.
 
 Un adapter SQL utilisera typiquement un `UPDATE ... WHERE uuid = ? AND version = ?`
 et vérifiera qu'une ligne a été modifiée. Un adapter documentaire utilisera
