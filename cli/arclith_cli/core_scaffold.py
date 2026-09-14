@@ -8,6 +8,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from .atomic_writes import write_new_text_file
 from .entity_scanner import EntityInfo, ModelBase, scan_entities
 from .project_paths import ProjectPaths, detect_project_paths
 from .rename import EntityNames
@@ -71,6 +72,7 @@ def add_entity_cmd(
     entity_name: str,
     model_base: ModelBase = "entity",
     entity_content: str | None = None,
+    created_paths: list[Path] | None = None,
 ) -> Path:
     project_dir = project_dir or Path.cwd()
     entity_name = entity_name.strip()
@@ -84,13 +86,27 @@ def add_entity_cmd(
     paths = detect_project_paths(project_dir)
     entity_file = paths.domain_models / f"{names.snake}.py"
     _assert_missing(entity_file, project_dir)
-    _ensure_package_dirs(paths, "domain", "models")
-    entity_file.write_text(
+    _ensure_package_dirs(
+        paths,
+        "domain",
+        "models",
+        created_paths=created_paths,
+    )
+    content = (
         entity_content
         if entity_content is not None
-        else render_entity_template(class_name=names.pascal, model_base=model_base),
-        encoding="utf-8",
+        else render_entity_template(class_name=names.pascal, model_base=model_base)
     )
+    try:
+        write_new_text_file(entity_file, content)
+    except FileExistsError as exc:
+        console.print(
+            f"[red]✗[/red] Le fichier existe déjà : "
+            f"[bold]{entity_file.relative_to(project_dir)}[/bold]."
+        )
+        raise typer.Exit(1) from exc
+    if created_paths is not None:
+        created_paths.append(entity_file)
     console.print(
         f"[green]✓[/green] Entité {names.pascal} créée : "
         f"[bold]{entity_file.relative_to(project_dir)}[/bold]"
@@ -335,7 +351,11 @@ def _assert_missing(path: Path, project_dir: Path) -> None:
     raise typer.Exit(1)
 
 
-def _ensure_package_dirs(paths: ProjectPaths, *relative_parts: str) -> None:
+def _ensure_package_dirs(
+    paths: ProjectPaths,
+    *relative_parts: str,
+    created_paths: list[Path] | None = None,
+) -> None:
     target_dir = paths.package_root.joinpath(*relative_parts)
     target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -353,7 +373,12 @@ def _ensure_package_dirs(paths: ProjectPaths, *relative_parts: str) -> None:
     for directory in init_dirs:
         init_file = directory / "__init__.py"
         if not init_file.exists():
-            init_file.write_text("", encoding="utf-8")
+            try:
+                write_new_text_file(init_file, "")
+            except FileExistsError:
+                continue
+            if created_paths is not None:
+                created_paths.append(init_file)
 
 
 def _strip_pascal_suffix(value: str) -> str:

@@ -9,11 +9,14 @@ import subprocess
 import sys
 from dataclasses import replace
 from pathlib import Path
+from typing import TextIO
 
 import pytest
+import typer
 import yaml
 from typer.testing import CliRunner
 
+from arclith_cli import atomic_writes, blueprint_generation, core_scaffold
 from arclith_cli.application_blueprint_recipe import (
     replay_add_entity_step,
     validate_application_recipe_metadata,
@@ -31,7 +34,11 @@ from arclith_cli.blueprint_generation import (
     plan_application_blueprint,
 )
 from arclith_cli.core_scaffold import add_entity_cmd
-from arclith_cli.feature_manifest import FeatureManifest, load_feature_manifest
+from arclith_cli.feature_manifest import (
+    FeatureManifest,
+    load_feature_manifest,
+    save_feature_manifest,
+)
 from arclith_cli.init_project import init_project_cmd
 from arclith_cli.main import app
 from arclith_cli.recipe import load_recipe, replay_recipe
@@ -66,6 +73,8 @@ def _parameterized_recipe_args() -> dict[str, object]:
     return {
         "entity": "Invoice",
         "profile": blueprint.name,
+        "blueprint_version": blueprint.version,
+        "operations": list(StateMachineSpec.from_parameters(parameters).operations),
         "parameters": parameters,
         "template_digest": application_blueprint_digest(blueprint),
         "parameters_digest": application_parameters_digest(blueprint, parameters),
@@ -1915,12 +1924,18 @@ def test_existing_entity_requires_real_pydantic_assignment_helpers(
 @pytest.mark.parametrize(
     "relative_module",
     [
+        "abc.py",
+        "arclith.py",
         "collections.py",
+        "dataclasses.py",
+        "datetime.py",
         "typing.py",
         "src/enum.py",
         "pydantic/__init__.py",
+        "pytest/__init__.py",
         "src/collections/__init__.py",
         "src/typing_extensions.py",
+        "uuid.py",
     ],
 )
 def test_existing_entity_rejects_shadowed_trusted_import_modules(
@@ -1946,12 +1961,18 @@ def test_existing_entity_rejects_shadowed_trusted_import_modules(
 @pytest.mark.parametrize(
     "relative_module",
     [
+        "abc.py",
+        "arclith.py",
         "collections.py",
+        "dataclasses.py",
+        "datetime.py",
         "typing.py",
         "src/enum.py",
         "pydantic/__init__.py",
+        "pytest/__init__.py",
         "src/collections/__init__.py",
         "src/typing_extensions.py",
+        "uuid.py",
     ],
 )
 def test_profile_rejects_shadowed_trusted_imports_before_creating_entity(
@@ -2527,19 +2548,17 @@ def test_application_blueprint_rolls_back_prior_writes_on_io_failure(
         if path != plan.manifest_path and path.name != "__init__.py"
     ]
     fail_path = writable[1]
-    original_write_text = Path.write_text
+    original_write = blueprint_generation.write_new_text_file
 
     def fail_one_write(
         path: Path,
         data: str,
-        *args: object,
-        **kwargs: object,
-    ) -> int:
+    ) -> None:
         if path == fail_path:
             raise OSError("simulated write failure")
-        return original_write_text(path, data, *args, **kwargs)  # type: ignore[arg-type]
+        original_write(path, data)
 
-    monkeypatch.setattr(Path, "write_text", fail_one_write)
+    monkeypatch.setattr(blueprint_generation, "write_new_text_file", fail_one_write)
 
     with pytest.raises(OSError, match="simulated write failure"):
         apply_application_blueprint(plan)
@@ -2547,19 +2566,166 @@ def test_application_blueprint_rolls_back_prior_writes_on_io_failure(
     assert all(not path.exists() for path in plan.files)
 
 
-@pytest.mark.parametrize("missing_digest", ["template_digest", "parameters_digest"])
+def test_atomic_writer_never_publishes_a_partial_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = tmp_path / "generated.py"
+    original_sync = atomic_writes._write_and_sync
+
+    def fail_after_partial_temporary_write(stream: TextIO, content: str) -> None:
+        stream.write(content[:4])
+        stream.flush()
+        raise OSError("simulated disk full")
+
+    monkeypatch.setattr(
+        atomic_writes,
+        "_write_and_sync",
+        fail_after_partial_temporary_write,
+    )
+
+    with pytest.raises(OSError, match="simulated disk full"):
+        atomic_writes.write_new_text_file(target, "complete content")
+
+    assert not target.exists()
+    assert not list(tmp_path.glob(".generated.py.*.tmp"))
+
+    monkeypatch.setattr(atomic_writes, "_write_and_sync", original_sync)
+    target.write_text("concurrent content", encoding="utf-8")
+    with pytest.raises(FileExistsError):
+        atomic_writes.write_new_text_file(target, "generated content")
+    assert target.read_text(encoding="utf-8") == "concurrent content"
+
+
+def test_entity_exclusive_create_preserves_an_identical_concurrent_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path)
+    entity_path = project / "src/invoice_service/domain/models/invoice.py"
+    expected = core_scaffold.render_entity_template(
+        class_name="Invoice",
+        model_base="entity",
+    )
+    original_write = core_scaffold.write_new_text_file
+
+    def create_concurrent_entity(path: Path, content: str) -> None:
+        if path == entity_path:
+            path.write_text(content, encoding="utf-8")
+        original_write(path, content)
+
+    monkeypatch.setattr(
+        core_scaffold,
+        "write_new_text_file",
+        create_concurrent_entity,
+    )
+
+    with pytest.raises(typer.Exit):
+        add_entity_cmd(project_dir=project, entity_name="Invoice")
+
+    assert entity_path.read_text(encoding="utf-8") == expected
+
+
+def test_feature_manifest_save_preserves_a_concurrent_file(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    _stateful_entity(project)
+    plan = plan_application_blueprint(
+        project,
+        blueprint_name="state-machine",
+        entity_name="Invoice",
+        feature_name="invoice_lifecycle",
+        parameters=_parameters(),
+    )
+    plan.manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    plan.manifest_path.write_text("# concurrent manifest\n", encoding="utf-8")
+
+    with pytest.raises(FileExistsError):
+        save_feature_manifest(plan.manifest, plan.manifest_path)
+
+    assert plan.manifest_path.read_text(encoding="utf-8") == "# concurrent manifest\n"
+
+
+def test_blueprint_exclusive_create_preserves_a_late_concurrent_target(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path)
+    _stateful_entity(project)
+    plan = plan_application_blueprint(
+        project,
+        blueprint_name="state-machine",
+        entity_name="Invoice",
+        feature_name="invoice_lifecycle",
+        parameters=_parameters(),
+    )
+    writable = [
+        path
+        for path in plan.files
+        if path != plan.manifest_path and path.name != "__init__.py"
+    ]
+    raced_target = writable[1]
+    original_write = blueprint_generation.write_new_text_file
+
+    def create_concurrent_target(path: Path, content: str) -> None:
+        if path == raced_target:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("# concurrent project file\n", encoding="utf-8")
+        original_write(path, content)
+
+    monkeypatch.setattr(
+        blueprint_generation,
+        "write_new_text_file",
+        create_concurrent_target,
+    )
+
+    with pytest.raises(FileExistsError):
+        apply_application_blueprint(plan)
+
+    assert raced_target.read_text(encoding="utf-8") == "# concurrent project file\n"
+    assert all(
+        not path.exists() for path in plan.files if path != raced_target
+    )
+
+
+@pytest.mark.parametrize(
+    "missing_metadata",
+    ["blueprint_version", "operations", "template_digest", "parameters_digest"],
+)
 def test_parameterized_recipe_requires_complete_digest_metadata_before_writes(
     tmp_path: Path,
-    missing_digest: str,
+    missing_metadata: str,
 ) -> None:
-    project = _project(tmp_path, f"missing-{missing_digest.replace('_', '-')}")
+    project = _project(tmp_path, f"missing-{missing_metadata.replace('_', '-')}")
     args = _parameterized_recipe_args()
-    del args[missing_digest]
+    del args[missing_metadata]
 
-    with pytest.raises(RecipeError, match="replay requires both"):
+    with pytest.raises(RecipeError, match="requires complete metadata"):
         replay_add_entity_step(project, args)
 
     validate_application_recipe_metadata("crud", {})
+    assert not list(project.rglob("invoice.py"))
+
+
+@pytest.mark.parametrize(
+    ("metadata", "value", "message"),
+    [
+        ("blueprint_version", 2, "version drift"),
+        ("operations", ["approve"], "operations drift"),
+    ],
+)
+def test_parameterized_recipe_rejects_version_or_operation_drift_before_writes(
+    tmp_path: Path,
+    metadata: str,
+    value: object,
+    message: str,
+) -> None:
+    project = _project(tmp_path, f"drift-{metadata.replace('_', '-')}")
+    args = _parameterized_recipe_args()
+    args[metadata] = value
+
+    with pytest.raises(RecipeError, match=message):
+        replay_add_entity_step(project, args)
+
     assert not list(project.rglob("invoice.py"))
 
 
@@ -2620,7 +2786,7 @@ def test_full_recipe_preflights_all_blueprint_metadata_before_init(
     )
     target = tmp_path / "preflight-target"
 
-    with pytest.raises(RecipeError, match="replay requires both"):
+    with pytest.raises(RecipeError, match="requires complete metadata"):
         replay_recipe(
             incomplete_recipe,
             incomplete_recipe.steps,
@@ -2643,7 +2809,7 @@ def test_full_recipe_preflights_all_blueprint_metadata_before_init(
     )
     assert cli_result.exit_code == 1
     assert "Recette CLI invalide" in cli_result.output
-    assert "replay requires both" in " ".join(cli_result.output.split())
+    assert "requires complete metadata" in " ".join(cli_result.output.split())
     assert not target.exists()
 
     malformed_step = replace(
@@ -2794,7 +2960,7 @@ def test_full_recipe_preflights_add_blueprint_metadata_before_init(
     )
     target = tmp_path / "blueprint-preflight-target"
 
-    with pytest.raises(RecipeError, match="replay requires both"):
+    with pytest.raises(RecipeError, match="requires complete metadata"):
         replay_recipe(
             incomplete_recipe,
             incomplete_recipe.steps,

@@ -79,7 +79,11 @@ création du modèle. Si une cible change malgré tout entre le plan et l'écrit
 ou si une écriture échoue en cours d'application, la commande restaure les
 snapshots qu'elle vient de modifier et retire l'entité créée. Un fichier modifié
 concurremment est conservé : la compensation ne touche qu'un contenu encore
-identique à celui écrit par la commande.
+identique à celui écrit par la commande. Chaque nouveau fichier est d'abord
+écrit et synchronisé dans un temporaire du même répertoire, puis publié par une
+création atomique sans remplacement. Une panne n'expose donc pas de fichier
+tronqué et une création concurrente est signalée comme collision sans être
+écrasée, y compris pour l'entité et le manifeste.
 
 ```bash
 arclith-cli init invoice-service
@@ -243,9 +247,9 @@ ou lambdas sont inspectés dans leur scope d'exécution, y compris dans les
 callables imbriqués. Les imports disponibles uniquement sous `TYPE_CHECKING` et
 les méthodes de copie asynchrones dont le comportement ne peut pas satisfaire le
 contrat synchrone du cycle de vie sont également refusés. Elle refuse aussi un
-module projet `typing.py`,
-`enum.py`, `collections.py`, `typing_extensions.py` ou un package `pydantic`
-placé sur une racine d'import :
+module projet portant le nom d'une dépendance importée par les artefacts générés
+(`abc`, `arclith`, `collections`, `dataclasses`, `datetime`, `enum`, `pydantic`,
+`pytest`, `typing`, `typing_extensions` ou `uuid`) sur une racine d'import :
 un tel fichier intercepterait les imports absolus au lieu de leurs origines de
 confiance. Pour un champ enum,
 `ConfigDict(use_enum_values=True)` est également refusé : cette option stockerait
@@ -362,6 +366,9 @@ l'erreur `InvoiceVersionConflictError` reçoit obligatoirement
 attributs de l'exception ; `observed_version` vaut `None` si l'agrégat a disparu
 entre la lecture et le CAS. L'adapter doit donc relever la version réellement
 observée au point atomique, et non réutiliser celle de la lecture précédente.
+L'erreur `InvoiceNotFoundError` reçoit de son côté l'objet `UUID` demandé et le
+conserve dans son attribut typé `uuid`, afin qu'un transport ou un logger puisse
+l'exploiter sans analyser le texte de l'exception.
 
 Un adapter SQL utilisera typiquement un `UPDATE ... WHERE uuid = ? AND version = ?`
 et vérifiera qu'une ligne a été modifiée. Un adapter documentaire utilisera
@@ -447,10 +454,11 @@ réécrire les fichiers du développeur.
 
 `arclith.recipe.yaml` enregistre le même mapping canonique. Il n'enregistre pas
 le chemin de `invoice-lifecycle.yaml` : le replay reste portable si le fichier
-source a été déplacé ou supprimé. Avant toute écriture, le replay compare les
-deux digests obligatoires au renderer, au contrat de validation et aux paramètres
-courants pour toutes les étapes sélectionnées, avant même d'exécuter un éventuel
-`init` ; une métadonnée absente ou une dérive ne laisse donc aucun projet partiel.
+source a été déplacé ou supprimé. Avant toute écriture, le replay exige puis
+compare les deux digests, la version du blueprint et la liste canonique des
+opérations au renderer, au contrat de validation et aux paramètres courants pour
+toutes les étapes sélectionnées, avant même d'exécuter un éventuel `init` ; une
+métadonnée absente ou une dérive ne laisse donc aucun projet partiel.
 Des paramètres enregistrés absents ou mal formés, ainsi qu'un nom de blueprint
 absent ou inconnu, sont eux aussi normalisés en erreur de recette et produisent
 le diagnostic CLI habituel sans traceback.

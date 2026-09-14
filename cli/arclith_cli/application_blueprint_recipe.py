@@ -121,12 +121,21 @@ def validate_application_recipe_metadata(
         ) from exc
     recorded_template = args.get("template_digest")
     recorded_parameters = args.get("parameters_digest")
-    if blueprint.parameterized and (
-        recorded_template is None or recorded_parameters is None
-    ):
+    required_parameterized_metadata = {
+        "blueprint_version",
+        "operations",
+        "parameters_digest",
+        "template_digest",
+    }
+    missing_metadata = {
+        key
+        for key in required_parameterized_metadata
+        if key not in args or args[key] is None
+    }
+    if blueprint.parameterized and missing_metadata:
         raise RecipeError(
-            f"Parameterized blueprint {blueprint.name!r} replay requires both "
-            "template_digest and parameters_digest"
+            f"Parameterized blueprint {blueprint.name!r} replay requires complete "
+            "metadata: " + ", ".join(sorted(required_parameterized_metadata))
         )
     raw_parameters = args.get("parameters")
     try:
@@ -135,6 +144,23 @@ def validate_application_recipe_metadata(
         raise RecipeError(
             f"Blueprint {blueprint.name!r} has invalid recorded parameters: {exc}"
         ) from exc
+    expected_operations = blueprint.operations
+    if blueprint.parameterized:
+        expected_operations = StateMachineSpec.from_parameters(parameters).operations
+    recorded_version = args.get("blueprint_version")
+    if "blueprint_version" in args and (
+        type(recorded_version) is not int or recorded_version != blueprint.version
+    ):
+        raise RecipeError(
+            f"Blueprint {blueprint.name!r} version drift: recorded "
+            f"{recorded_version!r}, current {blueprint.version!r}"
+        )
+    recorded_operations = args.get("operations")
+    if "operations" in args and recorded_operations != list(expected_operations):
+        raise RecipeError(
+            f"Blueprint {blueprint.name!r} operations drift: recorded "
+            f"{recorded_operations!r}, current {list(expected_operations)!r}"
+        )
     expected_template = application_blueprint_digest(blueprint)
     if recorded_template is not None and recorded_template != expected_template:
         raise RecipeError(

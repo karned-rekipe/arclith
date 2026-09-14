@@ -35,9 +35,10 @@ spécification métier plutôt que d'un catalogue statique.
   le scope de classe est refusée. Les defaults enum ou `Literal` doivent être
   statiquement vérifiables ; `default_factory`, les expansions dynamiques et les
   dépendances redéfinies dans le scope de classe ou un contrôle de flux module
-  sont refusés. Les racines d'import du projet ne peuvent pas masquer `typing`,
-  `typing_extensions`, `collections`, `enum` ou `pydantic`, y compris avant la
-  création d'une entité. Les captures `except ... as` et les motifs `match ... as` comptent aussi
+  sont refusés. Les racines d'import du projet ne peuvent pas masquer `abc`,
+  `arclith`, `collections`, `dataclasses`, `datetime`, `enum`, `pydantic`,
+  `pytest`, `typing`, `typing_extensions` ou `uuid`, y compris avant la création
+  d'une entité. Les captures `except ... as` et les motifs `match ... as` comptent aussi
   comme des liaisons et ne peuvent pas masquer les builtins ou helpers contrôlés.
   Les décorateurs, bases, mots-clés de classe et defaults de fonctions ou lambdas
   sont inspectés dans le scope où ils s'exécutent, y compris pour un callable
@@ -47,7 +48,8 @@ spécification métier plutôt que d'un catalogue statique.
   cacher des membres runtime derrière un contrôle de flux, une expression
   dynamique, une base mixte autre que `str, Enum`, une méthode ou un décorateur.
   Les tests générés dérivent la valeur de l'annotation réelle et
-  en vérifient le type. Les erreurs not-found incluent l'UUID demandé ; les
+  en vérifient le type. Les erreurs not-found conservent l'objet UUID demandé
+  dans un attribut typé ; les
   conflits exposent toujours les versions observée/attendue, avant le CAS comme
   lors d'une course atomique dans l'adapter.
   Les modules d'entités existants doivent être des identifiants Python non
@@ -66,7 +68,8 @@ spécification métier plutôt que d'un catalogue statique.
   du template et le digest des paramètres. Les manifests V1 restent strictement
   lisibles et rejouables sans conversion.
 - La recette stocke la configuration résolue, jamais le chemin de `--spec`, et
-  exige ses deux digests lors du préflight global, avant toute écriture de replay.
+  exige ses deux digests, la version du blueprint et les opérations canoniques
+  lors du préflight global, avant toute écriture de replay.
   Les paramètres absents ou mal formés et les noms de blueprint absents ou
   inconnus sont normalisés en `RecipeError`. Un profil `minimal` refuse les
   métadonnées d'un blueprint paramétré au lieu de les ignorer.
@@ -84,11 +87,14 @@ spécification métier plutôt que d'un catalogue statique.
   de compensation. Une collision apparue après le plan ou une erreur d'écriture
   restaure les fichiers déjà écrits et retire l'entité créée, uniquement lorsque
   leur contenu correspond encore exactement à celui de la commande afin de
-  préserver toute modification concurrente.
+  préserver toute modification concurrente. Les fichiers sont entièrement
+  écrits et synchronisés dans un temporaire du même répertoire avant publication
+  atomique sans remplacement ; aucun fichier tronqué ou écrasement concurrent
+  n'est donc exposé.
 
 ## Validation
 
-- `uv run --project cli python -m pytest cli/tests -q` : 704 tests passés ;
+- `uv run --project cli python -m pytest cli/tests -q` : 724 tests passés ;
 - smoke test du projet généré : 19 tests passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
 - `make coverage` : 2 484 tests passés, 5 ignorés et 91,34 % sur 9 264

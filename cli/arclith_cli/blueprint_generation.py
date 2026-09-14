@@ -6,6 +6,7 @@ from typing import Any, Mapping
 import typer
 from rich.console import Console
 
+from arclith_cli.atomic_writes import write_new_text_file
 from arclith_cli.application_blueprints import (
     ApplicationBlueprintSpec,
     application_blueprint_digest,
@@ -265,8 +266,11 @@ def apply_application_blueprint(
         for path, content in plan.files.items():
             if path == plan.manifest_path:
                 continue
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content, encoding="utf-8")
+            if plan.originals[path] is not None:
+                # Entity/new-project initializers are already the exact empty
+                # snapshot anticipated by the plan; no rewrite is necessary.
+                continue
+            write_new_text_file(path, content)
             written.append(path)
         if plan.manifest_path in plan.files:
             save_feature_manifest(plan.manifest, plan.manifest_path)
@@ -312,17 +316,19 @@ def create_entity_with_application_blueprint(
         },
     }
     directories = _missing_parent_directories(plan.project_dir, tracked)
+    created_paths: list[Path] = []
     try:
         created = add_entity_cmd(
             project_dir=plan.project_dir,
             entity_name=entity_name,
             model_base=plan.entity.model_base,
             entity_content=entity_content,
+            created_paths=created_paths,
         )
         apply_application_blueprint(plan)
     except Exception:
         _restore_written_files(
-            list(tracked),
+            created_paths,
             expected=expected,
             originals=originals,
         )

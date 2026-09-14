@@ -98,12 +98,19 @@ def render_state_errors(entity: str, spec: StateMachineSpec) -> str:
     )
     base = dedent(
         f'''\
+        from uuid import UUID as _ArclithUUID
+
+
         class {entity}LifecycleError(Exception):
             """Base error for the generated {entity} lifecycle."""
 
 
         class {entity}NotFoundError({entity}LifecycleError, LookupError):
             """Raised when a transition targets a missing aggregate."""
+
+            def __init__(self, uuid: _ArclithUUID) -> None:
+                self.uuid = uuid
+                super().__init__(f"{entity} {{uuid}} was not found")
 
 
         class {entity}VersionConflictError({entity}LifecycleError, RuntimeError):
