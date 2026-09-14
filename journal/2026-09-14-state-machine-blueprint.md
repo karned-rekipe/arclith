@@ -20,6 +20,9 @@ spécification métier plutôt que d'un catalogue statique.
   `model_copy` rejette aussi ce champ ; le service passe par une copie privée
   dédiée. Une entité existante doit fournir explicitement un enum vérifiable ou
   un `Literal` avec les mêmes protections ; la CLI ne patche pas son fichier.
+- L'enum de matrice générée utilise le module dédié `<entité>_lifecycle_state.py`,
+  afin de préserver sans collision une enum métier existante importée depuis le
+  chemin conventionnel `<entité>_state.py`.
 - La persistance dépend d'un port outbound spécialisé `compare_and_swap`. Son
   contrat exige une comparaison atomique de version ; une lecture suivie d'un
   update inconditionnel n'est pas présentée comme sûre.
@@ -34,7 +37,7 @@ spécification métier plutôt que d'un catalogue statique.
 
 ## Validation
 
-- `uv run --project cli python -m pytest cli/tests -q` : 580 tests passés ;
+- `uv run --project cli python -m pytest cli/tests -q` : 581 tests passés ;
 - smoke test du projet généré : 19 tests passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
 - `make coverage` : 2 472 tests passés, 5 ignorés et 91,34 % sur 9 264

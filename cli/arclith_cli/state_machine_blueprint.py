@@ -13,6 +13,7 @@ from arclith_cli.state_machine_entity import (
     render_state_documentation as _documentation,
     render_state_errors as _errors,
     render_state_model as _state_model,
+    state_machine_state_module as _state_module,
     validate_existing_state_field as _validate_existing_state_field,
 )
 from arclith_cli.state_machine_spec import StateMachineSpec, StateTransitionSpec
@@ -31,7 +32,8 @@ def render_state_machine_blueprint(
     if not creating_entity:
         _validate_existing_state_field(entity, spec)
     entity_module = paths.import_path("domain", "models", entity.file_path.stem)
-    state_module = paths.import_path("domain", "models", f"{entity.snake}_state")
+    state_module_name = _state_module(entity)
+    state_module = paths.import_path("domain", "models", state_module_name)
     errors_module = paths.import_path("domain", "errors", feature)
     service_module = paths.import_path("domain", "services", feature)
     store_module = paths.import_path("domain", "ports", "outbound", feature)
@@ -39,7 +41,7 @@ def render_state_machine_blueprint(
     use_cases_prefix = paths.import_path("application", "use_cases")
 
     files: dict[Path, str] = {
-        paths.domain_models / f"{entity.snake}_state.py": _state_model(
+        paths.domain_models / f"{state_module_name}.py": _state_model(
             entity.pascal, spec
         ),
         paths.package_root / "domain" / "errors" / f"{feature}.py": _errors(
@@ -70,7 +72,7 @@ def render_state_machine_blueprint(
             paths.package_name or "",
             entity.pascal,
             entity.file_path.stem,
-            entity.snake,
+            state_module_name,
             feature,
             spec,
         ),
@@ -81,7 +83,7 @@ def render_state_machine_blueprint(
             paths.package_name or "",
             entity.pascal,
             entity.file_path.stem,
-            entity.snake,
+            state_module_name,
             feature,
             spec,
         ),
@@ -370,7 +372,7 @@ def _domain_test(
         f"{indent(error_imports, '    ')},\n"
         ")\n"
         f"from {prefix}domain.models.{entity_module} import {entity}\n"
-        f"from {prefix}domain.models.{state_module}_state import {entity}State\n"
+        f"from {prefix}domain.models.{state_module} import {entity}State\n"
         f"from {prefix}domain.services.{feature} import {entity}Lifecycle\n\n\n"
         "ERRORS = {\n"
         f"{error_items}\n"
@@ -498,7 +500,7 @@ def _application_test(
             {entity}VersionConflictError,
         )
         from {prefix}domain.models.{entity_module} import {entity}
-        from {prefix}domain.models.{state_module}_state import {entity}State
+        from {prefix}domain.models.{state_module} import {entity}State
 {command_imports}
         from {prefix}domain.ports.outbound.{feature} import {entity}LifecycleStore
         from {prefix}infrastructure.containers.{feature} import (

@@ -395,7 +395,7 @@ def test_profile_handles_a_sparse_model_package_and_configurable_state_field(
     assert result.exit_code == 0, result.output
     assert (models / "__init__.py").read_bytes() == b""
     assert (models / "invoice.py").is_file()
-    assert (models / "invoice_state.py").is_file()
+    assert (models / "invoice_lifecycle_state.py").is_file()
     domain_tests = (project / "tests/domain/test_invoice.py").read_text(
         encoding="utf-8"
     )
@@ -623,6 +623,77 @@ def test_existing_imported_enum_alias_is_inspected(tmp_path: Path) -> None:
         feature_name="invoice_lifecycle",
         parameters=_parameters(),
     )
+
+
+def test_existing_conventional_state_module_is_preserved(tmp_path: Path) -> None:
+    framework_root = Path(__file__).resolve().parents[2]
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    state_module = entity.with_name("invoice_state.py")
+    state_module.write_text(
+        "from enum import StrEnum\n\n\n"
+        "class InvoiceState(StrEnum):\n"
+        '    DRAFT = "draft"\n'
+        '    SUBMITTED = "submitted"\n'
+        '    APPROVED = "approved"\n'
+        '    REJECTED = "rejected"\n',
+        encoding="utf-8",
+    )
+    original_state_module = state_module.read_bytes()
+    entity.write_text(
+        entity.read_text(encoding="utf-8")
+        .replace(
+            "from typing import Any, Literal, Self\n",
+            "from typing import Any, Self\n\n"
+            "from .invoice_state import InvoiceState\n",
+        )
+        .replace(
+            'Literal["draft", "submitted", "approved", "rejected"]',
+            "InvoiceState",
+        ),
+        encoding="utf-8",
+    )
+
+    plan = plan_application_blueprint(
+        project,
+        blueprint_name="state-machine",
+        entity_name="Invoice",
+        feature_name="invoice_lifecycle",
+        parameters=_parameters(),
+    )
+    apply_application_blueprint(plan)
+
+    assert state_module.read_bytes() == original_state_module
+    generated_state = entity.with_name("invoice_lifecycle_state.py")
+    assert generated_state.is_file()
+    service = entity.parents[1] / "services" / "invoice_lifecycle.py"
+    assert "domain.models.invoice_lifecycle_state import InvoiceState" in (
+        service.read_text(encoding="utf-8")
+    )
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from invoice_service.domain.models.invoice import Invoice; "
+                "from invoice_service.domain.models.invoice_state import InvoiceState; "
+                "from invoice_service.domain.services.invoice_lifecycle import "
+                "InvoiceLifecycle; changed = InvoiceLifecycle().submit("
+                "Invoice(status=InvoiceState.DRAFT)); "
+                "assert changed.status is InvoiceState.SUBMITTED"
+            ),
+        ],
+        cwd=project,
+        env={
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join((str(project / "src"), str(framework_root))),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
 def test_existing_entity_rejects_a_deceptive_state_copy_helper(

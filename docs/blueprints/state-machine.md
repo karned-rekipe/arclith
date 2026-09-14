@@ -94,7 +94,7 @@ from typing import Any, Self
 from pydantic import ConfigDict, Field
 
 from arclith.domain.models.entity import Entity
-from invoice_service.domain.models.invoice_state import InvoiceState
+from invoice_service.domain.models.invoice_lifecycle_state import InvoiceState
 
 
 class Invoice(Entity):
@@ -188,9 +188,13 @@ et la copie générique : utiliser un modèle entièrement frozen, ou les vrais
 la méthode privée montrée ci-dessus. La vérification résout statiquement l'origine
 de ces helpers et refuse un homonyme applicatif non prouvable. Un nom de fichier
 non canonique comme `invoice_record.py` reste accepté : les imports générés
-distinguent le module réel de l'entité du module d'état `invoice_state.py`. Si le
-champ manque, a un type incompatible ou reste contournable, la CLI explique la
-modification requise et ne touche à aucun fichier.
+distinguent le module réel de l'entité du module d'état interne
+`invoice_lifecycle_state.py`. Ce module généré porte délibérément le suffixe
+`_lifecycle_state` : une enum métier importée depuis le chemin conventionnel
+`invoice_state.py` est ainsi conservée sans collision, et les transitions
+restituent son type après conversion par valeur persistée. Si le champ manque, a
+un type incompatible ou reste contournable, la CLI explique la modification
+requise et ne touche à aucun fichier.
 
 ## Structure Générée
 
@@ -199,7 +203,7 @@ Pour la feature `invoice_lifecycle`, la V1 produit des fichiers légers et sépa
 ```text
 src/invoice_service/
 ├── domain/
-│   ├── models/invoice_state.py
+│   ├── models/invoice_lifecycle_state.py
 │   ├── services/invoice_lifecycle.py
 │   ├── errors/invoice_lifecycle.py
 │   └── ports/

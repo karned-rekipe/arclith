@@ -16,6 +16,12 @@ from arclith_cli.state_machine_spec import StateMachineSpec, StateTransitionSpec
 STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 1
 
 
+def state_machine_state_module(entity: EntityInfo) -> str:
+    """Return the dedicated generated lifecycle-enum module stem."""
+
+    return f"{entity.snake}_lifecycle_state"
+
+
 def render_state_machine_entity(
     paths: ProjectPaths,
     entity: EntityInfo,
@@ -23,7 +29,9 @@ def render_state_machine_entity(
 ) -> str:
     """Render the state field atomically with a new entity profile."""
 
-    state_module = paths.import_path("domain", "models", f"{entity.snake}_state")
+    state_module = paths.import_path(
+        "domain", "models", state_machine_state_module(entity)
+    )
     return dedent(
         f'''\
         from __future__ import annotations
