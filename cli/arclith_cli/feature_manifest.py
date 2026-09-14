@@ -104,10 +104,13 @@ class FeatureManifest:
                 common_keys | {"parameters", "digests"},
                 "feature manifest version 2",
             )
-            parameters = _json_safe_mapping(data["parameters"], "feature.parameters")
+            parameters = _json_safe_mapping(
+                data.get("parameters"),
+                "feature.parameters",
+            )
             if not parameters:
                 raise ValueError("feature.parameters must not be empty")
-            digests = FeatureDigests.from_dict(data["digests"])
+            digests = FeatureDigests.from_dict(data.get("digests"))
             if digests.parameters != parameter_mapping_digest(parameters):
                 raise ValueError(
                     "feature.digests.parameters does not match canonical parameters"

@@ -173,6 +173,8 @@ def enum_members(
 ) -> dict[str, str] | None:
     """Return exact static string members for a trusted Enum declaration."""
 
+    if declaration.decorator_list:
+        return None
     if not any(
         is_imported_symbol(
             base,

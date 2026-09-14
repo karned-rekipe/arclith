@@ -27,7 +27,7 @@ from arclith_cli.blueprint_generation import (
     plan_application_blueprint,
 )
 from arclith_cli.core_scaffold import add_entity_cmd
-from arclith_cli.feature_manifest import load_feature_manifest
+from arclith_cli.feature_manifest import FeatureManifest, load_feature_manifest
 from arclith_cli.init_project import init_project_cmd
 from arclith_cli.main import app
 from arclith_cli.recipe import load_recipe, replay_recipe
@@ -563,6 +563,32 @@ def test_manifest_v2_rejects_parameter_digest_drift_and_non_json_values(
         load_feature_manifest(manifest_path)
 
 
+@pytest.mark.parametrize("missing_key", ["parameters", "digests"])
+def test_manifest_v2_normalizes_missing_parameterized_fields(
+    missing_key: str,
+) -> None:
+    spec = StateMachineSpec.from_dict(_spec_document())
+    raw: dict[str, object] = {
+        "version": 2,
+        "feature": "invoice",
+        "entity": {
+            "name": "Invoice",
+            "module": "invoice_service.domain.models.invoice",
+        },
+        "blueprint": {"name": "state-machine", "version": 1},
+        "parameters": spec.to_parameters(),
+        "digests": {
+            "template": "sha256:" + "0" * 64,
+            "parameters": spec.digest(),
+        },
+        "operations": list(spec.operations),
+    }
+    del raw[missing_key]
+
+    with pytest.raises(ValueError, match="must contain exactly"):
+        FeatureManifest.from_dict(raw)
+
+
 def test_missing_or_unprotected_existing_state_field_is_rejected_without_writes(
     tmp_path: Path,
 ) -> None:
@@ -833,6 +859,40 @@ def test_existing_enum_rejects_uninspectable_runtime_members(
         )
 
 
+def test_existing_enum_rejects_a_class_decorator(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    literal = 'Literal["draft", "submitted", "approved", "rejected"]'
+    decorated_enum = _local_state_enum().replace(
+        "class InvoiceStatus(StrEnum):",
+        "@replace_enum\nclass InvoiceStatus(StrEnum):",
+    )
+    content = entity.read_text(encoding="utf-8")
+    content = content.replace(
+        "from collections.abc import Mapping\n",
+        "from collections.abc import Mapping\nfrom enum import StrEnum\n",
+    ).replace(
+        "class Invoice(Entity):\n",
+        decorated_enum + "class Invoice(Entity):\n",
+    )
+    entity.write_text(
+        content.replace(literal, "InvoiceStatus").replace(
+            'Field(default="draft", frozen=True)',
+            "Field(default=InvoiceStatus.DRAFT, frozen=True)",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="statically inspectable"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
 def test_existing_enum_rejects_use_enum_values(tmp_path: Path) -> None:
     project = _project(tmp_path)
     entity = _stateful_entity(project)
@@ -1051,6 +1111,71 @@ def test_existing_entity_rejects_a_shadowed_literal_helper(tmp_path: Path) -> No
         entity.read_text(encoding="utf-8").replace(
             "from typing import Any, Literal, Self",
             "from typing import Any, Self\n\nLiteral = str",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="statically inspectable"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        "[(Literal := object()) for _ in (0,)]",
+        "del Literal",
+    ],
+)
+def test_existing_entity_rejects_dynamic_literal_rebinding(
+    tmp_path: Path,
+    binding: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            "class Invoice(Entity):\n",
+            f"{binding}\n\n\nclass Invoice(Entity):\n",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="statically inspectable"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+def test_existing_entity_rejects_enum_rebound_by_comprehension_walrus(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    literal = 'Literal["draft", "submitted", "approved", "rejected"]'
+    content = entity.read_text(encoding="utf-8")
+    content = content.replace(
+        "from collections.abc import Mapping\n",
+        "from collections.abc import Mapping\nfrom enum import StrEnum\n",
+    ).replace(
+        "class Invoice(Entity):\n",
+        _local_state_enum()
+        + "[(InvoiceStatus := object()) for _ in (0,)]\n\n\n"
+        + "class Invoice(Entity):\n",
+    )
+    entity.write_text(
+        content.replace(literal, "InvoiceStatus").replace(
+            'Field(default="draft", frozen=True)',
+            "Field(default=InvoiceStatus.DRAFT, frozen=True)",
         ),
         encoding="utf-8",
     )
