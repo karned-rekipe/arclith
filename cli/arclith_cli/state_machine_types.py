@@ -193,10 +193,11 @@ def enum_members(
         ):
             continue
         if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if statement.decorator_list or statement.name in declarations:
-                return None
-            declarations.add(statement.name)
-            continue
+            # Enum hooks and arbitrary methods can mutate ``_value_`` or alter
+            # runtime resolution. Their effects cannot be proven from the
+            # static member assignments, so the exact-value contract fails
+            # closed for declarations containing executable methods.
+            return None
         member_name: str | None = None
         value: ast.expr | None = None
         if (

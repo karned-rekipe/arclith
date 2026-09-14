@@ -777,6 +777,26 @@ def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
                 '        return "cancelled"\n',
             ]
         ),
+        "".join(
+            [
+                "    def __new__(cls, value: str):\n",
+                "        member = str.__new__(cls, value)\n",
+                "        member._value_ = value.upper()\n",
+                "        return member\n",
+            ]
+        ),
+        "".join(
+            [
+                "    def __init__(self, value: str) -> None:\n",
+                "        object.__setattr__(self, '_value_', value.upper())\n",
+            ]
+        ),
+        "".join(
+            [
+                "    def mutate(self) -> None:\n",
+                "        object.__setattr__(self, '_value_', 'cancelled')\n",
+            ]
+        ),
         '    DRAFT = "draft"\n',
     ],
 )
@@ -1457,9 +1477,11 @@ def test_existing_entity_requires_real_pydantic_assignment_helpers(
 @pytest.mark.parametrize(
     "relative_module",
     [
+        "collections.py",
         "typing.py",
         "src/enum.py",
         "pydantic/__init__.py",
+        "src/collections/__init__.py",
         "src/typing_extensions.py",
     ],
 )
@@ -1486,9 +1508,11 @@ def test_existing_entity_rejects_shadowed_trusted_import_modules(
 @pytest.mark.parametrize(
     "relative_module",
     [
+        "collections.py",
         "typing.py",
         "src/enum.py",
         "pydantic/__init__.py",
+        "src/collections/__init__.py",
         "src/typing_extensions.py",
     ],
 )
@@ -2108,6 +2132,24 @@ def test_full_recipe_preflights_all_blueprint_metadata_before_init(
     assert "Recette CLI invalide" in cli_result.output
     assert "Minimal application profile" in " ".join(cli_result.output.split())
     assert "Traceback" not in cli_result.output
+    assert not target.exists()
+
+    blueprint_only_step = replace(
+        recipe.steps[-1],
+        args={"entity": "Invoice", "blueprint": "state-machine"},
+    )
+    blueprint_only_recipe = replace(
+        recipe,
+        steps=(*recipe.steps[:-1], blueprint_only_step),
+    )
+    with pytest.raises(RecipeError, match="Minimal application profile"):
+        replay_recipe(
+            blueprint_only_recipe,
+            blueprint_only_recipe.steps,
+            target_dir=target,
+            strict=True,
+        )
+
     assert not target.exists()
 
     unknown_step = replace(

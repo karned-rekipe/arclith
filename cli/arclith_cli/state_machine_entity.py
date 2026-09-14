@@ -43,7 +43,7 @@ __all__ = [
 
 
 # Bump whenever ``validate_existing_state_field`` accepts or rejects new forms.
-STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 9
+STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 10
 
 
 def validate_state_machine_import_roots(paths: ProjectPaths) -> None:
@@ -51,7 +51,7 @@ def validate_state_machine_import_roots(paths: ProjectPaths) -> None:
 
     shadowed_modules = project_shadowed_top_level_modules(
         paths,
-        ("enum", "pydantic", "typing", "typing_extensions"),
+        ("collections", "enum", "pydantic", "typing", "typing_extensions"),
     )
     if shadowed_modules:
         raise ValueError(

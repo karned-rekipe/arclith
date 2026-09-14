@@ -102,6 +102,7 @@ def validate_application_recipe_metadata(
 
     if blueprint_name == "minimal":
         blueprint_metadata = {
+            "blueprint",
             "blueprint_version",
             "operations",
             "parameters",
