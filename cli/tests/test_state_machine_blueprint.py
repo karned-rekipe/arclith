@@ -1,0 +1,641 @@
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+import yaml
+from typer.testing import CliRunner
+
+from arclith_cli.application_blueprint_recipe import replay_add_entity_step
+from arclith_cli.application_blueprints import get_application_blueprint
+from arclith_cli.blueprint_generation import plan_application_blueprint
+from arclith_cli.core_scaffold import add_entity_cmd
+from arclith_cli.feature_manifest import load_feature_manifest
+from arclith_cli.init_project import init_project_cmd
+from arclith_cli.main import app
+from arclith_cli.recipe import load_recipe, replay_recipe
+from arclith_cli.state_machine_spec import StateMachineSpec
+
+
+runner = CliRunner()
+
+
+def _parameters() -> dict[str, object]:
+    return {
+        "state_field": "status",
+        "initial_state": "draft",
+        "states": ["draft", "submitted", "approved", "rejected"],
+        "transitions": [
+            {"name": "submit", "from": ["draft"], "to": "submitted"},
+            {"name": "approve", "from": ["submitted"], "to": "approved"},
+            {"name": "reject", "from": ["submitted"], "to": "rejected"},
+        ],
+    }
+
+
+def _spec_document(parameters: dict[str, object] | None = None) -> dict[str, object]:
+    return {"version": 1, **(parameters or _parameters())}
+
+
+def _project(tmp_path: Path, name: str = "invoice-service") -> Path:
+    return init_project_cmd(project_name=name, directory=tmp_path)
+
+
+def _write_spec(
+    project: Path,
+    parameters: dict[str, object] | None = None,
+    *,
+    filename: str = "invoice-lifecycle.yaml",
+) -> Path:
+    path = project / filename
+    path.write_text(
+        yaml.safe_dump(_spec_document(parameters), sort_keys=False),
+        encoding="utf-8",
+    )
+    return path
+
+
+def _invoke(
+    monkeypatch: pytest.MonkeyPatch,
+    project: Path,
+    arguments: list[str],
+):
+    monkeypatch.chdir(project)
+    return runner.invoke(app, arguments)
+
+
+def _stateful_entity(project: Path) -> Path:
+    entity = add_entity_cmd(project_dir=project, entity_name="Invoice")
+    entity.write_text(
+        "from typing import Literal\n\n"
+        "from pydantic import ConfigDict, Field\n\n"
+        "from arclith.domain.models.entity import Entity\n\n\n"
+        "class Invoice(Entity):\n"
+        "    model_config = ConfigDict(validate_assignment=True)\n"
+        '    status: Literal["draft", "submitted", "approved", "rejected"] = '
+        'Field(default="draft", frozen=True)\n',
+        encoding="utf-8",
+    )
+    return entity
+
+
+def test_state_machine_is_discoverable_in_text_and_json_catalogues(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path)
+
+    text_result = _invoke(monkeypatch, project, ["blueprints"])
+    json_result = _invoke(monkeypatch, project, ["blueprints", "--json"])
+
+    blueprint = get_application_blueprint("state-machine")
+    assert blueprint.parameterized is True
+    assert blueprint.operations == ()
+    assert text_result.exit_code == 0, text_result.output
+    assert "state-machine" in text_result.output
+    entry = next(
+        item
+        for item in json.loads(json_result.output)
+        if item["name"] == "state-machine"
+    )
+    assert entry["operations"] == []
+    assert "spec" in entry["description"]
+
+
+def test_spec_is_canonical_and_digest_is_order_independent() -> None:
+    first = StateMachineSpec.from_dict(_spec_document())
+    reordered = StateMachineSpec.from_dict(
+        {
+            "version": 1,
+            "state_field": "status",
+            "initial_state": "draft",
+            "states": ["rejected", "approved", "submitted", "draft"],
+            "transitions": [
+                {"name": "reject", "from": ["submitted"], "to": "rejected"},
+                {"name": "submit", "from": ["draft"], "to": "submitted"},
+                {"name": "approve", "from": ["submitted"], "to": "approved"},
+            ],
+        }
+    )
+
+    assert first == reordered
+    assert first.operations == ("approve", "reject", "submit")
+    assert first.digest() == reordered.digest()
+    assert re.fullmatch(r"sha256:[0-9a-f]{64}", first.digest())
+
+
+@pytest.mark.parametrize(
+    ("document", "message"),
+    [
+        (
+            {**_spec_document(), "initial_state": "missing"},
+            "initial_state must be declared",
+        ),
+        (
+            {
+                **_spec_document(),
+                "transitions": [
+                    {"name": "submit", "from": ["missing"], "to": "submitted"}
+                ],
+            },
+            "unknown source",
+        ),
+        (
+            {
+                **_spec_document(),
+                "transitions": [{"name": "submit", "from": ["draft"], "to": "missing"}],
+            },
+            "unknown target",
+        ),
+        (
+            {
+                **_spec_document(),
+                "states": ["draft", "submitted"],
+                "transitions": [
+                    {"name": "submit", "from": ["draft"], "to": "submitted"},
+                    {"name": "submit", "from": ["submitted"], "to": "draft"},
+                ],
+            },
+            "transition names must be unique",
+        ),
+        (
+            {
+                **_spec_document(),
+                "states": ["draft", "submitted", "orphan"],
+                "transitions": [
+                    {"name": "submit", "from": ["draft"], "to": "submitted"}
+                ],
+            },
+            "unreachable: orphan",
+        ),
+        ({**_spec_document(), "state_field": "version"}, "reserved by Entity"),
+        ({**_spec_document(), "state_field": "class"}, "public Python identifier"),
+        (
+            {
+                **_spec_document(),
+                "initial_state": "draft",
+                "states": ["draft", "DRAFT"],
+                "transitions": [{"name": "promote", "from": ["draft"], "to": "DRAFT"}],
+            },
+            "unique generated enum member names",
+        ),
+        (
+            {
+                **_spec_document(),
+                "states": ["draft", "sent"],
+                "transitions": [
+                    {"name": "send_email", "from": ["draft"], "to": "sent"},
+                    {"name": "send__email", "from": ["draft"], "to": "sent"},
+                ],
+            },
+            "unique generated class names",
+        ),
+    ],
+)
+def test_spec_rejects_invalid_invariants(
+    document: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        StateMachineSpec.from_dict(document)
+
+
+def test_profile_generates_typed_layers_and_parameterized_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path)
+    spec_path = _write_spec(project)
+
+    result = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-entity",
+            "Invoice",
+            "--profile",
+            "state-machine",
+            "--spec",
+            str(spec_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    package = project / "src/invoice_service"
+    entity = (package / "domain/models/invoice.py").read_text(encoding="utf-8")
+    service = (package / "domain/services/invoice.py").read_text(encoding="utf-8")
+    store = (package / "domain/ports/outbound/invoice.py").read_text(encoding="utf-8")
+    manifest = load_feature_manifest(project / ".arclith/features/invoice.yaml")
+
+    assert "status: InvoiceState = Field(" in entity
+    assert "frozen=True" in entity
+    assert "def submit(" in service
+    assert 'transition("' not in service
+    assert "compare_and_swap" in store
+    assert manifest.version == 2
+    assert (
+        manifest.parameters
+        == StateMachineSpec.from_dict(_spec_document()).to_parameters()
+    )
+    assert manifest.operations == ("approve", "reject", "submit")
+    assert manifest.digests is not None
+    assert re.fullmatch(r"sha256:[0-9a-f]{64}", manifest.digests.template)
+    assert (
+        manifest.digests.parameters
+        == StateMachineSpec.from_dict(_spec_document()).digest()
+    )
+    for operation in manifest.operations:
+        assert (package / f"domain/ports/inbound/{operation}_invoice.py").is_file()
+        assert (package / f"application/use_cases/{operation}_invoice.py").is_file()
+    assert (project / "tests/domain/test_invoice.py").is_file()
+    assert (project / "tests/application/test_invoice_use_cases.py").is_file()
+    assert (project / "docs/blueprints/invoice-state-machine.md").is_file()
+    assert not (package / "adapters/inbound/fastapi").exists()
+    assert not (package / "adapters/inbound/fastmcp").exists()
+
+
+def test_manifest_v2_rejects_parameter_digest_drift_and_non_json_values(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path)
+    spec_path = _write_spec(project)
+    result = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-entity",
+            "Invoice",
+            "--profile",
+            "state-machine",
+            "--spec",
+            str(spec_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    manifest_path = project / ".arclith/features/invoice.yaml"
+    raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    raw["parameters"]["initial_state"] = "submitted"
+    manifest_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+    with pytest.raises(ValueError, match="does not match canonical parameters"):
+        load_feature_manifest(manifest_path)
+
+    raw["parameters"]["created"] = "2026-09-14"
+    rendered = yaml.safe_dump(raw, sort_keys=False).replace(
+        "created: '2026-09-14'", "created: 2026-09-14"
+    )
+    manifest_path.write_text(rendered, encoding="utf-8")
+    with pytest.raises(ValueError, match="JSON/YAML-safe"):
+        load_feature_manifest(manifest_path)
+
+
+def test_missing_or_unprotected_existing_state_field_is_rejected_without_writes(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path)
+    entity = add_entity_cmd(project_dir=project, entity_name="Invoice")
+    before = entity.read_bytes()
+
+    with pytest.raises(ValueError, match="must declare typed field 'status'"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+    assert entity.read_bytes() == before
+    assert not (project / ".arclith/features/invoice_lifecycle.yaml").exists()
+
+    entity.write_text(
+        "from typing import Literal\n"
+        "from arclith.domain.models.entity import Entity\n\n"
+        "class Invoice(Entity):\n"
+        '    status: Literal["draft", "submitted", "approved", "rejected"]\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="must reject assignment"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+def test_existing_compatible_entity_is_preserved(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    original = entity.read_bytes()
+    spec_path = _write_spec(project)
+
+    result = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-blueprint",
+            "state-machine",
+            "--entity",
+            "Invoice",
+            "--feature",
+            "invoice_lifecycle",
+            "--spec",
+            str(spec_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert entity.read_bytes() == original
+    assert (project / ".arclith/features/invoice_lifecycle.yaml").is_file()
+
+
+def test_invalid_spec_and_dry_run_have_no_side_effects(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path)
+    invalid = _write_spec(
+        project,
+        {**_parameters(), "initial_state": "missing"},
+        filename="invalid.yaml",
+    )
+    before_invalid = {
+        path.relative_to(project): path.read_bytes()
+        for path in project.rglob("*")
+        if path.is_file()
+    }
+    invalid_result = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-entity",
+            "Invoice",
+            "--profile",
+            "state-machine",
+            "--spec",
+            str(invalid),
+        ],
+    )
+    assert invalid_result.exit_code == 1
+    assert not (project / "src/invoice_service/domain/models/invoice.py").exists()
+    assert {
+        path.relative_to(project): path.read_bytes()
+        for path in project.rglob("*")
+        if path.is_file()
+    } == before_invalid
+
+    _stateful_entity(project)
+    valid = _write_spec(project)
+    before_dry_run = {
+        path.relative_to(project): path.read_bytes()
+        for path in project.rglob("*")
+        if path.is_file()
+    }
+    dry_run = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-blueprint",
+            "state-machine",
+            "--entity",
+            "Invoice",
+            "--spec",
+            str(valid),
+            "--dry-run",
+        ],
+    )
+    assert dry_run.exit_code == 0, dry_run.output
+    assert {
+        path.relative_to(project): path.read_bytes()
+        for path in project.rglob("*")
+        if path.is_file()
+    } == before_dry_run
+
+
+def test_spec_drift_is_rejected_and_developer_files_are_preserved(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path)
+    _stateful_entity(project)
+    original_spec = _write_spec(project)
+    first = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-blueprint",
+            "state-machine",
+            "--entity",
+            "Invoice",
+            "--feature",
+            "invoice_lifecycle",
+            "--spec",
+            str(original_spec),
+        ],
+    )
+    assert first.exit_code == 0, first.output
+    use_case = project / "src/invoice_service/application/use_cases/submit_invoice.py"
+    use_case.write_text(
+        use_case.read_text(encoding="utf-8") + "\n# project-owned rule\n",
+        encoding="utf-8",
+    )
+    changed = {
+        **_parameters(),
+        "transitions": [
+            *_parameters()["transitions"],  # type: ignore[misc]
+            {"name": "reopen", "from": ["rejected"], "to": "draft"},
+        ],
+    }
+    changed_spec = _write_spec(project, changed, filename="changed.yaml")
+
+    replay = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-blueprint",
+            "state-machine",
+            "--entity",
+            "Invoice",
+            "--feature",
+            "invoice_lifecycle",
+            "--spec",
+            str(changed_spec),
+        ],
+    )
+
+    assert replay.exit_code == 1
+    assert "different" in replay.output
+    assert "canonical manifest" in replay.output
+    assert use_case.read_text(encoding="utf-8").endswith("# project-owned rule\n")
+    assert not (
+        project / "src/invoice_service/application/use_cases/reopen_invoice.py"
+    ).exists()
+
+
+def test_profile_collision_is_atomic_and_recipe_replay_needs_no_spec_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    collision_project = _project(tmp_path, "collision-service")
+    collision = (
+        collision_project
+        / "src/collision_service/application/use_cases/submit_invoice.py"
+    )
+    collision.write_text("# project-owned\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="already exists"):
+        replay_add_entity_step(
+            collision_project,
+            {
+                "entity": "Invoice",
+                "profile": "state-machine",
+                "parameters": _parameters(),
+            },
+        )
+    assert collision.read_text(encoding="utf-8") == "# project-owned\n"
+    assert not (
+        collision_project / "src/collision_service/domain/models/invoice.py"
+    ).exists()
+
+    project = _project(tmp_path, "recipe-service")
+    spec_path = _write_spec(project)
+    result = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-entity",
+            "Invoice",
+            "--profile",
+            "state-machine",
+            "--spec",
+            str(spec_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    recipe = load_recipe(project / "arclith.recipe.yaml")
+    step = recipe.steps[-1]
+    assert (
+        step.args["parameters"]
+        == StateMachineSpec.from_dict(_spec_document()).to_parameters()
+    )
+    assert "spec" not in step.args
+    assert re.fullmatch(r"sha256:[0-9a-f]{64}", step.args["parameters_digest"])
+    spec_path.unlink()
+
+    replay_target = _project(tmp_path, "recipe-replay")
+    replay_recipe(recipe, recipe.steps, target_dir=replay_target, strict=True)
+    replayed = load_feature_manifest(replay_target / ".arclith/features/invoice.yaml")
+    assert replayed.parameters == step.args["parameters"]
+
+
+def test_fresh_state_machine_project_compiles_and_runs_generated_tests(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    framework_root = Path(__file__).resolve().parents[2]
+    project = _project(tmp_path, "runtime-invoice-service")
+    spec_path = _write_spec(project)
+    result = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-entity",
+            "Invoice",
+            "--profile",
+            "state-machine",
+            "--spec",
+            str(spec_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    environment = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join((str(project / "src"), str(framework_root))),
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+    }
+    for command in (
+        [sys.executable, "-m", "compileall", "-q", "src"],
+        [sys.executable, "-m", "pytest", "-p", "pytest_asyncio.plugin", "tests", "-q"],
+    ):
+        completed = subprocess.run(
+            command,
+            cwd=project,
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+def test_new_state_machine_profile_records_portable_parameters(tmp_path: Path) -> None:
+    spec_path = tmp_path / "invoice-lifecycle.yaml"
+    spec_path.write_text(
+        yaml.safe_dump(_spec_document(), sort_keys=False),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "new",
+            "Invoice",
+            "new-invoice-service",
+            "--dir",
+            str(tmp_path),
+            "--profile",
+            "state-machine",
+            "--spec",
+            str(spec_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    project = tmp_path / "new-invoice-service"
+    manifest = load_feature_manifest(project / ".arclith/features/invoice.yaml")
+    recipe = load_recipe(project / "arclith.recipe.yaml")
+    assert manifest.version == 2
+    assert recipe.steps[0].command == "new"
+    assert recipe.steps[0].args["parameters"] == manifest.parameters
+    assert "spec" not in recipe.steps[0].args
+
+
+def test_state_machine_requires_spec_and_non_parameterized_blueprints_reject_it(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path)
+    add_entity_cmd(project_dir=project, entity_name="Invoice")
+
+    missing = _invoke(
+        monkeypatch,
+        project,
+        ["add-blueprint", "state-machine", "--entity", "Invoice"],
+    )
+    extra = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-blueprint",
+            "crud",
+            "--entity",
+            "Invoice",
+            "--spec",
+            str(_write_spec(project)),
+        ],
+    )
+
+    assert missing.exit_code == 1
+    assert "requires --spec" in missing.output
+    assert extra.exit_code == 1
+    assert "does not accept --spec" in extra.output

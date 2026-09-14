@@ -298,6 +298,9 @@ def _execute_step(
             repo_ref=str(args.get("repo_ref", "main")),
             template_dir=None,
             profile=str(args.get("profile", "minimal")),
+            parameters=(
+                args["parameters"] if isinstance(args.get("parameters"), dict) else None
+            ),
             target_path=target_dir,
         )
         return

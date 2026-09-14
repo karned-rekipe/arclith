@@ -158,13 +158,16 @@ arclith-cli new Recipe my-recipe-service
 arclith-cli new RecipeStep meal-planner --port 8400
 arclith-cli new MealPlan meal-plan-service --dir ~/projects --port 8500
 arclith-cli new Todo todo-service --profile crud
+arclith-cli new Invoice invoice-service --profile state-machine \
+  --spec invoice-lifecycle.yaml
 ```
 
 | Option | Défaut | Description |
 |--------|--------|-------------|
 | `--port` / `-p` | `8000` | Port à proposer lors du futur ajout explicite de FastAPI |
 | `--dir` / `-d` | `.` | Répertoire parent |
-| `--profile` | `minimal` | Profil applicatif initial (`minimal`, `crud` ou `append-only`) |
+| `--profile` | `minimal` | Profil initial (`minimal`, `crud`, `append-only` ou `state-machine`) |
+| `--spec` | — | Spec YAML requise par `state-machine` |
 
 Le projet généré utilise un layout `src/<package>/...` pour le code applicatif et un dossier
 `config/` structuré par adapter (voir section [Configuration](#configuration)). Utiliser ensuite
@@ -185,6 +188,8 @@ reste commenté, donc aucun import inutilisé n'est ajouté.
 cd my-recipe-service
 arclith-cli add-entity ShoppingItem
 arclith-cli add-entity Todo --profile crud
+arclith-cli add-entity Invoice --profile state-machine \
+  --spec invoice-lifecycle.yaml
 ```
 
 Fichier généré :
@@ -195,7 +200,8 @@ src/<package>/domain/models/shopping_item.py
 
 Sans `--profile`, le mode direct conserve le profil `minimal` et ne génère aucun
 CRUD, port repository, adapter ou endpoint. En interactif, la CLI demande de
-choisir `minimal`, `crud` ou `append-only`. Le profil `crud` initialise les ports inbound, use
+choisir `minimal`, `crud`, `append-only` ou `state-machine`. Ce dernier demande
+ensuite le chemin de sa spec. Le profil `crud` initialise les ports inbound, use
 cases, erreurs, composition et tests du cycle `create/get/list/update/delete`,
 sans créer d'adapter.
 
@@ -215,6 +221,23 @@ référence locale non durable. Aucun transport ni query n'est généré. Consul
 [contrat append-only](https://karned-rekipe.github.io/arclith/blueprints/append-only/)
 pour l'immutabilité, l'idempotence, les timestamps et les limites.
 
+Pour un cycle de vie métier, `state-machine` résout une spec YAML canonique et
+génère un enum d'état, un service de domaine, un port/use case par verbe, un port
+outbound `compare_and_swap` et une matrice complète :
+
+```bash
+arclith-cli add-entity Invoice --profile state-machine \
+  --spec invoice-lifecycle.yaml
+# Ou pour une entité existante dont le champ status est déjà typé et frozen :
+arclith-cli add-blueprint state-machine --entity Invoice \
+  --feature invoice_lifecycle --spec invoice-lifecycle.yaml
+```
+
+Le manifeste V2 et la recette embarquent les paramètres résolus, pas le chemin
+local de la spec. Aucun adapter ou transport n'est ajouté. Consulter le
+[contrat state-machine](https://karned-rekipe.github.io/arclith/blueprints/state-machine/)
+pour les gardes, le CAS et l'évolution des états persistés.
+
 ---
 
 ### `blueprints` et `add-blueprint` — Initialiser un comportement applicatif
@@ -227,12 +250,14 @@ arclith-cli blueprints
 arclith-cli blueprints --json
 arclith-cli add-blueprint crud --entity ShoppingItem --dry-run
 arclith-cli add-blueprint crud --entity ShoppingItem
+arclith-cli add-blueprint state-machine --entity Invoice \
+  --feature invoice_lifecycle --spec invoice-lifecycle.yaml
 ```
 
 La première application écrit `.arclith/features/shopping_item.yaml`. Un replay
 préserve les fichiers applicatifs déjà personnalisés et complète uniquement les
-fichiers manquants. CRUD et append-only sont deux comportements explicites ;
-il n'est jamais inféré depuis un adapter. Voir le
+fichiers manquants. CRUD, append-only et state-machine sont des comportements
+explicites ; aucun n'est inféré depuis un adapter. Voir le
 [contrat détaillé](https://karned-rekipe.github.io/arclith/blueprints/).
 
 ---

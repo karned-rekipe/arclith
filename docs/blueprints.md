@@ -5,16 +5,18 @@ une technologie. Il génère une structure initiale cohérente dans le domaine,
 l'application, la composition et les tests. Le projet reste propriétaire de ces
 fichiers et doit y ajouter ses règles métier.
 
-Le CRUD et l'append-only sont deux blueprints fournis par Arclith. Le CRUD n'est ni le modèle
-universel d'une entité, ni une capability, ni un adapter. D'autres familles
-pourront être ajoutées indépendamment, par exemple un workflow, une recherche,
-un import, un traitement événementiel, une conversation ou un pipeline RAG.
+CRUD, append-only et state-machine sont les trois blueprints fournis par
+Arclith. Le CRUD n'est ni le modèle universel d'une entité, ni une capability,
+ni un adapter. `state-machine` décrit l'état métier d'un agrégat ; il ne doit pas
+être confondu avec un workflow d'exécution. D'autres familles pourront être
+ajoutées indépendamment, par exemple un job, une synchronisation, une recherche,
+une conversation ou un pipeline RAG.
 
 ## Trois Niveaux Distincts
 
 | Niveau | Question | Exemples | Commande |
 |---|---|---|---|
-| Blueprint applicatif | Quel comportement récurrent initialiser ? | CRUD, append-only | `add-blueprint` |
+| Blueprint applicatif | Quel comportement récurrent initialiser ? | CRUD, append-only, state-machine | `add-blueprint` |
 | Capability | De quelle capacité technique le service a-t-il besoin ? | API, MCP, repository, agent | `capabilities` |
 | Adapter | Avec quelle technologie implémenter la capability ? | FastAPI, FastMCP, MongoDB, PostgreSQL | `add-adapter` |
 | Projection | Quel contrat public exposer sur un adapter installé ? | CRUD vers REST | `expose-feature` |
@@ -42,6 +44,7 @@ Profil applicatif initial
   1. minimal
   2. crud
   3. append-only
+  4. state-machine
 ```
 
 Le profil `minimal`, sélectionné par défaut, conserve le comportement historique :
@@ -53,6 +56,8 @@ arclith-cli add-entity Todo --profile minimal
 arclith-cli add-entity Todo --profile crud
 arclith-cli new Todo todo-service --profile crud
 arclith-cli add-entity Measurement --profile append-only
+arclith-cli add-entity Invoice --profile state-machine \
+  --spec invoice-lifecycle.yaml
 ```
 
 Un blueprint peut aussi être appliqué après la création de l'entité :
@@ -60,6 +65,8 @@ Un blueprint peut aussi être appliqué après la création de l'entité :
 ```bash
 arclith-cli add-blueprint crud --entity Todo
 arclith-cli add-blueprint crud --entity Todo --feature todo --dry-run
+arclith-cli add-blueprint state-machine --entity Invoice \
+  --feature invoice_lifecycle --spec invoice-lifecycle.yaml
 ```
 
 `--feature` accepte un nom Python public en `snake_case`. Par défaut, il reprend
@@ -94,6 +101,12 @@ Il est enregistré dans `.arclith/features/<feature>.yaml`. Ce manifeste permet
 à une projection de transport de savoir quelles opérations existent, sans
 déduire un comportement depuis le nom d'un fichier ou d'un adapter.
 
+Les blueprints paramétrés utilisent le manifeste version 2. Il ajoute le mapping
+`parameters` résolu et des digests SHA-256 du template et de la configuration.
+La recette et le manifeste embarquent les valeurs canoniques, jamais le chemin
+absolu du fichier `--spec`. Les manifests version 1 CRUD et append-only restent
+lisibles et rejouables tels quels, sans migration implicite.
+
 Après installation explicite de FastAPI, le CRUD peut être projeté comme un
 ensemble REST cohérent :
 
@@ -124,7 +137,13 @@ Le profil `append-only` crée un `ImmutableRecord` distinct de l'`Entity` CRUD.
 Sa seule opération est `append` ; son store est injecté explicitement et aucun
 transport ni query n'est ajouté. Il ne transforme pas un modèle mutable existant.
 
+Le profil `state-machine` crée une `Entity` dont le champ d'état typé est protégé
+contre l'affectation directe. Chaque transition de la spec devient un verbe, un
+port et un use case explicites. Le projet fournit un port outbound CAS ; Arclith
+ne prétend pas rendre atomique un repository qui ne possède pas ce contrat.
+
 Consulter le [blueprint CRUD](blueprints/crud.md), le
-[blueprint append-only](blueprints/append-only.md) pour leurs contrats détaillés et
-les [blueprints des adapters](deep-dives/adapter-blueprints.md) pour la structure
-des implémentations techniques.
+[blueprint append-only](blueprints/append-only.md), le
+[blueprint state-machine](blueprints/state-machine.md) pour leurs contrats détaillés
+et les [blueprints des adapters](deep-dives/adapter-blueprints.md) pour la
+structure des implémentations techniques.

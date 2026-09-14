@@ -47,6 +47,7 @@ nav:
       - Vue d'ensemble: blueprints.md
       - CRUD: blueprints/crud.md
       - Append-only: blueprints/append-only.md
+      - State-machine: blueprints/state-machine.md
   - Formation:
       - Parcours: learning/training-path.md
       - Quickstarts essentiels: learning/quickstarts.md

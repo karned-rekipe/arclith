@@ -71,6 +71,14 @@ def test_crud_is_an_application_blueprint_not_an_adapter_capability() -> None:
             ),
             "operations": ["append"],
         },
+        {
+            "name": "state-machine",
+            "version": 1,
+            "description": (
+                "Cycle de vie typé avec transitions métier définies par une spec."
+            ),
+            "operations": [],
+        },
     ]
 
 

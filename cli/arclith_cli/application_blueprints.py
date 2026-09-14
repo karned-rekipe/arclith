@@ -4,7 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal, Mapping
 
 if TYPE_CHECKING:
     from arclith_cli.entity_scanner import EntityInfo
@@ -23,6 +23,7 @@ class ApplicationBlueprintSpec:
     operations: tuple[str, ...]
     version: int = APPLICATION_BLUEPRINT_VERSION
     model_base: Literal["entity", "immutable-record"] = "entity"
+    parameterized: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -46,7 +47,18 @@ APPEND_ONLY_BLUEPRINT = ApplicationBlueprintSpec(
     model_base="immutable-record",
 )
 
-APPLICATION_BLUEPRINT_CATALOG = (CRUD_BLUEPRINT, APPEND_ONLY_BLUEPRINT)
+STATE_MACHINE_BLUEPRINT = ApplicationBlueprintSpec(
+    name="state-machine",
+    description="Cycle de vie typé avec transitions métier définies par une spec.",
+    operations=(),
+    parameterized=True,
+)
+
+APPLICATION_BLUEPRINT_CATALOG = (
+    CRUD_BLUEPRINT,
+    APPEND_ONLY_BLUEPRINT,
+    STATE_MACHINE_BLUEPRINT,
+)
 
 
 def get_application_blueprint(name: str) -> ApplicationBlueprintSpec:
@@ -72,6 +84,9 @@ def render_application_blueprint(
     paths: ProjectPaths,
     entity: EntityInfo,
     feature: str,
+    parameters: Mapping[str, Any] | None = None,
+    *,
+    creating_entity: bool = False,
 ) -> dict[Path, str]:
     """Render one catalogued application blueprint."""
     if blueprint.name == "crud":
@@ -82,6 +97,18 @@ def render_application_blueprint(
         from arclith_cli.append_only_blueprint import render_append_only_blueprint
 
         return render_append_only_blueprint(paths, entity, feature)
+    if blueprint.name == "state-machine":
+        from arclith_cli.state_machine_blueprint import render_state_machine_blueprint
+        from arclith_cli.state_machine_spec import StateMachineSpec
+
+        spec = StateMachineSpec.from_parameters(parameters)
+        return render_state_machine_blueprint(
+            paths,
+            entity,
+            feature,
+            spec,
+            creating_entity=creating_entity,
+        )
     raise ValueError(f"No renderer for application blueprint {blueprint.name!r}")
 
 
@@ -102,7 +129,22 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
         file_path=package_root / "domain" / "models" / "entity.py",
         model_base=blueprint.model_base,
     )
-    rendered = render_application_blueprint(blueprint, paths, entity, "feature")
+    parameters: dict[str, object] | None = None
+    if blueprint.name == "state-machine":
+        parameters = {
+            "state_field": "status",
+            "initial_state": "draft",
+            "states": ["approved", "draft"],
+            "transitions": [{"name": "approve", "from": ["draft"], "to": "approved"}],
+        }
+    rendered = render_application_blueprint(
+        blueprint,
+        paths,
+        entity,
+        "feature",
+        parameters,
+        creating_entity=True,
+    )
     payload = json.dumps(
         {
             "blueprint": blueprint.to_dict(),
@@ -116,3 +158,31 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
         sort_keys=True,
     ).encode("utf-8")
     return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def canonical_blueprint_parameters(
+    blueprint: ApplicationBlueprintSpec,
+    raw: object,
+) -> dict[str, Any] | None:
+    """Validate and canonicalize optional blueprint-specific parameters."""
+
+    if blueprint.name == "state-machine":
+        from arclith_cli.state_machine_spec import StateMachineSpec
+
+        return StateMachineSpec.from_parameters(raw).to_parameters()
+    if raw is not None:
+        raise ValueError(f"Blueprint {blueprint.name!r} does not accept parameters")
+    return None
+
+
+def application_parameters_digest(
+    blueprint: ApplicationBlueprintSpec,
+    parameters: Mapping[str, Any] | None,
+) -> str | None:
+    if blueprint.name == "state-machine":
+        from arclith_cli.state_machine_spec import StateMachineSpec
+
+        return StateMachineSpec.from_parameters(parameters).digest()
+    if parameters is not None:
+        raise ValueError(f"Blueprint {blueprint.name!r} does not accept parameters")
+    return None

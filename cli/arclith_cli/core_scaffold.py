@@ -70,6 +70,7 @@ def add_entity_cmd(
     project_dir: Path | None = None,
     entity_name: str,
     model_base: ModelBase = "entity",
+    entity_content: str | None = None,
 ) -> Path:
     project_dir = project_dir or Path.cwd()
     entity_name = entity_name.strip()
@@ -82,7 +83,9 @@ def add_entity_cmd(
     _assert_missing(entity_file, project_dir)
     _ensure_package_dirs(paths, "domain", "models")
     entity_file.write_text(
-        render_entity_template(class_name=names.pascal, model_base=model_base),
+        entity_content
+        if entity_content is not None
+        else render_entity_template(class_name=names.pascal, model_base=model_base),
         encoding="utf-8",
     )
     console.print(

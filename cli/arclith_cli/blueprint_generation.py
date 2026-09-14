@@ -1,19 +1,25 @@
 import keyword
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Mapping
 
 import typer
 from rich.console import Console
 
 from arclith_cli.application_blueprints import (
     ApplicationBlueprintSpec,
+    application_blueprint_digest,
+    application_parameters_digest,
+    canonical_blueprint_parameters,
     get_application_blueprint,
     render_application_blueprint,
 )
 from arclith_cli.entity_scanner import EntityInfo, scan_blueprint_models
 from arclith_cli.feature_manifest import (
     FEATURE_MANIFEST_VERSION,
+    PARAMETERIZED_FEATURE_MANIFEST_VERSION,
     FeatureBlueprint,
+    FeatureDigests,
     FeatureEntity,
     FeatureManifest,
     load_feature_manifest,
@@ -37,6 +43,7 @@ class ApplicationBlueprintPlan:
     files: dict[Path, str]
     preserved: tuple[Path, ...]
     originals: dict[Path, bytes | None]
+    parameters: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -55,6 +62,7 @@ def plan_application_blueprint(
     blueprint_name: str,
     entity_name: str,
     feature_name: str | None,
+    parameters: Mapping[str, Any] | None = None,
 ) -> ApplicationBlueprintPlan:
     entity = _require_entity(project_dir, entity_name)
     return plan_application_blueprint_for_entity(
@@ -62,6 +70,7 @@ def plan_application_blueprint(
         blueprint=get_application_blueprint(blueprint_name),
         entity=entity,
         feature_name=feature_name,
+        parameters=parameters,
     )
 
 
@@ -71,6 +80,8 @@ def plan_application_blueprint_for_entity(
     blueprint: ApplicationBlueprintSpec,
     entity: EntityInfo,
     feature_name: str | None,
+    parameters: Mapping[str, Any] | None = None,
+    creating_entity: bool = False,
 ) -> ApplicationBlueprintPlan:
     if entity.model_base != blueprint.model_base:
         expected = (
@@ -92,18 +103,46 @@ def plan_application_blueprint_for_entity(
             f"{entity.snake!r}"
         )
     feature = _feature_name(feature_name or entity.snake)
+    canonical_parameters = canonical_blueprint_parameters(blueprint, parameters)
+    parameter_digest = application_parameters_digest(blueprint, canonical_parameters)
+    operations = blueprint.operations
+    if blueprint.name == "state-machine":
+        from arclith_cli.state_machine_spec import StateMachineSpec
+
+        operations = StateMachineSpec.from_parameters(canonical_parameters).operations
+    manifest_version = (
+        PARAMETERIZED_FEATURE_MANIFEST_VERSION
+        if canonical_parameters is not None
+        else FEATURE_MANIFEST_VERSION
+    )
     manifest = FeatureManifest(
-        version=FEATURE_MANIFEST_VERSION,
+        version=manifest_version,
         feature=feature,
         entity=FeatureEntity(
             name=entity.pascal,
             module=paths.import_path("domain", "models", entity.file_path.stem),
         ),
         blueprint=FeatureBlueprint(name=blueprint.name, version=blueprint.version),
-        operations=blueprint.operations,
+        operations=operations,
+        parameters=canonical_parameters,
+        digests=(
+            FeatureDigests(
+                template=application_blueprint_digest(blueprint),
+                parameters=parameter_digest,
+            )
+            if parameter_digest is not None
+            else None
+        ),
     )
     manifest_path = project_dir / ".arclith" / "features" / f"{feature}.yaml"
-    rendered = render_application_blueprint(blueprint, paths, entity, feature)
+    rendered = render_application_blueprint(
+        blueprint,
+        paths,
+        entity,
+        feature,
+        canonical_parameters,
+        creating_entity=creating_entity,
+    )
     _validate_target_paths(project_dir, (*rendered, manifest_path))
     installed = manifest_path.is_file()
     if installed and load_feature_manifest(manifest_path) != manifest:
@@ -137,6 +176,7 @@ def plan_application_blueprint_for_entity(
         files=files,
         preserved=preserved,
         originals=originals,
+        parameters=canonical_parameters,
     )
 
 
@@ -145,6 +185,7 @@ def plan_application_profile_for_new_entity(
     *,
     profile_name: str,
     entity_name: str,
+    parameters: Mapping[str, Any] | None = None,
 ) -> ApplicationBlueprintPlan | None:
     """Preflight an optional application profile before creating its entity."""
     if profile_name == "minimal":
@@ -162,6 +203,8 @@ def plan_application_profile_for_new_entity(
             model_base=blueprint.model_base,
         ),
         feature_name=names.snake,
+        parameters=parameters,
+        creating_entity=True,
     )
 
 
@@ -209,12 +252,14 @@ def add_application_blueprint_cmd(
     entity_name: str,
     feature_name: str | None,
     dry_run: bool,
+    parameters: Mapping[str, Any] | None = None,
 ) -> ApplicationBlueprintResult:
     plan = plan_application_blueprint(
         project_dir,
         blueprint_name=blueprint_name,
         entity_name=entity_name,
         feature_name=feature_name,
+        parameters=parameters,
     )
     for path in plan.files:
         console.print(f"create [bold]{path.relative_to(project_dir)}[/bold]")
