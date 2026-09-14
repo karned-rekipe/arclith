@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from click import unstyle
 from typer.testing import CliRunner
 
 from arclith_cli import blueprint_generation, job_blueprint
@@ -94,7 +95,8 @@ def generate(monkeypatch, root, *, entity=False, **updates):
     return result
 
 
-def test_job_catalogue_and_help():
+@pytest.mark.parametrize("color", [False, True])
+def test_job_catalogue_and_help(color):
     output = runner.invoke(app, ["blueprints", "--json"])
     entry = next(item for item in json.loads(output.output) if item["name"] == "job")
     assert entry["operations"] == [
@@ -105,7 +107,9 @@ def test_job_catalogue_and_help():
         "get_result",
     ]
     assert entry["parameterized"] is True
-    assert "--no-entity" in runner.invoke(app, ["add-blueprint", "--help"]).output
+    help_result = runner.invoke(app, ["add-blueprint", "--help"], color=color)
+    assert help_result.exit_code == 0, help_result.output
+    assert "--no-entity" in unstyle(help_result.output)
 
 
 @pytest.mark.parametrize("entity", [False, True])

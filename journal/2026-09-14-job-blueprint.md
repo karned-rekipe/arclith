@@ -46,10 +46,10 @@
 
 - Tests moteur ciblés : **92 passés** (matrice, concurrence, annulation/retry,
   versions, champs cachés, erreurs bornées, rétention, persistance incertaine).
-- Tests CLI job : **47 passés**, incluant les deux cibles et les deux politiques
+- Tests CLI job : **48 passés**, incluant les deux cibles et les deux politiques
   d'annulation, compilation/tests générés, dry-run, collisions/compensation,
   replay portable, dérives et compatibilité exacte state-machine.
-- Suite CLI complète : **777 passés**, un warning Pydantic déjà existant sur
+- Suite CLI complète : **778 passés**, un warning Pydantic déjà existant sur
   une fixture CRUD utilisant Final.
 - `make precommit` : lint, mypy et Bandit verts.
 - `make complexity` : vert après séparation des validations JSON natives.
@@ -68,9 +68,20 @@
 
 ## Publication
 
-Cette livraison prépare une PR vers main ; aucune release ni publication PyPI
+La PR #243 cible main et ferme #224. Aucune release ni publication PyPI
 n'est effectuée. Les wheels de smoke portent les versions courantes du checkout
 et servent uniquement à valider le packaging des sources de la PR. La page
 documente l'installation de développement en attendant une release compatible.
 Le workflow Pages existant publiera les docs après fusion sur main ; le build
 local ne constitue pas une preuve de déploiement du site public.
+
+## Retours de CI et revue
+
+- Le premier E2E distant a passé 776 tests et échoué sur la comparaison brute
+  de l'aide CLI : les séquences ANSI séparaient les caractères de `--no-entity`.
+  Le test compare maintenant le texte sans styles via Click et couvre les
+  captures avec et sans couleur ; aucune modification du comportement CLI.
+- Quatre conversations GitHub Code Quality examinées, justifiées puis résolues :
+  deux attentes asyncio collectent la fin/l'annulation des tâches ; les deux
+  imports signalés sont les classes de base des adaptateurs génériques PEP 695.
+  Aucun retour Copilot n'était présent à cette lecture.
