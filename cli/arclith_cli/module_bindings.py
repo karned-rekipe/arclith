@@ -5,6 +5,21 @@ from __future__ import annotations
 import ast
 
 
+def node_line_or_module_end(node: ast.AST, tree: ast.Module) -> int:
+    """Return a usable source boundary for synthetic or parsed AST nodes."""
+
+    line = int(getattr(node, "lineno", 0))
+    if line:
+        return line
+    return (
+        max(
+            (int(getattr(candidate, "lineno", 0)) for candidate in ast.walk(tree)),
+            default=0,
+        )
+        + 1
+    )
+
+
 def module_imports(tree: ast.Module) -> tuple[ast.Import | ast.ImportFrom, ...]:
     """Return unconditional imports and imports guarded by ``TYPE_CHECKING``."""
     imports = [
@@ -135,6 +150,14 @@ def _binding_events(
         for line, column, name in conditional_module_bindings(tree)
         if line < before_line
     )
+    named_expressions = _EscapingNamedExprCollector()
+    for statement in tree.body:
+        named_expressions.visit(statement)
+    events.extend(
+        (line, column, name)
+        for line, column, name in named_expressions.events
+        if line < before_line
+    )
     return tuple(sorted(events, key=lambda item: item[:2]))
 
 
@@ -151,6 +174,12 @@ def _direct_statement_bound_names(statement: ast.stmt) -> set[str]:
         }
     if isinstance(statement, ast.AnnAssign):
         return _bound_names(statement.target)
+    if isinstance(statement, ast.AugAssign):
+        return _bound_names(statement.target)
+    if isinstance(statement, ast.Delete):
+        return {
+            name for target in statement.targets for name in _bound_names(target)
+        }
     if isinstance(statement, ast.TypeAlias):
         return _bound_names(statement.name)
     if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -176,8 +205,67 @@ def _bound_names(node: ast.AST) -> set[str]:
     return {
         child.id
         for child in ast.walk(node)
-        if isinstance(child, ast.Name) and isinstance(child.ctx, (ast.Store, ast.Param))
+        if isinstance(child, ast.Name)
+        and isinstance(child.ctx, (ast.Store, ast.Param, ast.Del))
     }
+
+
+class _EscapingNamedExprCollector(ast.NodeVisitor):
+    """Collect walrus targets evaluated in the containing module scope."""
+
+    def __init__(self) -> None:
+        self.events: list[tuple[int, int, str]] = []
+
+    def visit_NamedExpr(self, node: ast.NamedExpr) -> None:
+        self.events.extend(
+            (
+                int(getattr(node.target, "lineno", 0)),
+                int(getattr(node.target, "col_offset", 0)),
+                name,
+            )
+            for name in _bound_names(node.target)
+        )
+        self.visit(node.value)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self._visit_callable_header(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self._visit_callable_header(node)
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        for expression in (*node.decorator_list, *node.bases):
+            self.visit(expression)
+        for keyword in node.keywords:
+            self.visit(keyword.value)
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        self._visit_arguments(node.args)
+
+    def _visit_callable_header(
+        self,
+        node: ast.FunctionDef | ast.AsyncFunctionDef,
+    ) -> None:
+        for decorator in node.decorator_list:
+            self.visit(decorator)
+        self._visit_arguments(node.args)
+        if node.returns is not None:
+            self.visit(node.returns)
+
+    def _visit_arguments(self, arguments: ast.arguments) -> None:
+        positional = (*arguments.posonlyargs, *arguments.args)
+        for argument in (*positional, *arguments.kwonlyargs):
+            if argument.annotation is not None:
+                self.visit(argument.annotation)
+        for optional_argument in (arguments.vararg, arguments.kwarg):
+            if (
+                optional_argument is not None
+                and optional_argument.annotation is not None
+            ):
+                self.visit(optional_argument.annotation)
+        for default in (*arguments.defaults, *arguments.kw_defaults):
+            if default is not None:
+                self.visit(default)
 
 
 class _ConditionalBindingCollector(ast.NodeVisitor):

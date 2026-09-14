@@ -1,27 +1,38 @@
 import keyword
+import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Mapping
 
 import typer
 from rich.console import Console
 
+from arclith_cli.atomic_writes import FilePublication, write_new_text_file
 from arclith_cli.application_blueprints import (
     ApplicationBlueprintSpec,
+    application_blueprint_digest,
+    application_parameters_digest,
+    canonical_blueprint_parameters,
     get_application_blueprint,
     render_application_blueprint,
 )
+from arclith_cli.core_scaffold import add_entity_cmd, validated_entity_names
 from arclith_cli.entity_scanner import EntityInfo, scan_blueprint_models
 from arclith_cli.feature_manifest import (
     FEATURE_MANIFEST_VERSION,
+    PARAMETERIZED_FEATURE_MANIFEST_VERSION,
     FeatureBlueprint,
+    FeatureDigests,
     FeatureEntity,
     FeatureManifest,
     load_feature_manifest,
     render_feature_manifest,
     save_feature_manifest,
 )
-from arclith_cli.project_paths import detect_project_paths
+from arclith_cli.project_paths import ProjectPaths, detect_project_paths
 from arclith_cli.rename import EntityNames
+from arclith_cli.scaffold_templates import render_entity_template
 
 console = Console()
 
@@ -37,6 +48,7 @@ class ApplicationBlueprintPlan:
     files: dict[Path, str]
     preserved: tuple[Path, ...]
     originals: dict[Path, bytes | None]
+    parameters: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -49,12 +61,22 @@ class ApplicationBlueprintResult:
     preserved: tuple[Path, ...]
 
 
+@dataclass(frozen=True)
+class _CreatedDirectory:
+    """Filesystem identity of a directory created by the current command."""
+
+    path: Path
+    device: int
+    inode: int
+
+
 def plan_application_blueprint(
     project_dir: Path,
     *,
     blueprint_name: str,
     entity_name: str,
     feature_name: str | None,
+    parameters: Mapping[str, Any] | None = None,
 ) -> ApplicationBlueprintPlan:
     entity = _require_entity(project_dir, entity_name)
     return plan_application_blueprint_for_entity(
@@ -62,6 +84,7 @@ def plan_application_blueprint(
         blueprint=get_application_blueprint(blueprint_name),
         entity=entity,
         feature_name=feature_name,
+        parameters=parameters,
     )
 
 
@@ -71,6 +94,10 @@ def plan_application_blueprint_for_entity(
     blueprint: ApplicationBlueprintSpec,
     entity: EntityInfo,
     feature_name: str | None,
+    parameters: Mapping[str, Any] | None = None,
+    creating_entity: bool = False,
+    project_paths: ProjectPaths | None = None,
+    expected_empty_initializers: tuple[Path, ...] = (),
 ) -> ApplicationBlueprintPlan:
     if entity.model_base != blueprint.model_base:
         expected = (
@@ -85,25 +112,59 @@ def plan_application_blueprint_for_entity(
             f"Blueprint {blueprint.name!r} requires a model based on {expected}; "
             f"{entity.pascal} is based on {actual}"
         )
-    paths = detect_project_paths(project_dir)
+    paths = project_paths or detect_project_paths(project_dir)
+    entity_module = entity.file_path.stem
+    if not entity_module.isidentifier() or keyword.iskeyword(entity_module):
+        raise ValueError(
+            f"Entity module name {entity_module!r} must be a valid, non-keyword "
+            "Python identifier"
+        )
     if keyword.iskeyword(entity.snake):
         raise ValueError(
             f"Entity {entity.pascal!r} normalizes to the reserved Python keyword "
             f"{entity.snake!r}"
         )
     feature = _feature_name(feature_name or entity.snake)
+    canonical_parameters = canonical_blueprint_parameters(blueprint, parameters)
+    parameter_digest = application_parameters_digest(blueprint, canonical_parameters)
+    operations = blueprint.operations
+    if blueprint.name == "state-machine":
+        from arclith_cli.state_machine_spec import StateMachineSpec
+
+        operations = StateMachineSpec.from_parameters(canonical_parameters).operations
+    manifest_version = (
+        PARAMETERIZED_FEATURE_MANIFEST_VERSION
+        if canonical_parameters is not None
+        else FEATURE_MANIFEST_VERSION
+    )
     manifest = FeatureManifest(
-        version=FEATURE_MANIFEST_VERSION,
+        version=manifest_version,
         feature=feature,
         entity=FeatureEntity(
             name=entity.pascal,
             module=paths.import_path("domain", "models", entity.file_path.stem),
         ),
         blueprint=FeatureBlueprint(name=blueprint.name, version=blueprint.version),
-        operations=blueprint.operations,
+        operations=operations,
+        parameters=canonical_parameters,
+        digests=(
+            FeatureDigests(
+                template=application_blueprint_digest(blueprint),
+                parameters=parameter_digest,
+            )
+            if parameter_digest is not None
+            else None
+        ),
     )
     manifest_path = project_dir / ".arclith" / "features" / f"{feature}.yaml"
-    rendered = render_application_blueprint(blueprint, paths, entity, feature)
+    rendered = render_application_blueprint(
+        blueprint,
+        paths,
+        entity,
+        feature,
+        canonical_parameters,
+        creating_entity=creating_entity,
+    )
     _validate_target_paths(project_dir, (*rendered, manifest_path))
     installed = manifest_path.is_file()
     if installed and load_feature_manifest(manifest_path) != manifest:
@@ -127,6 +188,16 @@ def plan_application_blueprint_for_entity(
     if not installed:
         files[manifest_path] = render_feature_manifest(manifest)
     originals = {path: path.read_bytes() if path.is_file() else None for path in files}
+    if creating_entity:
+        # Record only the exact empty initializer snapshots written between
+        # planning and application by ``add_entity_cmd`` and, for ``new``, ``init``.
+        expected_initializers = {
+            *_entity_initializer_paths(paths),
+            *expected_empty_initializers,
+        }
+        for initializer in expected_initializers:
+            if initializer in originals and originals[initializer] is None:
+                originals[initializer] = b""
     return ApplicationBlueprintPlan(
         project_dir=project_dir,
         blueprint=blueprint,
@@ -137,6 +208,7 @@ def plan_application_blueprint_for_entity(
         files=files,
         preserved=preserved,
         originals=originals,
+        parameters=canonical_parameters,
     )
 
 
@@ -145,12 +217,17 @@ def plan_application_profile_for_new_entity(
     *,
     profile_name: str,
     entity_name: str,
+    parameters: Mapping[str, Any] | None = None,
+    project_paths: ProjectPaths | None = None,
+    expected_empty_initializers: tuple[Path, ...] = (),
 ) -> ApplicationBlueprintPlan | None:
     """Preflight an optional application profile before creating its entity."""
+    names = validated_entity_names(entity_name)
     if profile_name == "minimal":
+        if parameters is not None:
+            raise ValueError("Profile 'minimal' does not accept parameters")
         return None
-    paths = detect_project_paths(project_dir)
-    names = EntityNames.from_input(entity_name.strip())
+    paths = project_paths or detect_project_paths(project_dir)
     blueprint = get_application_blueprint(profile_name)
     return plan_application_blueprint_for_entity(
         project_dir,
@@ -162,7 +239,26 @@ def plan_application_profile_for_new_entity(
             model_base=blueprint.model_base,
         ),
         feature_name=names.snake,
+        parameters=parameters,
+        creating_entity=True,
+        project_paths=paths,
+        expected_empty_initializers=expected_empty_initializers,
     )
+
+
+def _entity_initializer_paths(paths: ProjectPaths) -> tuple[Path, ...]:
+    """Mirror the package initializers created by ``add_entity_cmd``."""
+    stop_at = (
+        paths.package_root.parent
+        if paths.package_name is not None
+        else paths.package_root
+    )
+    directories = [paths.domain_models]
+    for parent in paths.domain_models.parents:
+        if parent == stop_at:
+            break
+        directories.append(parent)
+    return tuple(directory / "__init__.py" for directory in directories)
 
 
 def apply_application_blueprint(
@@ -175,14 +271,207 @@ def apply_application_blueprint(
             raise ValueError(
                 f"File changed after blueprint planning; rerun the command: {path}"
             )
-    for path, content in plan.files.items():
-        if path == plan.manifest_path:
-            continue
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
-    if plan.manifest_path in plan.files:
-        save_feature_manifest(plan.manifest, plan.manifest_path)
+    written: list[FilePublication] = []
+    directories: list[_CreatedDirectory] = []
+    try:
+        _create_parent_directories(
+            plan.project_dir,
+            tuple(plan.files),
+            created=directories,
+        )
+        for path, content in plan.files.items():
+            if path == plan.manifest_path:
+                continue
+            if plan.originals[path] is not None:
+                # Entity/new-project initializers are already the exact empty
+                # snapshot anticipated by the plan; no rewrite is necessary.
+                continue
+            written.append(write_new_text_file(path, content))
+        if plan.manifest_path in plan.files:
+            written.append(save_feature_manifest(plan.manifest, plan.manifest_path))
+    except Exception:
+        _restore_written_files(
+            written,
+            expected=plan.files,
+        )
+        _remove_empty_directories(directories)
+        raise
     return tuple(plan.files)
+
+
+def create_entity_with_application_blueprint(
+    plan: ApplicationBlueprintPlan,
+    *,
+    entity_name: str,
+    entity_content: str | None,
+) -> Path:
+    """Create an entity and compensate it if blueprint application fails."""
+
+    paths = detect_project_paths(plan.project_dir)
+    entity_path = plan.entity.file_path
+    tracked = (entity_path, *_entity_initializer_paths(paths))
+    expected = {
+        entity_path: (
+            entity_content
+            if entity_content is not None
+            else render_entity_template(
+                class_name=plan.entity.pascal,
+                model_base=plan.entity.model_base,
+            )
+        ).encode("utf-8"),
+        **{
+            initializer: b""
+            for initializer in tracked
+            if initializer != entity_path
+        },
+    }
+    directories: list[_CreatedDirectory] = []
+    created_files: list[FilePublication] = []
+    try:
+        _create_parent_directories(
+            plan.project_dir,
+            tracked,
+            created=directories,
+        )
+        created = add_entity_cmd(
+            project_dir=plan.project_dir,
+            entity_name=entity_name,
+            model_base=plan.entity.model_base,
+            entity_content=entity_content,
+            created_files=created_files,
+        )
+        apply_application_blueprint(plan)
+    except Exception:
+        _restore_written_files(
+            created_files,
+            expected=expected,
+        )
+        _remove_empty_directories(directories)
+        raise
+    return created
+
+
+def _create_parent_directories(
+    project_dir: Path,
+    targets: tuple[Path, ...],
+    *,
+    created: list[_CreatedDirectory],
+) -> None:
+    missing: set[Path] = set()
+    for target in targets:
+        for parent in target.parents:
+            if parent == project_dir:
+                break
+            if not parent.exists():
+                missing.add(parent)
+    for directory in sorted(missing, key=lambda path: len(path.parts)):
+        try:
+            directory.mkdir()
+        except FileExistsError:
+            if directory.is_symlink() or not directory.is_dir():
+                raise ValueError(
+                    "Application blueprint parent must be a directory without "
+                    f"symlinks: {directory.relative_to(project_dir)}"
+                ) from None
+            continue
+        identity = directory.lstat()
+        created.append(
+            _CreatedDirectory(
+                path=directory,
+                device=identity.st_dev,
+                inode=identity.st_ino,
+            )
+        )
+
+
+def _restore_written_files(
+    publications: list[FilePublication],
+    *,
+    expected: Mapping[Path, str | bytes | None],
+) -> None:
+    for publication in reversed(publications):
+        planned = expected.get(publication.path)
+        planned_bytes = planned.encode("utf-8") if isinstance(planned, str) else planned
+        if planned_bytes is not None:
+            _remove_unchanged_publication(publication, planned_bytes)
+
+
+def _remove_unchanged_publication(
+    publication: FilePublication,
+    planned: bytes,
+) -> None:
+    """Atomically detach a path, then delete only the inode we published."""
+
+    try:
+        quarantine_dir = Path(
+            tempfile.mkdtemp(
+                dir=publication.path.parent,
+                prefix=f".{publication.path.name}.",
+                suffix=".rollback",
+            )
+        )
+    except OSError:
+        return
+    quarantine = quarantine_dir / "published"
+    try:
+        try:
+            publication.path.rename(quarantine)
+        except OSError:
+            return
+        try:
+            identity = quarantine.lstat()
+            unchanged = (
+                (identity.st_dev, identity.st_ino)
+                == (publication.device, publication.inode)
+                and quarantine.read_bytes() == planned
+            )
+        except OSError:
+            unchanged = False
+        if unchanged:
+            try:
+                quarantine.unlink()
+            except OSError:
+                # Rollback cleanup is best-effort; keep the private quarantine
+                # rather than mask the application error being compensated.
+                pass
+            return
+        _restore_quarantined_file(quarantine, publication.path)
+    finally:
+        try:
+            quarantine_dir.rmdir()
+        except OSError:
+            # A non-empty quarantine preserves concurrently written content.
+            pass
+
+
+def _restore_quarantined_file(quarantine: Path, target: Path) -> None:
+    """Restore a moved concurrent regular file without replacing a newer path."""
+
+    if quarantine.is_symlink() or not quarantine.is_file():
+        return
+    try:
+        os.link(quarantine, target)
+    except OSError:
+        return
+    try:
+        quarantine.unlink()
+    except OSError:
+        # Both hard links preserve the same bytes; cleanup remains best-effort.
+        pass
+
+
+def _remove_empty_directories(directories: list[_CreatedDirectory]) -> None:
+    for created in reversed(directories):
+        try:
+            identity = created.path.lstat()
+            if (identity.st_dev, identity.st_ino) != (
+                created.device,
+                created.inode,
+            ):
+                continue
+            created.path.rmdir()
+        except OSError:
+            continue
 
 
 def _validate_target_paths(project_dir: Path, targets: tuple[Path, ...]) -> None:
@@ -209,12 +498,14 @@ def add_application_blueprint_cmd(
     entity_name: str,
     feature_name: str | None,
     dry_run: bool,
+    parameters: Mapping[str, Any] | None = None,
 ) -> ApplicationBlueprintResult:
     plan = plan_application_blueprint(
         project_dir,
         blueprint_name=blueprint_name,
         entity_name=entity_name,
         feature_name=feature_name,
+        parameters=parameters,
     )
     for path in plan.files:
         console.print(f"create [bold]{path.relative_to(project_dir)}[/bold]")

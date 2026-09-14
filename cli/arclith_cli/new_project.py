@@ -1,16 +1,25 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, Mapping
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
 
-from arclith_cli.application_blueprints import get_application_blueprint
-from arclith_cli.blueprint_generation import add_application_blueprint_cmd
+from arclith_cli.blueprint_generation import (
+    create_entity_with_application_blueprint,
+    plan_application_profile_for_new_entity,
+)
 from arclith_cli.core_scaffold import add_entity_cmd
-from arclith_cli.init_project import init_project_cmd
+from arclith_cli.init_project import (
+    init_project_cmd,
+    initial_project_initializer_paths,
+    project_paths_for_new_project,
+)
 from arclith_cli.rename import EntityNames
+from arclith_cli.state_machine_entity import render_state_machine_entity
+from arclith_cli.state_machine_spec import StateMachineSpec
 
 console = Console()
 
@@ -24,6 +33,7 @@ def new_project_cmd(
     repo_ref: str,
     template_dir: Path | None,
     profile: str = "minimal",
+    parameters: Mapping[str, Any] | None = None,
     target_path: Path | None = None,
 ) -> Path:
     """Create the canonical minimal project and its first entity.
@@ -33,28 +43,41 @@ def new_project_cmd(
     and runtime files remain explicit ``add-adapter`` decisions.
     """
     _validate_suggested_api_port(port)
-    blueprint = get_application_blueprint(profile) if profile != "minimal" else None
     _ = repo_ref, template_dir  # Retained for replay compatibility with old recipes.
     entity_names = EntityNames.from_input(entity)
-
+    planned_paths = project_paths_for_new_project(
+        project_name=project_name,
+        directory=directory,
+        target_path=target_path,
+    )
+    blueprint_plan = plan_application_profile_for_new_entity(
+        planned_paths.root,
+        profile_name=profile,
+        entity_name=entity,
+        parameters=parameters,
+        project_paths=planned_paths,
+        expected_empty_initializers=initial_project_initializer_paths(planned_paths),
+    )
+    entity_content = None
+    if blueprint_plan is not None and blueprint_plan.blueprint.name == "state-machine":
+        entity_content = render_state_machine_entity(
+            planned_paths,
+            blueprint_plan.entity,
+            StateMachineSpec.from_parameters(blueprint_plan.parameters),
+        )
     target_dir = init_project_cmd(
         project_name=project_name,
         directory=directory,
         target_path=target_path,
     )
-    add_entity_cmd(
-        project_dir=target_dir,
-        entity_name=entity,
-        model_base=blueprint.model_base if blueprint is not None else "entity",
-    )
-    if blueprint is not None:
-        add_application_blueprint_cmd(
-            project_dir=target_dir,
-            blueprint_name=profile,
+    if blueprint_plan is not None:
+        create_entity_with_application_blueprint(
+            blueprint_plan,
             entity_name=entity,
-            feature_name=None,
-            dry_run=False,
+            entity_content=entity_content,
         )
+    else:
+        add_entity_cmd(project_dir=target_dir, entity_name=entity)
 
     application_next = (
         f"[bold cyan]arclith-cli add-usecase Create{entity_names.pascal} "

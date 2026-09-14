@@ -62,6 +62,7 @@ def test_crud_is_an_application_blueprint_not_an_adapter_capability() -> None:
             "version": 1,
             "description": "Cycle de vie CRUD explicite pour une entité métier.",
             "operations": ["create", "get", "list", "update", "delete"],
+            "parameterized": False,
         },
         {
             "name": "append-only",
@@ -70,6 +71,16 @@ def test_crud_is_an_application_blueprint_not_an_adapter_capability() -> None:
                 "Faits immuables avec append idempotent et conflit explicite."
             ),
             "operations": ["append"],
+            "parameterized": False,
+        },
+        {
+            "name": "state-machine",
+            "version": 1,
+            "description": (
+                "Cycle de vie typé avec transitions métier définies par une spec."
+            ),
+            "operations": [],
+            "parameterized": True,
         },
     ]
 
@@ -730,8 +741,7 @@ class Todo(Entity):
     )
 
     create_source = (
-        project
-        / "src/shadowed_builtin_service/domain/ports/inbound/create_todo.py"
+        project / "src/shadowed_builtin_service/domain/ports/inbound/create_todo.py"
     ).read_text(encoding="utf-8")
     assert (
         "from shadowed_builtin_service.domain.models.todo import Todo, list"
@@ -2079,8 +2089,7 @@ Field = lambda **kwargs: kwargs
         "declaration_origin_service.domain.ports.inbound.create_todo"
     )
     source = (
-        project
-        / "src/declaration_origin_service/domain/ports/inbound/create_todo.py"
+        project / "src/declaration_origin_service/domain/ports/inbound/create_todo.py"
     ).read_text(encoding="utf-8")
 
     assert set(contract.CreateTodoCommand.model_fields) == {"code"}
@@ -2307,7 +2316,7 @@ def test_nested_strings_in_deferred_annotated_metadata_remain_opaque(
     project = _project(tmp_path, "opaque-metadata-service")
     entity = project / "src/opaque_metadata_service/domain/models/todo.py"
     entity.write_text(
-        '''from typing import Annotated, ClassVar
+        """from typing import Annotated, ClassVar
 
 from arclith.domain.models.entity import Entity
 
@@ -2315,7 +2324,7 @@ from arclith.domain.models.entity import Entity
 class Todo(Entity):
     MIN_LENGTH: ClassVar[int] = 2
     code: "Annotated[str, ('MIN_LENGTH',), ('Field(exclude=True)',)]"
-''',
+""",
         encoding="utf-8",
     )
 
@@ -2360,7 +2369,7 @@ def test_type_checking_typing_alias_sanitizes_deferred_metadata(
     project = _project(tmp_path, "guarded-typing-service")
     entity = project / "src/guarded_typing_service/domain/models/todo.py"
     entity.write_text(
-        '''from __future__ import annotations
+        """from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
@@ -2374,7 +2383,7 @@ if TYPE_CHECKING:
 
 class Todo(Entity):
     code: "A[str, Field(exclude=True, min_length=2)]"
-''',
+""",
         encoding="utf-8",
     )
 
@@ -2401,7 +2410,7 @@ def test_entity_literal_default_is_snapshotted_before_a_later_rebinding(
     project = _project(tmp_path, "default-snapshot-service")
     entity = project / "src/default_snapshot_service/domain/models/todo.py"
     entity.write_text(
-        '''from arclith.domain.models.entity import Entity
+        """from arclith.domain.models.entity import Entity
 
 DEFAULT = "old"
 
@@ -2411,7 +2420,7 @@ class Todo(Entity):
 
 
 DEFAULT = "new"
-''',
+""",
         encoding="utf-8",
     )
 
@@ -2447,7 +2456,7 @@ def test_deferred_literal_member_imports_its_runtime_dependency(
     project = _project(tmp_path, "literal-member-service")
     entity = project / "src/literal_member_service/domain/models/todo.py"
     entity.write_text(
-        '''from enum import Enum
+        """from enum import Enum
 from typing import Literal
 
 from arclith.domain.models.entity import Entity
@@ -2459,7 +2468,7 @@ class Status(str, Enum):
 
 class Todo(Entity):
     status: "Literal[Status.ACTIVE]"
-''',
+""",
         encoding="utf-8",
     )
 
@@ -2474,9 +2483,7 @@ class Todo(Entity):
     contract = importlib.import_module(
         "literal_member_service.domain.ports.inbound.create_todo"
     )
-    entity_module = importlib.import_module(
-        "literal_member_service.domain.models.todo"
-    )
+    entity_module = importlib.import_module("literal_member_service.domain.models.todo")
     source = (
         project / "src/literal_member_service/domain/ports/inbound/create_todo.py"
     ).read_text(encoding="utf-8")
@@ -2501,7 +2508,7 @@ def test_standard_library_new_type_alias_remains_supported(
     project = _project(tmp_path, "new-type-service")
     entity = project / "src/new_type_service/domain/models/todo.py"
     entity.write_text(
-        '''from typing import NewType
+        """from typing import NewType
 
 from arclith.domain.models.entity import Entity
 
@@ -2510,7 +2517,7 @@ UserId = NewType("UserId", int)
 
 class Todo(Entity):
     user_id: UserId
-''',
+""",
         encoding="utf-8",
     )
 
@@ -2539,7 +2546,7 @@ def test_crud_blueprint_rejects_import_collision_with_generated_contract(
     project = _project(tmp_path, "contract-collision-service")
     entity = project / "src/contract_collision_service/domain/models/todo.py"
     entity.write_text(
-        '''from pydantic import BaseModel
+        """from pydantic import BaseModel
 
 from arclith.domain.models.entity import Entity
 
@@ -2550,7 +2557,7 @@ class CreateTodoCommand(BaseModel):
 
 class Todo(Entity):
     payload: CreateTodoCommand
-''',
+""",
         encoding="utf-8",
     )
 

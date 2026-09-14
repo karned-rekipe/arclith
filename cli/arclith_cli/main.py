@@ -18,6 +18,7 @@ from .application_blueprint_cli import (
     application_profile_recipe_metadata,
     blueprints_command,
     prompt_entity,
+    resolve_blueprint_parameters,
     resolve_entity_profile,
 )
 from .binding_cli import expose_usecase_command
@@ -133,8 +134,12 @@ def new(
         str | None,
         typer.Option(
             "--profile",
-            help="Profil applicatif initial : minimal, crud ou append-only.",
+            help="Profil initial : minimal, crud, append-only ou state-machine.",
         ),
+    ] = None,
+    spec: Annotated[
+        Path | None,
+        typer.Option("--spec", help="Spec YAML requise par state-machine."),
     ] = None,
     repo_ref: Annotated[
         str,
@@ -164,19 +169,29 @@ def new(
     entity = entity or prompt_entity()
     try:
         resolved_profile = resolve_entity_profile(profile, interactive=interactive)
+        parameters = resolve_blueprint_parameters(
+            resolved_profile,
+            spec_path=spec,
+            interactive=interactive,
+        )
     except ValueError as exc:
         console.print(f"[red]✗ Profil invalide :[/red] {exc}")
         raise typer.Exit(1) from exc
     project_name = project_name or _prompt_project()
-    target_dir = _new_project_cmd(
-        entity=entity,
-        project_name=project_name,
-        directory=directory,
-        port=port,
-        repo_ref=repo_ref,
-        template_dir=template_dir,
-        profile=resolved_profile,
-    )
+    try:
+        target_dir = _new_project_cmd(
+            entity=entity,
+            project_name=project_name,
+            directory=directory,
+            port=port,
+            repo_ref=repo_ref,
+            template_dir=template_dir,
+            profile=resolved_profile,
+            parameters=parameters,
+        )
+    except (OSError, SyntaxError, ValueError) as exc:
+        console.print(f"[red]✗ Blueprint refusé :[/red] {exc}")
+        raise typer.Exit(1) from exc
     if not no_record:
         _record_success(
             target_dir,
@@ -188,7 +203,10 @@ def new(
                 "port": port,
                 "repo_ref": repo_ref,
                 "profile": resolved_profile,
-                **application_profile_recipe_metadata(resolved_profile),
+                **application_profile_recipe_metadata(
+                    resolved_profile,
+                    parameters=parameters,
+                ),
             },
             before={},
         )

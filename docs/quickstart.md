@@ -88,6 +88,34 @@ transport, query ou CRUD. Le container exige un store explicite ; lire le
 [blueprint append-only](blueprints/append-only.md) pour l'identité stable des retries,
 les deux timestamps et les limites du store mémoire.
 
+Pour un agrégat qui évolue par verbes métier, fournir une spec puis choisir le
+blueprint paramétré :
+
+```bash
+arclith-cli init invoice-service
+cd invoice-service
+cat > invoice-lifecycle.yaml <<'YAML'
+version: 1
+state_field: status
+initial_state: draft
+states: [draft, submitted]
+transitions:
+  - name: submit
+    from: [draft]
+    to: submitted
+YAML
+arclith-cli add-entity Invoice --profile state-machine \
+  --spec invoice-lifecycle.yaml
+uv sync
+uv run pytest tests/domain tests/application -q
+```
+
+Le champ d'état est typé et protégé contre l'affectation directe. Chaque
+transition devient un port et un use case explicites ; le projet doit fournir un
+adapter qui respecte réellement le compare-and-swap. Lire le
+[blueprint state-machine](blueprints/state-machine.md) pour la spec, les gardes,
+le manifeste V2 et l'évolution des états persistés.
+
 `arclith-cli run api` exécute `uv run` dans la racine détectée et conserve le
 serveur en avant-plan jusqu'à `Ctrl+C`. Le port et le reload restent pilotés par
 la configuration FastAPI générée.
@@ -108,7 +136,8 @@ uv tool install --force "git+https://github.com/karned-rekipe/arclith.git@feat/h
 Pour compatibilité, `new` reste disponible. Il équivaut à `init` suivi de
 `add-entity`; il ne télécharge plus un projet complet et n'ajoute aucun adapter.
 Le mode interactif demande le profil applicatif après l'entité ; le mode direct
-peut utiliser `--profile crud` ou `--profile append-only`, sinon il reste `minimal`.
+peut utiliser `--profile crud`, `--profile append-only` ou `--profile
+state-machine --spec <fichier>`, sinon il reste `minimal`.
 
 ```bash
 mkdir -p ~/Perso/projets/demo

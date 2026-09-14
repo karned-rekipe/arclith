@@ -76,6 +76,41 @@ def _class_scope_nodes(model: ast.ClassDef) -> list[ast.AST]:
 
 def is_record_base(tree: ast.Module, base: ast.expr, line: int) -> bool:
     """Recognize direct, aliased and module-qualified imports of the base."""
+
+    return _is_arclith_model_base(
+        tree,
+        base,
+        line,
+        origins={
+            "arclith.ImmutableRecord",
+            "arclith.domain.models.ImmutableRecord",
+            "arclith.domain.models.immutable_record.ImmutableRecord",
+        },
+    )
+
+
+def is_entity_base(tree: ast.Module, base: ast.expr, line: int) -> bool:
+    """Recognize a direct, trusted Arclith ``Entity`` base."""
+
+    return _is_arclith_model_base(
+        tree,
+        base,
+        line,
+        origins={
+            "arclith.Entity",
+            "arclith.domain.models.Entity",
+            "arclith.domain.models.entity.Entity",
+        },
+    )
+
+
+def _is_arclith_model_base(
+    tree: ast.Module,
+    base: ast.expr,
+    line: int,
+    *,
+    origins: set[str],
+) -> bool:
     reference = ast.unparse(base)
     root, *tail = reference.split(".")
     binding = module_bindings_before(tree, line - 1).get(root)
@@ -88,8 +123,4 @@ def is_record_base(tree: ast.Module, base: ast.expr, line: int) -> bool:
         origin = ".".join((statement.module or "", alias.name, *tail))
     else:
         origin = ".".join((alias.name if alias.asname else root, *tail))
-    return origin in {
-        "arclith.ImmutableRecord",
-        "arclith.domain.models.ImmutableRecord",
-        "arclith.domain.models.immutable_record.ImmutableRecord",
-    }
+    return origin in origins

@@ -10,6 +10,7 @@ from rich.panel import Panel
 from rich.tree import Tree
 
 from arclith.infrastructure.project_layout import canonical_project_layout
+from arclith_cli.project_paths import ProjectPaths
 
 console = Console()
 
@@ -24,20 +25,16 @@ def init_project_cmd(
 ) -> Path:
     """Create a minimal Arclith project without a starter entity."""
     project_name = project_name.strip()
-    _assert_valid_project_name(project_name)
-
-    parent_dir = (directory or Path(".")).resolve()
-    target_dir = (
-        target_path.resolve() if target_path is not None else parent_dir / project_name
+    paths = project_paths_for_new_project(
+        project_name=project_name,
+        directory=directory,
+        target_path=target_path,
     )
-    if target_dir.exists():
-        console.print(
-            f"[red]✗[/red] Le répertoire existe déjà : [bold]{target_dir}[/bold]"
-        )
-        raise typer.Exit(1)
-
-    package_name = _to_package(project_name)
-    package_root = target_dir / "src" / package_name
+    target_dir = paths.root
+    package_root = paths.package_root
+    package_name = paths.package_name
+    if package_name is None:
+        raise AssertionError("A new project must have an import package")
 
     _create_package_layout(package_root)
     _write_project_files(target_dir, project_name, package_name)
@@ -57,6 +54,48 @@ def init_project_cmd(
     )
     _print_tree(target_dir, project_name)
     return target_dir
+
+
+def project_paths_for_new_project(
+    *,
+    project_name: str,
+    directory: Path | None = None,
+    target_path: Path | None = None,
+) -> ProjectPaths:
+    """Resolve and validate a new project target without writing it."""
+
+    project_name = project_name.strip()
+    _assert_valid_project_name(project_name)
+    parent_dir = (directory or Path(".")).resolve()
+    target_dir = (
+        target_path.resolve() if target_path is not None else parent_dir / project_name
+    )
+    if target_dir.exists():
+        console.print(
+            f"[red]✗[/red] Le répertoire existe déjà : [bold]{target_dir}[/bold]"
+        )
+        raise typer.Exit(1)
+    package_name = _to_package(project_name)
+    return ProjectPaths(
+        root=target_dir,
+        package_root=target_dir / "src" / package_name,
+        package_name=package_name,
+    )
+
+
+def initial_project_initializer_paths(paths: ProjectPaths) -> tuple[Path, ...]:
+    """Return the empty package files written by project initialization."""
+
+    if paths.package_name is None:
+        raise ValueError("A new project must have an import package")
+    layout = canonical_project_layout(paths.package_name)
+    package_initializers = tuple(
+        paths.package_root
+        / Path(directory.relative_to(layout.package_root))
+        / "__init__.py"
+        for directory in layout.scaffold_directories()
+    )
+    return (*package_initializers, paths.root / "tests" / "__init__.py")
 
 
 def _assert_valid_project_name(project_name: str) -> None:

@@ -8,6 +8,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from .atomic_writes import FilePublication, write_new_text_file
 from .entity_scanner import EntityInfo, ModelBase, scan_entities
 from .project_paths import ProjectPaths, detect_project_paths
 from .rename import EntityNames
@@ -70,21 +71,46 @@ def add_entity_cmd(
     project_dir: Path | None = None,
     entity_name: str,
     model_base: ModelBase = "entity",
+    entity_content: str | None = None,
+    created_paths: list[Path] | None = None,
+    created_files: list[FilePublication] | None = None,
 ) -> Path:
     project_dir = project_dir or Path.cwd()
     entity_name = entity_name.strip()
     _assert_project_root(project_dir, command="add-entity")
-    _assert_valid_name(entity_name, label="entité")
+    try:
+        names = validated_entity_names(entity_name)
+    except ValueError as exc:
+        _print_invalid_name(entity_name, label="entité")
+        raise typer.Exit(1) from exc
 
     paths = detect_project_paths(project_dir)
-    names = EntityNames.from_input(entity_name)
     entity_file = paths.domain_models / f"{names.snake}.py"
     _assert_missing(entity_file, project_dir)
-    _ensure_package_dirs(paths, "domain", "models")
-    entity_file.write_text(
-        render_entity_template(class_name=names.pascal, model_base=model_base),
-        encoding="utf-8",
+    _ensure_package_dirs(
+        paths,
+        "domain",
+        "models",
+        created_paths=created_paths,
+        created_files=created_files,
     )
+    content = (
+        entity_content
+        if entity_content is not None
+        else render_entity_template(class_name=names.pascal, model_base=model_base)
+    )
+    try:
+        publication = write_new_text_file(entity_file, content)
+    except FileExistsError as exc:
+        console.print(
+            f"[red]✗[/red] Le fichier existe déjà : "
+            f"[bold]{entity_file.relative_to(project_dir)}[/bold]."
+        )
+        raise typer.Exit(1) from exc
+    if created_paths is not None:
+        created_paths.append(entity_file)
+    if created_files is not None:
+        created_files.append(publication)
     console.print(
         f"[green]✓[/green] Entité {names.pascal} créée : "
         f"[bold]{entity_file.relative_to(project_dir)}[/bold]"
@@ -292,12 +318,31 @@ def _assert_valid_name(raw: str, *, label: str) -> None:
     ):
         return
 
+    _print_invalid_name(raw, label=label)
+    raise typer.Exit(1)
+
+
+def validated_entity_names(raw: str) -> EntityNames:
+    """Normalize an entity name or fail before any scaffold write."""
+
+    normalized = raw.strip()
+    names = EntityNames.from_input(normalized)
+    if _NAME_RE.match(normalized) and not keyword.iskeyword(names.snake):
+        return names
+    raise ValueError(
+        f"Entity name {raw!r} must use letters, digits, _ or -, start with a "
+        "letter and not normalize to a reserved Python keyword"
+    )
+
+
+def _print_invalid_name(raw: str, *, label: str) -> None:
+    """Render the stable CLI diagnostic shared by scaffold name checks."""
+
     console.print(
         f"[red]✗[/red] Nom de {label} invalide : [bold]{raw}[/bold]. "
         "Lettres, chiffres, _ et - uniquement, sans mot-clé Python réservé. "
         "Doit commencer par une lettre."
     )
-    raise typer.Exit(1)
 
 
 def _assert_missing(path: Path, project_dir: Path) -> None:
@@ -310,7 +355,12 @@ def _assert_missing(path: Path, project_dir: Path) -> None:
     raise typer.Exit(1)
 
 
-def _ensure_package_dirs(paths: ProjectPaths, *relative_parts: str) -> None:
+def _ensure_package_dirs(
+    paths: ProjectPaths,
+    *relative_parts: str,
+    created_paths: list[Path] | None = None,
+    created_files: list[FilePublication] | None = None,
+) -> None:
     target_dir = paths.package_root.joinpath(*relative_parts)
     target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -328,7 +378,14 @@ def _ensure_package_dirs(paths: ProjectPaths, *relative_parts: str) -> None:
     for directory in init_dirs:
         init_file = directory / "__init__.py"
         if not init_file.exists():
-            init_file.write_text("", encoding="utf-8")
+            try:
+                publication = write_new_text_file(init_file, "")
+            except FileExistsError:
+                continue
+            if created_paths is not None:
+                created_paths.append(init_file)
+            if created_files is not None:
+                created_files.append(publication)
 
 
 def _strip_pascal_suffix(value: str) -> str:

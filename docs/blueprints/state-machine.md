@@ -1,0 +1,507 @@
+# Blueprint State-machine
+
+Le blueprint `state-machine` génère un cycle de vie métier typé à partir d'une
+spécification YAML. Il généralise la mécanique stable — états, transitions,
+erreurs, chargement et compare-and-swap — sans inventer les préconditions ou les
+effets de bord propres au projet.
+
+Utiliser ce blueprint lorsqu'un agrégat évolue par verbes métier, par exemple
+`submit`, `approve` ou `reject`, et qu'un `update(status=...)` générique
+contournerait ses invariants. Une facture, une commande ou un dossier de
+validation sont de bons candidats.
+
+## Ce Que Le Blueprint N'est Pas
+
+| Besoin | Modèle adapté |
+|---|---|
+| Modifier librement les champs d'une ressource | CRUD |
+| Enregistrer des faits sans jamais réécrire le passé | Append-only |
+| Faire évoluer l'état métier d'un agrégat par verbes autorisés | State-machine |
+| Suivre l'exécution durable de plusieurs étapes | Workflow, hors de cette V1 |
+
+La machine générée n'est pas un moteur dynamique. Le domaine n'expose pas
+`transition("approved")` ni un setter public du statut. Une transition nommée
+`approve` produit une méthode `approve`, un port `ApproveInvoicePort` et un use
+case `ApproveInvoiceUseCase` que le typage, les tests et les futurs adapters
+peuvent identifier directement.
+
+Elle ne publie aucun événement, n'installe aucun broker, ne crée aucune route
+FastAPI, aucun tool FastMCP et aucun node LangGraph. Ces projections restent des
+décisions séparées.
+
+## Écrire La Spec V1
+
+Créer `invoice-lifecycle.yaml` :
+
+```yaml
+version: 1
+state_field: status
+initial_state: draft
+states:
+  - draft
+  - submitted
+  - approved
+  - rejected
+transitions:
+  - name: submit
+    from: [draft]
+    to: submitted
+  - name: approve
+    from: [submitted]
+    to: approved
+  - name: reject
+    from: [submitted]
+    to: rejected
+```
+
+Les noms sont des identifiants Python publics. Les états et les transitions
+doivent être uniques. Les sources doivent être uniques au sein d'une transition,
+mais un même état source peut alimenter plusieurs transitions. L'état initial,
+chaque source et chaque cible doivent être déclarés dans `states`. La CLI refuse
+aussi un état inaccessible depuis `initial_state` : un état orphelin est
+généralement une erreur de spec, et non un warning à ignorer dans du code généré.
+
+La CLI trie canoniquement les états, les sources et les transitions avant de
+calculer les digests et de générer les fichiers. Deux specs qui ne diffèrent que
+par l'ordre de leurs listes produisent donc la même configuration résolue.
+
+Les champs techniques d'`Entity`, notamment `uuid`, `version`, les champs
+d'audit et de soft-delete, ainsi que les attributs protégés Pydantic `model_*`,
+ne peuvent pas devenir `state_field`. Un mot-clé Python, un nom privé, une
+transition dupliquée, une cible inconnue ou un état inaccessible arrête tout le
+plan avant la première écriture.
+
+## Créer L'entité Et Le Cycle De Vie Ensemble
+
+Le parcours le plus direct est atomique du point de vue de la commande : la spec
+est entièrement validée et toutes les collisions sont prévalidées avant la
+création du modèle. Si une cible change malgré tout entre le plan et l'écriture,
+ou si une écriture échoue en cours d'application, la commande compense ses
+propres publications et retire l'entité créée. Chaque fichier à retirer est
+d'abord détaché atomiquement vers une quarantaine privée, puis son inode, son
+device et son contenu sont vérifiés. Un fichier remplacé concurremment est
+restauré sans remplacement ; si un autre écrivain a déjà recréé la cible, la
+quarantaine est conservée plutôt que de supprimer l'un des deux contenus. Les
+répertoires ne sont retirés que si la commande les a effectivement créés, que
+leur identité est inchangée et qu'ils sont encore vides.
+
+Chaque nouveau fichier est d'abord écrit et synchronisé dans un temporaire du
+même répertoire, puis publié par une création atomique sans remplacement. Une
+panne n'expose donc pas de fichier tronqué et une création concurrente est
+signalée comme collision sans être écrasée, y compris pour l'entité et le
+manifeste.
+
+```bash
+arclith-cli init invoice-service
+cd invoice-service
+
+arclith-cli add-entity Invoice \
+  --profile state-machine \
+  --spec invoice-lifecycle.yaml
+```
+
+La commande `new` calcule et valide le plan complet du profil avant d'appeler
+l'initialisation du projet. Un nom d'entité invalide, une spec refusée ou une
+collision de cible ne laisse donc aucun répertoire partiel. Les initialiseurs
+vides créés par `init` sont enregistrés comme état intermédiaire attendu avant
+l'application atomique du blueprint.
+
+Le modèle créé contient le champ typé et protégé :
+
+```python
+from collections.abc import Mapping
+from typing import Any, Self
+
+from pydantic import ConfigDict, Field
+
+from arclith.domain.models.entity import Entity
+from invoice_service.domain.models.invoice_lifecycle_state import InvoiceState
+
+
+class Invoice(Entity):
+    model_config = ConfigDict(validate_assignment=True)
+
+    status: InvoiceState = Field(
+        default=InvoiceState.DRAFT,
+        frozen=True,
+    )
+
+    def model_copy(
+        self,
+        *,
+        update: Mapping[str, Any] | None = None,
+        deep: bool = False,
+    ) -> Self:
+        if update is not None and "status" in update:
+            raise ValueError("status changes must use the generated lifecycle")
+        return super().model_copy(update=update, deep=deep)
+
+    def _copy_with_status(self, target: InvoiceState) -> Self:
+        return super().model_copy(update={"status": target})
+```
+
+`validate_assignment=True` et `Field(frozen=True)` empêchent
+`invoice.status = ...`. La surcharge de `model_copy` refuse aussi une mise à jour
+générique du champ ; seul le service de cycle de vie appelle la méthode privée de
+copie contrôlée. Les primitives Pydantic de bas niveau appelées directement sur
+la classe de base, comme `BaseModel.model_construct`, restent hors du contrat
+métier. Le modèle reste une `Entity` Arclith et conserve son UUIDv7, son audit,
+son soft-delete et sa version optimiste.
+
+Ajouter ensuite les autres champs et invariants métier dans `Invoice`. Ne pas
+remplacer le champ protégé par un `str` libre ni ajouter un setter générique.
+
+## Appliquer Le Blueprint À Une Entité Existante
+
+La V1 ne patche jamais silencieusement un fichier métier existant. Préparer le
+champ, puis appliquer le blueprint :
+
+```python
+from collections.abc import Mapping
+from typing import Any, Literal, Self
+
+from pydantic import ConfigDict, Field
+
+from arclith.domain.models.entity import Entity
+
+
+class Invoice(Entity):
+    model_config = ConfigDict(validate_assignment=True)
+
+    status: Literal["draft", "submitted", "approved", "rejected"] = Field(
+        default="draft",
+        frozen=True,
+    )
+
+    def model_copy(
+        self,
+        *,
+        update: Mapping[str, Any] | None = None,
+        deep: bool = False,
+    ) -> Self:
+        if update is not None and "status" in update:
+            raise ValueError("status changes must use the generated lifecycle")
+        return super().model_copy(update=update, deep=deep)
+
+    def _copy_with_status(self, target: str) -> Self:
+        return super().model_copy(update={"status": target})
+```
+
+La prévalidation est volontairement stricte : `model_config` doit avoir une
+seule affectation effective fondée sur le vrai `pydantic.ConfigDict`, sans
+expansion `**options` dynamique. `use_enum_values` doit être absent ou être le
+littéral `False`. Les deux helpers de copie doivent être des méthodes d’instance
+synchrones, sans décorateur (leur effet ne serait pas prouvable statiquement), et
+conserver les signatures appelées par le code généré
+(`model_copy(update=..., deep=...)` et `_copy_with_status(target)`). La garde
+`update is not None` doit précéder le test d'appartenance et le builtin `super`
+ne doit être masqué ni au niveau module ni localement dans l'un des helpers. La
+garde doit lever le builtin `ValueError` avec un message contenant `lifecycle`,
+ce que vérifie le test généré. Toute liaison de `__setattr__` dans le scope de
+classe est refusée, y compris sous un contrôle de flux, car elle pourrait
+contourner le gel Pydantic. Le champ d'état lui-même doit aussi avoir une seule
+liaison dans le scope de classe : une affectation ultérieure, même conditionnelle,
+pourrait remplacer son `Field(frozen=True)`. Une réaffectation de configuration,
+un argument obligatoire supplémentaire ou un `staticmethod` est refusé avant
+toute écriture. La classe doit hériter directement et uniquement du vrai
+`Entity` Arclith. Les mixins, décorateurs et mots-clés de classe, notamment une
+métaclasse, sont refusés car ils pourraient redéfinir `__setattr__` ou modifier
+le comportement Pydantic hors de ce que l'analyse statique peut prouver.
+
+```bash
+arclith-cli add-blueprint state-machine \
+  --entity Invoice \
+  --feature invoice_lifecycle \
+  --spec invoice-lifecycle.yaml \
+  --dry-run
+
+arclith-cli add-blueprint state-machine \
+  --entity Invoice \
+  --feature invoice_lifecycle \
+  --spec invoice-lifecycle.yaml
+```
+
+Le type accepté est un `Literal[...]` contenant exactement les états déclarés,
+ou un `Enum`/`StrEnum` à valeurs chaînes, quel que soit son nom (`Status`,
+`InvoiceStatus`, alias importé…), dont la déclaration locale/importée, disponible
+avant le champ, expose exactement les valeurs persistées de la spec. Les membres
+importés peuvent venir d'un module `.py` ou d'un package `__init__.py` et être
+réexportés récursivement. Les formes qualifiées par un module, par exemple
+`lifecycle_types.Status` avec un défaut
+`lifecycle_types.Status.DRAFT`, sont également résolues. Aucun code du projet
+n'est exécuté pour les inspecter.
+Les membres
+d'enum doivent être des affectations directes de chaînes ; les membres produits
+par un contrôle de flux, une expression dynamique ou un helper décoré sont
+refusés, faute de pouvoir prouver statiquement l'ensemble runtime. Une enum
+décorée, dotée de méthodes, de mots-clés de métaclasse ou de bases mixtes autres
+que le couple builtin `str, Enum` est également refusée : ces extensions peuvent
+modifier ses valeurs au runtime. Le champ doit
+rejeter l'affectation et la copie générique : utiliser un modèle entièrement
+frozen, ou les vrais
+`ConfigDict` et `Field` importés de `pydantic`, surcharger `model_copy` et fournir
+la méthode privée synchrone montrée ci-dessus. Les alias importés de
+`typing.Literal`, y compris ceux réexportés par un module ou un package du
+projet, et les alias de type locaux sont résolus récursivement jusqu'à leur
+origine de confiance. La
+vérification prouve aussi l'origine de `Literal`, des bases stdlib
+`Enum`/`StrEnum` et des helpers Pydantic ; elle refuse les homonymes applicatifs
+et toute redéfinition de leurs noms dans le scope de classe, dans un contrôle
+de flux de niveau module (`if`, boucle, `try`…) ou par une expression d'affectation
+dynamique. Les décorateurs, bases, mots-clés de classe et defaults de fonctions
+ou lambdas sont inspectés dans leur scope d'exécution, y compris dans les
+callables imbriqués. Les imports disponibles uniquement sous `TYPE_CHECKING` et
+les méthodes de copie asynchrones dont le comportement ne peut pas satisfaire le
+contrat synchrone du cycle de vie sont également refusés. Elle refuse aussi un
+module projet portant le nom d'une dépendance importée par les artefacts générés
+(`abc`, `arclith`, `collections`, `dataclasses`, `datetime`, `enum`, `pydantic`,
+`pytest`, `typing`, `typing_extensions` ou `uuid`) sur une racine d'import :
+un tel fichier intercepterait les imports absolus au lieu de leurs origines de
+confiance. Pour un champ enum,
+`ConfigDict(use_enum_values=True)` est également refusé : cette option stockerait
+une chaîne et romprait la garantie de restitution du type enum. Le champ doit
+être requis ou déclarer une valeur par défaut visible statiquement : membre de
+l'enum réellement résolue, ou chaîne appartenant au `Literal`. Une chaîne brute
+n'est pas acceptée pour un enum ; `default_factory` et les expansions d'arguments
+dynamiques sont refusées pour les deux types. Les tests générés construisent la
+valeur depuis l'annotation Pydantic réelle et vérifient le type après chaque
+transition, y compris `str` pour un `Literal`. Un nom de fichier non canonique
+comme `invoice_record.py` reste accepté : les imports générés
+distinguent le module réel de l'entité du module d'état interne
+`invoice_lifecycle_state.py`. Ce module généré porte délibérément le suffixe
+`_lifecycle_state` : une enum métier importée depuis le chemin conventionnel
+`invoice_state.py` est ainsi conservée sans collision, et les transitions
+restituent son type après conversion par valeur persistée. Si le champ manque, a
+un type incompatible ou reste contournable, la CLI explique la modification
+requise et ne touche à aucun fichier.
+
+Le stem du fichier d'une entité existante doit toutefois être un identifiant
+Python non réservé : `invoice_record.py` est valide, tandis que `123_invoice.py`,
+`invoice-status.py` et `class.py` sont refusés avant toute écriture. Les imports
+internes du service, des ports et des tests sont aliasés afin qu'une entité
+validement nommée `Enum`, `ValidationError`, `ABC`, `UUID` ou `BaseModel` ne
+masque pas les helpers standard générés.
+
+## Structure Générée
+
+Pour la feature `invoice_lifecycle`, la V1 produit des fichiers légers et séparés :
+
+```text
+src/invoice_service/
+├── domain/
+│   ├── models/invoice_lifecycle_state.py
+│   ├── services/invoice_lifecycle.py
+│   ├── errors/invoice_lifecycle.py
+│   └── ports/
+│       ├── inbound/
+│       │   ├── submit_invoice.py
+│       │   ├── approve_invoice.py
+│       │   └── reject_invoice.py
+│       └── outbound/invoice_lifecycle.py
+├── application/use_cases/
+│   ├── submit_invoice.py
+│   ├── approve_invoice.py
+│   └── reject_invoice.py
+└── infrastructure/containers/invoice_lifecycle.py
+tests/
+├── domain/test_invoice_lifecycle.py
+└── application/test_invoice_lifecycle_use_cases.py
+docs/blueprints/invoice_lifecycle-state-machine.md
+```
+
+Chaque transition a son erreur spécialisée, par exemple
+`ApproveInvoiceNotAllowedError`. `InvoiceNotFoundError`,
+`InvoiceVersionConflictError` et `InvoiceTransitionNotAllowedError` restent
+distinctes : une absence, une course de concurrence et un refus métier ne sont
+pas le même diagnostic.
+
+## Gardes Et Préconditions Métier
+
+Le service généré vérifie toujours l'état source avant toute précondition :
+
+```python
+from enum import Enum
+
+
+class InvoiceLifecycle:
+    def approve(self, entity: Invoice) -> Invoice:
+        raw_current = entity.status
+        current_value = (
+            raw_current.value if isinstance(raw_current, Enum) else raw_current
+        )
+        current = InvoiceState(current_value)
+        if current not in frozenset((InvoiceState.SUBMITTED,)):
+            raise ApproveInvoiceNotAllowedError(current.value)
+        self._ensure_approve_preconditions(entity)
+        target = type(raw_current)(InvoiceState.APPROVED.value)
+        return entity._copy_with_status(target)
+
+    def _ensure_approve_preconditions(self, entity: Invoice) -> None:
+        """Add project-owned guards here; the state guard already ran."""
+        return None
+```
+
+La spec V1 ne prétend pas connaître une limite de crédit, une signature requise
+ou le rôle de l'acteur. Ajouter ces contrôles dans le hook nommé, ou injecter une
+politique métier explicite si le contrôle dépend d'un port. Ne jamais déplacer
+le contrôle d'état dans un router ou un handler de transport : tous les appels
+au cœur applicatif doivent obtenir le même résultat.
+
+Le service retourne une copie via `_copy_with_status`. Si une garde échoue,
+l'objet chargé reste dans son état d'origine et le port de persistance n'est pas
+appelé.
+
+## Concurrence Et Compare-and-swap
+
+Le use case suit quatre étapes :
+
+1. charger l'agrégat par son UUID ;
+2. comparer sa version à `expected_version` ;
+3. appliquer le verbe métier au moyen du service de domaine ;
+4. appeler `compare_and_swap(candidate, expected_version=...)`.
+
+Le port outbound généré exige que l'adapter fasse atomiquement la comparaison,
+la persistance, l'incrément de version et la mise à jour de l'audit. La
+comparaison effectuée juste après le chargement améliore le diagnostic et évite
+un travail inutile, mais elle ne protège pas contre une autre écriture entre la
+lecture et la persistance.
+
+Sur l'écart initial comme sur une course observée dans `compare_and_swap`,
+l'erreur `InvoiceVersionConflictError` reçoit obligatoirement
+`expected_version` et `observed_version`. Ces valeurs restent disponibles comme
+attributs de l'exception ; `observed_version` vaut `None` si l'agrégat a disparu
+entre la lecture et le CAS. L'adapter doit donc relever la version réellement
+observée au point atomique, et non réutiliser celle de la lecture précédente.
+L'erreur `InvoiceNotFoundError` reçoit de son côté l'objet `UUID` demandé et le
+conserve dans son attribut typé `uuid`, afin qu'un transport ou un logger puisse
+l'exploiter sans analyser le texte de l'exception.
+
+Un adapter SQL utilisera typiquement un `UPDATE ... WHERE uuid = ? AND version = ?`
+et vérifiera qu'une ligne a été modifiée. Un adapter documentaire utilisera
+l'équivalent natif de ce filtre/version. Une implémentation qui fait seulement
+`read`, puis `update` sans condition atomique ne respecte pas le port.
+
+Arclith ne génère pas d'adapter de production dans cette V1. Le container demande
+explicitement une implémentation de `InvoiceLifecycleStore` au projet.
+
+## Matrice De Tests
+
+Le test domaine généré énumère le produit cartésien de tous les états et de
+toutes les transitions. Pour chaque paire :
+
+- une source autorisée doit produire exactement la cible déclarée ;
+- une source interdite doit lever l'erreur spécialisée ;
+- l'agrégat reçu doit rester inchangé.
+
+Les tests applicatifs distinguent not-found, conflit de version et transition
+interdite. Ils vérifient aussi qu'aucune écriture n'a lieu après une erreur et
+qu'un CAS réussi incrémente la version.
+
+Les fixtures générées utilisent `model_construct` uniquement pour isoler la
+matrice de cycle de vie sans inventer de valeurs pour les champs métier requis
+d'une entité existante. Les tests de gardes propres au projet doivent, eux,
+construire des instances validées avec des valeurs métier représentatives.
+
+Après génération :
+
+```bash
+uv sync
+uv run pytest tests/domain tests/application -q
+```
+
+Remplacer ou compléter le faux store de test par les tests de contrat de votre
+adapter. La matrice générée est un socle ; les gardes métier ajoutées par le
+projet doivent recevoir leurs propres scénarios.
+
+## Manifeste V2 Et Replay
+
+Une feature paramétrée écrit `.arclith/features/invoice_lifecycle.yaml` :
+
+```yaml
+version: 2
+feature: invoice_lifecycle
+entity:
+  name: Invoice
+  module: invoice_service.domain.models.invoice
+blueprint:
+  name: state-machine
+  version: 1
+parameters:
+  state_field: status
+  initial_state: draft
+  states: [approved, draft, rejected, submitted]
+  transitions:
+    - name: approve
+      from: [submitted]
+      to: approved
+    - name: reject
+      from: [submitted]
+      to: rejected
+    - name: submit
+      from: [draft]
+      to: submitted
+digests:
+  template: sha256:<64 caractères hexadécimaux>
+  parameters: sha256:<64 caractères hexadécimaux>
+operations:
+  - approve
+  - reject
+  - submit
+```
+
+`parameters` contient uniquement des valeurs JSON/YAML sûres. Le digest
+`template` inclut le source complet des renderers et des helpers de nommage,
+chemins de projet, inspection d'entité et initialisation de packages qu'ils
+appellent. Il couvre donc aussi les noms d'entité non canoniques, les layouts
+plats ou incomplets et versionne le contrat de validation appliqué aux entités
+existantes ; le digest `parameters` identifie la configuration résolue. Une
+nouvelle spec incompatible avec un manifeste installé est refusée au lieu de
+réécrire les fichiers du développeur.
+
+`arclith.recipe.yaml` enregistre le même mapping canonique. Il n'enregistre pas
+le chemin de `invoice-lifecycle.yaml` : le replay reste portable si le fichier
+source a été déplacé ou supprimé. Avant toute écriture, le replay exige puis
+compare les deux digests, la version du blueprint et la liste canonique des
+opérations au renderer, au contrat de validation et aux paramètres courants pour
+toutes les étapes sélectionnées, avant même d'exécuter un éventuel `init` ; une
+métadonnée absente ou une dérive ne laisse donc aucun projet partiel.
+Des paramètres enregistrés absents ou mal formés, ainsi qu'un nom de blueprint
+absent ou inconnu, sont eux aussi normalisés en erreur de recette et produisent
+le diagnostic CLI habituel sans traceback.
+Un profil absent est interprété comme `minimal`, mais cette compatibilité ne peut
+pas masquer des métadonnées de blueprint : `parameters`, digests, version ou
+opérations enregistrés avec `minimal` font échouer le préflight.
+Les digests CRUD et append-only existants restent stables, les recettes non
+paramétrées historiques restent tolérantes à leur absence, et les manifests V1
+restent lus sans conversion vers V2.
+
+## Faire Évoluer Une Machine En Production
+
+Ajouter un état ou une transition change un contrat persistant. Avant de
+modifier la spec d'une feature déjà installée :
+
+1. inventorier les valeurs stockées dans tous les environnements ;
+2. décider comment les anciennes valeurs restent lisibles ;
+3. écrire une migration explicite et réversible si nécessaire ;
+4. versionner les consommateurs de messages ou d'API concernés ;
+5. installer une nouvelle feature ou résoudre explicitement le manifeste.
+
+Ne jamais renommer ou supprimer un état en comptant sur une régénération
+silencieuse. Le blueprint préserve volontairement le code et refuse le drift ;
+Git et la stratégie de migration du projet restent les sources de vérité pour
+cette évolution.
+
+## Formulation Prête Pour Un Agent
+
+```text
+Dans ce projet Arclith, crée une spec state-machine V1 pour Invoice avec les
+états draft, submitted, approved et rejected. Génère Invoice avec
+`arclith-cli add-entity Invoice --profile state-machine --spec <spec>`.
+N'ajoute aucun transport. Implémente mes gardes métier uniquement dans les hooks
+nommés, fournis un adapter qui respecte réellement le compare-and-swap, puis
+exécute la matrice domaine et les tests applicatifs générés. Ne modifie pas
+silencieusement le manifeste ou un fichier déjà personnalisé.
+```
+
+Cette formulation laisse au projet ses règles métier et son choix de
+persistance, tout en conservant les invariants techniques du blueprint.

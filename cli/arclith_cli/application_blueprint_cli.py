@@ -12,16 +12,20 @@ from arclith_cli.application_blueprints import (
     APPLICATION_BLUEPRINT_CATALOG,
     application_blueprint_catalog_as_dict,
     application_blueprint_digest,
+    application_parameters_digest,
     get_application_blueprint,
 )
 from arclith_cli.blueprint_generation import (
     add_application_blueprint_cmd,
-    apply_application_blueprint,
+    create_entity_with_application_blueprint,
     plan_application_profile_for_new_entity,
 )
 from arclith_cli.command_recording import record_success
 from arclith_cli.core_scaffold import add_entity_cmd
 from arclith_cli.recipe import snapshot_project_files
+from arclith_cli.project_paths import detect_project_paths
+from arclith_cli.state_machine_entity import render_state_machine_entity
+from arclith_cli.state_machine_spec import StateMachineSpec, load_state_machine_spec
 
 console = Console()
 _ENTITY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
@@ -38,7 +42,14 @@ def add_entity_command(
         str | None,
         typer.Option(
             "--profile",
-            help="Profil applicatif initial : minimal, crud ou append-only.",
+            help="Profil initial : minimal, crud, append-only ou state-machine.",
+        ),
+    ] = None,
+    spec: Annotated[
+        Path | None,
+        typer.Option(
+            "--spec",
+            help="Spec YAML requise par le profil state-machine.",
         ),
     ] = None,
     no_record: Annotated[
@@ -51,6 +62,11 @@ def add_entity_command(
     resolved_name = entity or prompt_entity()
     try:
         resolved_profile = resolve_entity_profile(profile, interactive=interactive)
+        parameters = resolve_blueprint_parameters(
+            resolved_profile,
+            spec_path=spec,
+            interactive=interactive,
+        )
     except ValueError as exc:
         console.print(f"[red]✗ Profil invalide :[/red] {exc}")
         raise typer.Exit(1) from exc
@@ -61,28 +77,36 @@ def add_entity_command(
             project_dir,
             profile_name=resolved_profile,
             entity_name=resolved_name,
+            parameters=parameters,
         )
     except (OSError, SyntaxError, ValueError) as exc:
         console.print(f"[red]✗ Blueprint refusé :[/red] {exc}")
         raise typer.Exit(1) from exc
-    add_entity_cmd(
-        project_dir=project_dir,
-        entity_name=resolved_name,
-        model_base=(
-            blueprint_plan.entity.model_base
-            if blueprint_plan is not None
-            else "entity"
-        ),
-    )
+    entity_content = None
+    if blueprint_plan is not None and blueprint_plan.blueprint.name == "state-machine":
+        entity_content = render_state_machine_entity(
+            detect_project_paths(project_dir),
+            blueprint_plan.entity,
+            StateMachineSpec.from_parameters(blueprint_plan.parameters),
+        )
     if blueprint_plan is not None:
         try:
-            apply_application_blueprint(blueprint_plan)
+            create_entity_with_application_blueprint(
+                blueprint_plan,
+                entity_name=resolved_name,
+                entity_content=entity_content,
+            )
         except (OSError, ValueError) as exc:
             console.print(f"[red]✗ Blueprint refusé :[/red] {exc}")
             raise typer.Exit(1) from exc
         console.print(
             f"[bold green]✓ Blueprint {resolved_profile} appliqué à "
             f"{blueprint_plan.entity.pascal}.[/bold green]"
+        )
+    else:
+        add_entity_cmd(
+            project_dir=project_dir,
+            entity_name=resolved_name,
         )
     if not no_record:
         record_success(
@@ -91,7 +115,10 @@ def add_entity_command(
             args={
                 "entity": resolved_name,
                 "profile": resolved_profile,
-                **application_profile_recipe_metadata(resolved_profile),
+                **application_profile_recipe_metadata(
+                    resolved_profile,
+                    parameters=parameters,
+                ),
             },
             before=before,
         )
@@ -117,7 +144,7 @@ def blueprints_command(
         table.add_row(
             blueprint_spec.name,
             str(blueprint_spec.version),
-            ", ".join(blueprint_spec.operations),
+            ", ".join(blueprint_spec.operations) or "définies par --spec",
             blueprint_spec.description,
         )
     console.print(table)
@@ -127,7 +154,7 @@ def add_blueprint_command(
     blueprint: Annotated[
         str,
         typer.Argument(
-            help="Blueprint applicatif à appliquer, par exemple crud ou append-only."
+            help="Blueprint applicatif : crud, append-only ou state-machine."
         ),
     ],
     entity: Annotated[
@@ -139,6 +166,13 @@ def add_blueprint_command(
         typer.Option(
             "--feature",
             help="Nom stable de la feature ; défaut : nom snake_case de l'entité.",
+        ),
+    ] = None,
+    spec: Annotated[
+        Path | None,
+        typer.Option(
+            "--spec",
+            help="Spec YAML requise par les blueprints paramétrés.",
         ),
     ] = None,
     dry_run: Annotated[
@@ -156,12 +190,18 @@ def add_blueprint_command(
         snapshot_project_files(project_dir) if not no_record and not dry_run else {}
     )
     try:
+        parameters = resolve_blueprint_parameters(
+            blueprint,
+            spec_path=spec,
+            interactive=False,
+        )
         result = add_application_blueprint_cmd(
             project_dir=project_dir,
             blueprint_name=blueprint,
             entity_name=entity,
             feature_name=feature,
             dry_run=dry_run,
+            parameters=parameters,
         )
     except (OSError, SyntaxError, ValueError) as exc:
         console.print(f"[red]✗ Blueprint refusé :[/red] {exc}")
@@ -174,9 +214,23 @@ def add_blueprint_command(
                 "blueprint": result.blueprint.name,
                 "entity": result.entity.pascal,
                 "feature": result.feature,
-                "operations": list(result.blueprint.operations),
+                "operations": list(
+                    StateMachineSpec.from_parameters(parameters).operations
+                    if parameters is not None
+                    else result.blueprint.operations
+                ),
                 "blueprint_version": result.blueprint.version,
                 "template_digest": application_blueprint_digest(result.blueprint),
+                **(
+                    {
+                        "parameters": parameters,
+                        "parameters_digest": application_parameters_digest(
+                            result.blueprint, parameters
+                        ),
+                    }
+                    if parameters is not None
+                    else {}
+                ),
             },
             before=before,
         )
@@ -220,13 +274,57 @@ def resolve_entity_profile(value: str | None, *, interactive: bool) -> str:
     return get_application_blueprint(normalized).name
 
 
-def application_profile_recipe_metadata(profile: str) -> dict[str, object]:
+def application_profile_recipe_metadata(
+    profile: str,
+    *,
+    parameters: dict[str, object] | None = None,
+) -> dict[str, object]:
     """Describe a non-minimal profile well enough to audit recipe drift."""
     if profile == "minimal":
+        if parameters is not None:
+            raise ValueError("Profile 'minimal' does not accept parameters")
         return {}
     blueprint = get_application_blueprint(profile)
-    return {
-        "operations": list(blueprint.operations),
+    operations = blueprint.operations
+    resolved_parameters = parameters
+    if blueprint.name == "state-machine":
+        spec = StateMachineSpec.from_parameters(parameters)
+        operations = spec.operations
+        resolved_parameters = spec.to_parameters()
+    metadata: dict[str, object] = {
+        "operations": list(operations),
         "blueprint_version": blueprint.version,
         "template_digest": application_blueprint_digest(blueprint),
     }
+    if resolved_parameters is not None:
+        metadata["parameters"] = resolved_parameters
+        metadata["parameters_digest"] = application_parameters_digest(
+            blueprint, resolved_parameters
+        )
+    return metadata
+
+
+def resolve_blueprint_parameters(
+    blueprint_name: str,
+    *,
+    spec_path: Path | None,
+    interactive: bool,
+) -> dict[str, object] | None:
+    """Resolve a local spec into portable canonical recipe parameters."""
+
+    if blueprint_name == "minimal":
+        if spec_path is not None:
+            raise ValueError("Profile 'minimal' does not accept --spec")
+        return None
+    blueprint = get_application_blueprint(blueprint_name)
+    if not blueprint.parameterized:
+        if spec_path is not None:
+            raise ValueError(f"Blueprint {blueprint.name!r} does not accept --spec")
+        return None
+    resolved_path = spec_path
+    if resolved_path is None and interactive:
+        raw_path = Prompt.ask("  [bold green]Chemin de la spec YAML[/bold green]")
+        resolved_path = Path(raw_path)
+    if resolved_path is None:
+        raise ValueError(f"Blueprint {blueprint.name!r} requires --spec")
+    return load_state_machine_spec(resolved_path).to_parameters()
