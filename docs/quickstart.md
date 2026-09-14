@@ -94,6 +94,16 @@ blueprint paramétré :
 ```bash
 arclith-cli init invoice-service
 cd invoice-service
+cat > invoice-lifecycle.yaml <<'YAML'
+version: 1
+state_field: status
+initial_state: draft
+states: [draft, submitted]
+transitions:
+  - name: submit
+    from: [draft]
+    to: submitted
+YAML
 arclith-cli add-entity Invoice --profile state-machine \
   --spec invoice-lifecycle.yaml
 uv sync

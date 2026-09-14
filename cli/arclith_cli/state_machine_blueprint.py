@@ -128,9 +128,9 @@ def _service(
         _transition_methods(entity, spec, transition) for transition in spec.transitions
     )
     return (
-        "from enum import Enum\n\n"
-        f"from {entity_module} import {entity}\n"
-        f"from {state_module} import {entity}State\n"
+        "from enum import Enum as _ArclithEnum\n\n"
+        f"from {entity_module} import {entity} as _ArclithEntity\n"
+        f"from {state_module} import {entity}State as _ArclithState\n"
         f"from {errors_module} import (\n"
         f"{indent(error_names, '    ')},\n"
         ")\n\n\n"
@@ -146,28 +146,36 @@ def _transition_methods(
     transition: StateTransitionSpec,
 ) -> str:
     allowed = ", ".join(
-        f"{entity}State.{state.upper()}" for state in transition.sources
+        f"_ArclithState.{state.upper()}" for state in transition.sources
     )
     if len(transition.sources) == 1:
         allowed += ","
     error = _transition_error(entity, transition)
     return dedent(
         f'''\
-            def {transition.name}(self, entity: {entity}) -> {entity}:
+            def {transition.name}(
+                self,
+                entity: _ArclithEntity,
+            ) -> _ArclithEntity:
                 raw_current = entity.{spec.state_field}
                 current_value = (
-                    raw_current.value if isinstance(raw_current, Enum) else raw_current
+                    raw_current.value
+                    if isinstance(raw_current, _ArclithEnum)
+                    else raw_current
                 )
-                current = {entity}State(current_value)
+                current = _ArclithState(current_value)
                 if current not in frozenset(({allowed})):
                     raise {error}(current.value)
                 self._ensure_{transition.name}_preconditions(entity)
                 target = type(raw_current)(
-                    {entity}State.{transition.target.upper()}.value
+                    _ArclithState.{transition.target.upper()}.value
                 )
                 return entity._copy_with_{spec.state_field}(target)
 
-            def _ensure_{transition.name}_preconditions(self, entity: {entity}) -> None:
+            def _ensure_{transition.name}_preconditions(
+                self,
+                entity: _ArclithEntity,
+            ) -> None:
                 """Add project-owned guards here; the state guard already ran."""
                 return None
         '''
@@ -177,26 +185,27 @@ def _transition_methods(
 def _store_port(entity: str, entity_module: str) -> str:
     return dedent(
         f'''\
-        from abc import ABC, abstractmethod
-        from uuid import UUID
+        from abc import ABC as _ArclithABC
+        from abc import abstractmethod as _arclith_abstractmethod
+        from uuid import UUID as _ArclithUUID
 
-        from {entity_module} import {entity}
+        from {entity_module} import {entity} as _ArclithEntity
 
 
-        class {entity}LifecycleStore(ABC):
+        class {entity}LifecycleStore(_ArclithABC):
             """Persistence boundary with an explicit atomic compare-and-swap contract."""
 
-            @abstractmethod
-            async def read(self, uuid: UUID) -> {entity} | None:
+            @_arclith_abstractmethod
+            async def read(self, uuid: _ArclithUUID) -> _ArclithEntity | None:
                 raise NotImplementedError
 
-            @abstractmethod
+            @_arclith_abstractmethod
             async def compare_and_swap(
                 self,
-                candidate: {entity},
+                candidate: _ArclithEntity,
                 *,
                 expected_version: int,
-            ) -> {entity}:
+            ) -> _ArclithEntity:
                 """Atomically verify, persist, increment version and update audit time.
 
                 Implementations must raise `{entity}VersionConflictError` if the
@@ -211,26 +220,28 @@ def _store_port(entity: str, entity_module: str) -> str:
 def _transition_port(entity: str, entity_module: str, operation_class: str) -> str:
     return dedent(
         f"""\
-        from abc import ABC, abstractmethod
-        from uuid import UUID
+        from abc import ABC as _ArclithABC
+        from abc import abstractmethod as _arclith_abstractmethod
+        from uuid import UUID as _ArclithUUID
 
-        from pydantic import BaseModel, Field
+        from pydantic import BaseModel as _ArclithBaseModel
+        from pydantic import Field as _ArclithField
 
-        from {entity_module} import {entity}
+        from {entity_module} import {entity} as _ArclithEntity
 
 
-        class {operation_class}{entity}Command(BaseModel):
-            uuid: UUID
-            expected_version: int = Field(ge=1)
+        class {operation_class}{entity}Command(_ArclithBaseModel):
+            uuid: _ArclithUUID
+            expected_version: int = _ArclithField(ge=1)
             updated_by: str | None = None
 
 
-        class {operation_class}{entity}Result(BaseModel):
-            item: {entity}
+        class {operation_class}{entity}Result(_ArclithBaseModel):
+            item: _ArclithEntity
 
 
-        class {operation_class}{entity}Port(ABC):
-            @abstractmethod
+        class {operation_class}{entity}Port(_ArclithABC):
+            @_arclith_abstractmethod
             async def execute(
                 self,
                 command: {operation_class}{entity}Command,
@@ -412,16 +423,17 @@ def _application_test(
     return (
         dedent(
             f"""\
-        from datetime import UTC, datetime
-        from enum import Enum
-        from uuid import UUID
+        from datetime import UTC as _ArclithUTC
+        from datetime import datetime as _ArclithDatetime
+        from enum import Enum as _ArclithEnum
+        from uuid import UUID as _ArclithUUID
 
         import pytest
 
         from {prefix}domain.errors.{feature} import (
 {error_imports}
         )
-        from {prefix}domain.models.{entity_module} import {entity}
+        from {prefix}domain.models.{entity_module} import {entity} as _ArclithEntity
 {command_imports}
         from {prefix}domain.ports.outbound.{feature} import {entity}LifecycleStore
         from {prefix}infrastructure.containers.{feature} import (
@@ -430,21 +442,21 @@ def _application_test(
 
 
         def _state_value(state: str) -> object:
-            annotation = {entity}.model_fields["{spec.state_field}"].annotation
-            if isinstance(annotation, type) and issubclass(annotation, Enum):
+            annotation = _ArclithEntity.model_fields["{spec.state_field}"].annotation
+            if isinstance(annotation, type) and issubclass(annotation, _ArclithEnum):
                 return annotation(state)
             return state
 
 
         def _persisted_state(value: object) -> object:
-            return value.value if isinstance(value, Enum) else value
+            return value.value if isinstance(value, _ArclithEnum) else value
 
 
         def make_{_snake_entity(entity)}(
             state: str = "{spec.initial_state}",
-        ) -> {entity}:
+        ) -> _ArclithEntity:
             # Isolate lifecycle tests without guessing required business fields.
-            return {entity}.model_construct(
+            return _ArclithEntity.model_construct(
                 {spec.state_field}=_state_value(state),
             )
 
@@ -452,7 +464,7 @@ def _application_test(
         class FakeStore({entity}LifecycleStore):
             def __init__(
                 self,
-                item: {entity} | None,
+                item: _ArclithEntity | None,
                 *,
                 observed_version_at_compare: int | None = None,
             ) -> None:
@@ -460,17 +472,17 @@ def _application_test(
                 self.observed_version_at_compare = observed_version_at_compare
                 self.writes = 0
 
-            async def read(self, uuid: UUID) -> {entity} | None:
+            async def read(self, uuid: _ArclithUUID) -> _ArclithEntity | None:
                 if self.item is None or self.item.uuid != uuid:
                     return None
                 return self.item
 
             async def compare_and_swap(
                 self,
-                candidate: {entity},
+                candidate: _ArclithEntity,
                 *,
                 expected_version: int,
-            ) -> {entity}:
+            ) -> _ArclithEntity:
                 observed_version = (
                     self.observed_version_at_compare
                     if self.observed_version_at_compare is not None
@@ -484,7 +496,7 @@ def _application_test(
                 self.writes += 1
                 self.item = candidate.model_copy(
                     update={{
-                        "updated_at": datetime.now(UTC),
+                        "updated_at": _ArclithDatetime.now(_ArclithUTC),
                         "version": expected_version + 1,
                     }}
                 )
@@ -518,7 +530,7 @@ def _application_test(
             missing = FakeStore(None)
             missing_use_cases = build_{feature}_use_cases(missing)
             command = {operation_class}{entity}Command(
-                uuid=UUID("01951234-5678-7abc-8ef0-123456789abc"),
+                uuid=_ArclithUUID("01951234-5678-7abc-8ef0-123456789abc"),
                 expected_version=1,
             )
             with pytest.raises({entity}NotFoundError, match=str(command.uuid)):

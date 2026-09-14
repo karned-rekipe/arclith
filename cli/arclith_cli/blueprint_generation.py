@@ -100,6 +100,12 @@ def plan_application_blueprint_for_entity(
             f"{entity.pascal} is based on {actual}"
         )
     paths = project_paths or detect_project_paths(project_dir)
+    entity_module = entity.file_path.stem
+    if not entity_module.isidentifier() or keyword.iskeyword(entity_module):
+        raise ValueError(
+            f"Entity module name {entity_module!r} must be a valid, non-keyword "
+            "Python identifier"
+        )
     if keyword.iskeyword(entity.snake):
         raise ValueError(
             f"Entity {entity.pascal!r} normalizes to the reserved Python keyword "
@@ -205,6 +211,8 @@ def plan_application_profile_for_new_entity(
     """Preflight an optional application profile before creating its entity."""
     names = validated_entity_names(entity_name)
     if profile_name == "minimal":
+        if parameters is not None:
+            raise ValueError("Profile 'minimal' does not accept parameters")
         return None
     paths = project_paths or detect_project_paths(project_dir)
     blueprint = get_application_blueprint(profile_name)

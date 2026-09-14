@@ -253,6 +253,13 @@ restituent son type après conversion par valeur persistée. Si le champ manque,
 un type incompatible ou reste contournable, la CLI explique la modification
 requise et ne touche à aucun fichier.
 
+Le stem du fichier d'une entité existante doit toutefois être un identifiant
+Python non réservé : `invoice_record.py` est valide, tandis que `123_invoice.py`,
+`invoice-status.py` et `class.py` sont refusés avant toute écriture. Les imports
+internes du service, des ports et des tests sont aliasés afin qu'une entité
+validement nommée `Enum`, `ValidationError`, `ABC`, `UUID` ou `BaseModel` ne
+masque pas les helpers standard générés.
+
 ## Structure Générée
 
 Pour la feature `invoice_lifecycle`, la V1 produit des fichiers légers et séparés :

@@ -280,6 +280,8 @@ def application_profile_recipe_metadata(
 ) -> dict[str, object]:
     """Describe a non-minimal profile well enough to audit recipe drift."""
     if profile == "minimal":
+        if parameters is not None:
+            raise ValueError("Profile 'minimal' does not accept parameters")
         return {}
     blueprint = get_application_blueprint(profile)
     operations = blueprint.operations

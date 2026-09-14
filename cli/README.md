@@ -158,6 +158,18 @@ arclith-cli new Recipe my-recipe-service
 arclith-cli new RecipeStep meal-planner --port 8400
 arclith-cli new MealPlan meal-plan-service --dir ~/projects --port 8500
 arclith-cli new Todo todo-service --profile crud
+
+# Créer la spec dans le répertoire courant avant le preflight de `new`.
+cat > invoice-lifecycle.yaml <<'YAML'
+version: 1
+state_field: status
+initial_state: draft
+states: [draft, submitted]
+transitions:
+  - name: submit
+    from: [draft]
+    to: submitted
+YAML
 arclith-cli new Invoice invoice-service --profile state-machine \
   --spec invoice-lifecycle.yaml
 ```

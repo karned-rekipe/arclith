@@ -205,13 +205,13 @@ def render_domain_test(
     )
     first = spec.transitions[0]
     return (
-        "from enum import Enum\n\n"
+        "from enum import Enum as _ArclithEnum\n\n"
         "import pytest\n"
-        "from pydantic import ValidationError\n\n"
+        "from pydantic import ValidationError as _ArclithValidationError\n\n"
         f"from {prefix}domain.errors.{feature} import (\n"
         f"{indent(error_imports, '    ')},\n"
         ")\n"
-        f"from {prefix}domain.models.{entity_module} import {entity}\n"
+        f"from {prefix}domain.models.{entity_module} import {entity} as _ArclithEntity\n"
         f"from {prefix}domain.services.{feature} import {entity}Lifecycle\n\n\n"
         "ERRORS = {\n"
         f"{error_items}\n"
@@ -220,17 +220,17 @@ def render_domain_test(
         f"{matrix}\n"
         ")\n\n\n"
         f"def _state_value(state: str) -> object:\n"
-        f'    annotation = {entity}.model_fields["{spec.state_field}"].annotation\n'
-        "    if isinstance(annotation, type) and issubclass(annotation, Enum):\n"
+        f'    annotation = _ArclithEntity.model_fields["{spec.state_field}"].annotation\n'
+        "    if isinstance(annotation, type) and issubclass(annotation, _ArclithEnum):\n"
         "        return annotation(state)\n"
         "    return state\n\n\n"
         "def _persisted_state(value: object) -> object:\n"
-        "    return value.value if isinstance(value, Enum) else value\n\n\n"
+        "    return value.value if isinstance(value, _ArclithEnum) else value\n\n\n"
         f"def make_{_snake_entity(entity)}(\n"
         f'    state: str = "{spec.initial_state}",\n'
-        f") -> {entity}:\n"
+        f") -> _ArclithEntity:\n"
         '    """Isolate lifecycle tests without guessing required business fields."""\n'
-        f"    return {entity}.model_construct(\n"
+        f"    return _ArclithEntity.model_construct(\n"
         f"        {spec.state_field}=_state_value(state),\n"
         "    )\n\n\n"
         '@pytest.mark.parametrize(("state", "operation", "target"), TRANSITION_MATRIX)\n'
@@ -254,7 +254,7 @@ def render_domain_test(
         f"    assert _persisted_state(original.{spec.state_field}) == state\n\n\n"
         f"def test_{feature}_{spec.state_field}_rejects_arbitrary_assignment() -> None:\n"
         f"    entity = make_{_snake_entity(entity)}()\n\n"
-        '    with pytest.raises(ValidationError, match="frozen"):\n'
+        '    with pytest.raises(_ArclithValidationError, match="frozen"):\n'
         f'        setattr(entity, "{spec.state_field}", '
         f'_state_value("{first.target}"))\n'
         '    with pytest.raises(ValueError, match="lifecycle"):\n'
@@ -264,7 +264,7 @@ def render_domain_test(
         f"def test_{feature}_business_precondition_extension_is_explicit() -> None:\n"
         f"    class GuardedLifecycle({entity}Lifecycle):\n"
         f"        def _ensure_{first.name}_preconditions(\n"
-        f"            self, entity: {entity}\n"
+        "            self, entity: _ArclithEntity\n"
         "        ) -> None:\n"
         '            raise RuntimeError("project-owned guard")\n\n'
         f'    entity = make_{_snake_entity(entity)}("{first.sources[0]}")\n'

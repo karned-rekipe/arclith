@@ -18,6 +18,7 @@ from arclith_cli.application_blueprint_recipe import (
     replay_add_entity_step,
     validate_application_recipe_metadata,
 )
+from arclith_cli.application_blueprint_cli import application_profile_recipe_metadata
 from arclith_cli.application_blueprints import (
     application_blueprint_digest,
     application_parameters_digest,
@@ -25,6 +26,7 @@ from arclith_cli.application_blueprints import (
 )
 from arclith_cli.blueprint_generation import (
     apply_application_blueprint,
+    plan_application_profile_for_new_entity,
     plan_application_blueprint,
 )
 from arclith_cli.core_scaffold import add_entity_cmd
@@ -2139,6 +2141,30 @@ def test_generated_matrix_supports_existing_required_business_fields(
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
+@pytest.mark.parametrize(
+    "module_name",
+    ["123_invoice", "invoice-status", "class"],
+)
+def test_existing_entity_rejects_an_invalid_python_module_name(
+    tmp_path: Path,
+    module_name: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.rename(entity.with_name(f"{module_name}.py"))
+
+    with pytest.raises(ValueError, match="module name.*valid, non-keyword"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+    assert not (project / ".arclith/features/invoice_lifecycle.yaml").exists()
+
+
 def test_invalid_spec_and_dry_run_have_no_side_effects(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2622,19 +2648,24 @@ def test_full_recipe_preflights_add_blueprint_metadata_before_init(
     assert not target.exists()
 
 
+@pytest.mark.parametrize(
+    "entity_name",
+    ["Invoice", "Enum", "ValidationError", "ABC", "UUID", "BaseModel", "FakeStore"],
+)
 def test_fresh_state_machine_project_compiles_and_runs_generated_tests(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    entity_name: str,
 ) -> None:
     framework_root = Path(__file__).resolve().parents[2]
-    project = _project(tmp_path, "runtime-invoice-service")
+    project = _project(tmp_path, f"runtime-{entity_name.lower()}-service")
     spec_path = _write_spec(project)
     result = _invoke(
         monkeypatch,
         project,
         [
             "add-entity",
-            "Invoice",
+            entity_name,
             "--profile",
             "state-machine",
             "--spec",
@@ -2662,6 +2693,23 @@ def test_fresh_state_machine_project_compiles_and_runs_generated_tests(
             check=False,
         )
         assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+@pytest.mark.parametrize("parameters", [{}, {"state_field": "status"}])
+def test_minimal_profile_shared_apis_reject_blueprint_parameters(
+    tmp_path: Path,
+    parameters: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError, match="minimal.*does not accept parameters"):
+        application_profile_recipe_metadata("minimal", parameters=parameters)
+
+    with pytest.raises(ValueError, match="minimal.*does not accept parameters"):
+        plan_application_profile_for_new_entity(
+            tmp_path,
+            profile_name="minimal",
+            entity_name="Invoice",
+            parameters=parameters,
+        )
 
 
 def test_new_state_machine_profile_records_portable_parameters(tmp_path: Path) -> None:

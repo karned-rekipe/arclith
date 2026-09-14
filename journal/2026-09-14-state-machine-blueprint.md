@@ -50,6 +50,10 @@ spécification métier plutôt que d'un catalogue statique.
   en vérifient le type. Les erreurs not-found incluent l'UUID demandé ; les
   conflits exposent toujours les versions observée/attendue, avant le CAS comme
   lors d'une course atomique dans l'adapter.
+  Les modules d'entités existants doivent être des identifiants Python non
+  réservés, et les helpers standard des artefacts générés sont importés sous des
+  alias internes pour accepter sans collision des entités telles que `Enum` ou
+  `ValidationError`.
 - La persistance dépend d'un port outbound spécialisé `compare_and_swap`. Son
   contrat exige une comparaison atomique de version ; une lecture suivie d'un
   update inconditionnel n'est pas présentée comme sûre.
@@ -61,6 +65,8 @@ spécification métier plutôt que d'un catalogue statique.
   Les paramètres absents ou mal formés et les noms de blueprint absents ou
   inconnus sont normalisés en `RecipeError`. Un profil `minimal` refuse les
   métadonnées d'un blueprint paramétré au lieu de les ignorer.
+  Cette règle est appliquée aussi par les APIs partagées de métadonnées et de
+  planification, même lorsqu'elles sont appelées sans passer par la CLI.
   Le digest du template couvre le source complet des renderers, des helpers de
   nommage, chemins, inspection d'entité et initialisation de packages, et
   versionne aussi le contrat de validation des entités existantes, sans modifier
@@ -72,7 +78,7 @@ spécification métier plutôt que d'un catalogue statique.
 
 ## Validation
 
-- `uv run --project cli python -m pytest cli/tests -q` : 684 tests passés ;
+- `uv run --project cli python -m pytest cli/tests -q` : 695 tests passés ;
 - smoke test du projet généré : 19 tests passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
 - `make coverage` : 2 484 tests passés, 5 ignorés et 91,34 % sur 9 264
