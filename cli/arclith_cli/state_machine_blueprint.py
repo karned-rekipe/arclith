@@ -123,6 +123,7 @@ def _service(
         _transition_methods(entity, spec, transition) for transition in spec.transitions
     )
     return (
+        "from enum import Enum\n\n"
         f"from {entity_module} import {entity}\n"
         f"from {state_module} import {entity}State\n"
         f"from {errors_module} import (\n"
@@ -148,11 +149,15 @@ def _transition_methods(
     return dedent(
         f'''\
             def {transition.name}(self, entity: {entity}) -> {entity}:
-                current = {entity}State(entity.{spec.state_field})
+                raw_current = entity.{spec.state_field}
+                current_value = (
+                    raw_current.value if isinstance(raw_current, Enum) else raw_current
+                )
+                current = {entity}State(current_value)
                 if current not in frozenset(({allowed})):
                     raise {error}(current.value)
                 self._ensure_{transition.name}_preconditions(entity)
-                target = type(entity.{spec.state_field})(
+                target = type(raw_current)(
                     {entity}State.{transition.target.upper()}.value
                 )
                 return entity._copy_with_{spec.state_field}(target)
@@ -394,7 +399,7 @@ def _domain_test(
         "    changed = transition(original)\n"
         f"    assert changed.{spec.state_field} == {entity}State(target)\n"
         f"    assert original.{spec.state_field} == {entity}State(state)\n\n\n"
-        f"def test_{feature}_status_rejects_arbitrary_assignment() -> None:\n"
+        f"def test_{feature}_{spec.state_field}_rejects_arbitrary_assignment() -> None:\n"
         f"    entity = make_{_snake_entity(entity)}()\n\n"
         '    with pytest.raises(ValidationError, match="frozen"):\n'
         f'        setattr(entity, "{spec.state_field}", '

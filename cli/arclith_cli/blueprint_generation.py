@@ -26,7 +26,7 @@ from arclith_cli.feature_manifest import (
     render_feature_manifest,
     save_feature_manifest,
 )
-from arclith_cli.project_paths import detect_project_paths
+from arclith_cli.project_paths import ProjectPaths, detect_project_paths
 from arclith_cli.rename import EntityNames
 
 console = Console()
@@ -166,6 +166,13 @@ def plan_application_blueprint_for_entity(
     if not installed:
         files[manifest_path] = render_feature_manifest(manifest)
     originals = {path: path.read_bytes() if path.is_file() else None for path in files}
+    if creating_entity:
+        # ``add_entity_cmd`` creates these empty initializers before this plan is
+        # applied. Record that exact, expected intermediate state so a sparse
+        # package remains one coherent entity-plus-blueprint operation.
+        for initializer in _entity_initializer_paths(paths):
+            if initializer in originals and originals[initializer] is None:
+                originals[initializer] = b""
     return ApplicationBlueprintPlan(
         project_dir=project_dir,
         blueprint=blueprint,
@@ -206,6 +213,21 @@ def plan_application_profile_for_new_entity(
         parameters=parameters,
         creating_entity=True,
     )
+
+
+def _entity_initializer_paths(paths: ProjectPaths) -> tuple[Path, ...]:
+    """Mirror the package initializers created by ``add_entity_cmd``."""
+    stop_at = (
+        paths.package_root.parent
+        if paths.package_name is not None
+        else paths.package_root
+    )
+    directories = [paths.domain_models]
+    for parent in paths.domain_models.parents:
+        if parent == stop_at:
+            break
+        directories.append(parent)
+    return tuple(directory / "__init__.py" for directory in directories)
 
 
 def apply_application_blueprint(

@@ -17,7 +17,10 @@ from arclith_cli.application_blueprints import (
     application_blueprint_digest,
     get_application_blueprint,
 )
-from arclith_cli.blueprint_generation import plan_application_blueprint
+from arclith_cli.blueprint_generation import (
+    apply_application_blueprint,
+    plan_application_blueprint,
+)
 from arclith_cli.core_scaffold import add_entity_cmd
 from arclith_cli.feature_manifest import load_feature_manifest
 from arclith_cli.init_project import init_project_cmd
@@ -207,6 +210,7 @@ def test_template_digest_covers_the_generated_entity(
             "unreachable: orphan",
         ),
         ({**_spec_document(), "state_field": "version"}, "reserved by Entity"),
+        ({**_spec_document(), "state_field": "coerce_uuid"}, "reserved by Entity"),
         ({**_spec_document(), "state_field": "model_copy"}, "reserved by Entity"),
         ({**_spec_document(), "state_field": "model_dump"}, "reserved by Entity"),
         ({**_spec_document(), "state_field": "class"}, "public Python identifier"),
@@ -292,6 +296,40 @@ def test_profile_generates_typed_layers_and_parameterized_manifest(
     assert (project / "docs/blueprints/invoice-state-machine.md").is_file()
     assert not (package / "adapters/inbound/fastapi").exists()
     assert not (package / "adapters/inbound/fastmcp").exists()
+
+
+def test_profile_handles_a_sparse_model_package_and_configurable_state_field(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path, "sparse-service")
+    models = project / "src/sparse_service/domain/models"
+    (models / "__init__.py").unlink()
+    models.rmdir()
+    parameters = {**_parameters(), "state_field": "phase"}
+    spec_path = _write_spec(project, parameters)
+
+    result = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-entity",
+            "Invoice",
+            "--profile",
+            "state-machine",
+            "--spec",
+            str(spec_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (models / "__init__.py").read_bytes() == b""
+    assert (models / "invoice.py").is_file()
+    assert (models / "invoice_state.py").is_file()
+    domain_tests = (project / "tests/domain/test_invoice.py").read_text(
+        encoding="utf-8"
+    )
+    assert "def test_invoice_phase_rejects_arbitrary_assignment" in domain_tests
 
 
 def test_manifest_v2_rejects_parameter_digest_drift_and_non_json_values(
@@ -414,15 +452,16 @@ def test_existing_compatible_entity_is_preserved(
 
 
 def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
+    framework_root = Path(__file__).resolve().parents[2]
     project = _project(tmp_path)
     entity = _stateful_entity(project)
     content = entity.read_text(encoding="utf-8")
     content = content.replace(
         "from collections.abc import Mapping\n",
-        "from collections.abc import Mapping\nfrom enum import StrEnum\n",
+        "from collections.abc import Mapping\nfrom enum import Enum\n",
     ).replace(
         "class Invoice(Entity):\n",
-        "class InvoiceState(StrEnum):\n"
+        "class InvoiceState(Enum):\n"
         '    DRAFT = "draft"\n'
         '    SUBMITTED = "submitted"\n'
         '    APPROVED = "approved"\n'
@@ -432,19 +471,68 @@ def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
     literal = 'Literal["draft", "submitted", "approved", "rejected"]'
     entity.write_text(content.replace(literal, "InvoiceState"), encoding="utf-8")
 
-    plan_application_blueprint(
+    plan = plan_application_blueprint(
         project,
         blueprint_name="state-machine",
         entity_name="Invoice",
         feature_name="invoice_lifecycle",
         parameters=_parameters(),
     )
+    apply_application_blueprint(plan)
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from invoice_service.domain.models.invoice import Invoice, InvoiceState; "
+                "from invoice_service.domain.services.invoice_lifecycle import "
+                "InvoiceLifecycle; "
+                "changed = InvoiceLifecycle().submit("
+                "Invoice(status=InvoiceState.DRAFT)); "
+                "assert changed.status is InvoiceState.SUBMITTED"
+            ),
+        ],
+        cwd=project,
+        env={
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join((str(project / "src"), str(framework_root))),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
 
     entity.write_text(
         entity.read_text(encoding="utf-8").replace('    APPROVED = "approved"\n', ""),
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="Literal containing exactly"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+def test_existing_entity_rejects_a_deceptive_state_copy_helper(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            '{"status": target}',
+            '{"created_by": target}',
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="reject generic model_copy updates"):
         plan_application_blueprint(
             project,
             blueprint_name="state-machine",

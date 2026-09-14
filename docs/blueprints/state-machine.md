@@ -226,14 +226,21 @@ pas le même diagnostic.
 Le service généré vérifie toujours l'état source avant toute précondition :
 
 ```python
+from enum import Enum
+
+
 class InvoiceLifecycle:
     def approve(self, entity: Invoice) -> Invoice:
-        current = InvoiceState(entity.status)
+        raw_current = entity.status
+        current_value = (
+            raw_current.value if isinstance(raw_current, Enum) else raw_current
+        )
+        current = InvoiceState(current_value)
         if current not in frozenset((InvoiceState.SUBMITTED,)):
             raise ApproveInvoiceNotAllowedError(current.value)
         self._ensure_approve_preconditions(entity)
-        target = type(entity.status)(InvoiceState.APPROVED.value)
-        return entity.model_copy(update={"status": target})
+        target = type(raw_current)(InvoiceState.APPROVED.value)
+        return entity._copy_with_status(target)
 
     def _ensure_approve_preconditions(self, entity: Invoice) -> None:
         """Add project-owned guards here; the state guard already ran."""

@@ -17,6 +17,7 @@ from arclith_cli.rename import EntityNames
 STATE_MACHINE_SPEC_VERSION = 1
 _RESERVED_STATE_FIELDS = {
     "construct",
+    "coerce_uuid",
     "copy",
     "created_at",
     "created_by",
