@@ -5,18 +5,18 @@ une technologie. Il génère une structure initiale cohérente dans le domaine,
 l'application, la composition et les tests. Le projet reste propriétaire de ces
 fichiers et doit y ajouter ses règles métier.
 
-CRUD, append-only, state-machine et job sont les quatre blueprints fournis par
+CRUD, append-only, state-machine, job et synchronization sont les cinq blueprints fournis par
 Arclith. Le CRUD n'est ni le modèle universel d'une entité, ni une capability,
 ni un adapter. `state-machine` décrit l'état métier d'un agrégat ; il ne doit pas
 être confondu avec un workflow d'exécution. D'autres familles pourront être
-ajoutées indépendamment, par exemple une synchronisation, une recherche,
+ajoutées indépendamment, par exemple une recherche,
 une conversation ou un pipeline RAG.
 
 ## Trois Niveaux Distincts
 
 | Niveau | Question | Exemples | Commande |
 |---|---|---|---|
-| Blueprint applicatif | Quel comportement récurrent initialiser ? | CRUD, append-only, state-machine, job | `add-blueprint` |
+| Blueprint applicatif | Quel comportement récurrent initialiser ? | CRUD, append-only, state-machine, job, synchronization | `add-blueprint` |
 | Capability | De quelle capacité technique le service a-t-il besoin ? | API, MCP, repository, agent | `capabilities` |
 | Adapter | Avec quelle technologie implémenter la capability ? | FastAPI, FastMCP, MongoDB, PostgreSQL | `add-adapter` |
 | Projection | Quel contrat public exposer sur un adapter installé ? | CRUD vers REST | `expose-feature` |
@@ -118,6 +118,17 @@ arclith-cli add-blueprint job --feature report_generation \
   --no-entity --spec report-job.yaml
 ```
 
+Le blueprint [synchronization](blueprints/synchronization.md) réutilise Job pour
+une réconciliation pull full/incremental. Il conserve le manifeste V2, exige une
+entité existante et une spec, et expose quatre opérations. Le mapper, les ports
+source/cible et le checkpoint sont injectés explicitement ; la génération
+préserve le modèle métier existant.
+
+```bash
+arclith-cli add-blueprint synchronization --entity Customer \
+  --feature customer_sync --spec customer-sync.yaml
+```
+
 La sortie `arclith-cli blueprints --json` expose `parameterized` pour que les
 outils sachent si une entrée externe comme `--spec` est requise, sans déduire ce
 contrat d'une liste d'opérations vide.
@@ -159,7 +170,8 @@ ne prétend pas rendre atomique un repository qui ne possède pas ce contrat.
 
 Consulter le [blueprint CRUD](blueprints/crud.md), le
 [blueprint append-only](blueprints/append-only.md), le
-[blueprint state-machine](blueprints/state-machine.md) et le
-[blueprint job](blueprints/job.md) pour leurs contrats détaillés
+[blueprint state-machine](blueprints/state-machine.md), le
+[blueprint job](blueprints/job.md) et le
+[blueprint synchronization](blueprints/synchronization.md) pour leurs contrats détaillés
 et les [blueprints des adapters](deep-dives/adapter-blueprints.md) pour la
 structure des implémentations techniques.

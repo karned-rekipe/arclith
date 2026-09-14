@@ -67,6 +67,7 @@ arclith-cli capabilities --json
 | Persistance métier | [repository, sa matrice et son routing multi-stores](capabilities/repository.md), puis [storage](capabilities/storage.md) ou [vector-store](capabilities/vector-store.md) pour les responsabilités distinctes |
 | Faits immuables et ingestion idempotente | [Blueprint append-only et contrat AppendOnlyStore](blueprints/append-only.md), distincts du repository CRUD ; store mémoire composé explicitement |
 | Travail suivi, annulation et retry | [Blueprint job](blueprints/job.md), ports d'exécution et store/runner mémoire non durables ; sélection explicite du moteur |
+| Réconciliation d'une source externe vers une cible | [Blueprint synchronization](blueprints/synchronization.md), pull full/incremental exécuté comme job, mapping explicite et checkpoint par page |
 | Service production | [Baseline production](production/baseline.md), puis les pages de la section Production |
 | Déploiement | [Runtime Docker](runtime-docker.md), puis [Docker Compose](runtime-docker/docker-compose.md) |
 

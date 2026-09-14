@@ -43,9 +43,21 @@ class JobModel(BaseModel):
 
 
 class JobProgress(JobModel):
-    """Optional bounded percentage; never a free-text log or business payload."""
+    """Percentage or counters; an unknown total never implies a percentage."""
 
-    percent: float = Field(ge=0, le=100, strict=True)
+    percent: float | None = Field(default=None, ge=0, le=100, strict=True)
+    completed: int | None = Field(default=None, ge=0, le=10**12, strict=True)
+    total: int | None = Field(default=None, ge=0, le=10**12, strict=True)
+
+    @model_validator(mode="after")
+    def validate_counters(self) -> Self:
+        if self.percent is None and self.completed is None:
+            raise ValueError("Progress requires a percentage or completed counter")
+        if self.total is not None and (
+            self.completed is None or self.completed > self.total
+        ):
+            raise ValueError("Progress completed must not exceed its known total")
+        return self
 
 
 class JobError(JobModel):

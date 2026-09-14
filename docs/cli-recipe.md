@@ -165,6 +165,13 @@ exige que ce record existe déjà. Les modèles et règles métier personnalisé
 sont pas stockés dans la recette : les conserver dans Git. Le manifeste conserve
 son schéma version 1 ; voir le [contrat append-only](blueprints/append-only.md).
 
+Le [blueprint synchronization](blueprints/synchronization.md) conserve aussi
+l'enveloppe V1 et utilise le manifeste de feature V2 lié à une entité. Sa spec
+normalisée inclut les modes, politiques, limites et version source. Le replay
+vérifie le contrat Job/Synchronization du framework avant de créer le projet ;
+une release incompatible produit une erreur explicite. Les digests, collisions
+et personnalisations suivent le même plan de génération que les autres blueprints.
+
 Le [blueprint job](blueprints/job.md) conserve l'enveloppe de recette V1 et
 versionne ses arguments de cible avec `target_version: 1`. Il enregistre soit
 `entity`, soit `no_entity: true` avec un nom de feature obligatoire. Le manifeste

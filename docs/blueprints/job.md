@@ -223,7 +223,13 @@ La limite technique ne détecte pas un secret placé dans une chaîne ordinaire 
 le projet doit exclure les champs sensibles de ses contrats.
 
 La progression optionnelle utilise `JobProgress(percent=…)`, nombre fini entre
-0 et 100. Elle ne contient ni logs ni payload métier. `JobError` est versionné
+0 et 100, ou `JobProgress(completed=…, total=…)`, avec des compteurs entiers
+de 0 à 10¹². `total=None` indique un total inconnu et n'invente aucun pourcentage ;
+un total fourni doit être supérieur ou égal à `completed`. Au moins un pourcentage
+ou un compteur completed est requis. La progression ne contient ni logs ni payload
+métier. Le contexte mémoire expose aussi `job_id` pour rattacher un rapport externe
+à l'exécution, comme le fait [synchronization](synchronization.md).
+`JobError` est versionné
 et expose trois codes fixes : `handler_failed`, `handler_not_implemented`,
 `execution_interrupted`, avec une propriété `message` stable. Le texte brut et
 la trace d'une exception ne sont jamais copiés dans le record public.

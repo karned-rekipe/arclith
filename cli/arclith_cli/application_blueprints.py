@@ -62,11 +62,19 @@ JOB_BLUEPRINT = ApplicationBlueprintSpec(
     parameterized=True,
 )
 
+SYNCHRONIZATION_BLUEPRINT = ApplicationBlueprintSpec(
+    name="synchronization",
+    description="Réconciliation pull full/incremental exécutée comme job (--spec).",
+    operations=("start_sync", "get_sync_status", "cancel_sync", "get_sync_report"),
+    parameterized=True,
+)
+
 APPLICATION_BLUEPRINT_CATALOG = (
     CRUD_BLUEPRINT,
     APPEND_ONLY_BLUEPRINT,
     STATE_MACHINE_BLUEPRINT,
     JOB_BLUEPRINT,
+    SYNCHRONIZATION_BLUEPRINT,
 )
 
 
@@ -107,6 +115,15 @@ def render_application_blueprint(
         )
     if entity is None:
         raise ValueError(f"Blueprint {blueprint.name!r} requires --entity")
+    if blueprint.name == "synchronization":
+        from arclith_cli.synchronization_blueprint import (
+            render_synchronization_blueprint,
+        )
+        from arclith_cli.synchronization_spec import SynchronizationSpec
+
+        return render_synchronization_blueprint(
+            paths, entity, feature, SynchronizationSpec.from_parameters(parameters)
+        )
     if blueprint.name == "crud":
         from arclith_cli.crud_blueprint import render_crud_blueprint
 
@@ -162,6 +179,16 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
             "cancellable": True,
             "max_attempts": 1,
             "retention_days": 7,
+        }
+    elif blueprint.name == "synchronization":
+        parameters = {
+            "direction": "pull",
+            "modes": ["full", "incremental"],
+            "external_key": "external_id",
+            "page_size": 100,
+            "conflict_policy": "source_wins",
+            "missing_policy": "deactivate",
+            "execution": "job",
         }
     rendered = render_application_blueprint(
         blueprint,
@@ -229,6 +256,20 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
                     job_blueprint,
                     job_spec,
                     feature_manifest,
+                )
+            ).encode("utf-8")
+        ).hexdigest()
+    if blueprint.name == "synchronization":
+        import inspect
+
+        from arclith_cli import synchronization_blueprint, synchronization_spec
+
+        digest_contract["renderer_contract"] = hashlib.sha256(
+            "\0".join(
+                inspect.getsource(module)
+                for module in (
+                    synchronization_blueprint,
+                    synchronization_spec,
                 )
             ).encode("utf-8")
         ).hexdigest()
@@ -304,6 +345,10 @@ def canonical_blueprint_parameters(
         from arclith_cli.job_spec import JobSpec
 
         return JobSpec.from_parameters(raw).to_parameters()
+    if blueprint.name == "synchronization":
+        from arclith_cli.synchronization_spec import SynchronizationSpec
+
+        return SynchronizationSpec.from_parameters(raw).to_parameters()
     if raw is not None:
         raise ValueError(f"Blueprint {blueprint.name!r} does not accept parameters")
     return None
@@ -321,6 +366,10 @@ def application_parameters_digest(
         from arclith_cli.job_spec import JobSpec
 
         return JobSpec.from_parameters(parameters).digest()
+    if blueprint.name == "synchronization":
+        from arclith_cli.synchronization_spec import SynchronizationSpec
+
+        return SynchronizationSpec.from_parameters(parameters).digest()
     if parameters is not None:
         raise ValueError(f"Blueprint {blueprint.name!r} does not accept parameters")
     return None

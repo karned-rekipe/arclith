@@ -89,6 +89,18 @@ def test_crud_is_an_application_blueprint_not_an_adapter_capability() -> None:
             "operations": ["submit", "get_status", "cancel", "retry", "get_result"],
             "parameterized": True,
         },
+        {
+            "name": "synchronization",
+            "version": 1,
+            "description": "Réconciliation pull full/incremental exécutée comme job (--spec).",
+            "operations": [
+                "start_sync",
+                "get_sync_status",
+                "cancel_sync",
+                "get_sync_report",
+            ],
+            "parameterized": True,
+        },
     ]
 
 

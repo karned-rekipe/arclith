@@ -18,13 +18,18 @@ class CancellationToken(ABC):
 
 class JobContext(ABC):
     @property
+    def job_id(self) -> JobId:
+        """Execution identity, required by handlers persisting external reports."""
+        raise NotImplementedError("This job context must expose its execution identity")
+
+    @property
     @abstractmethod
     def cancellation(self) -> CancellationToken:
         """Cooperative token; handlers checkpoint at safe interruption points."""
 
     @abstractmethod
     async def report_progress(self, progress: JobProgress) -> None:
-        """Report a bounded percentage for the current attempt."""
+        """Report a bounded percentage or counters for the current attempt."""
 
 
 class JobHandler[RequestT: BaseModel, ResultT: BaseModel](ABC):

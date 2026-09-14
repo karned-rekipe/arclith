@@ -235,6 +235,8 @@ def plan_application_profile_for_new_entity(
     blueprint = get_application_blueprint(profile_name)
     if blueprint.name == "job":
         raise ValueError("Use add-blueprint job with --entity or --no-entity; job is not an entity profile")
+    if blueprint.name == "synchronization":
+        raise ValueError("Use add-blueprint synchronization with --entity and --spec; synchronization is not an entity profile")
     return plan_application_blueprint_for_entity(
         project_dir,
         blueprint=blueprint,

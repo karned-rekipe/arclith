@@ -131,6 +131,21 @@ mémoire. Il génère cinq opérations et un handler à compléter, sans transpo
 Le runner mémoire est non durable et ne lance aucune tâche lors de `submit` :
 son propriétaire appelle explicitement `await runner.run(job_id)`.
 
+Pour réconcilier des données externes, créer une feature liée à une entité :
+
+```bash
+arclith-cli add-blueprint synchronization --entity Customer \
+  --feature customer_sync --spec customer-sync.yaml --dry-run
+arclith-cli add-blueprint synchronization --entity Customer \
+  --feature customer_sync --spec customer-sync.yaml
+```
+
+Le [guide synchronization](blueprints/synchronization.md) fournit la spec complète,
+l'installation depuis les sources compatibles et un exemple exécutable. La feature
+utilise Job, distingue son état d'exécution du checkpoint de synchronisation et
+laisse les adapters et le mapper métier à implémenter. Le replay conserve les
+paramètres dans la recette, sans dépendre du YAML initial.
+
 `arclith-cli run api` exécute `uv run` dans la racine détectée et conserve le
 serveur en avant-plan jusqu'à `Ctrl+C`. Le port et le reload restent pilotés par
 la configuration FastAPI générée.

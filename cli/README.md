@@ -269,7 +269,7 @@ arclith-cli add-blueprint state-machine --entity Invoice \
 
 La première application écrit `.arclith/features/shopping_item.yaml`. Un replay
 préserve les fichiers applicatifs déjà personnalisés et complète uniquement les
-fichiers manquants. CRUD, append-only, state-machine et job sont des comportements
+fichiers manquants. CRUD, append-only, state-machine, job et synchronization sont des comportements
 explicites ; aucun n'est inféré depuis un adapter. Voir le
 [contrat détaillé](https://karned-rekipe.github.io/arclith/blueprints/).
 
@@ -309,6 +309,40 @@ PyPI ; Arclith 0.31.0 / CLI 0.28.0 ne la contiennent pas. Le
 l'installation de développement, le smoke test, la rétention et les futurs adapters.
 
 ---
+
+Pour une réconciliation pull, appliquer `synchronization` à une entité existante :
+
+```yaml
+# customer-sync.yaml
+version: 1
+direction: pull
+modes: [full, incremental]
+external_key: external_id
+page_size: 100
+conflict_policy: source_wins
+missing_policy: deactivate
+execution: job
+```
+
+```bash
+arclith-cli add-blueprint synchronization --entity Customer \
+  --feature customer_sync --spec customer-sync.yaml --dry-run
+arclith-cli add-blueprint synchronization --entity Customer \
+  --feature customer_sync --spec customer-sync.yaml
+```
+
+Les quatre opérations `start_sync`, `get_sync_status`, `cancel_sync` et
+`get_sync_report` réutilisent le contrat Job. Le mapper reste à compléter,
+les tests utilisent des fakes explicites, et aucun adapter/transport n'est
+installé. Le checkpoint incrémental n'avance qu'après une page entièrement
+appliquée ; le full recommence du début après échec, avec clés vues bornées
+et désactivation atomique après réussite de toutes les pages. Le manifeste V2
+et la recette V1 conservent les paramètres canoniques et les digests.
+
+Les distributions 0.31.0 / CLI 0.28.0 ne contiennent pas cette capacité ; installer
+les sources compatibles ensemble selon le
+[guide synchronization](https://karned-rekipe.github.io/arclith/blueprints/synchronization/).
+Le CLI refuse explicitement une génération/reprise sur un framework incompatible.
 
 ### `expose-feature` — Projeter Un Blueprint Applicatif
 
