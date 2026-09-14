@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import inspect
 import os
 import re
 import subprocess
@@ -30,6 +31,7 @@ from arclith_cli.feature_manifest import load_feature_manifest
 from arclith_cli.init_project import init_project_cmd
 from arclith_cli.main import app
 from arclith_cli.recipe import load_recipe, replay_recipe
+from arclith_cli.recipe_models import RecipeError, save_recipe
 from arclith_cli.state_machine_spec import StateMachineSpec
 
 
@@ -231,6 +233,24 @@ def test_template_digest_includes_the_complete_renderer_contract(
         "_state_machine_renderer_contract_digest",
         lambda: "sha256:" + "0" * 64,
     )
+
+    assert application_blueprint_digest(blueprint) != before
+
+
+def test_template_digest_includes_the_state_machine_spec_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from arclith_cli import state_machine_spec
+
+    blueprint = get_application_blueprint("state-machine")
+    before = application_blueprint_digest(blueprint)
+    original_getsource = inspect.getsource
+
+    def changed_source(subject: object) -> str:
+        source = original_getsource(subject)
+        return source + "\n# changed spec contract\n" if subject is state_machine_spec else source
+
+    monkeypatch.setattr(inspect, "getsource", changed_source)
 
     assert application_blueprint_digest(blueprint) != before
 
@@ -528,10 +548,10 @@ def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
     content = entity.read_text(encoding="utf-8")
     content = content.replace(
         "from collections.abc import Mapping\n",
-        "from collections.abc import Mapping\nfrom enum import Enum\n",
+        "from collections.abc import Mapping\nfrom enum import Enum as BaseEnum\n",
     ).replace(
         "class Invoice(Entity):\n",
-        "class InvoiceStatus(Enum):\n"
+        "class InvoiceStatus(BaseEnum):\n"
         '    DRAFT = "draft"\n'
         '    SUBMITTED = "submitted"\n'
         '    APPROVED = "approved"\n'
@@ -580,6 +600,41 @@ def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="Literal containing exactly"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+def test_existing_enum_rejects_use_enum_values(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    content = entity.read_text(encoding="utf-8")
+    content = content.replace(
+        "from collections.abc import Mapping\n",
+        "from collections.abc import Mapping\nfrom enum import StrEnum\n",
+    ).replace(
+        "class Invoice(Entity):\n",
+        "class InvoiceStatus(StrEnum):\n"
+        '    DRAFT = "draft"\n'
+        '    SUBMITTED = "submitted"\n'
+        '    APPROVED = "approved"\n'
+        '    REJECTED = "rejected"\n\n\n'
+        "class Invoice(Entity):\n",
+    )
+    literal = 'Literal["draft", "submitted", "approved", "rejected"]'
+    entity.write_text(
+        content.replace(literal, "InvoiceStatus").replace(
+            "ConfigDict(validate_assignment=True)",
+            "ConfigDict(validate_assignment=True, use_enum_values=True)",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="use_enum_values disabled"):
         plan_application_blueprint(
             project,
             blueprint_name="state-machine",
@@ -1115,7 +1170,7 @@ def test_parameterized_recipe_requires_complete_digest_metadata_before_writes(
     args = _parameterized_recipe_args()
     del args[missing_digest]
 
-    with pytest.raises(ValueError, match="replay requires both"):
+    with pytest.raises(RecipeError, match="replay requires both"):
         replay_add_entity_step(project, args)
 
     validate_application_recipe_metadata("crud", {})
@@ -1158,7 +1213,7 @@ def test_full_recipe_preflights_all_blueprint_metadata_before_init(
     )
     target = tmp_path / "preflight-target"
 
-    with pytest.raises(ValueError, match="replay requires both"):
+    with pytest.raises(RecipeError, match="replay requires both"):
         replay_recipe(
             incomplete_recipe,
             incomplete_recipe.steps,
@@ -1166,6 +1221,22 @@ def test_full_recipe_preflights_all_blueprint_metadata_before_init(
             strict=True,
         )
 
+    assert not target.exists()
+
+    save_recipe(incomplete_recipe, project / "incomplete.recipe.yaml")
+    cli_result = runner.invoke(
+        app,
+        [
+            "replay",
+            str(project / "incomplete.recipe.yaml"),
+            "--dir",
+            str(target),
+            "--strict",
+        ],
+    )
+    assert cli_result.exit_code == 1
+    assert "Recette CLI invalide" in cli_result.output
+    assert "replay requires both" in " ".join(cli_result.output.split())
     assert not target.exists()
 
 
@@ -1211,7 +1282,7 @@ def test_full_recipe_preflights_add_blueprint_metadata_before_init(
     )
     target = tmp_path / "blueprint-preflight-target"
 
-    with pytest.raises(ValueError, match="replay requires both"):
+    with pytest.raises(RecipeError, match="replay requires both"):
         replay_recipe(
             incomplete_recipe,
             incomplete_recipe.steps,

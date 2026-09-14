@@ -14,6 +14,7 @@ from arclith_cli.blueprint_generation import (
 )
 from arclith_cli.core_scaffold import add_entity_cmd
 from arclith_cli.project_paths import detect_project_paths
+from arclith_cli.recipe_models import RecipeError
 from arclith_cli.state_machine_entity import render_state_machine_entity
 from arclith_cli.state_machine_spec import StateMachineSpec
 
@@ -98,19 +99,19 @@ def validate_application_recipe_metadata(
     if blueprint.parameterized and (
         recorded_template is None or recorded_parameters is None
     ):
-        raise ValueError(
+        raise RecipeError(
             f"Parameterized blueprint {blueprint.name!r} replay requires both "
             "template_digest and parameters_digest"
         )
     expected_template = application_blueprint_digest(blueprint)
     if recorded_template is not None and recorded_template != expected_template:
-        raise ValueError(
+        raise RecipeError(
             f"Blueprint {blueprint.name!r} template digest drift: "
             f"recorded {recorded_template!r}, current {expected_template!r}"
         )
     expected_parameters = application_parameters_digest(blueprint, parameters)
     if recorded_parameters is not None and recorded_parameters != expected_parameters:
-        raise ValueError(
+        raise RecipeError(
             f"Blueprint {blueprint.name!r} parameters digest drift: "
             f"recorded {recorded_parameters!r}, current {expected_parameters!r}"
         )

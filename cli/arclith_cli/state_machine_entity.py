@@ -16,6 +16,7 @@ from arclith_cli.state_machine_rendering import (
 from arclith_cli.state_machine_spec import StateMachineSpec
 
 __all__ = [
+    "STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION",
     "render_state_documentation",
     "render_state_errors",
     "render_state_machine_entity",
@@ -70,8 +71,9 @@ def validate_existing_state_field(
         )
     if not _state_assignment_is_protected(models[0], fields[0], tree=tree):
         raise ValueError(
-            f"Entity field {entity.pascal}.{spec.state_field} must reject assignment; "
-            "use ConfigDict(validate_assignment=True) with Field(..., frozen=True)"
+            f"Entity field {entity.pascal}.{spec.state_field} must reject assignment "
+            "without coercing enum values; use ConfigDict(validate_assignment=True) "
+            "with Field(..., frozen=True) and keep use_enum_values disabled"
         )
     if not _state_copy_is_controlled(models[0], spec.state_field):
         raise ValueError(
@@ -380,6 +382,8 @@ def _state_assignment_is_protected(
                     and isinstance(option.value.value, bool)
                 }
             )
+    if config_options.get("use_enum_values") is True:
+        return False
     if config_options.get("frozen") is True:
         return True
     if config_options.get("validate_assignment") is not True:

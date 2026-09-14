@@ -190,7 +190,9 @@ la méthode privée synchrone montrée ci-dessus. Les alias importés de
 vérification prouve aussi l'origine de `Literal`, des bases stdlib
 `Enum`/`StrEnum` et des helpers Pydantic ; elle refuse les homonymes applicatifs
 et les méthodes de copie asynchrones, dont le comportement ne peut pas satisfaire
-le contrat synchrone du cycle de vie. Un nom de fichier non canonique comme
+le contrat synchrone du cycle de vie. Pour un champ enum,
+`ConfigDict(use_enum_values=True)` est également refusé : cette option stockerait
+une chaîne et romprait la garantie de restitution du type enum. Un nom de fichier non canonique comme
 `invoice_record.py` reste accepté : les imports générés
 distinguent le module réel de l'entité du module d'état interne
 `invoice_lifecycle_state.py`. Ce module généré porte délibérément le suffixe
