@@ -346,16 +346,18 @@ operations:
 ```
 
 `parameters` contient uniquement des valeurs JSON/YAML sûres. Le digest
-`template` détecte une évolution du renderer ; le digest `parameters` identifie
-la configuration résolue. Une nouvelle spec incompatible avec un manifeste
-installé est refusée au lieu de réécrire les fichiers du développeur.
+`template` détecte une évolution du renderer et versionne aussi le contrat de
+validation appliqué aux entités existantes ; le digest `parameters` identifie la
+configuration résolue. Une nouvelle spec incompatible avec un manifeste installé
+est refusée au lieu de réécrire les fichiers du développeur.
 
 `arclith.recipe.yaml` enregistre le même mapping canonique. Il n'enregistre pas
 le chemin de `invoice-lifecycle.yaml` : le replay reste portable si le fichier
 source a été déplacé ou supprimé. Avant toute écriture, le replay compare les
-digests enregistrés au renderer et aux paramètres courants ; une dérive est
-refusée explicitement. Les manifests V1 existants restent lus et rejoués sans
-conversion vers V2.
+deux digests obligatoires au renderer, au contrat de validation et aux paramètres
+courants ; une métadonnée absente ou une dérive est refusée explicitement. Les
+recettes non paramétrées historiques restent tolérantes à l'absence de ces
+métadonnées, et les manifests V1 restent lus sans conversion vers V2.
 
 ## Faire Évoluer Une Machine En Production
 

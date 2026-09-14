@@ -94,13 +94,20 @@ def validate_application_recipe_metadata(
     raw_parameters = args.get("parameters")
     parameters = canonical_blueprint_parameters(blueprint, raw_parameters)
     recorded_template = args.get("template_digest")
+    recorded_parameters = args.get("parameters_digest")
+    if blueprint.parameterized and (
+        recorded_template is None or recorded_parameters is None
+    ):
+        raise ValueError(
+            f"Parameterized blueprint {blueprint.name!r} replay requires both "
+            "template_digest and parameters_digest"
+        )
     expected_template = application_blueprint_digest(blueprint)
     if recorded_template is not None and recorded_template != expected_template:
         raise ValueError(
             f"Blueprint {blueprint.name!r} template digest drift: "
             f"recorded {recorded_template!r}, current {expected_template!r}"
         )
-    recorded_parameters = args.get("parameters_digest")
     expected_parameters = application_parameters_digest(blueprint, parameters)
     if recorded_parameters is not None and recorded_parameters != expected_parameters:
         raise ValueError(

@@ -27,12 +27,13 @@ spécification métier plutôt que d'un catalogue statique.
   du template et le digest des paramètres. Les manifests V1 restent strictement
   lisibles et rejouables sans conversion.
 - La recette stocke la configuration résolue, jamais le chemin de `--spec`, et
-  ses digests sont vérifiés avant toute écriture de replay.
+  exige ses deux digests avant toute écriture de replay. Le digest du template
+  versionne aussi le contrat de validation des entités existantes.
 
 ## Validation
 
-- `uv run --project cli python -m pytest cli/tests -q` : 567 tests passés ;
-- tests générés dans le smoke test : 17 tests domaine/application passés ;
+- `uv run --project cli python -m pytest cli/tests -q` : 573 tests passés ;
+- smoke test du projet généré : 19 tests passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
 - `make coverage` : 2 472 tests passés, 5 ignorés et 91,34 % sur 9 264
   statements et 2 142 branches ;

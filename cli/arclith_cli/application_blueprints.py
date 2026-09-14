@@ -147,8 +147,12 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
         creating_entity=True,
     )
     entity_template: str | None = None
+    existing_entity_validation_version: int | None = None
     if blueprint.name == "state-machine":
-        from arclith_cli.state_machine_entity import render_state_machine_entity
+        from arclith_cli.state_machine_entity import (
+            STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION,
+            render_state_machine_entity,
+        )
         from arclith_cli.state_machine_spec import StateMachineSpec
 
         entity_template = render_state_machine_entity(
@@ -156,15 +160,23 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
             entity,
             StateMachineSpec.from_parameters(parameters),
         )
-    payload = json.dumps(
-        {
-            "blueprint": blueprint.to_dict(),
-            "entity_template": entity_template,
-            "files": {
-                path.relative_to(root).as_posix(): content
-                for path, content in sorted(rendered.items())
-            },
+        existing_entity_validation_version = (
+            STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION
+        )
+    digest_contract: dict[str, object] = {
+        "blueprint": blueprint.to_dict(),
+        "entity_template": entity_template,
+        "files": {
+            path.relative_to(root).as_posix(): content
+            for path, content in sorted(rendered.items())
         },
+    }
+    if existing_entity_validation_version is not None:
+        digest_contract["existing_entity_validation_version"] = (
+            existing_entity_validation_version
+        )
+    payload = json.dumps(
+        digest_contract,
         ensure_ascii=False,
         separators=(",", ":"),
         sort_keys=True,

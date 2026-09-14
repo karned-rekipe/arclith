@@ -12,6 +12,10 @@ from arclith_cli.rename import EntityNames
 from arclith_cli.state_machine_spec import StateMachineSpec, StateTransitionSpec
 
 
+# Bump whenever ``validate_existing_state_field`` accepts or rejects new forms.
+STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 1
+
+
 def render_state_machine_entity(
     paths: ProjectPaths,
     entity: EntityInfo,

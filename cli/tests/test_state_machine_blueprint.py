@@ -12,9 +12,13 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from arclith_cli.application_blueprint_recipe import replay_add_entity_step
+from arclith_cli.application_blueprint_recipe import (
+    replay_add_entity_step,
+    validate_application_recipe_metadata,
+)
 from arclith_cli.application_blueprints import (
     application_blueprint_digest,
+    application_parameters_digest,
     get_application_blueprint,
 )
 from arclith_cli.blueprint_generation import (
@@ -47,6 +51,18 @@ def _parameters() -> dict[str, object]:
 
 def _spec_document(parameters: dict[str, object] | None = None) -> dict[str, object]:
     return {"version": 1, **(parameters or _parameters())}
+
+
+def _parameterized_recipe_args() -> dict[str, object]:
+    blueprint = get_application_blueprint("state-machine")
+    parameters = StateMachineSpec.from_dict(_spec_document()).to_parameters()
+    return {
+        "entity": "Invoice",
+        "profile": blueprint.name,
+        "parameters": parameters,
+        "template_digest": application_blueprint_digest(blueprint),
+        "parameters_digest": application_parameters_digest(blueprint, parameters),
+    }
 
 
 def _project(tmp_path: Path, name: str = "invoice-service") -> Path:
@@ -160,6 +176,22 @@ def test_template_digest_covers_the_generated_entity(
         state_machine_entity,
         "render_state_machine_entity",
         lambda *_args: "# changed entity template\n",
+    )
+
+    assert application_blueprint_digest(blueprint) != before
+
+
+def test_template_digest_versions_existing_entity_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from arclith_cli import state_machine_entity
+
+    blueprint = get_application_blueprint("state-machine")
+    before = application_blueprint_digest(blueprint)
+    monkeypatch.setattr(
+        state_machine_entity,
+        "STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION",
+        state_machine_entity.STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION + 1,
     )
 
     assert application_blueprint_digest(blueprint) != before
@@ -735,11 +767,7 @@ def test_profile_collision_is_atomic_and_recipe_replay_needs_no_spec_file(
     with pytest.raises(ValueError, match="already exists"):
         replay_add_entity_step(
             collision_project,
-            {
-                "entity": "Invoice",
-                "profile": "state-machine",
-                "parameters": _parameters(),
-            },
+            _parameterized_recipe_args(),
         )
     assert collision.read_text(encoding="utf-8") == "# project-owned\n"
     assert not (
@@ -786,6 +814,22 @@ def test_profile_collision_is_atomic_and_recipe_replay_needs_no_spec_file(
     replay_recipe(recipe, recipe.steps, target_dir=replay_target, strict=True)
     replayed = load_feature_manifest(replay_target / ".arclith/features/invoice.yaml")
     assert replayed.parameters == step.args["parameters"]
+
+
+@pytest.mark.parametrize("missing_digest", ["template_digest", "parameters_digest"])
+def test_parameterized_recipe_requires_complete_digest_metadata_before_writes(
+    tmp_path: Path,
+    missing_digest: str,
+) -> None:
+    project = _project(tmp_path, f"missing-{missing_digest.replace('_', '-')}")
+    args = _parameterized_recipe_args()
+    del args[missing_digest]
+
+    with pytest.raises(ValueError, match="replay requires both"):
+        replay_add_entity_step(project, args)
+
+    validate_application_recipe_metadata("crud", {})
+    assert not list(project.rglob("invoice.py"))
 
 
 def test_fresh_state_machine_project_compiles_and_runs_generated_tests(
