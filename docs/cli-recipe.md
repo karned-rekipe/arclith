@@ -149,6 +149,13 @@ et rejouent le profil `minimal`. Les chemins HTTP absolus tels que `/v1/todos`
 sont des contrats publics portables ; seuls les chemins absolus de fichiers sont
 remplacés par `<external-path>`.
 
+Le profil `append-only` est enregistré avec la version du blueprint, l'opération
+`append` et l'empreinte du template, comme le profil CRUD. Le replay de `new` ou
+`add-entity` recrée un `ImmutableRecord` ; une étape `add-blueprint append-only`
+exige que ce record existe déjà. Les modèles et règles métier personnalisés ne
+sont pas stockés dans la recette : les conserver dans Git. Le manifeste conserve
+son schéma version 1 ; voir le [contrat append-only](blueprints/append-only.md).
+
 Les étapes rejouées ne sont pas enregistrées une seconde fois. Pour une cible
 nouvelle, la recette sélectionnée est copiée une seule fois après le succès du
 replay. Pour un projet existant qui possède déjà sa recette, celle-ci n'est pas

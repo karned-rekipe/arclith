@@ -33,7 +33,15 @@ def replay_add_entity_step(target_dir: Path, args: dict[str, Any]) -> None:
         profile_name=profile,
         entity_name=entity,
     )
-    add_entity_cmd(project_dir=target_dir, entity_name=entity)
+    add_entity_cmd(
+        project_dir=target_dir,
+        entity_name=entity,
+        model_base=(
+            blueprint_plan.entity.model_base
+            if blueprint_plan is not None
+            else "entity"
+        ),
+    )
     if blueprint_plan is not None:
         apply_application_blueprint(blueprint_plan)
 

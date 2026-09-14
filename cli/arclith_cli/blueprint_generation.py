@@ -10,7 +10,7 @@ from arclith_cli.application_blueprints import (
     get_application_blueprint,
     render_application_blueprint,
 )
-from arclith_cli.entity_scanner import EntityInfo, scan_entities
+from arclith_cli.entity_scanner import EntityInfo, scan_blueprint_models
 from arclith_cli.feature_manifest import (
     FEATURE_MANIFEST_VERSION,
     FeatureBlueprint,
@@ -72,6 +72,19 @@ def plan_application_blueprint_for_entity(
     entity: EntityInfo,
     feature_name: str | None,
 ) -> ApplicationBlueprintPlan:
+    if entity.model_base != blueprint.model_base:
+        expected = (
+            "ImmutableRecord"
+            if blueprint.model_base == "immutable-record"
+            else "Entity"
+        )
+        actual = (
+            "ImmutableRecord" if entity.model_base == "immutable-record" else "Entity"
+        )
+        raise ValueError(
+            f"Blueprint {blueprint.name!r} requires a model based on {expected}; "
+            f"{entity.pascal} is based on {actual}"
+        )
     paths = detect_project_paths(project_dir)
     if keyword.iskeyword(entity.snake):
         raise ValueError(
@@ -91,16 +104,7 @@ def plan_application_blueprint_for_entity(
     )
     manifest_path = project_dir / ".arclith" / "features" / f"{feature}.yaml"
     rendered = render_application_blueprint(blueprint, paths, entity, feature)
-    invalid_targets = sorted(
-        path
-        for path in (*rendered, manifest_path)
-        if path.exists() and not path.is_file()
-    )
-    if invalid_targets:
-        relative = ", ".join(
-            str(path.relative_to(project_dir)) for path in invalid_targets
-        )
-        raise ValueError(f"Application blueprint target is not a file: {relative}")
+    _validate_target_paths(project_dir, (*rendered, manifest_path))
     installed = manifest_path.is_file()
     if installed and load_feature_manifest(manifest_path) != manifest:
         raise ValueError(
@@ -147,13 +151,15 @@ def plan_application_profile_for_new_entity(
         return None
     paths = detect_project_paths(project_dir)
     names = EntityNames.from_input(entity_name.strip())
+    blueprint = get_application_blueprint(profile_name)
     return plan_application_blueprint_for_entity(
         project_dir,
-        blueprint=get_application_blueprint(profile_name),
+        blueprint=blueprint,
         entity=EntityInfo(
             pascal=names.pascal,
             snake=names.snake,
             file_path=paths.domain_models / f"{names.snake}.py",
+            model_base=blueprint.model_base,
         ),
         feature_name=names.snake,
     )
@@ -162,6 +168,7 @@ def plan_application_profile_for_new_entity(
 def apply_application_blueprint(
     plan: ApplicationBlueprintPlan,
 ) -> tuple[Path, ...]:
+    _validate_target_paths(plan.project_dir, tuple(plan.files))
     for path, original in plan.originals.items():
         current = path.read_bytes() if path.is_file() else None
         if current != original or (path.exists() and not path.is_file()):
@@ -176,6 +183,23 @@ def apply_application_blueprint(
     if plan.manifest_path in plan.files:
         save_feature_manifest(plan.manifest, plan.manifest_path)
     return tuple(plan.files)
+
+
+def _validate_target_paths(project_dir: Path, targets: tuple[Path, ...]) -> None:
+    """Reject target and ancestor collisions before any filesystem write."""
+    for target in targets:
+        if target.is_symlink() or (target.exists() and not target.is_file()):
+            raise ValueError(
+                f"Application blueprint target is not a file: {target.relative_to(project_dir)}"
+            )
+        for parent in target.parents:
+            if parent == project_dir:
+                break
+            if parent.is_symlink() or (parent.exists() and not parent.is_dir()):
+                raise ValueError(
+                    "Application blueprint parent must be a directory without symlinks: "
+                    f"{parent.relative_to(project_dir)}"
+                )
 
 
 def add_application_blueprint_cmd(
@@ -216,7 +240,7 @@ def add_application_blueprint_cmd(
 
 def _require_entity(project_dir: Path, raw_name: str) -> EntityInfo:
     normalized = EntityNames.from_input(raw_name.strip())
-    entities = scan_entities(project_dir)
+    entities = scan_blueprint_models(project_dir)
     entity = next(
         (
             item

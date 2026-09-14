@@ -3,8 +3,13 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
+from arclith_cli.immutable_record_scaffold import is_record_base
 from .project_paths import detect_project_paths
+
+
+type ModelBase = Literal["entity", "immutable-record"]
 
 
 @dataclass(frozen=True)
@@ -12,6 +17,7 @@ class EntityInfo:
     pascal: str  # Ingredient
     snake: str  # ingredient
     file_path: Path
+    model_base: ModelBase = "entity"
 
 
 def scan_entities(project_dir: Path) -> list[EntityInfo]:
@@ -20,6 +26,22 @@ def scan_entities(project_dir: Path) -> list[EntityInfo]:
     Extracts any class that directly names 'Entity' as a base.
     Parsing errors are silently skipped so a broken file never blocks the wizard.
     """
+    return _scan_models(project_dir, {"Entity": "entity"})
+
+
+def scan_blueprint_models(project_dir: Path) -> list[EntityInfo]:
+    """Return mutable entities and immutable records accepted by blueprints."""
+
+    return _scan_models(
+        project_dir,
+        {"Entity": "entity", "ImmutableRecord": "immutable-record"},
+    )
+
+
+def _scan_models(
+    project_dir: Path,
+    accepted_bases: dict[str, ModelBase],
+) -> list[EntityInfo]:
     models_dir = detect_project_paths(project_dir).domain_models
     if not models_dir.exists():
         return []
@@ -43,12 +65,21 @@ def scan_entities(project_dir: Path) -> list[EntityInfo]:
                 else ""
                 for b in node.bases
             }
-            if "Entity" in base_names:
+            matched_bases = sorted(
+                (base_names & accepted_bases.keys()) - {"ImmutableRecord"}
+            )
+            if "ImmutableRecord" in accepted_bases and any(
+                is_record_base(tree, base, node.lineno) for base in node.bases
+            ):
+                matched_bases = ["ImmutableRecord"]
+            if matched_bases:
+                model_base = accepted_bases[matched_bases[0]]
                 entities.append(
                     EntityInfo(
                         pascal=node.name,
                         snake=_to_snake(node.name),
                         file_path=py_file,
+                        model_base=model_base,
                     )
                 )
     return entities

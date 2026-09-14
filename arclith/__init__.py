@@ -51,6 +51,9 @@ from arclith.adapters.outbound.filesystem import (
 )
 from arclith.adapters.outbound.gcs import GCSFileStorage, GCSStorageConfig
 from arclith.adapters.outbound.memory.repository import InMemoryRepository
+from arclith.adapters.outbound.memory.append_only_store import (
+    InMemoryAppendOnlyStore,
+)
 from arclith.adapters.outbound.memory.vector_store import MemoryVectorStore
 from arclith.adapters.outbound.mongodb.config import MongoDBConfig
 from arclith.adapters.outbound.qdrant import QdrantVectorStore
@@ -87,6 +90,7 @@ from arclith.domain.models.channel import (
     ResolvedChannelIdentity,
 )
 from arclith.domain.models.entity import Entity
+from arclith.domain.models.immutable_record import ImmutableRecord
 from arclith.domain.ports.inbound.channel import ChannelMessageHandler
 from arclith.domain.ports.inbound.command_bus import CommandHandler
 from arclith.domain.ports.outbound.channel import (
@@ -134,6 +138,16 @@ from arclith.domain.ports.outbound.observability import (
     TraceSpan,
 )
 from arclith.domain.ports.outbound.repository import Repository
+from arclith.domain.ports.outbound.append_only_store import (
+    AppendOnlyError,
+    AppendOnlyStore,
+    AppendResult,
+    AppendStatus,
+    AppendStoreUnavailable,
+    IdempotencyConflict,
+    InvalidIdempotencyKey,
+    RecordIdentityConflict,
+)
 from arclith.domain.ports.outbound.vector_store import (
     VectorPoint,
     VectorSearchHit,
@@ -261,7 +275,16 @@ __all__ = [
     "sign_webhook_payload",
     "sign_slack_payload",
     "Entity",
+    "ImmutableRecord",
     "Repository",
+    "AppendOnlyError",
+    "AppendOnlyStore",
+    "AppendResult",
+    "AppendStatus",
+    "AppendStoreUnavailable",
+    "IdempotencyConflict",
+    "InvalidIdempotencyKey",
+    "RecordIdentityConflict",
     "RelationalColumn",
     "RelationalColumnKind",
     "RelationalEntityMapper",
@@ -329,6 +352,7 @@ __all__ = [
     "BaseSchema",
     "ConsoleLogger",
     "InMemoryRepository",
+    "InMemoryAppendOnlyStore",
     "MongoDBConfig",
     "AppConfig",
     "LMSettings",

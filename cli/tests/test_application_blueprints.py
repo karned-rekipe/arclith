@@ -62,7 +62,15 @@ def test_crud_is_an_application_blueprint_not_an_adapter_capability() -> None:
             "version": 1,
             "description": "Cycle de vie CRUD explicite pour une entité métier.",
             "operations": ["create", "get", "list", "update", "delete"],
-        }
+        },
+        {
+            "name": "append-only",
+            "version": 1,
+            "description": (
+                "Faits immuables avec append idempotent et conflit explicite."
+            ),
+            "operations": ["append"],
+        },
     ]
 
 

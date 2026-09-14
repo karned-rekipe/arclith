@@ -65,6 +65,7 @@ arclith-cli capabilities --json
 | Observabilité locale | [OpenTelemetry de bout en bout](capabilities/opentelemetry.md), puis [observabilité production](production/observability.md) |
 | Fichiers et blobs | [storage](capabilities/storage.md), [quickstart filesystem](capabilities/storage/quickstart.md), puis [secrets](capabilities/secrets.md) pour les credentials |
 | Persistance métier | [repository, sa matrice et son routing multi-stores](capabilities/repository.md), puis [storage](capabilities/storage.md) ou [vector-store](capabilities/vector-store.md) pour les responsabilités distinctes |
+| Faits immuables et ingestion idempotente | [Blueprint append-only et contrat AppendOnlyStore](blueprints/append-only.md), distincts du repository CRUD ; store mémoire composé explicitement |
 | Service production | [Baseline production](production/baseline.md), puis les pages de la section Production |
 | Déploiement | [Runtime Docker](runtime-docker.md), puis [Docker Compose](runtime-docker/docker-compose.md) |
 

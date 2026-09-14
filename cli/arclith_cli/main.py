@@ -133,7 +133,7 @@ def new(
         str | None,
         typer.Option(
             "--profile",
-            help="Profil applicatif initial : minimal ou un blueprint tel que crud.",
+            help="Profil applicatif initial : minimal, crud ou append-only.",
         ),
     ] = None,
     repo_ref: Annotated[

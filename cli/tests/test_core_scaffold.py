@@ -9,7 +9,11 @@ from arclith_cli.core_scaffold import (
     add_intent_interpreter_cmd,
     add_usecase_cmd,
 )
-from arclith_cli.entity_scanner import EntityInfo
+from arclith_cli.entity_scanner import (
+    EntityInfo,
+    scan_blueprint_models,
+    scan_entities,
+)
 from arclith_cli.init_project import init_project_cmd
 
 
@@ -51,6 +55,31 @@ def test_add_entity_creates_guided_entity_in_src_package(tmp_path: Path) -> None
         project_dir / "src" / "demo_service" / "domain" / "models" / "__init__.py"
     ).exists()
     assert not (project_dir / "src" / "demo_service" / "adapters").exists()
+
+
+def test_immutable_record_is_only_discovered_for_application_blueprints(
+    tmp_path: Path,
+) -> None:
+    project_dir = _src_project(tmp_path)
+
+    generated = add_entity_cmd(
+        project_dir=project_dir,
+        entity_name="Measurement",
+        model_base="immutable-record",
+    )
+
+    assert "class Measurement(ImmutableRecord):" in generated.read_text(
+        encoding="utf-8"
+    )
+    assert scan_entities(project_dir) == []
+    assert scan_blueprint_models(project_dir) == [
+        EntityInfo(
+            pascal="Measurement",
+            snake="measurement",
+            file_path=generated,
+            model_base="immutable-record",
+        )
+    ]
 
 
 def test_init_project_creates_minimal_src_layout_without_entity(tmp_path: Path) -> None:

@@ -4,7 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from arclith_cli.entity_scanner import EntityInfo
@@ -22,6 +22,7 @@ class ApplicationBlueprintSpec:
     description: str
     operations: tuple[str, ...]
     version: int = APPLICATION_BLUEPRINT_VERSION
+    model_base: Literal["entity", "immutable-record"] = "entity"
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -38,7 +39,14 @@ CRUD_BLUEPRINT = ApplicationBlueprintSpec(
     operations=("create", "get", "list", "update", "delete"),
 )
 
-APPLICATION_BLUEPRINT_CATALOG = (CRUD_BLUEPRINT,)
+APPEND_ONLY_BLUEPRINT = ApplicationBlueprintSpec(
+    name="append-only",
+    description="Faits immuables avec append idempotent et conflit explicite.",
+    operations=("append",),
+    model_base="immutable-record",
+)
+
+APPLICATION_BLUEPRINT_CATALOG = (CRUD_BLUEPRINT, APPEND_ONLY_BLUEPRINT)
 
 
 def get_application_blueprint(name: str) -> ApplicationBlueprintSpec:
@@ -70,6 +78,10 @@ def render_application_blueprint(
         from arclith_cli.crud_blueprint import render_crud_blueprint
 
         return render_crud_blueprint(paths, entity, feature)
+    if blueprint.name == "append-only":
+        from arclith_cli.append_only_blueprint import render_append_only_blueprint
+
+        return render_append_only_blueprint(paths, entity, feature)
     raise ValueError(f"No renderer for application blueprint {blueprint.name!r}")
 
 
@@ -88,6 +100,7 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
         pascal="Entity",
         snake="entity",
         file_path=package_root / "domain" / "models" / "entity.py",
+        model_base=blueprint.model_base,
     )
     rendered = render_application_blueprint(blueprint, paths, entity, "feature")
     payload = json.dumps(

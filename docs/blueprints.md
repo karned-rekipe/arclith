@@ -5,7 +5,7 @@ une technologie. Il génère une structure initiale cohérente dans le domaine,
 l'application, la composition et les tests. Le projet reste propriétaire de ces
 fichiers et doit y ajouter ses règles métier.
 
-Le CRUD est le premier blueprint fourni par Arclith. Ce n'est ni le modèle
+Le CRUD et l'append-only sont deux blueprints fournis par Arclith. Le CRUD n'est ni le modèle
 universel d'une entité, ni une capability, ni un adapter. D'autres familles
 pourront être ajoutées indépendamment, par exemple un workflow, une recherche,
 un import, un traitement événementiel, une conversation ou un pipeline RAG.
@@ -14,7 +14,7 @@ un import, un traitement événementiel, une conversation ou un pipeline RAG.
 
 | Niveau | Question | Exemples | Commande |
 |---|---|---|---|
-| Blueprint applicatif | Quel comportement récurrent initialiser ? | CRUD | `add-blueprint` |
+| Blueprint applicatif | Quel comportement récurrent initialiser ? | CRUD, append-only | `add-blueprint` |
 | Capability | De quelle capacité technique le service a-t-il besoin ? | API, MCP, repository, agent | `capabilities` |
 | Adapter | Avec quelle technologie implémenter la capability ? | FastAPI, FastMCP, MongoDB, PostgreSQL | `add-adapter` |
 | Projection | Quel contrat public exposer sur un adapter installé ? | CRUD vers REST | `expose-feature` |
@@ -41,6 +41,7 @@ Lors de la création interactive d'une entité, la CLI propose un profil initial
 Profil applicatif initial
   1. minimal
   2. crud
+  3. append-only
 ```
 
 Le profil `minimal`, sélectionné par défaut, conserve le comportement historique :
@@ -51,6 +52,7 @@ explicite :
 arclith-cli add-entity Todo --profile minimal
 arclith-cli add-entity Todo --profile crud
 arclith-cli new Todo todo-service --profile crud
+arclith-cli add-entity Measurement --profile append-only
 ```
 
 Un blueprint peut aussi être appliqué après la création de l'entité :
@@ -118,6 +120,11 @@ Les règles de génération sont strictes :
   implicitement ; une route n'apparaît qu'après `expose-feature` ou
   `expose-usecase`.
 
-Consulter le [blueprint CRUD](blueprints/crud.md) pour son contrat détaillé et
+Le profil `append-only` crée un `ImmutableRecord` distinct de l'`Entity` CRUD.
+Sa seule opération est `append` ; son store est injecté explicitement et aucun
+transport ni query n'est ajouté. Il ne transforme pas un modèle mutable existant.
+
+Consulter le [blueprint CRUD](blueprints/crud.md), le
+[blueprint append-only](blueprints/append-only.md) pour leurs contrats détaillés et
 les [blueprints des adapters](deep-dives/adapter-blueprints.md) pour la structure
 des implémentations techniques.

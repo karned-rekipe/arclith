@@ -1,10 +1,31 @@
 from __future__ import annotations
 
 
-def render_entity_template(*, class_name: str) -> str:
+def render_entity_template(
+    *,
+    class_name: str,
+    model_base: str = "entity",
+) -> str:
+    if model_base == "entity":
+        base_module = "arclith.domain.models.entity"
+        base_class = "Entity"
+        base_guidance = (
+            "Arclith Entity already provides uuid, audit fields, soft-delete fields,\n"
+            "    and optimistic versioning."
+        )
+    elif model_base == "immutable-record":
+        base_module = "arclith.domain.models.immutable_record"
+        base_class = "ImmutableRecord"
+        base_guidance = (
+            "Arclith ImmutableRecord already provides uuid, required occurred_at, and\n"
+            "    store-assigned recorded_at. Existing facts must never be rewritten."
+        )
+    else:
+        raise ValueError(f"Unsupported entity model base: {model_base!r}")
+
     return f'''from __future__ import annotations
 
-from arclith.domain.models.entity import Entity
+from {base_module} import {base_class}
 
 # Guides:
 # - Arclith entity tutorial: https://github.com/karned-rekipe/arclith/blob/main/docs/tutorials/todo-list/02-create-entity.md
@@ -14,11 +35,10 @@ from arclith.domain.models.entity import Entity
 # - Pydantic validators: https://docs.pydantic.dev/latest/concepts/validators/
 
 
-class {class_name}(Entity):
-    """TODO: define the business fields and invariants for this entity.
+class {class_name}({base_class}):
+    """TODO: define the business fields and invariants for this {"entity" if model_base == "entity" else "record"}.
 
-    Arclith Entity already provides uuid, audit fields, soft-delete fields,
-    and optimistic versioning.
+    {base_guidance}
     """
 
     # Example:

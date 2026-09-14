@@ -38,7 +38,7 @@ def add_entity_command(
         str | None,
         typer.Option(
             "--profile",
-            help="Profil applicatif initial : minimal ou un blueprint tel que crud.",
+            help="Profil applicatif initial : minimal, crud ou append-only.",
         ),
     ] = None,
     no_record: Annotated[
@@ -65,7 +65,15 @@ def add_entity_command(
     except (OSError, SyntaxError, ValueError) as exc:
         console.print(f"[red]✗ Blueprint refusé :[/red] {exc}")
         raise typer.Exit(1) from exc
-    add_entity_cmd(project_dir=project_dir, entity_name=resolved_name)
+    add_entity_cmd(
+        project_dir=project_dir,
+        entity_name=resolved_name,
+        model_base=(
+            blueprint_plan.entity.model_base
+            if blueprint_plan is not None
+            else "entity"
+        ),
+    )
     if blueprint_plan is not None:
         try:
             apply_application_blueprint(blueprint_plan)
@@ -118,7 +126,9 @@ def blueprints_command(
 def add_blueprint_command(
     blueprint: Annotated[
         str,
-        typer.Argument(help="Blueprint applicatif à appliquer, par exemple crud."),
+        typer.Argument(
+            help="Blueprint applicatif à appliquer, par exemple crud ou append-only."
+        ),
     ],
     entity: Annotated[
         str,
