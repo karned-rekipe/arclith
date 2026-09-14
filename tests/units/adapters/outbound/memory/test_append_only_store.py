@@ -2,7 +2,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, create_model
 
 from arclith.adapters.outbound.memory.append_only_store import (
     InMemoryAppendOnlyStore,
@@ -230,3 +230,60 @@ async def test_mutable_subclass_is_rejected() -> None:
             MutableRecord(occurred_at=datetime(2026, 1, 1, tzinfo=UTC)),
             idempotency_key="one",
         )
+
+
+@pytest.mark.parametrize("field_name", ["uuid", "occurred_at", "recorded_at"])
+@pytest.mark.asyncio
+async def test_overridden_technical_fields_are_rejected_before_append(
+    field_name: str,
+) -> None:
+    changed_type = create_model(
+        "ChangedRecord",
+        __base__=ImmutableRecord,
+        **{field_name: (str, "private-value")},
+    )
+    record = changed_type.model_construct(
+        **{
+            "uuid": "private-value",
+            "occurred_at": "private-value",
+            "recorded_at": "private-value",
+        }
+    )
+    store = InMemoryAppendOnlyStore[ImmutableRecord]()
+    with pytest.raises(
+        AppendOnlyError, match="technical fields must remain inherited"
+    ) as caught:
+        await store.append(record, idempotency_key="one")
+    assert "private-value" not in str(caught.value)
+    assert store.inspect_records() == ()
+
+
+@pytest.mark.parametrize(
+    "field_name,value",
+    [
+        ("uuid", "private-invalid-id"),
+        ("occurred_at", datetime(2026, 1, 1)),
+        ("recorded_at", datetime(2026, 1, 1)),
+    ],
+)
+@pytest.mark.asyncio
+async def test_unvalidated_technical_values_are_rejected(
+    field_name: str, value: object
+) -> None:
+    store = InMemoryAppendOnlyStore[Measurement]()
+    record = _measurement().model_copy(update={field_name: value})
+    with pytest.raises(AppendOnlyError, match="technical values"):
+        await store.append(record, idempotency_key="one")
+    assert store.inspect_records() == ()
+
+
+@pytest.mark.asyncio
+async def test_business_only_subclasses_preserve_the_technical_contract() -> None:
+    class CalibratedMeasurement(Measurement):
+        calibration: str = "v1"
+
+    record = CalibratedMeasurement(**_measurement().model_dump())
+    result = await InMemoryAppendOnlyStore[CalibratedMeasurement]().append(
+        record, idempotency_key="one"
+    )
+    assert result.record.calibration == "v1"

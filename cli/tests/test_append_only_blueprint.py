@@ -23,6 +23,7 @@ from arclith_cli.blueprint_generation import (
 )
 from arclith_cli.core_scaffold import add_entity_cmd
 from arclith_cli.feature_manifest import load_feature_manifest
+from arclith_cli.entity_scanner import scan_blueprint_models
 from arclith_cli.init_project import init_project_cmd
 from arclith_cli.main import app
 from arclith_cli.recipe import load_recipe, replay_recipe
@@ -431,3 +432,44 @@ def test_append_only_rejects_changed_technical_contract(
             feature_name=None,
         )
     assert not (project / ".arclith/features/measurement.yaml").exists()
+
+
+@pytest.mark.parametrize(
+    "declaration",
+    [
+        "from unrelated import ImmutableRecord\nclass Measurement(ImmutableRecord):\n    pass\n",
+        "import unrelated\nclass Measurement(unrelated.ImmutableRecord):\n    pass\n",
+        "class ImmutableRecord:\n    pass\nclass Measurement(ImmutableRecord):\n    pass\n",
+    ],
+)
+def test_scanner_does_not_classify_unrelated_record_bases(
+    tmp_path: Path, declaration: str
+) -> None:
+    project = _init_project(tmp_path)
+    model = project / "src/measurement_service/domain/models/measurement.py"
+    model.write_text(declaration, encoding="utf-8")
+    assert scan_blueprint_models(project) == []
+
+
+def test_business_method_locals_do_not_override_technical_fields(
+    tmp_path: Path,
+) -> None:
+    project = _init_project(tmp_path)
+    model = project / "src/measurement_service/domain/models/measurement.py"
+    model.write_text(
+        "from arclith import ImmutableRecord\n\n"
+        "class Measurement(ImmutableRecord):\n"
+        "    def display(self) -> str:\n"
+        "        uuid = self.uuid\n"
+        "        occurred_at = self.occurred_at\n"
+        "        recorded_at = self.recorded_at\n"
+        "        return f'{uuid} {occurred_at} {recorded_at}'\n",
+        encoding="utf-8",
+    )
+    plan = plan_application_blueprint(
+        project,
+        blueprint_name="append-only",
+        entity_name="Measurement",
+        feature_name=None,
+    )
+    assert plan.manifest.operations == ("append",)

@@ -81,6 +81,11 @@ copie profonde à l'entrée et retourne des copies profondes : modifier une
 collection d'entrée, de résultat ou d'inspection ne change pas le fait stocké.
 Préférer des tuples et des sous-modèles `frozen` dans les contrats applicatifs.
 
+Le store vérifie aussi ce contrat à l'exécution : les champs techniques doivent
+rester hérités, y compris via une sous-classe intermédiaire. Les UUID et timestamps
+invalides introduits par `model_construct()` ou `model_copy(update=...)` sont
+refusés avant toute écriture, avec une erreur sans valeur sensible.
+
 ## Composer Et Rejouer
 
 Le use case dépend du port outbound `AppendOnlyStore[Measurement]`. Le container

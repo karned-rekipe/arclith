@@ -65,7 +65,9 @@ def _scan_models(
                 else ""
                 for b in node.bases
             }
-            matched_bases = sorted(base_names & accepted_bases.keys())
+            matched_bases = sorted(
+                (base_names & accepted_bases.keys()) - {"ImmutableRecord"}
+            )
             if "ImmutableRecord" in accepted_bases and any(
                 is_record_base(tree, base, node.lineno) for base in node.bases
             ):

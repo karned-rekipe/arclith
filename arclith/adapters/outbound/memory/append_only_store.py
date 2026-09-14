@@ -52,10 +52,7 @@ class InMemoryAppendOnlyStore(AppendOnlyStore[RecordT], Generic[RecordT]):
         idempotency_key: str,
     ) -> AppendResult[RecordT]:
         _validate_idempotency_key(idempotency_key)
-        if not isinstance(record, ImmutableRecord) or not record.model_config.get(
-            "frozen"
-        ):
-            raise AppendOnlyError("Append requires a frozen ImmutableRecord")
+        _validate_record_contract(record)
         snapshot = record.model_copy(deep=True)
         fingerprint = record_fingerprint(snapshot)
 
@@ -111,3 +108,31 @@ def _validate_idempotency_key(value: str) -> None:
             "Idempotency key must be 1-255 characters without surrounding "
             "whitespace or control characters"
         )
+
+
+def _validate_record_contract(record: ImmutableRecord) -> None:
+    """Guard inherited technical fields even when callers bypass Pydantic validation."""
+    if not isinstance(record, ImmutableRecord) or not record.model_config.get("frozen"):
+        raise AppendOnlyError("Append requires a frozen ImmutableRecord")
+    for record_type in type(record).__mro__:
+        if record_type is ImmutableRecord:
+            break
+        if ImmutableRecord.model_fields.keys() & record_type.__dict__.get(
+            "__annotations__", {}
+        ):
+            raise AppendOnlyError("Record technical fields must remain inherited")
+    if (
+        not isinstance(record.uuid, UUID)
+        or not _is_aware_datetime(record.occurred_at)
+        or (
+            record.recorded_at is not None
+            and not _is_aware_datetime(record.recorded_at)
+        )
+    ):
+        raise AppendOnlyError(
+            "Record technical values must be a UUID and aware datetimes"
+        )
+
+
+def _is_aware_datetime(value: object) -> bool:
+    return isinstance(value, datetime) and value.utcoffset() is not None

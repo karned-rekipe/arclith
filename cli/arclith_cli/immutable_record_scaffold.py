@@ -35,7 +35,7 @@ def inspect_immutable_record(entity: EntityInfo) -> bool:
             "Record class options and decorators require explicit manual composition"
         )
     reserved = {"uuid", "occurred_at", "recorded_at", "model_config", "Config"}
-    for node in ast.walk(model):
+    for node in _class_scope_nodes(model):
         if (
             isinstance(node, ast.Name)
             and isinstance(node.ctx, ast.Store)
@@ -58,6 +58,20 @@ def inspect_immutable_record(entity: EntityInfo) -> bool:
         and not statement.target.id.startswith("_")
         for statement in model.body
     )
+
+
+def _class_scope_nodes(model: ast.ClassDef) -> list[ast.AST]:
+    """Inspect bindings in this class, not local names inside methods/subclasses."""
+    nodes: list[ast.AST] = []
+    pending: list[ast.AST] = list(model.body)
+    while pending:
+        node = pending.pop()
+        nodes.append(node)
+        if not isinstance(
+            node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+        ):
+            pending.extend(ast.iter_child_nodes(node))
+    return nodes
 
 
 def is_record_base(tree: ast.Module, base: ast.expr, line: int) -> bool:
