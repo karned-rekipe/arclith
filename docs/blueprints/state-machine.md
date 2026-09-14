@@ -211,8 +211,9 @@ avant le champ, expose exactement les valeurs persistées de la spec. Les membre
 d'enum doivent être des affectations directes de chaînes ; les membres produits
 par un contrôle de flux, une expression dynamique ou un helper décoré sont
 refusés, faute de pouvoir prouver statiquement l'ensemble runtime. Une enum
-décorée, dotée de méthodes, de mots-clés de métaclasse ou de bases mixtes est
-également refusée : ces extensions peuvent modifier ses valeurs au runtime. Le champ doit
+décorée, dotée de méthodes, de mots-clés de métaclasse ou de bases mixtes autres
+que le couple builtin `str, Enum` est également refusée : ces extensions peuvent
+modifier ses valeurs au runtime. Le champ doit
 rejeter l'affectation et la copie générique : utiliser un modèle entièrement
 frozen, ou les vrais
 `ConfigDict` et `Field` importés de `pydantic`, surcharger `model_copy` et fournir

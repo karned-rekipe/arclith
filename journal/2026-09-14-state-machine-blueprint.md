@@ -41,8 +41,8 @@ spécification métier plutôt que d'un catalogue statique.
   Le champ d'état ne peut avoir qu'une liaison dans la classe, ses alias et enums
   doivent être disponibles au runtime avant son usage, et une enum ne peut pas
   cacher des membres runtime derrière un contrôle de flux, une expression
-  dynamique, une base mixte, une méthode ou un décorateur. Les tests générés
-  dérivent la valeur de l'annotation réelle et
+  dynamique, une base mixte autre que `str, Enum`, une méthode ou un décorateur.
+  Les tests générés dérivent la valeur de l'annotation réelle et
   en vérifient le type. Les erreurs not-found incluent l'UUID demandé ; les
   conflits exposent toujours les versions observée/attendue, avant le CAS comme
   lors d'une course atomique dans l'adapter.
@@ -67,7 +67,7 @@ spécification métier plutôt que d'un catalogue statique.
 
 ## Validation
 
-- `uv run --project cli python -m pytest cli/tests -q` : 668 tests passés ;
+- `uv run --project cli python -m pytest cli/tests -q` : 670 tests passés ;
 - smoke test du projet généré : 19 tests passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
 - `make coverage` : 2 484 tests passés, 5 ignorés et 91,34 % sur 9 264

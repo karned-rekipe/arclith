@@ -735,7 +735,7 @@ def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
         "from collections.abc import Mapping\nfrom enum import Enum as BaseEnum\n",
     ).replace(
         "class Invoice(Entity):\n",
-        "class InvoiceStatus(BaseEnum):\n"
+        "class InvoiceStatus(str, BaseEnum):\n"
         '    DRAFT = "draft"\n'
         '    SUBMITTED = "submitted"\n'
         '    APPROVED = "approved"\n'
@@ -1261,8 +1261,17 @@ def test_existing_entity_rejects_dynamic_literal_rebinding(
         )
 
 
-def test_existing_entity_rejects_enum_rebound_by_comprehension_walrus(
+@pytest.mark.parametrize(
+    "binding",
+    [
+        "[(InvoiceStatus := object()) for _ in (0,)]",
+        "del InvoiceStatus",
+        "InvoiceStatus += object()",
+    ],
+)
+def test_existing_entity_rejects_dynamic_enum_rebinding(
     tmp_path: Path,
+    binding: str,
 ) -> None:
     project = _project(tmp_path)
     entity = _stateful_entity(project)
@@ -1274,7 +1283,7 @@ def test_existing_entity_rejects_enum_rebound_by_comprehension_walrus(
     ).replace(
         "class Invoice(Entity):\n",
         _local_state_enum()
-        + "[(InvoiceStatus := object()) for _ in (0,)]\n\n\n"
+        + f"{binding}\n\n\n"
         + "class Invoice(Entity):\n",
     )
     entity.write_text(

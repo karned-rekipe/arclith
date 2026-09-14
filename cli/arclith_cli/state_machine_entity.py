@@ -43,7 +43,7 @@ __all__ = [
 
 
 # Bump whenever ``validate_existing_state_field`` accepts or rejects new forms.
-STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 12
+STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 13
 
 
 def validate_state_machine_import_roots(paths: ProjectPaths) -> None:

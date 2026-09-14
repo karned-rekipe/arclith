@@ -175,17 +175,7 @@ def enum_members(
 
     if declaration.decorator_list or declaration.keywords:
         return None
-    trusted_enum_bases = [
-        base
-        for base in declaration.bases
-        if is_imported_symbol(
-            base,
-            symbols=frozenset({"Enum", "StrEnum"}),
-            modules=frozenset({"enum"}),
-            tree=tree,
-        )
-    ]
-    if len(declaration.bases) != 1 or len(trusted_enum_bases) != 1:
+    if not _has_trusted_enum_bases(declaration, tree):
         return None
     members: dict[str, str] = {}
     declarations: set[str] = set()
@@ -279,6 +269,34 @@ def _enum_values(declaration: ast.ClassDef, tree: ast.Module) -> set[str] | None
     return set(members.values()) if members is not None else None
 
 
+def _has_trusted_enum_bases(declaration: ast.ClassDef, tree: ast.Module) -> bool:
+    if len(declaration.bases) == 1:
+        return is_imported_symbol(
+            declaration.bases[0],
+            symbols=frozenset({"Enum", "StrEnum"}),
+            modules=frozenset({"enum"}),
+            tree=tree,
+        )
+    if len(declaration.bases) != 2:
+        return False
+    string_base, enum_base = declaration.bases
+    bindings = module_bindings_before(
+        tree,
+        node_line_or_module_end(string_base, tree),
+    )
+    return (
+        isinstance(string_base, ast.Name)
+        and string_base.id == "str"
+        and "str" not in bindings
+        and is_imported_symbol(
+            enum_base,
+            symbols=frozenset({"Enum"}),
+            modules=frozenset({"enum"}),
+            tree=tree,
+        )
+    )
+
+
 def _resolve_module_file(entity_file: Path, statement: ast.ImportFrom) -> Path | None:
     module_parts = statement.module.split(".") if statement.module else []
     if statement.level:
@@ -318,6 +336,12 @@ def _bound_names(statement: ast.stmt) -> set[str]:
         }
     if isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
         return {statement.target.id}
+    if isinstance(statement, ast.AugAssign) and isinstance(statement.target, ast.Name):
+        return {statement.target.id}
+    if isinstance(statement, ast.Delete):
+        return {
+            target.id for target in statement.targets if isinstance(target, ast.Name)
+        }
     if isinstance(statement, ast.TypeAlias) and isinstance(statement.name, ast.Name):
         return {statement.name.id}
     return set()
