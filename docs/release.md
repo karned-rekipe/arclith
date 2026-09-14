@@ -62,8 +62,8 @@ Une fois la PR de release mergée :
 ```bash
 git switch main
 git pull --ff-only
-git tag -s v0.30.0 -m "Release v0.30.0"
-git push origin v0.30.0
+git tag -s v0.31.0 -m "Release v0.31.0"
+git push origin v0.31.0
 ```
 
 Le tag déclenche `.github/workflows/publish.yml`. Le workflow exécute :
@@ -85,25 +85,43 @@ Puis valider depuis un environnement consommateur isolé :
 ```bash
 tmp_dir="$(mktemp -d)"
 cd "$tmp_dir"
-uvx --from arclith-cli==0.27.0 arclith-cli init pantry-agent --dir .
+uvx --from arclith-cli==0.28.0 arclith-cli init pantry-agent --dir .
 cd pantry-agent
 uv sync
 uv run python -c "import arclith; print(arclith.__version__ if hasattr(arclith, '__version__') else 'arclith import ok')"
-uvx --from arclith-cli==0.27.0 arclith-cli capabilities
-uvx --from arclith-cli==0.27.0 arclith-cli add-entity ShoppingItem --profile crud
-uvx --from arclith-cli==0.27.0 arclith-cli add-adapter --capability api --adapter fastapi --yes
-uvx --from arclith-cli==0.27.0 arclith-cli expose-feature shopping_item --via fastapi --path /v1/shopping-items
+uvx --from arclith-cli==0.28.0 arclith-cli capabilities
+uvx --from arclith-cli==0.28.0 arclith-cli add-entity ShoppingItem --profile crud
+uvx --from arclith-cli==0.28.0 arclith-cli add-adapter --capability api --adapter fastapi --yes
+uvx --from arclith-cli==0.28.0 arclith-cli expose-feature shopping_item --via fastapi --path /v1/shopping-items
 ```
 
-Pour vérifier le nouvel archétype sans transport depuis les paquets publics :
+Pour vérifier le blueprint paramétré sans transport depuis les paquets publics :
 
 ```bash
-append_only_dir="$(mktemp -d)"
-uvx --from arclith-cli==0.27.0 --with arclith==0.30.0 arclith-cli new Measurement measurement-service --dir "$append_only_dir" --profile append-only
-cd "$append_only_dir/measurement-service"
+state_machine_dir="$(mktemp -d)"
+cat > "$state_machine_dir/invoice-lifecycle.yaml" <<'YAML'
+version: 1
+state_field: status
+initial_state: draft
+states: [draft, submitted, approved]
+transitions:
+  - name: submit
+    from: [draft]
+    to: submitted
+  - name: approve
+    from: [submitted]
+    to: approved
+YAML
+uvx --from arclith-cli==0.28.0 --with arclith==0.31.0 \
+  arclith-cli new Invoice invoice-service \
+  --dir "$state_machine_dir" \
+  --profile state-machine \
+  --spec "$state_machine_dir/invoice-lifecycle.yaml"
+cd "$state_machine_dir/invoice-service"
 uv sync
-uv run pytest -q
+uv run pytest tests/domain tests/application -q
 ```
 
-Le smoke doit aussi vérifier le rejeu `duplicate` et le conflit de contenu sur
-une même clé.
+Le smoke doit aussi vérifier le refus de l'affectation directe et de
+`model_copy(update={"status": ...})`, puis la transition autorisée
+`draft -> submitted` et le conflit de version du compare-and-swap.

@@ -4,6 +4,36 @@
 
 ---
 
+## [0.31.0] — 2026-09-14
+
+### Added
+
+- **Blueprint state-machine** — cycle de vie métier typé généré depuis une spec
+  YAML V1, avec enum de matrice, verbes de domaine, ports et use cases nommés,
+  erreurs contextualisées et compare-and-swap explicite.
+- **Blueprint paramétré et rejouable** — manifeste V2, paramètres canoniques,
+  digests du renderer et de la configuration, préflight global des recettes et
+  compatibilité stricte avec les manifests V1 existants.
+- **Compatibilité d'entités existantes** — résolution statique des enums et
+  `Literal`, y compris aliases et réexports, tout en conservant le type métier
+  déclaré par l'application.
+
+### Fixed
+
+- **Génération concurrente sûre** — publication atomique sans remplacement,
+  compensation fondée sur l'identité des fichiers et quarantaine privée afin de
+  ne jamais écraser ou supprimer une création concurrente.
+- **Validation fermée** — refus des mixins, symboles homonymes, defaults
+  dynamiques, protections Pydantic ambiguës et états inaccessibles avant toute
+  écriture.
+
+### Changed
+
+- **Versions release** — `arclith` passe à `0.31.0` ; `arclith-cli` passe à
+  `0.28.0` et dépend de `arclith>=0.31.0`.
+
+---
+
 ## [0.30.0] — 2026-09-14
 
 ### Added
