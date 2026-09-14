@@ -26,7 +26,7 @@ __all__ = [
 
 
 # Bump whenever ``validate_existing_state_field`` accepts or rejects new forms.
-STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 2
+STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 3
 
 
 def validate_existing_state_field(
@@ -58,22 +58,43 @@ def validate_existing_state_field(
             f"Entity {entity.pascal} must declare typed field {spec.state_field!r}; "
             "add it explicitly, then replay the command"
         )
-    if len(fields) != 1 or not _compatible_state_annotation(
-        fields[0].annotation,
-        spec,
-        tree=tree,
-        entity_file=entity.file_path,
-    ):
+    if len(fields) != 1:
         raise ValueError(
             f"Entity field {entity.pascal}.{spec.state_field} must be typed as "
             "a statically inspectable string-valued Enum/StrEnum or Literal "
             "containing exactly the declared states"
         )
-    if not _state_assignment_is_protected(models[0], fields[0], tree=tree):
+    field = fields[0]
+    literal_states = _resolve_literal_values(
+        field.annotation,
+        tree=tree,
+        entity_file=entity.file_path,
+    )
+    enum_states = _resolve_enum_values(
+        field.annotation,
+        tree=tree,
+        entity_file=entity.file_path,
+    )
+    expected_states = set(spec.states)
+    if literal_states != expected_states and enum_states != expected_states:
+        raise ValueError(
+            f"Entity field {entity.pascal}.{spec.state_field} must be typed as "
+            "a statically inspectable string-valued Enum/StrEnum or Literal "
+            "containing exactly the declared states"
+        )
+    if not _state_assignment_is_protected(models[0], field, tree=tree):
         raise ValueError(
             f"Entity field {entity.pascal}.{spec.state_field} must reject assignment "
             "without coercing enum values; use ConfigDict(validate_assignment=True) "
             "with Field(..., frozen=True) and keep use_enum_values disabled"
+        )
+    if enum_states is not None and not _enum_default_preserves_type(
+        field,
+        tree=tree,
+    ):
+        raise ValueError(
+            f"Entity field {entity.pascal}.{spec.state_field} must use its declared "
+            "enum type for any default; use an enum member or make the field required"
         )
     if not _state_copy_is_controlled(models[0], spec.state_field):
         raise ValueError(
@@ -81,27 +102,6 @@ def validate_existing_state_field(
             f"model_copy updates and expose a private _copy_with_{spec.state_field} "
             "method for the lifecycle"
         )
-
-
-def _compatible_state_annotation(
-    annotation: ast.expr,
-    spec: StateMachineSpec,
-    *,
-    tree: ast.Module,
-    entity_file: Path,
-) -> bool:
-    literal_states = _resolve_literal_values(
-        annotation,
-        tree=tree,
-        entity_file=entity_file,
-    )
-    if literal_states is not None:
-        return literal_states == set(spec.states)
-    return _resolve_enum_values(
-        annotation,
-        tree=tree,
-        entity_file=entity_file,
-    ) == set(spec.states)
 
 
 def _resolve_literal_values(
@@ -198,6 +198,14 @@ def _resolve_enum_values(
     binding = bindings[0]
     if isinstance(binding, ast.ClassDef):
         return _enum_values(binding, tree)
+    alias_value = _alias_value(binding, symbol)
+    if alias_value is not None:
+        return _resolve_enum_values(
+            alias_value,
+            tree=tree,
+            entity_file=entity_file,
+            visited=visited | {key},
+        )
     if not isinstance(binding, ast.ImportFrom):
         return None
     imported = next(
@@ -403,38 +411,48 @@ def _state_assignment_is_protected(
     )
 
 
+def _enum_default_preserves_type(
+    field: ast.AnnAssign,
+    *,
+    tree: ast.Module,
+) -> bool:
+    default = field.value
+    if default is None:
+        return True
+    if isinstance(default, ast.Call):
+        if not _is_pydantic_callable(default.func, "Field", tree):
+            return False
+        default_keywords = [
+            option.value for option in default.keywords if option.arg == "default"
+        ]
+        if len(default.args) > 1 or (default.args and default_keywords):
+            return False
+        if any(option.arg == "default_factory" for option in default.keywords):
+            return False
+        if default.args:
+            default = default.args[0]
+        elif default_keywords:
+            default = default_keywords[0]
+        else:
+            return True
+    if isinstance(default, ast.Constant) and default.value is Ellipsis:
+        return True
+    return (
+        isinstance(default, ast.Attribute)
+        and ast.dump(default.value) == ast.dump(field.annotation)
+    )
+
+
 def _is_pydantic_callable(
     expression: ast.expr,
     symbol: str,
     tree: ast.Module,
 ) -> bool:
-    if isinstance(expression, ast.Name):
-        return any(
-            isinstance(statement, ast.ImportFrom)
-            and statement.level == 0
-            and statement.module == "pydantic"
-            and any(
-                imported.name == symbol
-                and (imported.asname or imported.name) == expression.id
-                for imported in statement.names
-            )
-            for statement in tree.body
-        )
-    if not (
-        isinstance(expression, ast.Attribute)
-        and expression.attr == symbol
-        and isinstance(expression.value, ast.Name)
-    ):
-        return False
-    module_alias = expression.value.id
-    return any(
-        isinstance(statement, ast.Import)
-        and any(
-            imported.name == "pydantic"
-            and (imported.asname or imported.name) == module_alias
-            for imported in statement.names
-        )
-        for statement in tree.body
+    return _is_imported_symbol(
+        expression,
+        symbols=frozenset({symbol}),
+        modules=frozenset({"pydantic"}),
+        tree=tree,
     )
 
 

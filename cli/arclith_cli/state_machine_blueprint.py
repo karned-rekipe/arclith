@@ -17,6 +17,7 @@ from arclith_cli.state_machine_entity import (
     validate_existing_state_field as _validate_existing_state_field,
 )
 from arclith_cli.state_machine_spec import StateMachineSpec, StateTransitionSpec
+from arclith_cli.state_machine_rendering import render_domain_test as _domain_test
 
 
 def render_state_machine_blueprint(
@@ -72,7 +73,6 @@ def render_state_machine_blueprint(
             paths.package_name or "",
             entity.pascal,
             entity.file_path.stem,
-            state_module_name,
             feature,
             spec,
         ),
@@ -83,7 +83,6 @@ def render_state_machine_blueprint(
             paths.package_name or "",
             entity.pascal,
             entity.file_path.stem,
-            state_module_name,
             feature,
             spec,
         ),
@@ -280,7 +279,8 @@ def _transition_use_case(
                     raise {entity}NotFoundError(str(command.uuid))
                 if current.version != command.expected_version:
                     raise {entity}VersionConflictError(
-                        "Persisted version differs from expected_version"
+                        f"Persisted version {{current.version}} differs from "
+                        f"expected version {{command.expected_version}}"
                     )
                 candidate = self._lifecycle.{operation}(current).model_copy(
                     update={{"updated_by": command.updated_by}}
@@ -342,94 +342,10 @@ def _container(
     )
 
 
-def _domain_test(
-    package: str,
-    entity: str,
-    entity_module: str,
-    state_module: str,
-    feature: str,
-    spec: StateMachineSpec,
-) -> str:
-    prefix = f"{package}." if package else ""
-    error_imports = ",\n    ".join(
-        _transition_error(entity, transition) for transition in spec.transitions
-    )
-    error_items = "\n".join(
-        f'    "{item.name}": {_transition_error(entity, item)},'
-        for item in spec.transitions
-    )
-    matrix = "\n".join(
-        f'    ("{state}", "{transition.name}", '
-        + (f'"{transition.target}"),' if state in transition.sources else "None),")
-        for transition in spec.transitions
-        for state in spec.states
-    )
-    first = spec.transitions[0]
-    return (
-        "import pytest\n"
-        "from pydantic import ValidationError\n\n"
-        f"from {prefix}domain.errors.{feature} import (\n"
-        f"{indent(error_imports, '    ')},\n"
-        ")\n"
-        f"from {prefix}domain.models.{entity_module} import {entity}\n"
-        f"from {prefix}domain.models.{state_module} import {entity}State\n"
-        f"from {prefix}domain.services.{feature} import {entity}Lifecycle\n\n\n"
-        "ERRORS = {\n"
-        f"{error_items}\n"
-        "}\n\n"
-        "TRANSITION_MATRIX = (\n"
-        f"{matrix}\n"
-        ")\n\n\n"
-        f"def make_{_snake_entity(entity)}(\n"
-        f'    state: str = "{spec.initial_state}",\n'
-        f") -> {entity}:\n"
-        '    """Isolate lifecycle tests without guessing required business fields."""\n'
-        f"    return {entity}.model_construct(\n"
-        f"        {spec.state_field}={entity}State(state),\n"
-        "    )\n\n\n"
-        '@pytest.mark.parametrize(("state", "operation", "target"), TRANSITION_MATRIX)\n'
-        f"def test_{feature}_transition_matrix(\n"
-        "    state: str,\n"
-        "    operation: str,\n"
-        "    target: str | None,\n"
-        ") -> None:\n"
-        f"    lifecycle = {entity}Lifecycle()\n"
-        f"    original = make_{_snake_entity(entity)}(state)\n"
-        "    transition = getattr(lifecycle, operation)\n\n"
-        "    if target is None:\n"
-        "        with pytest.raises(ERRORS[operation]):\n"
-        "            transition(original)\n"
-        f"        assert original.{spec.state_field} == {entity}State(state)\n"
-        "        return\n\n"
-        "    changed = transition(original)\n"
-        f"    assert changed.{spec.state_field} == {entity}State(target)\n"
-        f"    assert original.{spec.state_field} == {entity}State(state)\n\n\n"
-        f"def test_{feature}_{spec.state_field}_rejects_arbitrary_assignment() -> None:\n"
-        f"    entity = make_{_snake_entity(entity)}()\n\n"
-        '    with pytest.raises(ValidationError, match="frozen"):\n'
-        f'        setattr(entity, "{spec.state_field}", '
-        f"{entity}State.{first.target.upper()})\n"
-        '    with pytest.raises(ValueError, match="lifecycle"):\n'
-        f"        entity.model_copy(\n"
-        f'            update={{"{spec.state_field}": {entity}State.{first.target.upper()}}}\n'
-        "        )\n\n\n"
-        f"def test_{feature}_business_precondition_extension_is_explicit() -> None:\n"
-        f"    class GuardedLifecycle({entity}Lifecycle):\n"
-        f"        def _ensure_{first.name}_preconditions(\n"
-        f"            self, entity: {entity}\n"
-        "        ) -> None:\n"
-        '            raise RuntimeError("project-owned guard")\n\n'
-        f'    entity = make_{_snake_entity(entity)}("{first.sources[0]}")\n'
-        '    with pytest.raises(RuntimeError, match="project-owned guard"):\n'
-        f"        GuardedLifecycle().{first.name}(entity)\n"
-    )
-
-
 def _application_test(
     package: str,
     entity: str,
     entity_module: str,
-    state_module: str,
     feature: str,
     spec: StateMachineSpec,
 ) -> str:
@@ -452,6 +368,10 @@ def _application_test(
     used_transitions = [entry]
     if forbidden is not None and forbidden[0].name != entry.name:
         used_transitions.append(forbidden[0])
+    error_names = [f"{entity}NotFoundError", f"{entity}VersionConflictError"]
+    if forbidden is not None:
+        error_names.insert(1, f"{entity}TransitionNotAllowedError")
+    error_imports = "\n".join(f"            {name}," for name in error_names)
     command_imports = "\n".join(
         "        from "
         f"{prefix}domain.ports.inbound.{transition.name}_{_snake_entity(entity)} "
@@ -481,26 +401,24 @@ def _application_test(
                     )
 
                 assert store.writes == 0
-                assert (await store.read(item.uuid)).{spec.state_field} == (
-                    {entity}State.{forbidden_state.upper()}
-                )
+                stored = await store.read(item.uuid)
+                assert stored is not None
+                assert _persisted_state(stored.{spec.state_field}) == "{forbidden_state}"
             """
         )
     return (
         dedent(
             f"""\
         from datetime import UTC, datetime
+        from enum import Enum
         from uuid import UUID
 
         import pytest
 
         from {prefix}domain.errors.{feature} import (
-            {entity}NotFoundError,
-            {entity}TransitionNotAllowedError,
-            {entity}VersionConflictError,
+{error_imports}
         )
         from {prefix}domain.models.{entity_module} import {entity}
-        from {prefix}domain.models.{state_module} import {entity}State
 {command_imports}
         from {prefix}domain.ports.outbound.{feature} import {entity}LifecycleStore
         from {prefix}infrastructure.containers.{feature} import (
@@ -508,12 +426,23 @@ def _application_test(
         )
 
 
+        def _state_value(state: str) -> object:
+            annotation = {entity}.model_fields["{spec.state_field}"].annotation
+            if isinstance(annotation, type) and issubclass(annotation, Enum):
+                return annotation(state)
+            return state
+
+
+        def _persisted_state(value: object) -> object:
+            return value.value if isinstance(value, Enum) else value
+
+
         def make_{_snake_entity(entity)}(
             state: str = "{spec.initial_state}",
         ) -> {entity}:
             # Isolate lifecycle tests without guessing required business fields.
             return {entity}.model_construct(
-                {spec.state_field}={entity}State(state),
+                {spec.state_field}=_state_value(state),
             )
 
 
@@ -559,7 +488,9 @@ def _application_test(
                 )
             )
 
-            assert result.item.{spec.state_field} == {entity}State.{entry.target.upper()}
+            expected = _state_value("{entry.target}")
+            assert result.item.{spec.state_field} == expected
+            assert type(result.item.{spec.state_field}) is type(expected)
             assert result.item.version == 2
             assert result.item.updated_by == "actor-1"
             assert store.writes == 1

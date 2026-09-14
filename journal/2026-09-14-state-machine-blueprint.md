@@ -26,7 +26,9 @@ spécification métier plutôt que d'un catalogue statique.
 - Les annotations `Literal` et les bases `Enum` sont résolues jusqu'à leur origine
   `typing`/stdlib, y compris via alias ; les homonymes locaux et helpers de copie
   asynchrones sont refusés, comme `use_enum_values=True` pour un champ enum. Les
-  erreurs not-found incluent l'UUID demandé.
+  defaults enum doivent être des membres typés. Les tests générés dérivent la
+  valeur de l'annotation réelle et en vérifient le type. Les erreurs not-found
+  incluent l'UUID demandé et les conflits exposent versions observée/attendue.
 - La persistance dépend d'un port outbound spécialisé `compare_and_swap`. Son
   contrat exige une comparaison atomique de version ; une lecture suivie d'un
   update inconditionnel n'est pas présentée comme sûre.
@@ -41,10 +43,10 @@ spécification métier plutôt que d'un catalogue statique.
 
 ## Validation
 
-- `uv run --project cli python -m pytest cli/tests -q` : 589 tests passés ;
+- `uv run --project cli python -m pytest cli/tests -q` : 593 tests passés ;
 - smoke test du projet généré : 19 tests passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
-- `make coverage` : 2 472 tests passés, 5 ignorés et 91,34 % sur 9 264
+- `make coverage` : 2 476 tests passés, 5 ignorés et 91,34 % sur 9 264
   statements et 2 142 branches ;
 - `make docs` : build MkDocs strict passé ;
 - `uv build cli` : sdist et wheel `arclith-cli` 0.27.0 construits ;

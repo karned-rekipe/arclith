@@ -32,7 +32,7 @@ from arclith_cli.init_project import init_project_cmd
 from arclith_cli.main import app
 from arclith_cli.recipe import load_recipe, replay_recipe
 from arclith_cli.recipe_models import RecipeError, save_recipe
-from arclith_cli.state_machine_spec import StateMachineSpec
+from arclith_cli.state_machine_spec import StateMachineSpec, load_state_machine_spec
 
 
 runner = CliRunner()
@@ -334,6 +334,26 @@ def test_spec_rejects_invalid_invariants(
         StateMachineSpec.from_dict(document)
 
 
+def test_spec_read_failures_are_normalized(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spec_path = tmp_path / "state-machine.yaml"
+    spec_path.write_bytes(b"\xff\xfe")
+
+    with pytest.raises(ValueError, match="Unable to read state-machine spec"):
+        load_state_machine_spec(spec_path)
+
+    spec_path.write_text("version: 1\n", encoding="utf-8")
+
+    def fail_read(_path: Path, *, encoding: str | None = None) -> str:
+        raise OSError(f"unreadable with {encoding}")
+
+    monkeypatch.setattr(Path, "read_text", fail_read)
+    with pytest.raises(ValueError, match="Unable to read state-machine spec"):
+        load_state_machine_spec(spec_path)
+
+
 def test_profile_generates_typed_layers_and_parameterized_manifest(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -420,6 +440,53 @@ def test_profile_handles_a_sparse_model_package_and_configurable_state_field(
         encoding="utf-8"
     )
     assert "def test_invoice_phase_rejects_arbitrary_assignment" in domain_tests
+
+
+def test_all_states_allowed_generates_lint_clean_application_tests(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path, "always-allowed-service")
+    parameters = {
+        "state_field": "status",
+        "initial_state": "draft",
+        "states": ["draft", "submitted"],
+        "transitions": [
+            {
+                "name": "synchronize",
+                "from": ["draft", "submitted"],
+                "to": "submitted",
+            }
+        ],
+    }
+    spec_path = _write_spec(project, parameters)
+    result = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-entity",
+            "Invoice",
+            "--profile",
+            "state-machine",
+            "--spec",
+            str(spec_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+
+    application_test = project / "tests/application/test_invoice_use_cases.py"
+    assert "TransitionNotAllowedError" not in application_test.read_text(
+        encoding="utf-8"
+    )
+    lint = subprocess.run(
+        [sys.executable, "-m", "ruff", "check", "src", "tests"],
+        cwd=project,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert lint.returncode == 0, lint.stdout + lint.stderr
 
 
 def test_manifest_v2_rejects_parameter_digest_drift_and_non_json_values(
@@ -516,6 +583,7 @@ def test_existing_compatible_entity_is_preserved(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    framework_root = Path(__file__).resolve().parents[2]
     project = _project(tmp_path)
     entity = _stateful_entity(project)
     original = entity.read_bytes()
@@ -539,6 +607,29 @@ def test_existing_compatible_entity_is_preserved(
     assert result.exit_code == 0, result.output
     assert entity.read_bytes() == original
     assert (project / ".arclith/features/invoice_lifecycle.yaml").is_file()
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from invoice_service.domain.models.invoice import Invoice; "
+                "from invoice_service.domain.services.invoice_lifecycle import "
+                "InvoiceLifecycle; changed = InvoiceLifecycle().submit(Invoice()); "
+                "assert changed.status == 'submitted'; "
+                "assert type(changed.status) is str"
+            ),
+        ],
+        cwd=project,
+        env={
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join((str(project / "src"), str(framework_root))),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
 def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
@@ -556,10 +647,28 @@ def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
         '    SUBMITTED = "submitted"\n'
         '    APPROVED = "approved"\n'
         '    REJECTED = "rejected"\n\n\n'
+        "StatusAlias = InvoiceStatus\n\n\n"
         "class Invoice(Entity):\n",
     )
     literal = 'Literal["draft", "submitted", "approved", "rejected"]'
-    entity.write_text(content.replace(literal, "InvoiceStatus"), encoding="utf-8")
+    entity.write_text(content.replace(literal, "StatusAlias"), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must use its declared enum type"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            'Field(default="draft", frozen=True)',
+            "Field(default=StatusAlias.DRAFT, frozen=True)",
+        ),
+        encoding="utf-8",
+    )
 
     plan = plan_application_blueprint(
         project,
@@ -627,7 +736,12 @@ def test_existing_enum_rejects_use_enum_values(tmp_path: Path) -> None:
     )
     literal = 'Literal["draft", "submitted", "approved", "rejected"]'
     entity.write_text(
-        content.replace(literal, "InvoiceStatus").replace(
+        content.replace(literal, "InvoiceStatus")
+        .replace(
+            'Field(default="draft", frozen=True)',
+            "Field(default=InvoiceStatus.DRAFT, frozen=True)",
+        )
+        .replace(
             "ConfigDict(validate_assignment=True)",
             "ConfigDict(validate_assignment=True, use_enum_values=True)",
         ),
@@ -667,6 +781,10 @@ def test_existing_imported_enum_alias_is_inspected(tmp_path: Path) -> None:
         .replace(
             'Literal["draft", "submitted", "approved", "rejected"]',
             "InvoiceStatus",
+        )
+        .replace(
+            'Field(default="draft", frozen=True)',
+            "Field(default=InvoiceStatus.DRAFT, frozen=True)",
         ),
         encoding="utf-8",
     )
@@ -801,6 +919,10 @@ def test_existing_conventional_state_module_is_preserved(tmp_path: Path) -> None
         .replace(
             'Literal["draft", "submitted", "approved", "rejected"]',
             "InvoiceState",
+        )
+        .replace(
+            'Field(default="draft", frozen=True)',
+            "Field(default=InvoiceState.DRAFT, frozen=True)",
         ),
         encoding="utf-8",
     )
@@ -904,6 +1026,31 @@ def test_existing_entity_requires_real_pydantic_assignment_helpers(
         entity.read_text(encoding="utf-8").replace(
             "from pydantic import ConfigDict, Field",
             "from custom import ConfigDict, Field",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="must reject assignment"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+@pytest.mark.parametrize("helper", ["ConfigDict", "Field"])
+def test_existing_entity_rejects_shadowed_pydantic_helpers(
+    tmp_path: Path,
+    helper: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            "from pydantic import ConfigDict, Field",
+            f"from pydantic import ConfigDict, Field\n\n{helper} = dict",
         ),
         encoding="utf-8",
     )

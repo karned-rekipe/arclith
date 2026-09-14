@@ -192,8 +192,12 @@ vérification prouve aussi l'origine de `Literal`, des bases stdlib
 et les méthodes de copie asynchrones, dont le comportement ne peut pas satisfaire
 le contrat synchrone du cycle de vie. Pour un champ enum,
 `ConfigDict(use_enum_values=True)` est également refusé : cette option stockerait
-une chaîne et romprait la garantie de restitution du type enum. Un nom de fichier non canonique comme
-`invoice_record.py` reste accepté : les imports générés
+une chaîne et romprait la garantie de restitution du type enum. Le champ doit
+être requis ou déclarer un membre de son enum comme valeur par défaut ; une chaîne
+brute n'est pas acceptée comme default non validé. Les tests générés construisent
+la valeur depuis l'annotation Pydantic réelle et vérifient le type après chaque
+transition, y compris `str` pour un `Literal`. Un nom de fichier non canonique
+comme `invoice_record.py` reste accepté : les imports générés
 distinguent le module réel de l'entité du module d'état interne
 `invoice_lifecycle_state.py`. Ce module généré porte délibérément le suffixe
 `_lifecycle_state` : une enum métier importée depuis le chemin conventionnel

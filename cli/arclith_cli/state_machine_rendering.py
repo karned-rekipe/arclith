@@ -1,8 +1,8 @@
-"""Render the entity-facing files of a state-machine blueprint."""
+"""Render supporting entity, documentation and test state-machine files."""
 
 from __future__ import annotations
 
-from textwrap import dedent
+from textwrap import dedent, indent
 
 from arclith_cli.entity_scanner import EntityInfo
 from arclith_cli.project_paths import ProjectPaths
@@ -162,5 +162,102 @@ def render_state_documentation(
     )
 
 
+def render_domain_test(
+    package: str,
+    entity: str,
+    entity_module: str,
+    feature: str,
+    spec: StateMachineSpec,
+) -> str:
+    """Render lifecycle-domain tests against the entity's declared state type."""
+
+    prefix = f"{package}." if package else ""
+    error_imports = ",\n    ".join(
+        _transition_error(entity, transition) for transition in spec.transitions
+    )
+    error_items = "\n".join(
+        f'    "{item.name}": {_transition_error(entity, item)},'
+        for item in spec.transitions
+    )
+    matrix = "\n".join(
+        f'    ("{state}", "{transition.name}", '
+        + (f'"{transition.target}"),' if state in transition.sources else "None),")
+        for transition in spec.transitions
+        for state in spec.states
+    )
+    first = spec.transitions[0]
+    return (
+        "from enum import Enum\n\n"
+        "import pytest\n"
+        "from pydantic import ValidationError\n\n"
+        f"from {prefix}domain.errors.{feature} import (\n"
+        f"{indent(error_imports, '    ')},\n"
+        ")\n"
+        f"from {prefix}domain.models.{entity_module} import {entity}\n"
+        f"from {prefix}domain.services.{feature} import {entity}Lifecycle\n\n\n"
+        "ERRORS = {\n"
+        f"{error_items}\n"
+        "}\n\n"
+        "TRANSITION_MATRIX = (\n"
+        f"{matrix}\n"
+        ")\n\n\n"
+        f"def _state_value(state: str) -> object:\n"
+        f'    annotation = {entity}.model_fields["{spec.state_field}"].annotation\n'
+        "    if isinstance(annotation, type) and issubclass(annotation, Enum):\n"
+        "        return annotation(state)\n"
+        "    return state\n\n\n"
+        "def _persisted_state(value: object) -> object:\n"
+        "    return value.value if isinstance(value, Enum) else value\n\n\n"
+        f"def make_{_snake_entity(entity)}(\n"
+        f'    state: str = "{spec.initial_state}",\n'
+        f") -> {entity}:\n"
+        '    """Isolate lifecycle tests without guessing required business fields."""\n'
+        f"    return {entity}.model_construct(\n"
+        f"        {spec.state_field}=_state_value(state),\n"
+        "    )\n\n\n"
+        '@pytest.mark.parametrize(("state", "operation", "target"), TRANSITION_MATRIX)\n'
+        f"def test_{feature}_transition_matrix(\n"
+        "    state: str,\n"
+        "    operation: str,\n"
+        "    target: str | None,\n"
+        ") -> None:\n"
+        f"    lifecycle = {entity}Lifecycle()\n"
+        f"    original = make_{_snake_entity(entity)}(state)\n"
+        "    transition = getattr(lifecycle, operation)\n\n"
+        "    if target is None:\n"
+        "        with pytest.raises(ERRORS[operation]):\n"
+        "            transition(original)\n"
+        f"        assert _persisted_state(original.{spec.state_field}) == state\n"
+        "        return\n\n"
+        "    changed = transition(original)\n"
+        "    expected = _state_value(target)\n"
+        f"    assert changed.{spec.state_field} == expected\n"
+        f"    assert type(changed.{spec.state_field}) is type(expected)\n"
+        f"    assert _persisted_state(original.{spec.state_field}) == state\n\n\n"
+        f"def test_{feature}_{spec.state_field}_rejects_arbitrary_assignment() -> None:\n"
+        f"    entity = make_{_snake_entity(entity)}()\n\n"
+        '    with pytest.raises(ValidationError, match="frozen"):\n'
+        f'        setattr(entity, "{spec.state_field}", '
+        f'_state_value("{first.target}"))\n'
+        '    with pytest.raises(ValueError, match="lifecycle"):\n'
+        f"        entity.model_copy(\n"
+        f'            update={{"{spec.state_field}": _state_value("{first.target}")}}\n'
+        "        )\n\n\n"
+        f"def test_{feature}_business_precondition_extension_is_explicit() -> None:\n"
+        f"    class GuardedLifecycle({entity}Lifecycle):\n"
+        f"        def _ensure_{first.name}_preconditions(\n"
+        f"            self, entity: {entity}\n"
+        "        ) -> None:\n"
+        '            raise RuntimeError("project-owned guard")\n\n'
+        f'    entity = make_{_snake_entity(entity)}("{first.sources[0]}")\n'
+        '    with pytest.raises(RuntimeError, match="project-owned guard"):\n'
+        f"        GuardedLifecycle().{first.name}(entity)\n"
+    )
+
+
 def _transition_error(entity: str, transition: StateTransitionSpec) -> str:
     return f"{EntityNames.from_input(transition.name).pascal}{entity}NotAllowedError"
+
+
+def _snake_entity(entity: str) -> str:
+    return EntityNames.from_input(entity).snake

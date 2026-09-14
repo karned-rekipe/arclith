@@ -191,6 +191,8 @@ def load_state_machine_spec(path: Path) -> StateMachineSpec:
         raise ValueError(f"State-machine spec not found: {path}")
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError) as exc:
+        raise ValueError(f"Unable to read state-machine spec {path}: {exc}") from exc
     except yaml.YAMLError as exc:
         raise ValueError(f"Invalid YAML in state-machine spec {path}: {exc}") from exc
     return StateMachineSpec.from_dict(raw)
