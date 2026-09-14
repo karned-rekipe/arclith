@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Blueprint job** (#224) — cycle d'exécution typé, soumission idempotente,
+  annulation coopérative, retry explicite borné et historique des tentatives.
+- **Adapters mémoire de job** — store à transitions contrôlées/CAS, runner
+  piloté par l'appelant, snapshots isolés et purge explicite de rétention.
+- **CLI job avec ou sans entité** — spec V1, manifeste de cible V3, recettes
+  portables, tests générés avec fake métier et documentation GitHub Pages.
+- **Compatibilité des recettes** — replay des manifests V1/V2 conservé, dont
+  la recette state-machine CLI 0.28.0 vérifiée octet pour octet.
+
 ---
 
 ## [0.31.0] — 2026-09-14

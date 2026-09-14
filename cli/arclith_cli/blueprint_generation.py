@@ -22,6 +22,7 @@ from arclith_cli.entity_scanner import EntityInfo, scan_blueprint_models
 from arclith_cli.feature_manifest import (
     FEATURE_MANIFEST_VERSION,
     PARAMETERIZED_FEATURE_MANIFEST_VERSION,
+    TARGETED_FEATURE_MANIFEST_VERSION,
     FeatureBlueprint,
     FeatureDigests,
     FeatureEntity,
@@ -41,7 +42,7 @@ console = Console()
 class ApplicationBlueprintPlan:
     project_dir: Path
     blueprint: ApplicationBlueprintSpec
-    entity: EntityInfo
+    entity: EntityInfo | None
     feature: str
     manifest: FeatureManifest
     manifest_path: Path
@@ -54,7 +55,7 @@ class ApplicationBlueprintPlan:
 @dataclass(frozen=True)
 class ApplicationBlueprintResult:
     blueprint: ApplicationBlueprintSpec
-    entity: EntityInfo
+    entity: EntityInfo | None
     feature: str
     manifest_path: Path
     changed: tuple[Path, ...]
@@ -74,11 +75,11 @@ def plan_application_blueprint(
     project_dir: Path,
     *,
     blueprint_name: str,
-    entity_name: str,
+    entity_name: str | None,
     feature_name: str | None,
     parameters: Mapping[str, Any] | None = None,
 ) -> ApplicationBlueprintPlan:
-    entity = _require_entity(project_dir, entity_name)
+    entity = _require_entity(project_dir, entity_name) if entity_name is not None else None
     return plan_application_blueprint_for_entity(
         project_dir,
         blueprint=get_application_blueprint(blueprint_name),
@@ -92,14 +93,16 @@ def plan_application_blueprint_for_entity(
     project_dir: Path,
     *,
     blueprint: ApplicationBlueprintSpec,
-    entity: EntityInfo,
+    entity: EntityInfo | None,
     feature_name: str | None,
     parameters: Mapping[str, Any] | None = None,
     creating_entity: bool = False,
     project_paths: ProjectPaths | None = None,
     expected_empty_initializers: tuple[Path, ...] = (),
 ) -> ApplicationBlueprintPlan:
-    if entity.model_base != blueprint.model_base:
+    if entity is None and (blueprint.name != "job" or not feature_name):
+        raise ValueError("Only job supports --no-entity and it requires --feature")
+    if entity is not None and blueprint.name != "job" and entity.model_base != blueprint.model_base:
         expected = (
             "ImmutableRecord"
             if blueprint.model_base == "immutable-record"
@@ -113,18 +116,18 @@ def plan_application_blueprint_for_entity(
             f"{entity.pascal} is based on {actual}"
         )
     paths = project_paths or detect_project_paths(project_dir)
-    entity_module = entity.file_path.stem
-    if not entity_module.isidentifier() or keyword.iskeyword(entity_module):
+    entity_module = entity.file_path.stem if entity is not None else ""
+    if entity is not None and (not entity_module.isidentifier() or keyword.iskeyword(entity_module)):
         raise ValueError(
             f"Entity module name {entity_module!r} must be a valid, non-keyword "
             "Python identifier"
         )
-    if keyword.iskeyword(entity.snake):
+    if entity is not None and keyword.iskeyword(entity.snake):
         raise ValueError(
             f"Entity {entity.pascal!r} normalizes to the reserved Python keyword "
             f"{entity.snake!r}"
         )
-    feature = _feature_name(feature_name or entity.snake)
+    feature = _feature_name(feature_name or (entity.snake if entity is not None else ""))
     canonical_parameters = canonical_blueprint_parameters(blueprint, parameters)
     parameter_digest = application_parameters_digest(blueprint, canonical_parameters)
     operations = blueprint.operations
@@ -133,6 +136,7 @@ def plan_application_blueprint_for_entity(
 
         operations = StateMachineSpec.from_parameters(canonical_parameters).operations
     manifest_version = (
+        TARGETED_FEATURE_MANIFEST_VERSION if blueprint.name == "job" else
         PARAMETERIZED_FEATURE_MANIFEST_VERSION
         if canonical_parameters is not None
         else FEATURE_MANIFEST_VERSION
@@ -143,7 +147,7 @@ def plan_application_blueprint_for_entity(
         entity=FeatureEntity(
             name=entity.pascal,
             module=paths.import_path("domain", "models", entity.file_path.stem),
-        ),
+        ) if entity is not None else None,
         blueprint=FeatureBlueprint(name=blueprint.name, version=blueprint.version),
         operations=operations,
         parameters=canonical_parameters,
@@ -229,6 +233,8 @@ def plan_application_profile_for_new_entity(
         return None
     paths = project_paths or detect_project_paths(project_dir)
     blueprint = get_application_blueprint(profile_name)
+    if blueprint.name == "job":
+        raise ValueError("Use add-blueprint job with --entity or --no-entity; job is not an entity profile")
     return plan_application_blueprint_for_entity(
         project_dir,
         blueprint=blueprint,
@@ -308,6 +314,8 @@ def create_entity_with_application_blueprint(
     """Create an entity and compensate it if blueprint application fails."""
 
     paths = detect_project_paths(plan.project_dir)
+    if plan.entity is None:
+        raise ValueError("Entity creation requires an entity-scoped plan")
     entity_path = plan.entity.file_path
     tracked = (entity_path, *_entity_initializer_paths(paths))
     expected = {
@@ -495,7 +503,7 @@ def add_application_blueprint_cmd(
     *,
     project_dir: Path,
     blueprint_name: str,
-    entity_name: str,
+    entity_name: str | None,
     feature_name: str | None,
     dry_run: bool,
     parameters: Mapping[str, Any] | None = None,
@@ -517,7 +525,7 @@ def add_application_blueprint_cmd(
     else:
         console.print(
             f"[bold green]✓ Blueprint {plan.blueprint.name} appliqué à "
-            f"{plan.entity.pascal}.[/bold green]"
+            f"{plan.entity.pascal if plan.entity is not None else plan.feature}.[/bold green]"
         )
     return ApplicationBlueprintResult(
         blueprint=plan.blueprint,

@@ -74,7 +74,7 @@ def replay_add_blueprint_step(target_dir: Path, args: dict[str, Any]) -> None:
     add_application_blueprint_cmd(
         project_dir=target_dir,
         blueprint_name=blueprint_name,
-        entity_name=str(args["entity"]),
+        entity_name=None if args.get("no_entity") is True else str(args["entity"]),
         feature_name=str(feature) if feature else None,
         dry_run=False,
         parameters=parameters,
@@ -145,8 +145,10 @@ def validate_application_recipe_metadata(
             f"Blueprint {blueprint.name!r} has invalid recorded parameters: {exc}"
         ) from exc
     expected_operations = blueprint.operations
-    if blueprint.parameterized:
+    if blueprint.name == "state-machine":
         expected_operations = StateMachineSpec.from_parameters(parameters).operations
+    if blueprint.name == "job":
+        _validate_job_target(args)
     recorded_version = args.get("blueprint_version")
     if "blueprint_version" in args and (
         type(recorded_version) is not int or recorded_version != blueprint.version
@@ -173,3 +175,15 @@ def validate_application_recipe_metadata(
             f"Blueprint {blueprint.name!r} parameters digest drift: "
             f"recorded {recorded_parameters!r}, current {expected_parameters!r}"
         )
+
+
+def _validate_job_target(args: dict[str, Any]) -> None:
+    if type(args.get("target_version")) is not int or args["target_version"] != 1:
+        raise RecipeError("Job recipe requires target_version integer 1")
+    entity = args.get("entity")
+    standalone = args.get("no_entity")
+    if standalone is True:
+        if "entity" in args or not isinstance(args.get("feature"), str) or not args["feature"].strip():
+            raise RecipeError("Standalone job requires --feature and excludes --entity")
+    elif "no_entity" in args or not isinstance(entity, str) or not entity.strip():
+        raise RecipeError("Job recipe requires exactly one entity or no_entity=true target")

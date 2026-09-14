@@ -16,6 +16,7 @@ from arclith_cli.atomic_writes import FilePublication, write_new_text_file
 
 FEATURE_MANIFEST_VERSION = 1
 PARAMETERIZED_FEATURE_MANIFEST_VERSION = 2
+TARGETED_FEATURE_MANIFEST_VERSION = 3
 _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
@@ -79,7 +80,7 @@ class FeatureDigests:
 class FeatureManifest:
     version: int
     feature: str
-    entity: FeatureEntity
+    entity: FeatureEntity | None
     blueprint: FeatureBlueprint
     operations: tuple[str, ...]
     parameters: dict[str, Any] | None = None
@@ -98,11 +99,13 @@ class FeatureManifest:
             _exact_keys(data, common_keys, "feature manifest version 1")
             parameters = None
             digests = None
-        elif version == PARAMETERIZED_FEATURE_MANIFEST_VERSION:
+        elif version in {PARAMETERIZED_FEATURE_MANIFEST_VERSION, TARGETED_FEATURE_MANIFEST_VERSION}:
+            if version == TARGETED_FEATURE_MANIFEST_VERSION:
+                common_keys = common_keys - {"entity"} | {"target"}
             _exact_keys(
                 data,
                 common_keys | {"parameters", "digests"},
-                "feature manifest version 2",
+                f"feature manifest version {version}",
             )
             parameters = _json_safe_mapping(
                 data.get("parameters"),
@@ -119,7 +122,7 @@ class FeatureManifest:
             raise ValueError(
                 f"Unsupported feature manifest version {version!r}; "
                 f"expected {FEATURE_MANIFEST_VERSION} or "
-                f"{PARAMETERIZED_FEATURE_MANIFEST_VERSION}"
+                f"{PARAMETERIZED_FEATURE_MANIFEST_VERSION} or {TARGETED_FEATURE_MANIFEST_VERSION}"
             )
         raw_operations = data["operations"]
         if not isinstance(raw_operations, list) or not raw_operations:
@@ -129,10 +132,15 @@ class FeatureManifest:
         )
         if len(operations) != len(set(operations)):
             raise ValueError("feature.operations must not contain duplicates")
+        entity = (
+            _target_entity(data["target"])
+            if version == TARGETED_FEATURE_MANIFEST_VERSION
+            else FeatureEntity.from_dict(data["entity"])
+        )
         return cls(
             version=version,
             feature=_identifier(data["feature"], "feature.feature"),
-            entity=FeatureEntity.from_dict(data["entity"]),
+            entity=entity,
             blueprint=FeatureBlueprint.from_dict(data["blueprint"]),
             operations=operations,
             parameters=parameters,
@@ -143,13 +151,23 @@ class FeatureManifest:
         data: dict[str, object] = {
             "version": self.version,
             "feature": self.feature,
-            "entity": self.entity.to_dict(),
             "blueprint": self.blueprint.to_dict(),
         }
-        if self.version == PARAMETERIZED_FEATURE_MANIFEST_VERSION:
+        if self.version == TARGETED_FEATURE_MANIFEST_VERSION:
+            data["target"] = (
+                {"kind": "entity", "entity": self.entity.to_dict()}
+                if self.entity is not None else {"kind": "standalone"}
+            )
+        else:
+            if self.entity is None:
+                raise ValueError("Feature manifest versions 1/2 require an entity")
+            # Preserve the original field ordering/serialization for legacy files.
+            data = {"version": self.version, "feature": self.feature,
+                    "entity": self.entity.to_dict(), "blueprint": self.blueprint.to_dict()}
+        if self.version in {PARAMETERIZED_FEATURE_MANIFEST_VERSION, TARGETED_FEATURE_MANIFEST_VERSION}:
             if self.parameters is None or self.digests is None:
                 raise ValueError(
-                    "Feature manifest version 2 requires parameters and digests"
+                    "Parameterized feature manifests require parameters and digests"
                 )
             data["parameters"] = _json_safe_mapping(
                 self.parameters, "feature.parameters"
@@ -161,6 +179,17 @@ class FeatureManifest:
             )
         data["operations"] = list(self.operations)
         return data
+
+
+def _target_entity(raw: object) -> FeatureEntity | None:
+    target = _mapping(raw, "feature.target")
+    if target.get("kind") == "standalone":
+        _exact_keys(target, {"kind"}, "standalone target")
+        return None
+    if target.get("kind") == "entity":
+        _exact_keys(target, {"kind", "entity"}, "entity target")
+        return FeatureEntity.from_dict(target["entity"])
+    raise ValueError("feature.target.kind must be entity or standalone")
 
 
 def load_feature_manifest(path: Path) -> FeatureManifest:

@@ -165,6 +165,14 @@ exige que ce record existe déjà. Les modèles et règles métier personnalisé
 sont pas stockés dans la recette : les conserver dans Git. Le manifeste conserve
 son schéma version 1 ; voir le [contrat append-only](blueprints/append-only.md).
 
+Le [blueprint job](blueprints/job.md) conserve l'enveloppe de recette V1 et
+versionne ses arguments de cible avec `target_version: 1`. Il enregistre soit
+`entity`, soit `no_entity: true` avec un nom de feature obligatoire. Le manifeste
+correspondant est V3 (`target.kind: entity|standalone`). Les paramètres canoniques
+remplacent le chemin de la spec et leurs digests sont prévalidés avant toute
+création de projet. Les manifests V1/V2 et les anciennes recettes restent
+lisibles, sans réécriture implicite.
+
 Les étapes rejouées ne sont pas enregistrées une seconde fois. Pour une cible
 nouvelle, la recette sélectionnée est copiée une seule fois après le succès du
 replay. Pour un projet existant qui possède déjà sa recette, celle-ci n'est pas

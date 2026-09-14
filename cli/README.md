@@ -269,9 +269,44 @@ arclith-cli add-blueprint state-machine --entity Invoice \
 
 La première application écrit `.arclith/features/shopping_item.yaml`. Un replay
 préserve les fichiers applicatifs déjà personnalisés et complète uniquement les
-fichiers manquants. CRUD, append-only et state-machine sont des comportements
+fichiers manquants. CRUD, append-only, state-machine et job sont des comportements
 explicites ; aucun n'est inféré depuis un adapter. Voir le
 [contrat détaillé](https://karned-rekipe.github.io/arclith/blueprints/).
+
+Pour un job suivi, la feature peut être transverse ou liée à une entité :
+
+```yaml
+# report-job.yaml
+version: 1
+request: GenerateReportRequest
+result: GenerateReportResult
+cancellable: true
+max_attempts: 1
+retention_days: 7
+```
+
+```bash
+arclith-cli add-blueprint job --feature report_generation \
+  --no-entity --spec report-job.yaml --dry-run
+arclith-cli add-blueprint job --feature report_generation \
+  --no-entity --spec report-job.yaml
+# Variante, avec Document déjà créé :
+arclith-cli add-blueprint job --feature document_analysis \
+  --entity Document --spec report-job.yaml
+```
+
+`--entity` et `--no-entity` s'excluent ; `job` n'est pas un profil `add-entity`.
+Le manifeste V3 déclare la cible et les paramètres, avec replay sans fichier
+spec d'origine. Les cinq opérations utilisent les ports JobRunnerPort et
+JobStorePort ; aucun broker ou transport n'est installé. Le handler métier
+initial lève NotImplementedError et les tests injectent un fake explicite.
+Le runner mémoire est **non durable**, avec exécution contrôlée par
+`await runner.run(job_id)`, annulation coopérative et retry explicite borné.
+
+Cette fonctionnalité nécessite les sources de l'issue #224 avant sa publication
+PyPI ; Arclith 0.31.0 / CLI 0.28.0 ne la contiennent pas. Le
+[guide job](https://karned-rekipe.github.io/arclith/blueprints/job/) détaille
+l'installation de développement, le smoke test, la rétention et les futurs adapters.
 
 ---
 
