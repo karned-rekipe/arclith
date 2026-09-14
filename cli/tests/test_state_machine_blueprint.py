@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import json
+import ast
 import inspect
+import json
 import os
 import re
 import subprocess
@@ -32,6 +33,7 @@ from arclith_cli.init_project import init_project_cmd
 from arclith_cli.main import app
 from arclith_cli.recipe import load_recipe, replay_recipe
 from arclith_cli.recipe_models import RecipeError, save_recipe
+from arclith_cli.state_machine_contract import statement_binds_name
 from arclith_cli.state_machine_spec import StateMachineSpec, load_state_machine_spec
 
 
@@ -253,11 +255,18 @@ def test_template_digest_includes_the_complete_renderer_contract(
 @pytest.mark.parametrize(
     "module_name",
     [
+        "application_blueprint_files",
         "application_blueprints",
+        "entity_scanner",
         "import_origins",
         "module_bindings",
+        "project_paths",
+        "rename",
+        "state_machine_blueprint",
         "state_machine_spec",
         "state_machine_contract",
+        "state_machine_entity",
+        "state_machine_rendering",
         "state_machine_types",
     ],
 )
@@ -266,10 +275,17 @@ def test_template_digest_includes_every_state_machine_contract_module(
     module_name: str,
 ) -> None:
     from arclith_cli import (
+        application_blueprint_files,
         application_blueprints,
+        entity_scanner,
         import_origins,
         module_bindings,
+        project_paths,
+        rename,
+        state_machine_blueprint,
         state_machine_contract,
+        state_machine_entity,
+        state_machine_rendering,
         state_machine_spec,
         state_machine_types,
     )
@@ -278,10 +294,17 @@ def test_template_digest_includes_every_state_machine_contract_module(
     before = application_blueprint_digest(blueprint)
     original_getsource = inspect.getsource
     contract_module = {
+        "application_blueprint_files": application_blueprint_files,
         "application_blueprints": application_blueprints,
+        "entity_scanner": entity_scanner,
         "import_origins": import_origins,
         "module_bindings": module_bindings,
+        "project_paths": project_paths,
+        "rename": rename,
+        "state_machine_blueprint": state_machine_blueprint,
         "state_machine_contract": state_machine_contract,
+        "state_machine_entity": state_machine_entity,
+        "state_machine_rendering": state_machine_rendering,
         "state_machine_spec": state_machine_spec,
         "state_machine_types": state_machine_types,
     }[module_name]
@@ -1073,6 +1096,55 @@ def test_existing_imported_enum_alias_is_inspected(tmp_path: Path) -> None:
     )
 
 
+def test_existing_enum_reexported_by_package_is_inspected(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.with_name("invoice_status.py").write_text(
+        "Status = object\n",
+        encoding="utf-8",
+    )
+    status_package = entity.with_name("invoice_status")
+    status_package.mkdir()
+    (status_package / "__init__.py").write_text(
+        "from .definitions import Status\n",
+        encoding="utf-8",
+    )
+    (status_package / "definitions.py").write_text(
+        "from enum import StrEnum\n\n\n"
+        "class Status(StrEnum):\n"
+        '    DRAFT = "draft"\n'
+        '    SUBMITTED = "submitted"\n'
+        '    APPROVED = "approved"\n'
+        '    REJECTED = "rejected"\n',
+        encoding="utf-8",
+    )
+    entity.write_text(
+        entity.read_text(encoding="utf-8")
+        .replace(
+            "from typing import Any, Literal, Self\n",
+            "from typing import Any, Literal, Self\n\n"
+            "from .invoice_status import Status as InvoiceStatus\n",
+        )
+        .replace(
+            'Literal["draft", "submitted", "approved", "rejected"]',
+            "InvoiceStatus",
+        )
+        .replace(
+            'Field(default="draft", frozen=True)',
+            "Field(default=InvoiceStatus.DRAFT, frozen=True)",
+        ),
+        encoding="utf-8",
+    )
+
+    plan_application_blueprint(
+        project,
+        blueprint_name="state-machine",
+        entity_name="Invoice",
+        feature_name="invoice_lifecycle",
+        parameters=_parameters(),
+    )
+
+
 def test_existing_entity_rejects_type_checking_only_enum_import(tmp_path: Path) -> None:
     project = _project(tmp_path)
     entity = _stateful_entity(project)
@@ -1282,9 +1354,7 @@ def test_existing_entity_rejects_dynamic_enum_rebinding(
         "from collections.abc import Mapping\nfrom enum import StrEnum\n",
     ).replace(
         "class Invoice(Entity):\n",
-        _local_state_enum()
-        + f"{binding}\n\n\n"
-        + "class Invoice(Entity):\n",
+        _local_state_enum() + f"{binding}\n\n\n" + "class Invoice(Entity):\n",
     )
     entity.write_text(
         content.replace(literal, "InvoiceStatus").replace(
@@ -1840,6 +1910,48 @@ def test_existing_entity_rejects_contract_helpers_rebound_by_module_control_flow
             feature_name="invoice_lifecycle",
             parameters=_parameters(),
         )
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        "def helper(value=(super := object())):\n    pass\n",
+        "@(ValueError := (lambda cls: cls))\nclass Helper:\n    pass\n",
+        "class Helper((super := object)):\n    pass\n",
+        "class Helper(metaclass=(ValueError := type)):\n    pass\n",
+        "helper = lambda value=(super := object()): value\n",
+    ],
+)
+def test_existing_entity_rejects_builtins_rebound_by_callable_headers(
+    tmp_path: Path,
+    binding: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            "class Invoice(Entity):\n",
+            f"{binding}\n\nclass Invoice(Entity):\n",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="reject generic model_copy updates"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+def test_nested_callable_headers_bind_in_the_enclosing_scope() -> None:
+    statement = ast.parse(
+        "if True:\n    def helper(value=(super := object())):\n        pass\n"
+    ).body[0]
+
+    assert statement_binds_name(statement, "super")
 
 
 @pytest.mark.parametrize(

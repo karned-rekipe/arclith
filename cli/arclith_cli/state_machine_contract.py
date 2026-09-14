@@ -53,9 +53,7 @@ def class_scope_bindings(model: ast.ClassDef, name: str) -> tuple[ast.stmt, ...]
     """Return class statements that bind a name, including through control flow."""
 
     return tuple(
-        statement
-        for statement in model.body
-        if statement_binds_name(statement, name)
+        statement for statement in model.body if statement_binds_name(statement, name)
     )
 
 
@@ -118,28 +116,7 @@ def _single_method_binding(
 
 
 def _binds_name(statement: ast.stmt, name: str) -> bool:
-    if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-        return statement.name == name
-    if isinstance(statement, (ast.Import, ast.ImportFrom)):
-        return any(
-            (item.asname or item.name.split(".", 1)[0]) == name
-            for item in statement.names
-        )
-    return any(_node_binds_name(node, name) for node in ast.walk(statement))
-
-
-def _node_binds_name(node: ast.AST, name: str) -> bool:
-    return (
-        isinstance(node, ast.Name)
-        and node.id == name
-        and isinstance(node.ctx, (ast.Store, ast.Del))
-    ) or (
-        isinstance(node, ast.ExceptHandler) and node.name == name
-    ) or (
-        isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name == name
-    ) or (
-        isinstance(node, ast.MatchMapping) and node.rest == name
-    )
+    return _binds_scope_name(statement, name)
 
 
 def _method_binds_name(method: ast.FunctionDef, name: str) -> bool:
@@ -149,15 +126,13 @@ def _method_binds_name(method: ast.FunctionDef, name: str) -> bool:
 def _binds_module_name(statement: ast.stmt, name: str) -> bool:
     """Detect module bindings without descending into nested local scopes."""
 
-    if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-        return statement.name == name
-    if isinstance(statement, (ast.Import, ast.ImportFrom)):
-        return any(
-            (item.asname or item.name.split(".", 1)[0]) == name
-            for item in statement.names
-        )
+    return _binds_scope_name(statement, name)
 
-    class ModuleBindingVisitor(ast.NodeVisitor):
+
+def _binds_scope_name(statement: ast.stmt, name: str) -> bool:
+    """Detect bindings evaluated in one scope, including callable headers."""
+
+    class ScopeBindingVisitor(ast.NodeVisitor):
         found = False
 
         def visit_Name(self, node: ast.Name) -> None:  # noqa: N802
@@ -167,6 +142,7 @@ def _binds_module_name(statement: ast.stmt, name: str) -> bool:
         def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
             if node.name == name:
                 self.found = True
+            self._visit_callable_header(node)
 
         def visit_AsyncFunctionDef(  # noqa: N802
             self,
@@ -174,13 +150,29 @@ def _binds_module_name(statement: ast.stmt, name: str) -> bool:
         ) -> None:
             if node.name == name:
                 self.found = True
+            self._visit_callable_header(node)
 
         def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
             if node.name == name:
                 self.found = True
+            for expression in (*node.decorator_list, *node.bases):
+                self.visit(expression)
+            for keyword in node.keywords:
+                self.visit(keyword.value)
 
         def visit_Lambda(self, node: ast.Lambda) -> None:  # noqa: N802
-            return
+            self._visit_arguments(node.args)
+
+        def visit_Import(self, node: ast.Import) -> None:  # noqa: N802
+            if any(
+                (item.asname or item.name.split(".", 1)[0]) == name
+                for item in node.names
+            ):
+                self.found = True
+
+        def visit_ImportFrom(self, node: ast.ImportFrom) -> None:  # noqa: N802
+            if any((item.asname or item.name) == name for item in node.names):
+                self.found = True
 
         def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:  # noqa: N802
             if node.name == name:
@@ -201,7 +193,32 @@ def _binds_module_name(statement: ast.stmt, name: str) -> bool:
                 self.found = True
             self.generic_visit(node)
 
-    visitor = ModuleBindingVisitor()
+        def _visit_callable_header(
+            self,
+            node: ast.FunctionDef | ast.AsyncFunctionDef,
+        ) -> None:
+            for decorator in node.decorator_list:
+                self.visit(decorator)
+            self._visit_arguments(node.args)
+            if node.returns is not None:
+                self.visit(node.returns)
+
+        def _visit_arguments(self, arguments: ast.arguments) -> None:
+            positional = (*arguments.posonlyargs, *arguments.args)
+            for argument in (*positional, *arguments.kwonlyargs):
+                if argument.annotation is not None:
+                    self.visit(argument.annotation)
+            for optional_argument in (arguments.vararg, arguments.kwarg):
+                if (
+                    optional_argument is not None
+                    and optional_argument.annotation is not None
+                ):
+                    self.visit(optional_argument.annotation)
+            for default in (*arguments.defaults, *arguments.kw_defaults):
+                if default is not None:
+                    self.visit(default)
+
+    visitor = ScopeBindingVisitor()
     visitor.visit(statement)
     return visitor.found
 

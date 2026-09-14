@@ -24,8 +24,9 @@ spécification métier plutôt que d'un catalogue statique.
   afin de préserver sans collision une enum métier existante importée depuis le
   chemin conventionnel `<entité>_state.py`.
 - Les annotations `Literal` et les bases `Enum` sont résolues jusqu'à leur origine
-  `typing`/stdlib, y compris via alias ; les homonymes locaux et helpers de copie
-  asynchrones sont refusés, comme `use_enum_values=True` pour un champ enum. Une
+  `typing`/stdlib, y compris via alias et réexports de packages `__init__.py` ;
+  les homonymes locaux et helpers de copie asynchrones sont refusés, comme
+  `use_enum_values=True` pour un champ enum. Une
   seule affectation effective et statique de `model_config` est admise ; les
   helpers doivent garder leurs signatures d’instance sans décorateur, tester
   `update is not None` avant l'appartenance et appeler le builtin `super` non
@@ -38,6 +39,9 @@ spécification métier plutôt que d'un catalogue statique.
   `typing_extensions`, `collections`, `enum` ou `pydantic`, y compris avant la
   création d'une entité. Les captures `except ... as` et les motifs `match ... as` comptent aussi
   comme des liaisons et ne peuvent pas masquer les builtins ou helpers contrôlés.
+  Les décorateurs, bases, mots-clés de classe et defaults de fonctions ou lambdas
+  sont inspectés dans le scope où ils s'exécutent, y compris pour un callable
+  imbriqué, sans confondre son corps avec le scope englobant.
   Le champ d'état ne peut avoir qu'une liaison dans la classe, ses alias et enums
   doivent être disponibles au runtime avant son usage, et une enum ne peut pas
   cacher des membres runtime derrière un contrôle de flux, une expression
@@ -57,9 +61,10 @@ spécification métier plutôt que d'un catalogue statique.
   Les paramètres absents ou mal formés et les noms de blueprint absents ou
   inconnus sont normalisés en `RecipeError`. Un profil `minimal` refuse les
   métadonnées d'un blueprint paramétré au lieu de les ignorer.
-  Le digest du template couvre le source complet des renderers et versionne aussi
-  le contrat de validation des entités existantes, sans modifier les anciens
-  digests CRUD/append-only.
+  Le digest du template couvre le source complet des renderers, des helpers de
+  nommage, chemins, inspection d'entité et initialisation de packages, et
+  versionne aussi le contrat de validation des entités existantes, sans modifier
+  les anciens digests CRUD/append-only.
 - `new` planifie le profil et valide le nom d'entité contre un layout `src`
   virtuel avant toute initialisation. Les `__init__.py` vides que `init` créera
   sont les seuls snapshots intermédiaires anticipés ; une entrée invalide ne
@@ -67,7 +72,7 @@ spécification métier plutôt que d'un catalogue statique.
 
 ## Validation
 
-- `uv run --project cli python -m pytest cli/tests -q` : 670 tests passés ;
+- `uv run --project cli python -m pytest cli/tests -q` : 684 tests passés ;
 - smoke test du projet généré : 19 tests passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
 - `make coverage` : 2 484 tests passés, 5 ignorés et 91,34 % sur 9 264

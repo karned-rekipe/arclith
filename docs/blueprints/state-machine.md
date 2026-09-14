@@ -208,6 +208,9 @@ Le type accepté est un `Literal[...]` contenant exactement les états déclaré
 ou un `Enum`/`StrEnum` à valeurs chaînes, quel que soit son nom (`Status`,
 `InvoiceStatus`, alias importé…), dont la déclaration locale/importée, disponible
 avant le champ, expose exactement les valeurs persistées de la spec. Les membres
+importés peuvent venir d'un module `.py` ou d'un package `__init__.py` et être
+réexportés récursivement ; aucun code du projet n'est exécuté pour les résoudre.
+Les membres
 d'enum doivent être des affectations directes de chaînes ; les membres produits
 par un contrôle de flux, une expression dynamique ou un helper décoré sont
 refusés, faute de pouvoir prouver statiquement l'ensemble runtime. Une enum
@@ -223,9 +226,12 @@ vérification prouve aussi l'origine de `Literal`, des bases stdlib
 `Enum`/`StrEnum` et des helpers Pydantic ; elle refuse les homonymes applicatifs
 et toute redéfinition de leurs noms dans le scope de classe, dans un contrôle
 de flux de niveau module (`if`, boucle, `try`…) ou par une expression d'affectation
-dynamique, ainsi que les imports disponibles uniquement sous `TYPE_CHECKING` et
+dynamique. Les décorateurs, bases, mots-clés de classe et defaults de fonctions
+ou lambdas sont inspectés dans leur scope d'exécution, y compris dans les
+callables imbriqués. Les imports disponibles uniquement sous `TYPE_CHECKING` et
 les méthodes de copie asynchrones dont le comportement ne peut pas satisfaire le
-contrat synchrone du cycle de vie. Elle refuse aussi un module projet `typing.py`,
+contrat synchrone du cycle de vie sont également refusés. Elle refuse aussi un
+module projet `typing.py`,
 `enum.py`, `collections.py`, `typing_extensions.py` ou un package `pydantic`
 placé sur une racine d'import :
 un tel fichier intercepterait les imports absolus au lieu de leurs origines de
@@ -412,8 +418,10 @@ operations:
 ```
 
 `parameters` contient uniquement des valeurs JSON/YAML sûres. Le digest
-`template` inclut le source complet des renderers, donc toutes les branches de
-génération, et versionne aussi le contrat de validation appliqué aux entités
+`template` inclut le source complet des renderers et des helpers de nommage,
+chemins de projet, inspection d'entité et initialisation de packages qu'ils
+appellent. Il couvre donc aussi les noms d'entité non canoniques, les layouts
+plats ou incomplets et versionne le contrat de validation appliqué aux entités
 existantes ; le digest `parameters` identifie la configuration résolue. Une
 nouvelle spec incompatible avec un manifeste installé est refusée au lieu de
 réécrire les fichiers du développeur.

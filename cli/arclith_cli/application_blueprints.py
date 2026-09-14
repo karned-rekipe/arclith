@@ -200,9 +200,13 @@ def _state_machine_renderer_contract_digest() -> str:
     import inspect
 
     from arclith_cli import (
+        application_blueprint_files,
         application_blueprints,
+        entity_scanner,
         import_origins,
         module_bindings,
+        project_paths,
+        rename,
         state_machine_blueprint,
         state_machine_contract,
         state_machine_entity,
@@ -214,9 +218,13 @@ def _state_machine_renderer_contract_digest() -> str:
     source = "\0".join(
         inspect.getsource(module)
         for module in (
+            application_blueprint_files,
             application_blueprints,
+            entity_scanner,
             import_origins,
             module_bindings,
+            project_paths,
+            rename,
             state_machine_blueprint,
             state_machine_contract,
             state_machine_entity,

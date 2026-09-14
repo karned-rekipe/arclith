@@ -303,13 +303,22 @@ def _resolve_module_file(entity_file: Path, statement: ast.ImportFrom) -> Path |
         base = entity_file.parent
         for _ in range(statement.level - 1):
             base = base.parent
-        candidate = base.joinpath(*module_parts).with_suffix(".py")
-        return candidate if candidate.is_file() else None
+        return _first_module_file(base, module_parts)
     for ancestor in entity_file.parents:
-        candidate = ancestor.joinpath(*module_parts).with_suffix(".py")
-        if candidate.is_file():
+        candidate = _first_module_file(ancestor, module_parts)
+        if candidate is not None:
             return candidate
     return None
+
+
+def _first_module_file(base: Path, module_parts: list[str]) -> Path | None:
+    target = base.joinpath(*module_parts)
+    candidates = (
+        (target / "__init__.py", target.with_suffix(".py"))
+        if module_parts
+        else (target / "__init__.py",)
+    )
+    return next((candidate for candidate in candidates if candidate.is_file()), None)
 
 
 def _top_level_bindings_before(
