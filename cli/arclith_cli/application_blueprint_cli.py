@@ -154,7 +154,7 @@ def add_blueprint_command(
     blueprint: Annotated[
         str,
         typer.Argument(
-            help="Blueprint applicatif : crud, append-only, state-machine ou job."
+            help="Blueprint applicatif : crud, append-only, state-machine, job ou synchronization."
         ),
     ],
     entity: Annotated[
@@ -267,7 +267,7 @@ def resolve_entity_profile(value: str | None, *, interactive: bool) -> str:
     if value is None and not interactive:
         return "minimal"
     if value is None:
-        labels = ["minimal", *(item.name for item in APPLICATION_BLUEPRINT_CATALOG if item.name != "job")]
+        labels = ["minimal", *(item.name for item in APPLICATION_BLUEPRINT_CATALOG if item.name not in {"job", "synchronization"})]
         console.print("\n[bold]Profil applicatif initial[/bold]")
         for index, label in enumerate(labels, start=1):
             console.print(f"  [cyan]{index}[/cyan]. {label}")
@@ -282,6 +282,8 @@ def resolve_entity_profile(value: str | None, *, interactive: bool) -> str:
         return normalized
     if normalized == "job":
         raise ValueError("Use add-blueprint job with --entity or --no-entity")
+    if normalized == "synchronization":
+        raise ValueError("Use add-blueprint synchronization with --entity and --spec")
     return get_application_blueprint(normalized).name
 
 
@@ -342,4 +344,8 @@ def resolve_blueprint_parameters(
         from arclith_cli.job_spec import load_job_spec
 
         return load_job_spec(resolved_path).to_parameters()
+    if blueprint.name == "synchronization":
+        from arclith_cli.synchronization_spec import load_synchronization_spec
+
+        return load_synchronization_spec(resolved_path).to_parameters()
     return load_state_machine_spec(resolved_path).to_parameters()

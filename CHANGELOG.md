@@ -4,6 +4,16 @@
 
 ### Added
 
+- **Blueprint synchronization** (#225) — réconciliation pull full/incremental
+  exécutée comme Job, mapping et champs source-owned explicites, checkpoint CAS
+  après page complète, rapports bornés consultables après échec et finalisation
+  full avec clés vues bornées et politique ignore/deactivate.
+- **CLI synchronization** — spec V1, manifeste V2, recette portable, ports/use cases
+  typés et tests générés avec fakes ; modèle métier préservé et runtime compatible
+  vérifié avant écriture. Documentation Pages et quickstart dédiés.
+- **Progression Job par compteurs** — completed/total optionnels et identité JobId
+  du contexte pour les rapports externes, en complément du pourcentage existant.
+
 - **Blueprint job** (#224) — cycle d'exécution typé, soumission idempotente,
   annulation coopérative, retry explicite borné et historique des tentatives.
 - **Adapters mémoire de job** — store à transitions contrôlées/CAS, runner

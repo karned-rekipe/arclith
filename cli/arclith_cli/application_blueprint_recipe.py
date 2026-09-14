@@ -149,6 +149,10 @@ def validate_application_recipe_metadata(
         expected_operations = StateMachineSpec.from_parameters(parameters).operations
     if blueprint.name == "job":
         _validate_job_target(args)
+    if blueprint.name == "synchronization":
+        entity = args.get("entity")
+        if not isinstance(entity, str) or not entity.strip() or args.get("no_entity", False) is not False:
+            raise RecipeError("Synchronization requires an entity-scoped recipe target")
     recorded_version = args.get("blueprint_version")
     if "blueprint_version" in args and (
         type(recorded_version) is not int or recorded_version != blueprint.version

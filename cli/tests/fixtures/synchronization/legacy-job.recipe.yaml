@@ -1,0 +1,217 @@
+version: 1
+project:
+  name: compat-jobs
+  package: compat_jobs
+created_at: '2026-09-14T20:49:39.744785+00:00'
+updated_at: '2026-09-14T20:49:39.863381+00:00'
+steps:
+- id: '0001'
+  at: '2026-09-14T20:49:39.748092+00:00'
+  cli_version: 0.28.0
+  command: init
+  status: success
+  args:
+    project_name: compat-jobs
+    directory: .
+  result:
+    generated_files:
+    - path: .gitignore
+      action: created
+    - path: AGENTS.md
+      action: created
+    - path: ARCHITECTURE.md
+      action: created
+    - path: README.md
+      action: created
+    - path: config/adapters/adapters.yaml
+      action: created
+    - path: config/app.yaml
+      action: created
+    - path: config/soft_delete.yaml
+      action: created
+    - path: main.py
+      action: created
+    - path: pyproject.toml
+      action: created
+    - path: src/compat_jobs/__init__.py
+      action: created
+    - path: src/compat_jobs/adapters/__init__.py
+      action: created
+    - path: src/compat_jobs/adapters/bidirectional/__init__.py
+      action: created
+    - path: src/compat_jobs/adapters/inbound/__init__.py
+      action: created
+    - path: src/compat_jobs/adapters/outbound/__init__.py
+      action: created
+    - path: src/compat_jobs/application/__init__.py
+      action: created
+    - path: src/compat_jobs/application/intent_interpreters/__init__.py
+      action: created
+    - path: src/compat_jobs/application/services/__init__.py
+      action: created
+    - path: src/compat_jobs/application/use_cases/__init__.py
+      action: created
+    - path: src/compat_jobs/application/workflows/__init__.py
+      action: created
+    - path: src/compat_jobs/domain/__init__.py
+      action: created
+    - path: src/compat_jobs/domain/events/__init__.py
+      action: created
+    - path: src/compat_jobs/domain/models/__init__.py
+      action: created
+    - path: src/compat_jobs/domain/ports/__init__.py
+      action: created
+    - path: src/compat_jobs/domain/ports/inbound/__init__.py
+      action: created
+    - path: src/compat_jobs/domain/ports/outbound/__init__.py
+      action: created
+    - path: src/compat_jobs/domain/value_objects/__init__.py
+      action: created
+    - path: src/compat_jobs/infrastructure/__init__.py
+      action: created
+    - path: src/compat_jobs/infrastructure/bootstrap/__init__.py
+      action: created
+    - path: src/compat_jobs/infrastructure/containers/__init__.py
+      action: created
+    - path: src/compat_jobs/infrastructure/use_cases_generated.py
+      action: created
+    - path: src/compat_jobs/py.typed
+      action: created
+    - path: tests/__init__.py
+      action: created
+    - path: tests/test_project_bootstrap.py
+      action: created
+- id: '0002'
+  at: '2026-09-14T20:49:39.770529+00:00'
+  cli_version: 0.28.0
+  command: add-entity
+  status: success
+  args:
+    entity: Document
+    profile: minimal
+  result:
+    generated_files:
+    - path: src/compat_jobs/domain/models/document.py
+      action: created
+- id: '0003'
+  at: '2026-09-14T20:49:39.815576+00:00'
+  cli_version: 0.28.0
+  command: add-blueprint
+  status: success
+  args:
+    blueprint: job
+    no_entity: true
+    target_version: 1
+    feature: report_job
+    operations:
+    - submit
+    - get_status
+    - cancel
+    - retry
+    - get_result
+    blueprint_version: 1
+    template_digest: sha256:bc222a9ff8816732dc8468b117d1dab94de9d9692dd94e1c7dafe7979863b0f1
+    parameters:
+      request: Request
+      result: Result
+      cancellable: true
+      max_attempts: 2
+      retention_days: 7
+    parameters_digest: sha256:c25ce83d7223a7b5c7e01a70d8af568ef7680256f9400cc27fc436cb74d2eca8
+  result:
+    generated_files:
+    - path: .arclith/features/report_job.yaml
+      action: created
+    - path: docs/blueprints/report_job-job.md
+      action: created
+    - path: src/compat_jobs/application/jobs/__init__.py
+      action: created
+    - path: src/compat_jobs/application/jobs/report_job.py
+      action: created
+    - path: src/compat_jobs/application/use_cases/cancel_report_job.py
+      action: created
+    - path: src/compat_jobs/application/use_cases/get_result_report_job.py
+      action: created
+    - path: src/compat_jobs/application/use_cases/get_status_report_job.py
+      action: created
+    - path: src/compat_jobs/application/use_cases/retry_report_job.py
+      action: created
+    - path: src/compat_jobs/application/use_cases/submit_report_job.py
+      action: created
+    - path: src/compat_jobs/domain/models/report_job_job.py
+      action: created
+    - path: src/compat_jobs/domain/ports/inbound/cancel_report_job.py
+      action: created
+    - path: src/compat_jobs/domain/ports/inbound/get_result_report_job.py
+      action: created
+    - path: src/compat_jobs/domain/ports/inbound/get_status_report_job.py
+      action: created
+    - path: src/compat_jobs/domain/ports/inbound/retry_report_job.py
+      action: created
+    - path: src/compat_jobs/domain/ports/inbound/submit_report_job.py
+      action: created
+    - path: src/compat_jobs/infrastructure/containers/report_job.py
+      action: created
+    - path: tests/application/__init__.py
+      action: created
+    - path: tests/application/test_report_job_job.py
+      action: created
+- id: '0004'
+  at: '2026-09-14T20:49:39.863381+00:00'
+  cli_version: 0.28.0
+  command: add-blueprint
+  status: success
+  args:
+    blueprint: job
+    entity: Document
+    target_version: 1
+    feature: document_job
+    operations:
+    - submit
+    - get_status
+    - cancel
+    - retry
+    - get_result
+    blueprint_version: 1
+    template_digest: sha256:bc222a9ff8816732dc8468b117d1dab94de9d9692dd94e1c7dafe7979863b0f1
+    parameters:
+      request: Request
+      result: Result
+      cancellable: true
+      max_attempts: 2
+      retention_days: 7
+    parameters_digest: sha256:c25ce83d7223a7b5c7e01a70d8af568ef7680256f9400cc27fc436cb74d2eca8
+  result:
+    generated_files:
+    - path: .arclith/features/document_job.yaml
+      action: created
+    - path: docs/blueprints/document_job-job.md
+      action: created
+    - path: src/compat_jobs/application/jobs/document_job.py
+      action: created
+    - path: src/compat_jobs/application/use_cases/cancel_document_job.py
+      action: created
+    - path: src/compat_jobs/application/use_cases/get_result_document_job.py
+      action: created
+    - path: src/compat_jobs/application/use_cases/get_status_document_job.py
+      action: created
+    - path: src/compat_jobs/application/use_cases/retry_document_job.py
+      action: created
+    - path: src/compat_jobs/application/use_cases/submit_document_job.py
+      action: created
+    - path: src/compat_jobs/domain/models/document_job_job.py
+      action: created
+    - path: src/compat_jobs/domain/ports/inbound/cancel_document_job.py
+      action: created
+    - path: src/compat_jobs/domain/ports/inbound/get_result_document_job.py
+      action: created
+    - path: src/compat_jobs/domain/ports/inbound/get_status_document_job.py
+      action: created
+    - path: src/compat_jobs/domain/ports/inbound/retry_document_job.py
+      action: created
+    - path: src/compat_jobs/domain/ports/inbound/submit_document_job.py
+      action: created
+    - path: src/compat_jobs/infrastructure/containers/document_job.py
+      action: created
+    - path: tests/application/test_document_job_job.py
+      action: created

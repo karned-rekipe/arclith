@@ -78,6 +78,10 @@ class _MemoryContext[RequestT: BaseModel, ResultT: BaseModel](
         self._attempt = attempt
 
     @property
+    def job_id(self) -> JobId:
+        return self._job_id
+
+    @property
     def cancellation(self) -> CancellationToken:
         return self
 
