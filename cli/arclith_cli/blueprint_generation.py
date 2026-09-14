@@ -14,6 +14,7 @@ from arclith_cli.application_blueprints import (
     get_application_blueprint,
     render_application_blueprint,
 )
+from arclith_cli.core_scaffold import validated_entity_names
 from arclith_cli.entity_scanner import EntityInfo, scan_blueprint_models
 from arclith_cli.feature_manifest import (
     FEATURE_MANIFEST_VERSION,
@@ -82,6 +83,8 @@ def plan_application_blueprint_for_entity(
     feature_name: str | None,
     parameters: Mapping[str, Any] | None = None,
     creating_entity: bool = False,
+    project_paths: ProjectPaths | None = None,
+    expected_empty_initializers: tuple[Path, ...] = (),
 ) -> ApplicationBlueprintPlan:
     if entity.model_base != blueprint.model_base:
         expected = (
@@ -96,7 +99,7 @@ def plan_application_blueprint_for_entity(
             f"Blueprint {blueprint.name!r} requires a model based on {expected}; "
             f"{entity.pascal} is based on {actual}"
         )
-    paths = detect_project_paths(project_dir)
+    paths = project_paths or detect_project_paths(project_dir)
     if keyword.iskeyword(entity.snake):
         raise ValueError(
             f"Entity {entity.pascal!r} normalizes to the reserved Python keyword "
@@ -167,10 +170,13 @@ def plan_application_blueprint_for_entity(
         files[manifest_path] = render_feature_manifest(manifest)
     originals = {path: path.read_bytes() if path.is_file() else None for path in files}
     if creating_entity:
-        # ``add_entity_cmd`` creates these empty initializers before this plan is
-        # applied. Record that exact, expected intermediate state so a sparse
-        # package remains one coherent entity-plus-blueprint operation.
-        for initializer in _entity_initializer_paths(paths):
+        # Record only the exact empty initializer snapshots written between
+        # planning and application by ``add_entity_cmd`` and, for ``new``, ``init``.
+        expected_initializers = {
+            *_entity_initializer_paths(paths),
+            *expected_empty_initializers,
+        }
+        for initializer in expected_initializers:
             if initializer in originals and originals[initializer] is None:
                 originals[initializer] = b""
     return ApplicationBlueprintPlan(
@@ -193,12 +199,14 @@ def plan_application_profile_for_new_entity(
     profile_name: str,
     entity_name: str,
     parameters: Mapping[str, Any] | None = None,
+    project_paths: ProjectPaths | None = None,
+    expected_empty_initializers: tuple[Path, ...] = (),
 ) -> ApplicationBlueprintPlan | None:
     """Preflight an optional application profile before creating its entity."""
+    names = validated_entity_names(entity_name)
     if profile_name == "minimal":
         return None
-    paths = detect_project_paths(project_dir)
-    names = EntityNames.from_input(entity_name.strip())
+    paths = project_paths or detect_project_paths(project_dir)
     blueprint = get_application_blueprint(profile_name)
     return plan_application_blueprint_for_entity(
         project_dir,
@@ -212,6 +220,8 @@ def plan_application_profile_for_new_entity(
         feature_name=names.snake,
         parameters=parameters,
         creating_entity=True,
+        project_paths=paths,
+        expected_empty_initializers=expected_empty_initializers,
     )
 
 

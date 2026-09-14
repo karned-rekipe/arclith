@@ -2046,6 +2046,34 @@ def test_new_state_machine_profile_records_portable_parameters(tmp_path: Path) -
     assert not drift_target.exists()
 
 
+@pytest.mark.parametrize("profile", ["minimal", "state-machine"])
+def test_new_rejects_keyword_entity_before_initialization(
+    tmp_path: Path,
+    profile: str,
+) -> None:
+    spec_path = _write_spec(tmp_path)
+    target = tmp_path / f"invalid-{profile}-service"
+    arguments = [
+        "new",
+        "Class",
+        target.name,
+        "--dir",
+        str(tmp_path),
+        "--profile",
+        profile,
+    ]
+    if profile == "state-machine":
+        arguments.extend(("--spec", str(spec_path)))
+
+    result = runner.invoke(app, arguments)
+
+    assert result.exit_code == 1
+    assert "Blueprint refusé" in result.output
+    assert "reserved Python keyword" in result.output
+    assert "Traceback" not in result.output
+    assert not target.exists()
+
+
 def test_new_state_machine_entity_name_does_not_collide_with_state_module(
     tmp_path: Path,
 ) -> None:

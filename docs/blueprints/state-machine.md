@@ -85,6 +85,12 @@ arclith-cli add-entity Invoice \
   --spec invoice-lifecycle.yaml
 ```
 
+La commande `new` calcule et valide le plan complet du profil avant d'appeler
+l'initialisation du projet. Un nom d'entité invalide, une spec refusée ou une
+collision de cible ne laisse donc aucun répertoire partiel. Les initialiseurs
+vides créés par `init` sont enregistrés comme état intermédiaire attendu avant
+l'application atomique du blueprint.
+
 Le modèle créé contient le champ typé et protégé :
 
 ```python

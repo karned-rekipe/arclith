@@ -75,10 +75,13 @@ def add_entity_cmd(
     project_dir = project_dir or Path.cwd()
     entity_name = entity_name.strip()
     _assert_project_root(project_dir, command="add-entity")
-    _assert_valid_name(entity_name, label="entité")
+    try:
+        names = validated_entity_names(entity_name)
+    except ValueError as exc:
+        _print_invalid_name(entity_name, label="entité")
+        raise typer.Exit(1) from exc
 
     paths = detect_project_paths(project_dir)
-    names = EntityNames.from_input(entity_name)
     entity_file = paths.domain_models / f"{names.snake}.py"
     _assert_missing(entity_file, project_dir)
     _ensure_package_dirs(paths, "domain", "models")
@@ -295,12 +298,31 @@ def _assert_valid_name(raw: str, *, label: str) -> None:
     ):
         return
 
+    _print_invalid_name(raw, label=label)
+    raise typer.Exit(1)
+
+
+def validated_entity_names(raw: str) -> EntityNames:
+    """Normalize an entity name or fail before any scaffold write."""
+
+    normalized = raw.strip()
+    names = EntityNames.from_input(normalized)
+    if _NAME_RE.match(normalized) and not keyword.iskeyword(names.snake):
+        return names
+    raise ValueError(
+        f"Entity name {raw!r} must use letters, digits, _ or -, start with a "
+        "letter and not normalize to a reserved Python keyword"
+    )
+
+
+def _print_invalid_name(raw: str, *, label: str) -> None:
+    """Render the stable CLI diagnostic shared by scaffold name checks."""
+
     console.print(
         f"[red]✗[/red] Nom de {label} invalide : [bold]{raw}[/bold]. "
         "Lettres, chiffres, _ et - uniquement, sans mot-clé Python réservé. "
         "Doit commencer par une lettre."
     )
-    raise typer.Exit(1)
 
 
 def _assert_missing(path: Path, project_dir: Path) -> None:

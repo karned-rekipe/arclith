@@ -53,10 +53,14 @@ spécification métier plutôt que d'un catalogue statique.
   Le digest du template couvre le source complet des renderers et versionne aussi
   le contrat de validation des entités existantes, sans modifier les anciens
   digests CRUD/append-only.
+- `new` planifie le profil et valide le nom d'entité contre un layout `src`
+  virtuel avant toute initialisation. Les `__init__.py` vides que `init` créera
+  sont les seuls snapshots intermédiaires anticipés ; une entrée invalide ne
+  laisse donc aucun projet partiel et reçoit le diagnostic CLI normalisé.
 
 ## Validation
 
-- `uv run --project cli python -m pytest cli/tests -q` : 626 tests passés ;
+- `uv run --project cli python -m pytest cli/tests -q` : 628 tests passés ;
 - smoke test du projet généré : 19 tests passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
 - `make coverage` : 2 480 tests passés, 5 ignorés et 91,34 % sur 9 264

@@ -12,8 +12,11 @@ from arclith_cli.blueprint_generation import (
     plan_application_profile_for_new_entity,
 )
 from arclith_cli.core_scaffold import add_entity_cmd
-from arclith_cli.init_project import init_project_cmd
-from arclith_cli.project_paths import detect_project_paths
+from arclith_cli.init_project import (
+    init_project_cmd,
+    initial_project_initializer_paths,
+    project_paths_for_new_project,
+)
 from arclith_cli.rename import EntityNames
 from arclith_cli.state_machine_entity import render_state_machine_entity
 from arclith_cli.state_machine_spec import StateMachineSpec
@@ -42,25 +45,31 @@ def new_project_cmd(
     _validate_suggested_api_port(port)
     _ = repo_ref, template_dir  # Retained for replay compatibility with old recipes.
     entity_names = EntityNames.from_input(entity)
-
-    target_dir = init_project_cmd(
+    planned_paths = project_paths_for_new_project(
         project_name=project_name,
         directory=directory,
         target_path=target_path,
     )
     blueprint_plan = plan_application_profile_for_new_entity(
-        target_dir,
+        planned_paths.root,
         profile_name=profile,
         entity_name=entity,
         parameters=parameters,
+        project_paths=planned_paths,
+        expected_empty_initializers=initial_project_initializer_paths(planned_paths),
     )
     entity_content = None
     if blueprint_plan is not None and blueprint_plan.blueprint.name == "state-machine":
         entity_content = render_state_machine_entity(
-            detect_project_paths(target_dir),
+            planned_paths,
             blueprint_plan.entity,
             StateMachineSpec.from_parameters(blueprint_plan.parameters),
         )
+    target_dir = init_project_cmd(
+        project_name=project_name,
+        directory=directory,
+        target_path=target_path,
+    )
     add_entity_cmd(
         project_dir=target_dir,
         entity_name=entity,

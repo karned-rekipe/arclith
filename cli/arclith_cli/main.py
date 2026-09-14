@@ -178,16 +178,20 @@ def new(
         console.print(f"[red]✗ Profil invalide :[/red] {exc}")
         raise typer.Exit(1) from exc
     project_name = project_name or _prompt_project()
-    target_dir = _new_project_cmd(
-        entity=entity,
-        project_name=project_name,
-        directory=directory,
-        port=port,
-        repo_ref=repo_ref,
-        template_dir=template_dir,
-        profile=resolved_profile,
-        parameters=parameters,
-    )
+    try:
+        target_dir = _new_project_cmd(
+            entity=entity,
+            project_name=project_name,
+            directory=directory,
+            port=port,
+            repo_ref=repo_ref,
+            template_dir=template_dir,
+            profile=resolved_profile,
+            parameters=parameters,
+        )
+    except (OSError, SyntaxError, ValueError) as exc:
+        console.print(f"[red]✗ Blueprint refusé :[/red] {exc}")
+        raise typer.Exit(1) from exc
     if not no_record:
         _record_success(
             target_dir,
