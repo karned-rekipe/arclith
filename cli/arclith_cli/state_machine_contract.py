@@ -4,6 +4,44 @@ from __future__ import annotations
 
 import ast
 
+from arclith_cli.module_bindings import module_bindings_before
+
+
+def class_shadowed_contract_dependencies(
+    model: ast.ClassDef,
+    field: ast.AnnAssign,
+) -> set[str]:
+    """Return contract dependencies rebound anywhere in the entity class."""
+
+    expressions: list[ast.expr] = [field.annotation]
+    if field.value is not None:
+        expressions.append(field.value)
+    for statement in model.body:
+        if isinstance(statement, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "model_config"
+            for target in statement.targets
+        ):
+            expressions.append(statement.value)
+        elif (
+            isinstance(statement, ast.AnnAssign)
+            and isinstance(statement.target, ast.Name)
+            and statement.target.id == "model_config"
+            and statement.value is not None
+        ):
+            expressions.append(statement.value)
+    dependencies = {
+        node.id
+        for expression in expressions
+        for node in ast.walk(expression)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+    }
+    class_tree = ast.Module(body=model.body, type_ignores=[])
+    class_bindings = module_bindings_before(
+        class_tree,
+        _module_end_line(class_tree),
+    )
+    return dependencies & class_bindings.keys()
+
 
 def state_copy_is_controlled(
     model: ast.ClassDef,
@@ -18,6 +56,11 @@ def state_copy_is_controlled(
     public_copy = _single_method_binding(model, "model_copy")
     lifecycle_copy = _single_method_binding(model, f"_copy_with_{state_field}")
     if public_copy is None or lifecycle_copy is None:
+        return False
+    if _method_binds_name(public_copy, "super") or _method_binds_name(
+        lifecycle_copy,
+        "super",
+    ):
         return False
     if not _has_public_copy_signature(public_copy) or not _has_lifecycle_signature(
         lifecycle_copy
@@ -60,6 +103,10 @@ def _binds_name(statement: ast.stmt, name: str) -> bool:
     )
 
 
+def _method_binds_name(method: ast.FunctionDef, name: str) -> bool:
+    return any(_binds_name(statement, name) for statement in method.body)
+
+
 def _binds_module_name(statement: ast.stmt, name: str) -> bool:
     """Detect module bindings without descending into nested local scopes."""
 
@@ -99,6 +146,16 @@ def _binds_module_name(statement: ast.stmt, name: str) -> bool:
     visitor = ModuleBindingVisitor()
     visitor.visit(statement)
     return visitor.found
+
+
+def _module_end_line(tree: ast.Module) -> int:
+    return (
+        max(
+            (int(getattr(candidate, "lineno", 0)) for candidate in ast.walk(tree)),
+            default=0,
+        )
+        + 1
+    )
 
 
 def _has_public_copy_signature(method: ast.FunctionDef) -> bool:

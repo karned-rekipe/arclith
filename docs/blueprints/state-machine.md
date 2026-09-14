@@ -174,9 +174,9 @@ synchrones, sans décorateur (leur effet ne serait pas prouvable statiquement), 
 conserver les signatures appelées par le code généré
 (`model_copy(update=..., deep=...)` et `_copy_with_status(target)`). La garde
 `update is not None` doit précéder le test d'appartenance et le builtin `super`
-ne doit pas être masqué au niveau module. Une réaffectation de configuration, un
-argument obligatoire supplémentaire ou un `staticmethod` est refusé avant toute
-écriture.
+ne doit être masqué ni au niveau module ni localement dans l'un des helpers. Une
+réaffectation de configuration, un argument obligatoire supplémentaire ou un
+`staticmethod` est refusé avant toute écriture.
 
 ```bash
 arclith-cli add-blueprint state-machine \
@@ -201,8 +201,10 @@ la méthode privée synchrone montrée ci-dessus. Les alias importés de
 `typing.Literal` et les alias de type locaux sont résolus récursivement. La
 vérification prouve aussi l'origine de `Literal`, des bases stdlib
 `Enum`/`StrEnum` et des helpers Pydantic ; elle refuse les homonymes applicatifs
-et les méthodes de copie asynchrones, dont le comportement ne peut pas satisfaire
-le contrat synchrone du cycle de vie. Pour un champ enum,
+et toute redéfinition de leurs noms dans le scope de classe ou dans un contrôle
+de flux de niveau module (`if`, boucle, `try`…), ainsi que les méthodes de copie
+asynchrones dont le comportement ne peut pas satisfaire le contrat synchrone du
+cycle de vie. Pour un champ enum,
 `ConfigDict(use_enum_values=True)` est également refusé : cette option stockerait
 une chaîne et romprait la garantie de restitution du type enum. Le champ doit
 être requis ou déclarer une valeur par défaut visible statiquement : membre de
@@ -393,6 +395,9 @@ courants pour toutes les étapes sélectionnées, avant même d'exécuter un év
 Des paramètres enregistrés absents ou mal formés, ainsi qu'un nom de blueprint
 absent ou inconnu, sont eux aussi normalisés en erreur de recette et produisent
 le diagnostic CLI habituel sans traceback.
+Un profil absent est interprété comme `minimal`, mais cette compatibilité ne peut
+pas masquer des métadonnées de blueprint : `parameters`, digests, version ou
+opérations enregistrés avec `minimal` font échouer le préflight.
 Les digests CRUD et append-only existants restent stables, les recettes non
 paramétrées historiques restent tolérantes à leur absence, et les manifests V1
 restent lus sans conversion vers V2.

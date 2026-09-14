@@ -6,7 +6,14 @@ import ast
 from pathlib import Path
 
 from arclith_cli.entity_scanner import EntityInfo
-from arclith_cli.state_machine_contract import state_copy_is_controlled
+from arclith_cli.module_bindings import (
+    module_bindings_before,
+    uncertain_module_bindings_before,
+)
+from arclith_cli.state_machine_contract import (
+    class_shadowed_contract_dependencies,
+    state_copy_is_controlled,
+)
 from arclith_cli.state_machine_rendering import (
     render_state_documentation,
     render_state_errors,
@@ -27,7 +34,7 @@ __all__ = [
 
 
 # Bump whenever ``validate_existing_state_field`` accepts or rejects new forms.
-STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 5
+STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 6
 
 
 def validate_existing_state_field(
@@ -66,6 +73,12 @@ def validate_existing_state_field(
             "containing exactly the declared states"
         )
     field = fields[0]
+    shadowed_dependencies = class_shadowed_contract_dependencies(models[0], field)
+    if shadowed_dependencies:
+        raise ValueError(
+            f"Entity {entity.pascal} shadows state contract dependencies in its "
+            "class scope: " + ", ".join(sorted(shadowed_dependencies))
+        )
     literal_states = _resolve_literal_values(
         field.annotation,
         tree=tree,
@@ -139,6 +152,11 @@ def _resolve_literal_values(
     key = (entity_file, annotation.id)
     if key in visited:
         return None
+    if annotation.id in uncertain_module_bindings_before(
+        tree,
+        _node_line_or_module_end(annotation, tree),
+    ):
+        return None
     bindings = [
         statement for statement in tree.body if annotation.id in _bound_names(statement)
     ]
@@ -208,6 +226,11 @@ def _resolve_enum_declaration(
     symbol = annotation.id
     key = (entity_file, symbol)
     if key in visited:
+        return None
+    if symbol in uncertain_module_bindings_before(
+        tree,
+        _node_line_or_module_end(annotation, tree),
+    ):
         return None
     bindings = [
         statement for statement in tree.body if symbol in _bound_names(statement)
@@ -354,21 +377,20 @@ def _is_imported_symbol(
     tree: ast.Module,
 ) -> bool:
     if isinstance(expression, ast.Name):
-        bindings = [
-            statement
-            for statement in tree.body
-            if expression.id in _bound_names(statement)
-        ]
-        if len(bindings) != 1 or not isinstance(bindings[0], ast.ImportFrom):
+        binding = module_bindings_before(
+            tree,
+            _node_line_or_module_end(expression, tree),
+        ).get(expression.id)
+        if binding is None:
             return False
-        statement = bindings[0]
+        statement, alias = binding
         return (
-            statement.level == 0
+            isinstance(statement, ast.ImportFrom)
+            and statement in tree.body
+            and statement.level == 0
             and statement.module in modules
-            and any(
-                item.name in symbols and (item.asname or item.name) == expression.id
-                for item in statement.names
-            )
+            and alias.name in symbols
+            and (alias.asname or alias.name) == expression.id
         )
     if not (
         isinstance(expression, ast.Attribute)
@@ -377,14 +399,31 @@ def _is_imported_symbol(
     ):
         return False
     module_alias = expression.value.id
-    bindings = [
-        statement for statement in tree.body if module_alias in _bound_names(statement)
-    ]
-    if len(bindings) != 1 or not isinstance(bindings[0], ast.Import):
+    binding = module_bindings_before(
+        tree,
+        _node_line_or_module_end(expression, tree),
+    ).get(module_alias)
+    if binding is None:
         return False
-    return any(
-        item.name in modules and (item.asname or item.name) == module_alias
-        for item in bindings[0].names
+    statement, alias = binding
+    return (
+        isinstance(statement, ast.Import)
+        and statement in tree.body
+        and alias.name in modules
+        and (alias.asname or alias.name) == module_alias
+    )
+
+
+def _node_line_or_module_end(node: ast.AST, tree: ast.Module) -> int:
+    line = int(getattr(node, "lineno", 0))
+    if line:
+        return line
+    return (
+        max(
+            (int(getattr(candidate, "lineno", 0)) for candidate in ast.walk(tree)),
+            default=0,
+        )
+        + 1
     )
 
 

@@ -101,6 +101,18 @@ def validate_application_recipe_metadata(
     """Reject recorded template or parameter drift before replay writes."""
 
     if blueprint_name == "minimal":
+        blueprint_metadata = {
+            "blueprint_version",
+            "operations",
+            "parameters",
+            "parameters_digest",
+            "template_digest",
+        } & args.keys()
+        if blueprint_metadata:
+            raise RecipeError(
+                "Minimal application profile cannot include blueprint metadata: "
+                + ", ".join(sorted(blueprint_metadata))
+            )
         return
     try:
         blueprint = get_application_blueprint(blueprint_name)

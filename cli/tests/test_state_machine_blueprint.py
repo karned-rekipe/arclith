@@ -239,18 +239,19 @@ def test_template_digest_includes_the_complete_renderer_contract(
 
 @pytest.mark.parametrize(
     "module_name",
-    ["state_machine_spec", "state_machine_contract"],
+    ["module_bindings", "state_machine_spec", "state_machine_contract"],
 )
 def test_template_digest_includes_every_state_machine_contract_module(
     monkeypatch: pytest.MonkeyPatch,
     module_name: str,
 ) -> None:
-    from arclith_cli import state_machine_contract, state_machine_spec
+    from arclith_cli import module_bindings, state_machine_contract, state_machine_spec
 
     blueprint = get_application_blueprint("state-machine")
     before = application_blueprint_digest(blueprint)
     original_getsource = inspect.getsource
     contract_module = {
+        "module_bindings": module_bindings,
         "state_machine_contract": state_machine_contract,
         "state_machine_spec": state_machine_spec,
     }[module_name]
@@ -1048,6 +1049,11 @@ def test_existing_entity_rejects_a_deceptive_state_copy_helper(
             "from arclith.domain.models.entity import Entity\n\n"
             "super = lambda: object()\n",
         ),
+        (
+            '            raise ValueError("status changes must use the lifecycle")\n',
+            '            raise ValueError("status changes must use the lifecycle") '
+            "from (super := RuntimeError)\n",
+        ),
     ],
 )
 def test_existing_entity_rejects_unsafe_public_copy_guards(
@@ -1238,6 +1244,101 @@ def test_existing_entity_rejects_shadowed_pydantic_helpers(
     )
 
     with pytest.raises(ValueError, match="must reject assignment"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        "if USE_CUSTOM:\n    Field = object\n",
+        "for Literal in (str,):\n    pass\n",
+        "try:\n    ConfigDict = dict\nexcept Exception:\n    pass\n",
+    ],
+)
+def test_existing_entity_rejects_contract_helpers_rebound_by_module_control_flow(
+    tmp_path: Path,
+    binding: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            "class Invoice(Entity):\n",
+            f"{binding}\nclass Invoice(Entity):\n",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+@pytest.mark.parametrize("dependency", ["ConfigDict", "Field", "Literal"])
+def test_existing_entity_rejects_class_scope_contract_shadowing(
+    tmp_path: Path,
+    dependency: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            "class Invoice(Entity):\n",
+            f"class Invoice(Entity):\n    {dependency} = object\n",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="shadows state contract dependencies"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+def test_existing_entity_rejects_class_scope_enum_shadowing(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    content = entity.read_text(encoding="utf-8")
+    content = content.replace(
+        "from collections.abc import Mapping\n",
+        "from collections.abc import Mapping\nfrom enum import StrEnum\n",
+    ).replace(
+        "class Invoice(Entity):\n",
+        "class InvoiceStatus(StrEnum):\n"
+        '    DRAFT = "draft"\n'
+        '    SUBMITTED = "submitted"\n'
+        '    APPROVED = "approved"\n'
+        '    REJECTED = "rejected"\n\n\n'
+        "class Invoice(Entity):\n"
+        "    InvoiceStatus = str\n",
+    )
+    entity.write_text(
+        content.replace(
+            'Literal["draft", "submitted", "approved", "rejected"]',
+            "InvoiceStatus",
+        ).replace(
+            'Field(default="draft", frozen=True)',
+            "Field(default=InvoiceStatus.DRAFT, frozen=True)",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="shadows state contract dependencies"):
         plan_application_blueprint(
             project,
             blueprint_name="state-machine",
@@ -1611,6 +1712,43 @@ def test_full_recipe_preflights_all_blueprint_metadata_before_init(
     assert cli_result.exit_code == 1
     assert "Recette CLI invalide" in cli_result.output
     assert "invalid recorded parameters" in " ".join(cli_result.output.split())
+    assert "Traceback" not in cli_result.output
+    assert not target.exists()
+
+    minimal_step = replace(
+        recipe.steps[-1],
+        args={
+            key: value
+            for key, value in recipe.steps[-1].args.items()
+            if key != "profile"
+        },
+    )
+    minimal_recipe = replace(
+        recipe,
+        steps=(*recipe.steps[:-1], minimal_step),
+    )
+    with pytest.raises(RecipeError, match="Minimal application profile"):
+        replay_recipe(
+            minimal_recipe,
+            minimal_recipe.steps,
+            target_dir=target,
+            strict=True,
+        )
+
+    save_recipe(minimal_recipe, project / "minimal-metadata.recipe.yaml")
+    cli_result = runner.invoke(
+        app,
+        [
+            "replay",
+            str(project / "minimal-metadata.recipe.yaml"),
+            "--dir",
+            str(target),
+            "--strict",
+        ],
+    )
+    assert cli_result.exit_code == 1
+    assert "Recette CLI invalide" in cli_result.output
+    assert "Minimal application profile" in " ".join(cli_result.output.split())
     assert "Traceback" not in cli_result.output
     assert not target.exists()
 
