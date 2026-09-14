@@ -431,6 +431,8 @@ def _remove_unchanged_publication(
             try:
                 quarantine.unlink()
             except OSError:
+                # Rollback cleanup is best-effort; keep the private quarantine
+                # rather than mask the application error being compensated.
                 pass
             return
         _restore_quarantined_file(quarantine, publication.path)
