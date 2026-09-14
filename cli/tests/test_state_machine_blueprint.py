@@ -26,6 +26,7 @@ from arclith_cli.application_blueprints import (
 )
 from arclith_cli.blueprint_generation import (
     apply_application_blueprint,
+    create_entity_with_application_blueprint,
     plan_application_profile_for_new_entity,
     plan_application_blueprint,
 )
@@ -260,6 +261,7 @@ def test_template_digest_includes_the_complete_renderer_contract(
         "application_blueprint_files",
         "application_blueprints",
         "entity_scanner",
+        "immutable_record_scaffold",
         "import_origins",
         "module_bindings",
         "project_paths",
@@ -280,6 +282,7 @@ def test_template_digest_includes_every_state_machine_contract_module(
         application_blueprint_files,
         application_blueprints,
         entity_scanner,
+        immutable_record_scaffold,
         import_origins,
         module_bindings,
         project_paths,
@@ -299,6 +302,7 @@ def test_template_digest_includes_every_state_machine_contract_module(
         "application_blueprint_files": application_blueprint_files,
         "application_blueprints": application_blueprints,
         "entity_scanner": entity_scanner,
+        "immutable_record_scaffold": immutable_record_scaffold,
         "import_origins": import_origins,
         "module_bindings": module_bindings,
         "project_paths": project_paths,
@@ -697,6 +701,58 @@ def test_missing_or_unprotected_existing_state_field_is_rejected_without_writes(
         )
 
 
+@pytest.mark.parametrize(
+    ("import_replacement", "class_replacement"),
+    [
+        (
+            "class Entity:\n    pass\n",
+            "class Invoice(Entity):",
+        ),
+        (
+            "from arclith.domain.models.entity import Entity\n\n"
+            "class UnsafeMixin:\n"
+            "    def __setattr__(self, name: str, value: object) -> None:\n"
+            "        object.__setattr__(self, name, value)\n",
+            "class Invoice(UnsafeMixin, Entity):",
+        ),
+        (
+            "from arclith.domain.models.entity import Entity\n",
+            "@decorator\nclass Invoice(Entity):",
+        ),
+        (
+            "from arclith.domain.models.entity import Entity\n",
+            "class Invoice(Entity, metaclass=type):",
+        ),
+    ],
+    ids=("local-homonym", "mixin", "decorator", "metaclass"),
+)
+def test_existing_entity_requires_one_direct_trusted_arclith_base(
+    tmp_path: Path,
+    import_replacement: str,
+    class_replacement: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8")
+        .replace(
+            "from arclith.domain.models.entity import Entity\n",
+            import_replacement,
+        )
+        .replace("class Invoice(Entity):", class_replacement),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="one direct Arclith Entity base"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
 def test_existing_compatible_entity_is_preserved(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1085,6 +1141,77 @@ def test_existing_imported_enum_alias_is_inspected(tmp_path: Path) -> None:
         .replace(
             'Field(default="draft", frozen=True)',
             "Field(default=InvoiceStatus.DRAFT, frozen=True)",
+        ),
+        encoding="utf-8",
+    )
+
+    plan_application_blueprint(
+        project,
+        blueprint_name="state-machine",
+        entity_name="Invoice",
+        feature_name="invoice_lifecycle",
+        parameters=_parameters(),
+    )
+
+
+def test_existing_module_qualified_enum_is_inspected(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.with_name("invoice_status.py").write_text(
+        "from enum import StrEnum\n\n\n"
+        "class Status(StrEnum):\n"
+        '    DRAFT = "draft"\n'
+        '    SUBMITTED = "submitted"\n'
+        '    APPROVED = "approved"\n'
+        '    REJECTED = "rejected"\n',
+        encoding="utf-8",
+    )
+    entity.write_text(
+        entity.read_text(encoding="utf-8")
+        .replace(
+            "from typing import Any, Literal, Self\n",
+            "from typing import Any, Literal, Self\n\n"
+            "from . import invoice_status as lifecycle_types\n",
+        )
+        .replace(
+            'Literal["draft", "submitted", "approved", "rejected"]',
+            "lifecycle_types.Status",
+        )
+        .replace(
+            'Field(default="draft", frozen=True)',
+            "Field(default=lifecycle_types.Status.DRAFT, frozen=True)",
+        ),
+        encoding="utf-8",
+    )
+
+    plan_application_blueprint(
+        project,
+        blueprint_name="state-machine",
+        entity_name="Invoice",
+        feature_name="invoice_lifecycle",
+        parameters=_parameters(),
+    )
+
+
+def test_existing_literal_reexported_by_project_module_is_inspected(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.with_name("state_types.py").write_text(
+        "from typing import Literal as StateLiteral\n",
+        encoding="utf-8",
+    )
+    entity.write_text(
+        entity.read_text(encoding="utf-8")
+        .replace(
+            "from typing import Any, Literal, Self\n",
+            "from typing import Any, Self\n\n"
+            "from .state_types import StateLiteral\n",
+        )
+        .replace(
+            'Literal["draft", "submitted", "approved", "rejected"]',
+            'StateLiteral["draft", "submitted", "approved", "rejected"]',
         ),
         encoding="utf-8",
     )
@@ -2348,6 +2475,76 @@ def test_profile_collision_is_atomic_and_recipe_replay_needs_no_spec_file(
     replay_recipe(recipe, recipe.steps, target_dir=replay_target, strict=True)
     replayed = load_feature_manifest(replay_target / ".arclith/features/invoice.yaml")
     assert replayed.parameters == step.args["parameters"]
+
+
+def test_entity_creation_rolls_back_when_target_changes_after_planning(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path)
+    plan = plan_application_profile_for_new_entity(
+        project,
+        profile_name="state-machine",
+        entity_name="Invoice",
+        parameters=_parameters(),
+    )
+    assert plan is not None
+    raced_target = next(
+        path
+        for path in plan.files
+        if path != plan.manifest_path and path.name != "__init__.py"
+    )
+    raced_target.parent.mkdir(parents=True, exist_ok=True)
+    raced_target.write_text("# concurrent project file\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="changed after blueprint planning"):
+        create_entity_with_application_blueprint(
+            plan,
+            entity_name="Invoice",
+            entity_content="# generated entity\n",
+        )
+
+    assert raced_target.read_text(encoding="utf-8") == "# concurrent project file\n"
+    assert not plan.entity.file_path.exists()
+    assert not plan.manifest_path.exists()
+
+
+def test_application_blueprint_rolls_back_prior_writes_on_io_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path)
+    _stateful_entity(project)
+    plan = plan_application_blueprint(
+        project,
+        blueprint_name="state-machine",
+        entity_name="Invoice",
+        feature_name="invoice_lifecycle",
+        parameters=_parameters(),
+    )
+    writable = [
+        path
+        for path in plan.files
+        if path != plan.manifest_path and path.name != "__init__.py"
+    ]
+    fail_path = writable[1]
+    original_write_text = Path.write_text
+
+    def fail_one_write(
+        path: Path,
+        data: str,
+        *args: object,
+        **kwargs: object,
+    ) -> int:
+        if path == fail_path:
+            raise OSError("simulated write failure")
+        return original_write_text(path, data, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "write_text", fail_one_write)
+
+    with pytest.raises(OSError, match="simulated write failure"):
+        apply_application_blueprint(plan)
+
+    assert all(not path.exists() for path in plan.files)
 
 
 @pytest.mark.parametrize("missing_digest", ["template_digest", "parameters_digest"])

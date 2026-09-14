@@ -6,6 +6,7 @@ import ast
 from pathlib import Path
 
 from arclith_cli.entity_scanner import EntityInfo
+from arclith_cli.immutable_record_scaffold import is_entity_base
 from arclith_cli.import_origins import project_shadowed_top_level_modules
 from arclith_cli.project_paths import ProjectPaths
 from arclith_cli.state_machine_contract import (
@@ -43,7 +44,7 @@ __all__ = [
 
 
 # Bump whenever ``validate_existing_state_field`` accepts or rejects new forms.
-STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 14
+STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 15
 
 
 def validate_state_machine_import_roots(paths: ProjectPaths) -> None:
@@ -79,6 +80,16 @@ def validate_existing_state_field(
             f"Expected one top-level Entity declaration named {entity.pascal}"
         )
     model = models[0]
+    if (
+        len(model.bases) != 1
+        or not is_entity_base(tree, model.bases[0], model.lineno)
+        or model.decorator_list
+        or model.keywords
+    ):
+        raise ValueError(
+            "state-machine requires one direct Arclith Entity base without "
+            "mixins, decorators or class keywords"
+        )
     fields = [
         statement
         for statement in model.body

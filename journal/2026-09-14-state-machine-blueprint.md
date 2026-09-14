@@ -54,6 +54,11 @@ spécification métier plutôt que d'un catalogue statique.
   réservés, et les helpers standard des artefacts générés sont importés sous des
   alias internes pour accepter sans collision des entités telles que `Enum` ou
   `ValidationError`.
+  Une entité existante doit avoir une unique base directe résolue vers le vrai
+  `Entity` Arclith, sans mixin, décorateur ni mot-clé de classe. Les enums
+  qualifiées par un alias de module et leurs defaults qualifiés sont résolues
+  statiquement ; les alias de `Literal` réexportés par un module ou package du
+  projet sont suivis récursivement jusqu'à `typing` ou `typing_extensions`.
 - La persistance dépend d'un port outbound spécialisé `compare_and_swap`. Son
   contrat exige une comparaison atomique de version ; une lecture suivie d'un
   update inconditionnel n'est pas présentée comme sûre.
@@ -75,10 +80,15 @@ spécification métier plutôt que d'un catalogue statique.
   virtuel avant toute initialisation. Les `__init__.py` vides que `init` créera
   sont les seuls snapshots intermédiaires anticipés ; une entrée invalide ne
   laisse donc aucun projet partiel et reçoit le diagnostic CLI normalisé.
+- La création de l'entité et l'application du blueprint partagent une frontière
+  de compensation. Une collision apparue après le plan ou une erreur d'écriture
+  restaure les fichiers déjà écrits et retire l'entité créée, uniquement lorsque
+  leur contenu correspond encore exactement à celui de la commande afin de
+  préserver toute modification concurrente.
 
 ## Validation
 
-- `uv run --project cli python -m pytest cli/tests -q` : 695 tests passés ;
+- `uv run --project cli python -m pytest cli/tests -q` : 704 tests passés ;
 - smoke test du projet généré : 19 tests passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
 - `make coverage` : 2 484 tests passés, 5 ignorés et 91,34 % sur 9 264

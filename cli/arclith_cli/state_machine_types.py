@@ -22,11 +22,11 @@ def resolve_literal_values(
     """Resolve a Literal annotation or alias to its static string values."""
 
     if isinstance(annotation, ast.Subscript):
-        if not is_imported_symbol(
+        if not _is_trusted_literal_reference(
             annotation.value,
-            symbols=frozenset({"Literal"}),
-            modules=frozenset({"typing", "typing_extensions"}),
             tree=tree,
+            entity_file=entity_file,
+            visited=visited,
         ):
             return None
         values = (
@@ -116,6 +116,27 @@ def resolve_enum_declaration(
 ) -> tuple[ast.ClassDef, ast.Module, Path] | None:
     """Resolve an Enum class available before the annotation use."""
 
+    if isinstance(annotation, ast.Attribute):
+        resolved_module = _resolve_qualified_symbol_module(
+            annotation,
+            tree=tree,
+            entity_file=entity_file,
+        )
+        if resolved_module is None:
+            return None
+        module_file, symbol = resolved_module
+        key = (entity_file, ast.unparse(annotation))
+        if key in visited:
+            return None
+        imported_tree = _read_module_tree(module_file)
+        if imported_tree is None:
+            return None
+        return resolve_enum_declaration(
+            ast.Name(id=symbol),
+            tree=imported_tree,
+            entity_file=module_file,
+            visited=visited | {key},
+        )
     if not isinstance(annotation, ast.Name):
         return None
     symbol = annotation.id
@@ -149,20 +170,16 @@ def resolve_enum_declaration(
         (item for item in binding.names if (item.asname or item.name) == symbol),
         None,
     )
-    module_file = _resolve_module_file(entity_file, binding)
-    if imported is None or module_file is None:
+    imported_module_file = _resolve_module_file(entity_file, binding)
+    if imported is None or imported_module_file is None:
         return None
-    try:
-        imported_tree = ast.parse(
-            module_file.read_text(encoding="utf-8"),
-            filename=str(module_file),
-        )
-    except (OSError, SyntaxError):
+    imported_tree = _read_module_tree(imported_module_file)
+    if imported_tree is None:
         return None
     return resolve_enum_declaration(
         ast.Name(id=imported.name),
         tree=imported_tree,
-        entity_file=module_file,
+        entity_file=imported_module_file,
         visited=visited | {key},
     )
 
@@ -297,11 +314,183 @@ def _has_trusted_enum_bases(declaration: ast.ClassDef, tree: ast.Module) -> bool
     )
 
 
+def _is_trusted_literal_reference(
+    expression: ast.expr,
+    *,
+    tree: ast.Module,
+    entity_file: Path,
+    visited: frozenset[tuple[Path, str]],
+) -> bool:
+    """Trace a Literal reference to typing without importing project code."""
+
+    if is_imported_symbol(
+        expression,
+        symbols=frozenset({"Literal"}),
+        modules=frozenset({"typing", "typing_extensions"}),
+        tree=tree,
+    ):
+        return True
+    reference = ast.unparse(expression)
+    key = (entity_file, f"Literal:{reference}")
+    if key in visited:
+        return False
+    next_visited = visited | {key}
+    if isinstance(expression, ast.Attribute):
+        resolved_module = _resolve_qualified_symbol_module(
+            expression,
+            tree=tree,
+            entity_file=entity_file,
+        )
+        if resolved_module is None:
+            return False
+        module_file, symbol = resolved_module
+        imported_tree = _read_module_tree(module_file)
+        return imported_tree is not None and _is_trusted_literal_reference(
+            ast.Name(id=symbol),
+            tree=imported_tree,
+            entity_file=module_file,
+            visited=next_visited,
+        )
+    if not isinstance(expression, ast.Name):
+        return False
+    if expression.id in uncertain_module_bindings_before(
+        tree,
+        node_line_or_module_end(expression, tree),
+    ):
+        return False
+    bindings = _top_level_bindings_before(tree, expression.id, expression)
+    if len(bindings) != 1:
+        return False
+    binding = bindings[0]
+    alias_value = _alias_value(binding, expression.id)
+    if alias_value is not None:
+        return _is_trusted_literal_reference(
+            alias_value,
+            tree=tree,
+            entity_file=entity_file,
+            visited=next_visited,
+        )
+    if not isinstance(binding, ast.ImportFrom) or binding not in tree.body:
+        return False
+    imported = next(
+        (
+            item
+            for item in binding.names
+            if (item.asname or item.name) == expression.id
+        ),
+        None,
+    )
+    imported_module_file = _resolve_module_file(entity_file, binding)
+    if imported is None or imported_module_file is None:
+        return False
+    imported_tree = _read_module_tree(imported_module_file)
+    return imported_tree is not None and _is_trusted_literal_reference(
+        ast.Name(id=imported.name),
+        tree=imported_tree,
+        entity_file=imported_module_file,
+        visited=next_visited,
+    )
+
+
+def _resolve_qualified_symbol_module(
+    expression: ast.Attribute,
+    *,
+    tree: ast.Module,
+    entity_file: Path,
+) -> tuple[Path, str] | None:
+    """Resolve ``module_alias.Symbol`` to a local module and symbol name."""
+
+    parts = _dotted_name_parts(expression)
+    if parts is None or len(parts) < 2:
+        return None
+    root, *tail = parts[:-1]
+    symbol = parts[-1]
+    synthetic_root = ast.Name(id=root)
+    synthetic_root.lineno = node_line_or_module_end(expression, tree)
+    if root in uncertain_module_bindings_before(tree, synthetic_root.lineno):
+        return None
+    bindings = _top_level_bindings_before(tree, root, synthetic_root)
+    if len(bindings) != 1:
+        return None
+    binding = bindings[0]
+    if binding not in tree.body:
+        return None
+    imported = _bound_import_alias(binding, root)
+    if imported is None:
+        return None
+    if isinstance(binding, ast.Import):
+        imported_parts = imported.name.split(".")
+        if imported.asname:
+            module_parts = [*imported_parts, *tail]
+        else:
+            module_parts = [root, *tail]
+            if module_parts != imported_parts:
+                return None
+        module_file = _resolve_module_parts(entity_file, module_parts, level=0)
+    elif isinstance(binding, ast.ImportFrom):
+        module_parts = [
+            *(binding.module.split(".") if binding.module else []),
+            imported.name,
+            *tail,
+        ]
+        module_file = _resolve_module_parts(
+            entity_file,
+            module_parts,
+            level=binding.level,
+        )
+    else:  # pragma: no cover - narrowed by ``_bound_import_alias``
+        return None
+    return (module_file, symbol) if module_file is not None else None
+
+
+def _bound_import_alias(
+    binding: ast.stmt,
+    root: str,
+) -> ast.alias | None:
+    if isinstance(binding, ast.Import):
+        return next(
+            (
+                item
+                for item in binding.names
+                if (item.asname or item.name.split(".", 1)[0]) == root
+            ),
+            None,
+        )
+    if isinstance(binding, ast.ImportFrom):
+        return next(
+            (
+                item
+                for item in binding.names
+                if (item.asname or item.name) == root
+            ),
+            None,
+        )
+    return None
+
+
+def _dotted_name_parts(expression: ast.expr) -> list[str] | None:
+    if isinstance(expression, ast.Name):
+        return [expression.id]
+    if not isinstance(expression, ast.Attribute):
+        return None
+    value = _dotted_name_parts(expression.value)
+    return [*value, expression.attr] if value is not None else None
+
+
 def _resolve_module_file(entity_file: Path, statement: ast.ImportFrom) -> Path | None:
     module_parts = statement.module.split(".") if statement.module else []
-    if statement.level:
+    return _resolve_module_parts(entity_file, module_parts, level=statement.level)
+
+
+def _resolve_module_parts(
+    entity_file: Path,
+    module_parts: list[str],
+    *,
+    level: int,
+) -> Path | None:
+    if level:
         base = entity_file.parent
-        for _ in range(statement.level - 1):
+        for _ in range(level - 1):
             base = base.parent
         return _first_module_file(base, module_parts)
     for ancestor in entity_file.parents:
@@ -309,6 +498,16 @@ def _resolve_module_file(entity_file: Path, statement: ast.ImportFrom) -> Path |
         if candidate is not None:
             return candidate
     return None
+
+
+def _read_module_tree(module_file: Path) -> ast.Module | None:
+    try:
+        return ast.parse(
+            module_file.read_text(encoding="utf-8"),
+            filename=str(module_file),
+        )
+    except (OSError, SyntaxError):
+        return None
 
 
 def _first_module_file(base: Path, module_parts: list[str]) -> Path | None:

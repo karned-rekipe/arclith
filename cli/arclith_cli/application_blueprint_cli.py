@@ -17,7 +17,7 @@ from arclith_cli.application_blueprints import (
 )
 from arclith_cli.blueprint_generation import (
     add_application_blueprint_cmd,
-    apply_application_blueprint,
+    create_entity_with_application_blueprint,
     plan_application_profile_for_new_entity,
 )
 from arclith_cli.command_recording import record_success
@@ -89,23 +89,24 @@ def add_entity_command(
             blueprint_plan.entity,
             StateMachineSpec.from_parameters(blueprint_plan.parameters),
         )
-    add_entity_cmd(
-        project_dir=project_dir,
-        entity_name=resolved_name,
-        model_base=(
-            blueprint_plan.entity.model_base if blueprint_plan is not None else "entity"
-        ),
-        entity_content=entity_content,
-    )
     if blueprint_plan is not None:
         try:
-            apply_application_blueprint(blueprint_plan)
+            create_entity_with_application_blueprint(
+                blueprint_plan,
+                entity_name=resolved_name,
+                entity_content=entity_content,
+            )
         except (OSError, ValueError) as exc:
             console.print(f"[red]✗ Blueprint refusé :[/red] {exc}")
             raise typer.Exit(1) from exc
         console.print(
             f"[bold green]✓ Blueprint {resolved_profile} appliqué à "
             f"{blueprint_plan.entity.pascal}.[/bold green]"
+        )
+    else:
+        add_entity_cmd(
+            project_dir=project_dir,
+            entity_name=resolved_name,
         )
     if not no_record:
         record_success(

@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from arclith_cli.blueprint_generation import (
-    apply_application_blueprint,
+    create_entity_with_application_blueprint,
     plan_application_profile_for_new_entity,
 )
 from arclith_cli.core_scaffold import add_entity_cmd
@@ -70,16 +70,14 @@ def new_project_cmd(
         directory=directory,
         target_path=target_path,
     )
-    add_entity_cmd(
-        project_dir=target_dir,
-        entity_name=entity,
-        model_base=(
-            blueprint_plan.entity.model_base if blueprint_plan is not None else "entity"
-        ),
-        entity_content=entity_content,
-    )
     if blueprint_plan is not None:
-        apply_application_blueprint(blueprint_plan)
+        create_entity_with_application_blueprint(
+            blueprint_plan,
+            entity_name=entity,
+            entity_content=entity_content,
+        )
+    else:
+        add_entity_cmd(project_dir=target_dir, entity_name=entity)
 
     application_next = (
         f"[bold cyan]arclith-cli add-usecase Create{entity_names.pascal} "

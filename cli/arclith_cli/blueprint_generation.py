@@ -14,7 +14,7 @@ from arclith_cli.application_blueprints import (
     get_application_blueprint,
     render_application_blueprint,
 )
-from arclith_cli.core_scaffold import validated_entity_names
+from arclith_cli.core_scaffold import add_entity_cmd, validated_entity_names
 from arclith_cli.entity_scanner import EntityInfo, scan_blueprint_models
 from arclith_cli.feature_manifest import (
     FEATURE_MANIFEST_VERSION,
@@ -29,6 +29,7 @@ from arclith_cli.feature_manifest import (
 )
 from arclith_cli.project_paths import ProjectPaths, detect_project_paths
 from arclith_cli.rename import EntityNames
+from arclith_cli.scaffold_templates import render_entity_template
 
 console = Console()
 
@@ -258,14 +259,121 @@ def apply_application_blueprint(
             raise ValueError(
                 f"File changed after blueprint planning; rerun the command: {path}"
             )
-    for path, content in plan.files.items():
-        if path == plan.manifest_path:
-            continue
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
-    if plan.manifest_path in plan.files:
-        save_feature_manifest(plan.manifest, plan.manifest_path)
+    written: list[Path] = []
+    directories = _missing_parent_directories(plan.project_dir, tuple(plan.files))
+    try:
+        for path, content in plan.files.items():
+            if path == plan.manifest_path:
+                continue
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+            written.append(path)
+        if plan.manifest_path in plan.files:
+            save_feature_manifest(plan.manifest, plan.manifest_path)
+            written.append(plan.manifest_path)
+    except Exception:
+        _restore_written_files(
+            written,
+            expected=plan.files,
+            originals=plan.originals,
+        )
+        _remove_empty_directories(directories)
+        raise
     return tuple(plan.files)
+
+
+def create_entity_with_application_blueprint(
+    plan: ApplicationBlueprintPlan,
+    *,
+    entity_name: str,
+    entity_content: str | None,
+) -> Path:
+    """Create an entity and compensate it if blueprint application fails."""
+
+    paths = detect_project_paths(plan.project_dir)
+    entity_path = plan.entity.file_path
+    tracked = (entity_path, *_entity_initializer_paths(paths))
+    originals = {
+        path: path.read_bytes() if path.is_file() else None for path in tracked
+    }
+    expected = {
+        entity_path: (
+            entity_content
+            if entity_content is not None
+            else render_entity_template(
+                class_name=plan.entity.pascal,
+                model_base=plan.entity.model_base,
+            )
+        ).encode("utf-8"),
+        **{
+            initializer: b""
+            for initializer in tracked
+            if initializer != entity_path
+        },
+    }
+    directories = _missing_parent_directories(plan.project_dir, tracked)
+    try:
+        created = add_entity_cmd(
+            project_dir=plan.project_dir,
+            entity_name=entity_name,
+            model_base=plan.entity.model_base,
+            entity_content=entity_content,
+        )
+        apply_application_blueprint(plan)
+    except Exception:
+        _restore_written_files(
+            list(tracked),
+            expected=expected,
+            originals=originals,
+        )
+        _remove_empty_directories(directories)
+        raise
+    return created
+
+
+def _missing_parent_directories(
+    project_dir: Path,
+    targets: tuple[Path, ...],
+) -> tuple[Path, ...]:
+    missing: set[Path] = set()
+    for target in targets:
+        for parent in target.parents:
+            if parent == project_dir:
+                break
+            if not parent.exists():
+                missing.add(parent)
+    return tuple(sorted(missing, key=lambda path: len(path.parts), reverse=True))
+
+
+def _restore_written_files(
+    paths: list[Path],
+    *,
+    expected: Mapping[Path, str | bytes | None],
+    originals: Mapping[Path, bytes | None],
+) -> None:
+    for path in reversed(paths):
+        planned = expected.get(path)
+        planned_bytes = planned.encode("utf-8") if isinstance(planned, str) else planned
+        try:
+            current = path.read_bytes() if path.is_file() else None
+            if planned_bytes is None or current != planned_bytes:
+                continue
+            original = originals.get(path)
+            if original is None:
+                path.unlink()
+            else:
+                path.write_bytes(original)
+        except OSError:
+            # Preserve the primary failure and never broaden cleanup targets.
+            continue
+
+
+def _remove_empty_directories(directories: tuple[Path, ...]) -> None:
+    for directory in directories:
+        try:
+            directory.rmdir()
+        except OSError:
+            continue
 
 
 def _validate_target_paths(project_dir: Path, targets: tuple[Path, ...]) -> None:

@@ -75,7 +75,11 @@ plan avant la première écriture.
 
 Le parcours le plus direct est atomique du point de vue de la commande : la spec
 est entièrement validée et toutes les collisions sont prévalidées avant la
-création du modèle.
+création du modèle. Si une cible change malgré tout entre le plan et l'écriture,
+ou si une écriture échoue en cours d'application, la commande restaure les
+snapshots qu'elle vient de modifier et retire l'entité créée. Un fichier modifié
+concurremment est conservé : la compensation ne touche qu'un contenu encore
+identique à celui écrit par la commande.
 
 ```bash
 arclith-cli init invoice-service
@@ -189,7 +193,10 @@ contourner le gel Pydantic. Le champ d'état lui-même doit aussi avoir une seul
 liaison dans le scope de classe : une affectation ultérieure, même conditionnelle,
 pourrait remplacer son `Field(frozen=True)`. Une réaffectation de configuration,
 un argument obligatoire supplémentaire ou un `staticmethod` est refusé avant
-toute écriture.
+toute écriture. La classe doit hériter directement et uniquement du vrai
+`Entity` Arclith. Les mixins, décorateurs et mots-clés de classe, notamment une
+métaclasse, sont refusés car ils pourraient redéfinir `__setattr__` ou modifier
+le comportement Pydantic hors de ce que l'analyse statique peut prouver.
 
 ```bash
 arclith-cli add-blueprint state-machine \
@@ -209,7 +216,10 @@ ou un `Enum`/`StrEnum` à valeurs chaînes, quel que soit son nom (`Status`,
 `InvoiceStatus`, alias importé…), dont la déclaration locale/importée, disponible
 avant le champ, expose exactement les valeurs persistées de la spec. Les membres
 importés peuvent venir d'un module `.py` ou d'un package `__init__.py` et être
-réexportés récursivement ; aucun code du projet n'est exécuté pour les résoudre.
+réexportés récursivement. Les formes qualifiées par un module, par exemple
+`lifecycle_types.Status` avec un défaut
+`lifecycle_types.Status.DRAFT`, sont également résolues. Aucun code du projet
+n'est exécuté pour les inspecter.
 Les membres
 d'enum doivent être des affectations directes de chaînes ; les membres produits
 par un contrôle de flux, une expression dynamique ou un helper décoré sont
@@ -221,7 +231,9 @@ rejeter l'affectation et la copie générique : utiliser un modèle entièrement
 frozen, ou les vrais
 `ConfigDict` et `Field` importés de `pydantic`, surcharger `model_copy` et fournir
 la méthode privée synchrone montrée ci-dessus. Les alias importés de
-`typing.Literal` et les alias de type locaux sont résolus récursivement. La
+`typing.Literal`, y compris ceux réexportés par un module ou un package du
+projet, et les alias de type locaux sont résolus récursivement jusqu'à leur
+origine de confiance. La
 vérification prouve aussi l'origine de `Literal`, des bases stdlib
 `Enum`/`StrEnum` et des helpers Pydantic ; elle refuse les homonymes applicatifs
 et toute redéfinition de leurs noms dans le scope de classe, dans un contrôle
