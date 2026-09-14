@@ -253,6 +253,7 @@ def test_template_digest_includes_the_complete_renderer_contract(
 @pytest.mark.parametrize(
     "module_name",
     [
+        "application_blueprints",
         "import_origins",
         "module_bindings",
         "state_machine_spec",
@@ -265,6 +266,7 @@ def test_template_digest_includes_every_state_machine_contract_module(
     module_name: str,
 ) -> None:
     from arclith_cli import (
+        application_blueprints,
         import_origins,
         module_bindings,
         state_machine_contract,
@@ -276,6 +278,7 @@ def test_template_digest_includes_every_state_machine_contract_module(
     before = application_blueprint_digest(blueprint)
     original_getsource = inspect.getsource
     contract_module = {
+        "application_blueprints": application_blueprints,
         "import_origins": import_origins,
         "module_bindings": module_bindings,
         "state_machine_contract": state_machine_contract,
@@ -589,6 +592,31 @@ def test_manifest_v2_normalizes_missing_parameterized_fields(
         FeatureManifest.from_dict(raw)
 
 
+def test_manifest_v2_rejects_recursive_yaml_parameters(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "recursive.yaml"
+    digest = "sha256:" + "0" * 64
+    manifest_path.write_text(
+        "version: 2\n"
+        "feature: invoice\n"
+        "entity:\n"
+        "  name: Invoice\n"
+        "  module: invoice_service.domain.models.invoice\n"
+        "blueprint:\n"
+        "  name: state-machine\n"
+        "  version: 1\n"
+        "parameters: &parameters\n"
+        "  self: *parameters\n"
+        "digests:\n"
+        f"  template: {digest}\n"
+        f"  parameters: {digest}\n"
+        "operations: [submit]\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="recursive containers"):
+        load_feature_manifest(manifest_path)
+
+
 def test_missing_or_unprotected_existing_state_field_is_rejected_without_writes(
     tmp_path: Path,
 ) -> None:
@@ -893,6 +921,44 @@ def test_existing_enum_rejects_a_class_decorator(tmp_path: Path) -> None:
         )
 
 
+def test_existing_enum_rejects_a_custom_mixin(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    literal = 'Literal["draft", "submitted", "approved", "rejected"]'
+    mixed_enum = _local_state_enum().replace(
+        "class InvoiceStatus(StrEnum):",
+        "class InvoiceStatus(CustomMixin, StrEnum):",
+    )
+    content = entity.read_text(encoding="utf-8")
+    content = content.replace(
+        "from collections.abc import Mapping\n",
+        "from collections.abc import Mapping\nfrom enum import StrEnum\n",
+    ).replace(
+        "class Invoice(Entity):\n",
+        "class CustomMixin:\n"
+        "    def __new__(cls, value: str):\n"
+        "        return str.__new__(cls, value.upper())\n\n\n"
+        + mixed_enum
+        + "class Invoice(Entity):\n",
+    )
+    entity.write_text(
+        content.replace(literal, "InvoiceStatus").replace(
+            'Field(default="draft", frozen=True)',
+            "Field(default=InvoiceStatus.DRAFT, frozen=True)",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="statically inspectable"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
 def test_existing_enum_rejects_use_enum_values(tmp_path: Path) -> None:
     project = _project(tmp_path)
     entity = _stateful_entity(project)
@@ -1005,6 +1071,45 @@ def test_existing_imported_enum_alias_is_inspected(tmp_path: Path) -> None:
         feature_name="invoice_lifecycle",
         parameters=_parameters(),
     )
+
+
+def test_existing_entity_rejects_type_checking_only_enum_import(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    status_module = entity.with_name("invoice_status.py")
+    status_module.write_text(
+        "from enum import StrEnum\n\n\n"
+        "class InvoiceStatus(StrEnum):\n"
+        '    DRAFT = "draft"\n'
+        '    SUBMITTED = "submitted"\n'
+        '    APPROVED = "approved"\n'
+        '    REJECTED = "rejected"\n',
+        encoding="utf-8",
+    )
+    literal = 'Literal["draft", "submitted", "approved", "rejected"]'
+    content = entity.read_text(encoding="utf-8")
+    content = content.replace(
+        "from typing import Any, Literal, Self\n",
+        "from typing import Any, Self, TYPE_CHECKING\n\n"
+        "if TYPE_CHECKING:\n"
+        "    from .invoice_status import InvoiceStatus\n",
+    )
+    entity.write_text(
+        content.replace(literal, "InvoiceStatus").replace(
+            'Field(default="draft", frozen=True)',
+            "Field(default=InvoiceStatus.DRAFT, frozen=True)",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="statically inspectable"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
 
 
 def test_existing_typing_literal_import_alias_is_inspected(tmp_path: Path) -> None:

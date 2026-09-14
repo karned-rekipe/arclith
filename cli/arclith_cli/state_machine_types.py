@@ -62,7 +62,7 @@ def resolve_literal_values(
             entity_file=entity_file,
             visited=visited | {key},
         )
-    if not isinstance(binding, ast.ImportFrom):
+    if not isinstance(binding, ast.ImportFrom) or binding not in tree.body:
         return None
     imported = next(
         (item for item in binding.names if (item.asname or item.name) == annotation.id),
@@ -173,17 +173,19 @@ def enum_members(
 ) -> dict[str, str] | None:
     """Return exact static string members for a trusted Enum declaration."""
 
-    if declaration.decorator_list:
+    if declaration.decorator_list or declaration.keywords:
         return None
-    if not any(
-        is_imported_symbol(
+    trusted_enum_bases = [
+        base
+        for base in declaration.bases
+        if is_imported_symbol(
             base,
             symbols=frozenset({"Enum", "StrEnum"}),
             modules=frozenset({"enum"}),
             tree=tree,
         )
-        for base in declaration.bases
-    ):
+    ]
+    if len(declaration.bases) != 1 or len(trusted_enum_bases) != 1:
         return None
     members: dict[str, str] = {}
     declarations: set[str] = set()

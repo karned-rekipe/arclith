@@ -254,21 +254,43 @@ def _digest(raw: object, label: str) -> str:
 def _json_safe_mapping(raw: object, label: str) -> dict[str, Any]:
     data = _mapping(raw, label)
     return {
-        key: _json_safe_value(value, f"{label}.{key}") for key, value in data.items()
+        key: _json_safe_value(
+            value,
+            f"{label}.{key}",
+            ancestors=frozenset({id(data)}),
+        )
+        for key, value in data.items()
     }
 
 
-def _json_safe_value(raw: object, label: str) -> Any:
+def _json_safe_value(
+    raw: object,
+    label: str,
+    *,
+    ancestors: frozenset[int] = frozenset(),
+) -> Any:
     if raw is None or isinstance(raw, (str, bool, int)):
         return raw
     if isinstance(raw, float):
         if not math.isfinite(raw):
             raise ValueError(f"{label} must contain only finite JSON numbers")
         return raw
+    if isinstance(raw, (list, dict)):
+        identity = id(raw)
+        if identity in ancestors:
+            raise ValueError(f"{label} must not contain recursive containers")
+        ancestors = ancestors | {identity}
     if isinstance(raw, list):
-        return [_json_safe_value(item, f"{label}[]") for item in raw]
+        return [
+            _json_safe_value(item, f"{label}[]", ancestors=ancestors) for item in raw
+        ]
     if isinstance(raw, dict) and all(isinstance(key, str) for key in raw):
         return {
-            key: _json_safe_value(value, f"{label}.{key}") for key, value in raw.items()
+            key: _json_safe_value(
+                value,
+                f"{label}.{key}",
+                ancestors=ancestors,
+            )
+            for key, value in raw.items()
         }
     raise ValueError(f"{label} must contain only JSON/YAML-safe values")

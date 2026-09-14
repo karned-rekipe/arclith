@@ -210,7 +210,9 @@ ou un `Enum`/`StrEnum` à valeurs chaînes, quel que soit son nom (`Status`,
 avant le champ, expose exactement les valeurs persistées de la spec. Les membres
 d'enum doivent être des affectations directes de chaînes ; les membres produits
 par un contrôle de flux, une expression dynamique ou un helper décoré sont
-refusés, faute de pouvoir prouver statiquement l'ensemble runtime. Le champ doit
+refusés, faute de pouvoir prouver statiquement l'ensemble runtime. Une enum
+décorée, dotée de méthodes, de mots-clés de métaclasse ou de bases mixtes est
+également refusée : ces extensions peuvent modifier ses valeurs au runtime. Le champ doit
 rejeter l'affectation et la copie générique : utiliser un modèle entièrement
 frozen, ou les vrais
 `ConfigDict` et `Field` importés de `pydantic`, surcharger `model_copy` et fournir
@@ -218,11 +220,13 @@ la méthode privée synchrone montrée ci-dessus. Les alias importés de
 `typing.Literal` et les alias de type locaux sont résolus récursivement. La
 vérification prouve aussi l'origine de `Literal`, des bases stdlib
 `Enum`/`StrEnum` et des helpers Pydantic ; elle refuse les homonymes applicatifs
-et toute redéfinition de leurs noms dans le scope de classe ou dans un contrôle
-de flux de niveau module (`if`, boucle, `try`…), ainsi que les méthodes de copie
-asynchrones dont le comportement ne peut pas satisfaire le contrat synchrone du
-cycle de vie. Elle refuse aussi un module projet `typing.py`, `enum.py`,
-`typing_extensions.py` ou un package `pydantic` placé sur une racine d'import :
+et toute redéfinition de leurs noms dans le scope de classe, dans un contrôle
+de flux de niveau module (`if`, boucle, `try`…) ou par une expression d'affectation
+dynamique, ainsi que les imports disponibles uniquement sous `TYPE_CHECKING` et
+les méthodes de copie asynchrones dont le comportement ne peut pas satisfaire le
+contrat synchrone du cycle de vie. Elle refuse aussi un module projet `typing.py`,
+`enum.py`, `collections.py`, `typing_extensions.py` ou un package `pydantic`
+placé sur une racine d'import :
 un tel fichier intercepterait les imports absolus au lieu de leurs origines de
 confiance. Pour un champ enum,
 `ConfigDict(use_enum_values=True)` est également refusé : cette option stockerait
