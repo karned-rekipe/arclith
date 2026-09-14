@@ -76,14 +76,20 @@ plan avant la première écriture.
 Le parcours le plus direct est atomique du point de vue de la commande : la spec
 est entièrement validée et toutes les collisions sont prévalidées avant la
 création du modèle. Si une cible change malgré tout entre le plan et l'écriture,
-ou si une écriture échoue en cours d'application, la commande restaure les
-snapshots qu'elle vient de modifier et retire l'entité créée. Un fichier modifié
-concurremment est conservé : la compensation ne touche qu'un contenu encore
-identique à celui écrit par la commande. Chaque nouveau fichier est d'abord
-écrit et synchronisé dans un temporaire du même répertoire, puis publié par une
-création atomique sans remplacement. Une panne n'expose donc pas de fichier
-tronqué et une création concurrente est signalée comme collision sans être
-écrasée, y compris pour l'entité et le manifeste.
+ou si une écriture échoue en cours d'application, la commande compense ses
+propres publications et retire l'entité créée. Chaque fichier à retirer est
+d'abord détaché atomiquement vers une quarantaine privée, puis son inode, son
+device et son contenu sont vérifiés. Un fichier remplacé concurremment est
+restauré sans remplacement ; si un autre écrivain a déjà recréé la cible, la
+quarantaine est conservée plutôt que de supprimer l'un des deux contenus. Les
+répertoires ne sont retirés que si la commande les a effectivement créés, que
+leur identité est inchangée et qu'ils sont encore vides.
+
+Chaque nouveau fichier est d'abord écrit et synchronisé dans un temporaire du
+même répertoire, puis publié par une création atomique sans remplacement. Une
+panne n'expose donc pas de fichier tronqué et une création concurrente est
+signalée comme collision sans être écrasée, y compris pour l'entité et le
+manifeste.
 
 ```bash
 arclith-cli init invoice-service

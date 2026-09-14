@@ -1,4 +1,6 @@
 import keyword
+import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -6,7 +8,7 @@ from typing import Any, Mapping
 import typer
 from rich.console import Console
 
-from arclith_cli.atomic_writes import write_new_text_file
+from arclith_cli.atomic_writes import FilePublication, write_new_text_file
 from arclith_cli.application_blueprints import (
     ApplicationBlueprintSpec,
     application_blueprint_digest,
@@ -269,7 +271,7 @@ def apply_application_blueprint(
             raise ValueError(
                 f"File changed after blueprint planning; rerun the command: {path}"
             )
-    written: list[Path] = []
+    written: list[FilePublication] = []
     directories: list[_CreatedDirectory] = []
     try:
         _create_parent_directories(
@@ -284,16 +286,13 @@ def apply_application_blueprint(
                 # Entity/new-project initializers are already the exact empty
                 # snapshot anticipated by the plan; no rewrite is necessary.
                 continue
-            write_new_text_file(path, content)
-            written.append(path)
+            written.append(write_new_text_file(path, content))
         if plan.manifest_path in plan.files:
-            save_feature_manifest(plan.manifest, plan.manifest_path)
-            written.append(plan.manifest_path)
+            written.append(save_feature_manifest(plan.manifest, plan.manifest_path))
     except Exception:
         _restore_written_files(
             written,
             expected=plan.files,
-            originals=plan.originals,
         )
         _remove_empty_directories(directories)
         raise
@@ -311,9 +310,6 @@ def create_entity_with_application_blueprint(
     paths = detect_project_paths(plan.project_dir)
     entity_path = plan.entity.file_path
     tracked = (entity_path, *_entity_initializer_paths(paths))
-    originals = {
-        path: path.read_bytes() if path.is_file() else None for path in tracked
-    }
     expected = {
         entity_path: (
             entity_content
@@ -330,7 +326,7 @@ def create_entity_with_application_blueprint(
         },
     }
     directories: list[_CreatedDirectory] = []
-    created_paths: list[Path] = []
+    created_files: list[FilePublication] = []
     try:
         _create_parent_directories(
             plan.project_dir,
@@ -342,14 +338,13 @@ def create_entity_with_application_blueprint(
             entity_name=entity_name,
             model_base=plan.entity.model_base,
             entity_content=entity_content,
-            created_paths=created_paths,
+            created_files=created_files,
         )
         apply_application_blueprint(plan)
     except Exception:
         _restore_written_files(
-            created_paths,
+            created_files,
             expected=expected,
-            originals=originals,
         )
         _remove_empty_directories(directories)
         raise
@@ -390,26 +385,77 @@ def _create_parent_directories(
 
 
 def _restore_written_files(
-    paths: list[Path],
+    publications: list[FilePublication],
     *,
     expected: Mapping[Path, str | bytes | None],
-    originals: Mapping[Path, bytes | None],
 ) -> None:
-    for path in reversed(paths):
-        planned = expected.get(path)
+    for publication in reversed(publications):
+        planned = expected.get(publication.path)
         planned_bytes = planned.encode("utf-8") if isinstance(planned, str) else planned
+        if planned_bytes is not None:
+            _remove_unchanged_publication(publication, planned_bytes)
+
+
+def _remove_unchanged_publication(
+    publication: FilePublication,
+    planned: bytes,
+) -> None:
+    """Atomically detach a path, then delete only the inode we published."""
+
+    try:
+        quarantine_dir = Path(
+            tempfile.mkdtemp(
+                dir=publication.path.parent,
+                prefix=f".{publication.path.name}.",
+                suffix=".rollback",
+            )
+        )
+    except OSError:
+        return
+    quarantine = quarantine_dir / "published"
+    try:
         try:
-            current = path.read_bytes() if path.is_file() else None
-            if planned_bytes is None or current != planned_bytes:
-                continue
-            original = originals.get(path)
-            if original is None:
-                path.unlink()
-            else:
-                path.write_bytes(original)
+            publication.path.rename(quarantine)
         except OSError:
-            # Preserve the primary failure and never broaden cleanup targets.
-            continue
+            return
+        try:
+            identity = quarantine.lstat()
+            unchanged = (
+                (identity.st_dev, identity.st_ino)
+                == (publication.device, publication.inode)
+                and quarantine.read_bytes() == planned
+            )
+        except OSError:
+            unchanged = False
+        if unchanged:
+            try:
+                quarantine.unlink()
+            except OSError:
+                pass
+            return
+        _restore_quarantined_file(quarantine, publication.path)
+    finally:
+        try:
+            quarantine_dir.rmdir()
+        except OSError:
+            # A non-empty quarantine preserves concurrently written content.
+            pass
+
+
+def _restore_quarantined_file(quarantine: Path, target: Path) -> None:
+    """Restore a moved concurrent regular file without replacing a newer path."""
+
+    if quarantine.is_symlink() or not quarantine.is_file():
+        return
+    try:
+        os.link(quarantine, target)
+    except OSError:
+        return
+    try:
+        quarantine.unlink()
+    except OSError:
+        # Both hard links preserve the same bytes; cleanup remains best-effort.
+        pass
 
 
 def _remove_empty_directories(directories: list[_CreatedDirectory]) -> None:

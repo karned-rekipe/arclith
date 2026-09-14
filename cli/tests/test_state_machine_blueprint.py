@@ -17,6 +17,7 @@ import yaml
 from typer.testing import CliRunner
 
 from arclith_cli import atomic_writes, blueprint_generation, core_scaffold
+from arclith_cli.atomic_writes import FilePublication
 from arclith_cli.application_blueprint_recipe import (
     replay_add_entity_step,
     validate_application_recipe_metadata,
@@ -2102,6 +2103,8 @@ def test_existing_entity_rejects_contract_helpers_rebound_by_module_control_flow
     "binding",
     [
         "def helper(value=(super := object())):\n    pass\n",
+        "def helper(value: (super := object())):\n    pass\n",
+        "def helper() -> (ValueError := object()):\n    pass\n",
         "@(ValueError := (lambda cls: cls))\nclass Helper:\n    pass\n",
         "class Helper((super := object)):\n    pass\n",
         "class Helper(metaclass=(ValueError := type)):\n    pass\n",
@@ -2589,10 +2592,10 @@ def test_application_blueprint_rolls_back_prior_writes_on_io_failure(
     def fail_one_write(
         path: Path,
         data: str,
-    ) -> None:
+    ) -> FilePublication:
         if path == fail_path:
             raise OSError("simulated write failure")
-        original_write(path, data)
+        return original_write(path, data)
 
     monkeypatch.setattr(blueprint_generation, "write_new_text_file", fail_one_write)
 
@@ -2600,6 +2603,31 @@ def test_application_blueprint_rolls_back_prior_writes_on_io_failure(
         apply_application_blueprint(plan)
 
     assert all(not path.exists() for path in plan.files)
+
+
+def test_blueprint_rollback_restores_a_file_replaced_before_atomic_detach(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = tmp_path / "generated.py"
+    publication = atomic_writes.write_new_text_file(target, "planned content")
+    original_rename = Path.rename
+
+    def replace_before_rename(path: Path, target_path: Path) -> Path:
+        if path == target:
+            path.unlink()
+            path.write_text("concurrent content", encoding="utf-8")
+        return original_rename(path, target_path)
+
+    monkeypatch.setattr(Path, "rename", replace_before_rename)
+
+    blueprint_generation._restore_written_files(
+        [publication],
+        expected={target: "planned content"},
+    )
+
+    assert target.read_text(encoding="utf-8") == "concurrent content"
+    assert not list(tmp_path.glob(".generated.py.*.rollback"))
 
 
 def test_blueprint_rollback_preserves_a_concurrently_created_directory(
@@ -2637,10 +2665,10 @@ def test_blueprint_rollback_preserves_a_concurrently_created_directory(
             original_mkdir(path, mode=mode, parents=parents, exist_ok=exist_ok)
         original_mkdir(path, mode=mode, parents=parents, exist_ok=exist_ok)
 
-    def fail_documentation_write(path: Path, content: str) -> None:
+    def fail_documentation_write(path: Path, content: str) -> FilePublication:
         if path == documentation:
             raise OSError("simulated documentation write failure")
-        original_write(path, content)
+        return original_write(path, content)
 
     monkeypatch.setattr(Path, "mkdir", create_directory_concurrently)
     monkeypatch.setattr(
@@ -2700,10 +2728,10 @@ def test_entity_exclusive_create_preserves_an_identical_concurrent_file(
     )
     original_write = core_scaffold.write_new_text_file
 
-    def create_concurrent_entity(path: Path, content: str) -> None:
+    def create_concurrent_entity(path: Path, content: str) -> FilePublication:
         if path == entity_path:
             path.write_text(content, encoding="utf-8")
-        original_write(path, content)
+        return original_write(path, content)
 
     monkeypatch.setattr(
         core_scaffold,
@@ -2757,11 +2785,11 @@ def test_blueprint_exclusive_create_preserves_a_late_concurrent_target(
     raced_target = writable[1]
     original_write = blueprint_generation.write_new_text_file
 
-    def create_concurrent_target(path: Path, content: str) -> None:
+    def create_concurrent_target(path: Path, content: str) -> FilePublication:
         if path == raced_target:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("# concurrent project file\n", encoding="utf-8")
-        original_write(path, content)
+        return original_write(path, content)
 
     monkeypatch.setattr(
         blueprint_generation,

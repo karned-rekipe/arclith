@@ -323,7 +323,7 @@ def _is_trusted_literal_reference(
 ) -> bool:
     """Trace a Literal reference to typing without importing project code."""
 
-    if is_imported_symbol(
+    if isinstance(expression, ast.Attribute) and is_imported_symbol(
         expression,
         symbols=frozenset({"Literal"}),
         modules=frozenset({"typing", "typing_extensions"}),
@@ -380,8 +380,16 @@ def _is_trusted_literal_reference(
         ),
         None,
     )
+    if imported is None:
+        return False
+    if (
+        binding.level == 0
+        and binding.module in {"typing", "typing_extensions"}
+        and imported.name == "Literal"
+    ):
+        return True
     imported_module_file = _resolve_module_file(entity_file, binding)
-    if imported is None or imported_module_file is None:
+    if imported_module_file is None:
         return False
     imported_tree = _read_module_tree(imported_module_file)
     return imported_tree is not None and _is_trusted_literal_reference(

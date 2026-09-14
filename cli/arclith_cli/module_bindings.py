@@ -249,8 +249,20 @@ class _EscapingNamedExprCollector(ast.NodeVisitor):
         for decorator in node.decorator_list:
             self.visit(decorator)
         self._visit_arguments(node.args)
+        if node.returns is not None:
+            self.visit(node.returns)
 
     def _visit_arguments(self, arguments: ast.arguments) -> None:
+        positional = (*arguments.posonlyargs, *arguments.args)
+        for argument in (*positional, *arguments.kwonlyargs):
+            if argument.annotation is not None:
+                self.visit(argument.annotation)
+        for optional_argument in (arguments.vararg, arguments.kwarg):
+            if (
+                optional_argument is not None
+                and optional_argument.annotation is not None
+            ):
+                self.visit(optional_argument.annotation)
         for default in (*arguments.defaults, *arguments.kw_defaults):
             if default is not None:
                 self.visit(default)

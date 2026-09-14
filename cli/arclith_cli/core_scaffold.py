@@ -8,7 +8,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from .atomic_writes import write_new_text_file
+from .atomic_writes import FilePublication, write_new_text_file
 from .entity_scanner import EntityInfo, ModelBase, scan_entities
 from .project_paths import ProjectPaths, detect_project_paths
 from .rename import EntityNames
@@ -73,6 +73,7 @@ def add_entity_cmd(
     model_base: ModelBase = "entity",
     entity_content: str | None = None,
     created_paths: list[Path] | None = None,
+    created_files: list[FilePublication] | None = None,
 ) -> Path:
     project_dir = project_dir or Path.cwd()
     entity_name = entity_name.strip()
@@ -91,6 +92,7 @@ def add_entity_cmd(
         "domain",
         "models",
         created_paths=created_paths,
+        created_files=created_files,
     )
     content = (
         entity_content
@@ -98,7 +100,7 @@ def add_entity_cmd(
         else render_entity_template(class_name=names.pascal, model_base=model_base)
     )
     try:
-        write_new_text_file(entity_file, content)
+        publication = write_new_text_file(entity_file, content)
     except FileExistsError as exc:
         console.print(
             f"[red]✗[/red] Le fichier existe déjà : "
@@ -107,6 +109,8 @@ def add_entity_cmd(
         raise typer.Exit(1) from exc
     if created_paths is not None:
         created_paths.append(entity_file)
+    if created_files is not None:
+        created_files.append(publication)
     console.print(
         f"[green]✓[/green] Entité {names.pascal} créée : "
         f"[bold]{entity_file.relative_to(project_dir)}[/bold]"
@@ -355,6 +359,7 @@ def _ensure_package_dirs(
     paths: ProjectPaths,
     *relative_parts: str,
     created_paths: list[Path] | None = None,
+    created_files: list[FilePublication] | None = None,
 ) -> None:
     target_dir = paths.package_root.joinpath(*relative_parts)
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -374,11 +379,13 @@ def _ensure_package_dirs(
         init_file = directory / "__init__.py"
         if not init_file.exists():
             try:
-                write_new_text_file(init_file, "")
+                publication = write_new_text_file(init_file, "")
             except FileExistsError:
                 continue
             if created_paths is not None:
                 created_paths.append(init_file)
+            if created_files is not None:
+                created_files.append(publication)
 
 
 def _strip_pascal_suffix(value: str) -> str:

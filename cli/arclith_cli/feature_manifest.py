@@ -11,7 +11,7 @@ from typing import Any
 
 import yaml
 
-from arclith_cli.atomic_writes import write_new_text_file
+from arclith_cli.atomic_writes import FilePublication, write_new_text_file
 
 
 FEATURE_MANIFEST_VERSION = 1
@@ -183,8 +183,8 @@ def render_feature_manifest(manifest: FeatureManifest) -> str:
     )
 
 
-def save_feature_manifest(manifest: FeatureManifest, path: Path) -> None:
-    write_new_text_file(path, render_feature_manifest(manifest))
+def save_feature_manifest(manifest: FeatureManifest, path: Path) -> FilePublication:
+    return write_new_text_file(path, render_feature_manifest(manifest))
 
 
 def parameter_mapping_digest(parameters: dict[str, Any]) -> str:

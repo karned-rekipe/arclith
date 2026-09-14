@@ -85,16 +85,18 @@ spécification métier plutôt que d'un catalogue statique.
   laisse donc aucun projet partiel et reçoit le diagnostic CLI normalisé.
 - La création de l'entité et l'application du blueprint partagent une frontière
   de compensation. Une collision apparue après le plan ou une erreur d'écriture
-  restaure les fichiers déjà écrits et retire l'entité créée, uniquement lorsque
-  leur contenu correspond encore exactement à celui de la commande afin de
-  préserver toute modification concurrente. Les fichiers sont entièrement
+  détache atomiquement les fichiers déjà publiés vers une quarantaine privée,
+  puis ne retire que les publications dont l'inode, le device et le contenu
+  correspondent encore à la commande. Un remplacement concurrent est restauré
+  sans écrasement, et les répertoires ne sont compensés que si leur identité
+  prouve qu'ils ont été créés par cette commande. Les fichiers sont entièrement
   écrits et synchronisés dans un temporaire du même répertoire avant publication
-  atomique sans remplacement ; aucun fichier tronqué ou écrasement concurrent
-  n'est donc exposé.
+  atomique sans remplacement ; aucun fichier tronqué ou contenu concurrent
+  supprimé n'est donc exposé.
 
 ## Validation
 
-- `uv run --project cli python -m pytest cli/tests -q` : 727 tests passés ;
+- `uv run --project cli python -m pytest cli/tests -q` : 730 tests passés ;
 - smoke test du projet généré : 19 tests passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
 - `make coverage` : 2 488 tests passés, 5 ignorés et 91,34 % sur 9 264
