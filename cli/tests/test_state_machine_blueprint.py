@@ -216,6 +216,31 @@ def test_spec_is_canonical_and_digest_is_order_independent() -> None:
     assert re.fullmatch(r"sha256:[0-9a-f]{64}", first.digest())
 
 
+def test_profile_recipe_metadata_stores_canonical_parameters() -> None:
+    parameters = {
+        "state_field": "status",
+        "initial_state": "draft",
+        "states": ["rejected", "approved", "submitted", "draft"],
+        "transitions": [
+            {"name": "reject", "from": ["submitted"], "to": "rejected"},
+            {"name": "submit", "from": ["draft"], "to": "submitted"},
+            {"name": "approve", "from": ["submitted"], "to": "approved"},
+        ],
+    }
+    canonical = StateMachineSpec.from_parameters(parameters).to_parameters()
+
+    metadata = application_profile_recipe_metadata(
+        "state-machine",
+        parameters=parameters,
+    )
+
+    assert metadata["parameters"] == canonical
+    assert metadata["operations"] == ["approve", "reject", "submit"]
+    assert metadata["parameters_digest"] == StateMachineSpec.from_parameters(
+        parameters
+    ).digest()
+
+
 def test_template_digest_covers_the_generated_entity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -483,7 +508,12 @@ def test_profile_generates_typed_layers_and_parameterized_manifest(
         assert (package / f"application/use_cases/{operation}_invoice.py").is_file()
     assert (project / "tests/domain/test_invoice.py").is_file()
     assert (project / "tests/application/test_invoice_use_cases.py").is_file()
-    assert (project / "docs/blueprints/invoice-state-machine.md").is_file()
+    documentation = (
+        project / "docs/blueprints/invoice-state-machine.md"
+    ).read_text(encoding="utf-8")
+    assert "entité créée avec ce profil" in documentation
+    assert "entité existante" in documentation
+    assert "son propre `Literal` ou enum reste" in documentation
     assert not (package / "adapters/inbound/fastapi").exists()
     assert not (package / "adapters/inbound/fastmcp").exists()
 

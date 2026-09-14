@@ -34,11 +34,13 @@ def write_new_text_file(path: Path, content: str) -> None:
             try:
                 os.close(descriptor)
             except OSError:
+                # Cleanup is best-effort and must not hide the write outcome.
                 pass
         if temporary_path is not None:
             try:
                 temporary_path.unlink(missing_ok=True)
             except OSError:
+                # A leaked hidden temporary is safer than masking the primary result.
                 pass
 
 

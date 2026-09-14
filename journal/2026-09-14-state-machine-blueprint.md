@@ -94,7 +94,7 @@ spécification métier plutôt que d'un catalogue statique.
 
 ## Validation
 
-- `uv run --project cli python -m pytest cli/tests -q` : 724 tests passés ;
+- `uv run --project cli python -m pytest cli/tests -q` : 725 tests passés ;
 - smoke test du projet généré : 19 tests passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
 - `make coverage` : 2 488 tests passés, 5 ignorés et 91,34 % sur 9 264

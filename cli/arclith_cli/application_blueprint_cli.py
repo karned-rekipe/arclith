@@ -286,17 +286,20 @@ def application_profile_recipe_metadata(
         return {}
     blueprint = get_application_blueprint(profile)
     operations = blueprint.operations
+    resolved_parameters = parameters
     if blueprint.name == "state-machine":
-        operations = StateMachineSpec.from_parameters(parameters).operations
+        spec = StateMachineSpec.from_parameters(parameters)
+        operations = spec.operations
+        resolved_parameters = spec.to_parameters()
     metadata: dict[str, object] = {
         "operations": list(operations),
         "blueprint_version": blueprint.version,
         "template_digest": application_blueprint_digest(blueprint),
     }
-    if parameters is not None:
-        metadata["parameters"] = parameters
+    if resolved_parameters is not None:
+        metadata["parameters"] = resolved_parameters
         metadata["parameters_digest"] = application_parameters_digest(
-            blueprint, parameters
+            blueprint, resolved_parameters
         )
     return metadata
 

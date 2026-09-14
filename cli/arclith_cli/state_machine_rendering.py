@@ -159,8 +159,11 @@ def render_state_documentation(
     return (
         f"# Blueprint state-machine `{feature}`\n\n"
         f"Cette feature applique le blueprint `state-machine` version 1 à `{entity}`.\n"
-        f"Le champ `{spec.state_field}` démarre à `{spec.initial_state}` et ses valeurs\n"
-        f"persistées sont définies par `{entity}State`.\n\n"
+        f"Le champ `{spec.state_field}` démarre à `{spec.initial_state}`. Pour une\n"
+        f"entité créée avec ce profil, `{entity}State` définit son type et ses valeurs\n"
+        "persistées. Pour une entité existante, son propre `Literal` ou enum reste\n"
+        f"le type persistant de référence ; `{entity}State` sert alors uniquement de\n"
+        "matrice interne au cycle de vie généré.\n\n"
         "## Transitions explicites\n\n"
         f"{transitions}\n\n"
         "Chaque verbe possède son propre port inbound et son propre use case. Il\n"
