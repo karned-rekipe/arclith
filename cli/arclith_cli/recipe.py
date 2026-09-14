@@ -211,6 +211,7 @@ def replay_recipe(
     prepared: list[tuple[RecipeStep, dict[str, Any]]] = []
     for step in planned_steps:
         prepared.append((step, _hydrate_step_args(step)))
+    _validate_application_blueprint_replay_metadata(prepared)
 
     executed: list[str] = []
     for step, args in prepared:
@@ -227,6 +228,24 @@ def replay_recipe(
         )
         save_recipe(copied, target_dir / RECIPE_FILENAME)
     return tuple(executed)
+
+
+def _validate_application_blueprint_replay_metadata(
+    prepared: list[tuple[RecipeStep, dict[str, Any]]],
+) -> None:
+    """Reject blueprint drift across the full selection before the first write."""
+    from arclith_cli.application_blueprint_recipe import (
+        validate_application_recipe_metadata,
+    )
+
+    for step, args in prepared:
+        blueprint_name: str | None = None
+        if step.command in {"new", "add-entity"}:
+            blueprint_name = str(args.get("profile", "minimal"))
+        elif step.command == "add-blueprint":
+            blueprint_name = str(args["blueprint"])
+        if blueprint_name is not None:
+            validate_application_recipe_metadata(blueprint_name, args)
 
 
 def plan_replay_steps(

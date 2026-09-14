@@ -148,6 +148,7 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
     )
     entity_template: str | None = None
     existing_entity_validation_version: int | None = None
+    renderer_contract: str | None = None
     if blueprint.name == "state-machine":
         from arclith_cli.state_machine_entity import (
             STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION,
@@ -163,18 +164,28 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
         existing_entity_validation_version = (
             STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION
         )
+        renderer_contract = _state_machine_renderer_contract_digest()
+    blueprint_contract = blueprint.to_dict()
+    if not blueprint.parameterized:
+        # Keep digests recorded by pre-parameterized CRUD/append-only recipes valid.
+        blueprint_contract.pop("parameterized")
     digest_contract: dict[str, object] = {
-        "blueprint": blueprint.to_dict(),
-        "entity_template": entity_template,
+        "blueprint": blueprint_contract,
         "files": {
             path.relative_to(root).as_posix(): content
             for path, content in sorted(rendered.items())
         },
     }
-    if existing_entity_validation_version is not None:
+    if (
+        entity_template is not None
+        and existing_entity_validation_version is not None
+        and renderer_contract is not None
+    ):
+        digest_contract["entity_template"] = entity_template
         digest_contract["existing_entity_validation_version"] = (
             existing_entity_validation_version
         )
+        digest_contract["renderer_contract"] = renderer_contract
     payload = json.dumps(
         digest_contract,
         ensure_ascii=False,
@@ -182,6 +193,19 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
         sort_keys=True,
     ).encode("utf-8")
     return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _state_machine_renderer_contract_digest() -> str:
+    """Hash all state-machine rendering and existing-entity validation branches."""
+    import inspect
+
+    from arclith_cli import state_machine_blueprint, state_machine_entity
+
+    source = "\0".join(
+        inspect.getsource(module)
+        for module in (state_machine_blueprint, state_machine_entity)
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(source).hexdigest()
 
 
 def canonical_blueprint_parameters(

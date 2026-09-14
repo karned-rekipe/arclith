@@ -180,13 +180,17 @@ arclith-cli add-blueprint state-machine \
 ```
 
 Le type accepté est un `Literal[...]` contenant exactement les états déclarés,
-ou un enum `InvoiceState` dont la déclaration locale/importée expose exactement
-les valeurs persistées de la spec. Le champ doit rejeter l'affectation et la
-copie générique : utiliser un modèle entièrement frozen, ou
-`ConfigDict(validate_assignment=True)` avec `Field(..., frozen=True)`, surcharger
-`model_copy` et fournir la méthode privée montrée ci-dessus. Si le champ manque,
-a un type incompatible ou reste contournable, la CLI explique la modification
-requise et ne touche à aucun fichier.
+ou un `Enum`/`StrEnum` à valeurs chaînes, quel que soit son nom (`Status`,
+`InvoiceStatus`, alias importé…), dont la déclaration locale/importée expose
+exactement les valeurs persistées de la spec. Le champ doit rejeter l'affectation
+et la copie générique : utiliser un modèle entièrement frozen, ou les vrais
+`ConfigDict` et `Field` importés de `pydantic`, surcharger `model_copy` et fournir
+la méthode privée montrée ci-dessus. La vérification résout statiquement l'origine
+de ces helpers et refuse un homonyme applicatif non prouvable. Un nom de fichier
+non canonique comme `invoice_record.py` reste accepté : les imports générés
+distinguent le module réel de l'entité du module d'état `invoice_state.py`. Si le
+champ manque, a un type incompatible ou reste contournable, la CLI explique la
+modification requise et ne touche à aucun fichier.
 
 ## Structure Générée
 
@@ -346,18 +350,21 @@ operations:
 ```
 
 `parameters` contient uniquement des valeurs JSON/YAML sûres. Le digest
-`template` détecte une évolution du renderer et versionne aussi le contrat de
-validation appliqué aux entités existantes ; le digest `parameters` identifie la
-configuration résolue. Une nouvelle spec incompatible avec un manifeste installé
-est refusée au lieu de réécrire les fichiers du développeur.
+`template` inclut le source complet des renderers, donc toutes les branches de
+génération, et versionne aussi le contrat de validation appliqué aux entités
+existantes ; le digest `parameters` identifie la configuration résolue. Une
+nouvelle spec incompatible avec un manifeste installé est refusée au lieu de
+réécrire les fichiers du développeur.
 
 `arclith.recipe.yaml` enregistre le même mapping canonique. Il n'enregistre pas
 le chemin de `invoice-lifecycle.yaml` : le replay reste portable si le fichier
 source a été déplacé ou supprimé. Avant toute écriture, le replay compare les
 deux digests obligatoires au renderer, au contrat de validation et aux paramètres
-courants ; une métadonnée absente ou une dérive est refusée explicitement. Les
-recettes non paramétrées historiques restent tolérantes à l'absence de ces
-métadonnées, et les manifests V1 restent lus sans conversion vers V2.
+courants pour toutes les étapes sélectionnées, avant même d'exécuter un éventuel
+`init` ; une métadonnée absente ou une dérive ne laisse donc aucun projet partiel.
+Les digests CRUD et append-only existants restent stables, les recettes non
+paramétrées historiques restent tolérantes à leur absence, et les manifests V1
+restent lus sans conversion vers V2.
 
 ## Faire Évoluer Une Machine En Production
 

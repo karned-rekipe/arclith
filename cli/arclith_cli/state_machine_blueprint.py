@@ -70,6 +70,7 @@ def render_state_machine_blueprint(
             paths.package_name or "",
             entity.pascal,
             entity.file_path.stem,
+            entity.snake,
             feature,
             spec,
         ),
@@ -80,6 +81,7 @@ def render_state_machine_blueprint(
             paths.package_name or "",
             entity.pascal,
             entity.file_path.stem,
+            entity.snake,
             feature,
             spec,
         ),
@@ -342,6 +344,7 @@ def _domain_test(
     package: str,
     entity: str,
     entity_module: str,
+    state_module: str,
     feature: str,
     spec: StateMachineSpec,
 ) -> str:
@@ -367,7 +370,7 @@ def _domain_test(
         f"{indent(error_imports, '    ')},\n"
         ")\n"
         f"from {prefix}domain.models.{entity_module} import {entity}\n"
-        f"from {prefix}domain.models.{entity_module}_state import {entity}State\n"
+        f"from {prefix}domain.models.{state_module}_state import {entity}State\n"
         f"from {prefix}domain.services.{feature} import {entity}Lifecycle\n\n\n"
         "ERRORS = {\n"
         f"{error_items}\n"
@@ -424,6 +427,7 @@ def _application_test(
     package: str,
     entity: str,
     entity_module: str,
+    state_module: str,
     feature: str,
     spec: StateMachineSpec,
 ) -> str:
@@ -494,7 +498,7 @@ def _application_test(
             {entity}VersionConflictError,
         )
         from {prefix}domain.models.{entity_module} import {entity}
-        from {prefix}domain.models.{entity_module}_state import {entity}State
+        from {prefix}domain.models.{state_module}_state import {entity}State
 {command_imports}
         from {prefix}domain.ports.outbound.{feature} import {entity}LifecycleStore
         from {prefix}infrastructure.containers.{feature} import (

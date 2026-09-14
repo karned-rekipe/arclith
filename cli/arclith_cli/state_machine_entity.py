@@ -191,16 +191,16 @@ def validate_existing_state_field(
         )
     if len(fields) != 1 or not _compatible_state_annotation(
         fields[0].annotation,
-        entity.pascal,
         spec,
         tree=tree,
         entity_file=entity.file_path,
     ):
         raise ValueError(
             f"Entity field {entity.pascal}.{spec.state_field} must be typed as "
-            f"{entity.pascal}State or Literal containing exactly the declared states"
+            "a statically inspectable string-valued Enum/StrEnum or Literal "
+            "containing exactly the declared states"
         )
-    if not _state_assignment_is_protected(models[0], fields[0]):
+    if not _state_assignment_is_protected(models[0], fields[0], tree=tree):
         raise ValueError(
             f"Entity field {entity.pascal}.{spec.state_field} must reject assignment; "
             "use ConfigDict(validate_assignment=True) with Field(..., frozen=True)"
@@ -215,35 +215,31 @@ def validate_existing_state_field(
 
 def _compatible_state_annotation(
     annotation: ast.expr,
-    entity: str,
     spec: StateMachineSpec,
     *,
     tree: ast.Module,
     entity_file: Path,
 ) -> bool:
-    reference = ast.unparse(annotation)
-    if reference == f"{entity}State" or reference.endswith(f".{entity}State"):
-        return _resolve_enum_values(
-            annotation,
-            tree=tree,
-            entity_file=entity_file,
-        ) == set(spec.states)
-    if not isinstance(annotation, ast.Subscript):
-        return False
-    root = ast.unparse(annotation.value)
-    if root not in {"Literal", "typing.Literal"}:
-        return False
-    values = (
-        annotation.slice.elts
-        if isinstance(annotation.slice, ast.Tuple)
-        else (annotation.slice,)
-    )
-    literal_states = {
-        value.value
-        for value in values
-        if isinstance(value, ast.Constant) and isinstance(value.value, str)
-    }
-    return len(literal_states) == len(values) and literal_states == set(spec.states)
+    if isinstance(annotation, ast.Subscript) and ast.unparse(annotation.value) in {
+        "Literal",
+        "typing.Literal",
+    }:
+        values = (
+            annotation.slice.elts
+            if isinstance(annotation.slice, ast.Tuple)
+            else (annotation.slice,)
+        )
+        literal_states = {
+            value.value
+            for value in values
+            if isinstance(value, ast.Constant) and isinstance(value.value, str)
+        }
+        return len(literal_states) == len(values) and literal_states == set(spec.states)
+    return _resolve_enum_values(
+        annotation,
+        tree=tree,
+        entity_file=entity_file,
+    ) == set(spec.states)
 
 
 def _resolve_enum_values(
@@ -337,6 +333,8 @@ def _enum_values(tree: ast.Module, symbol: str) -> set[str] | None:
 def _state_assignment_is_protected(
     model: ast.ClassDef,
     field: ast.AnnAssign,
+    *,
+    tree: ast.Module,
 ) -> bool:
     config_options: dict[str, bool] = {}
     for statement in model.body:
@@ -345,9 +343,11 @@ def _state_assignment_is_protected(
             for target in statement.targets
         ):
             continue
-        if isinstance(statement.value, ast.Call) and ast.unparse(
-            statement.value.func
-        ).endswith("ConfigDict"):
+        if isinstance(statement.value, ast.Call) and _is_pydantic_callable(
+            statement.value.func,
+            "ConfigDict",
+            tree,
+        ):
             config_options.update(
                 {
                     option.arg: option.value.value
@@ -362,13 +362,52 @@ def _state_assignment_is_protected(
     if config_options.get("validate_assignment") is not True:
         return False
     value = field.value
-    if not isinstance(value, ast.Call) or not ast.unparse(value.func).endswith("Field"):
+    if not isinstance(value, ast.Call) or not _is_pydantic_callable(
+        value.func,
+        "Field",
+        tree,
+    ):
         return False
     return any(
         option.arg == "frozen"
         and isinstance(option.value, ast.Constant)
         and option.value.value is True
         for option in value.keywords
+    )
+
+
+def _is_pydantic_callable(
+    expression: ast.expr,
+    symbol: str,
+    tree: ast.Module,
+) -> bool:
+    if isinstance(expression, ast.Name):
+        return any(
+            isinstance(statement, ast.ImportFrom)
+            and statement.level == 0
+            and statement.module == "pydantic"
+            and any(
+                imported.name == symbol
+                and (imported.asname or imported.name) == expression.id
+                for imported in statement.names
+            )
+            for statement in tree.body
+        )
+    if not (
+        isinstance(expression, ast.Attribute)
+        and expression.attr == symbol
+        and isinstance(expression.value, ast.Name)
+    ):
+        return False
+    module_alias = expression.value.id
+    return any(
+        isinstance(statement, ast.Import)
+        and any(
+            imported.name == "pydantic"
+            and (imported.asname or imported.name) == module_alias
+            for imported in statement.names
+        )
+        for statement in tree.body
     )
 
 

@@ -143,6 +143,28 @@ def test_state_machine_is_discoverable_in_text_and_json_catalogues(
     assert "spec" in entry["description"]
 
 
+@pytest.mark.parametrize(
+    ("blueprint_name", "legacy_digest"),
+    [
+        (
+            "crud",
+            "sha256:768eabfa1af1d63c6c95d4f9abff4bdd44bd4bd2ccf2c7527694f0847f3fd028",
+        ),
+        (
+            "append-only",
+            "sha256:b4e82cdeee46b04a55563ba8160f5b7324ade25c8abf06dbff2968f7fd04e4b3",
+        ),
+    ],
+)
+def test_non_parameterized_blueprint_digests_remain_recipe_compatible(
+    blueprint_name: str,
+    legacy_digest: str,
+) -> None:
+    assert application_blueprint_digest(get_application_blueprint(blueprint_name)) == (
+        legacy_digest
+    )
+
+
 def test_spec_is_canonical_and_digest_is_order_independent() -> None:
     first = StateMachineSpec.from_dict(_spec_document())
     reordered = StateMachineSpec.from_dict(
@@ -192,6 +214,22 @@ def test_template_digest_versions_existing_entity_validation(
         state_machine_entity,
         "STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION",
         state_machine_entity.STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION + 1,
+    )
+
+    assert application_blueprint_digest(blueprint) != before
+
+
+def test_template_digest_includes_the_complete_renderer_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from arclith_cli import application_blueprints
+
+    blueprint = get_application_blueprint("state-machine")
+    before = application_blueprint_digest(blueprint)
+    monkeypatch.setattr(
+        application_blueprints,
+        "_state_machine_renderer_contract_digest",
+        lambda: "sha256:" + "0" * 64,
     )
 
     assert application_blueprint_digest(blueprint) != before
@@ -493,7 +531,7 @@ def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
         "from collections.abc import Mapping\nfrom enum import Enum\n",
     ).replace(
         "class Invoice(Entity):\n",
-        "class InvoiceState(Enum):\n"
+        "class InvoiceStatus(Enum):\n"
         '    DRAFT = "draft"\n'
         '    SUBMITTED = "submitted"\n'
         '    APPROVED = "approved"\n'
@@ -501,7 +539,7 @@ def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
         "class Invoice(Entity):\n",
     )
     literal = 'Literal["draft", "submitted", "approved", "rejected"]'
-    entity.write_text(content.replace(literal, "InvoiceState"), encoding="utf-8")
+    entity.write_text(content.replace(literal, "InvoiceStatus"), encoding="utf-8")
 
     plan = plan_application_blueprint(
         project,
@@ -517,12 +555,12 @@ def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
             sys.executable,
             "-c",
             (
-                "from invoice_service.domain.models.invoice import Invoice, InvoiceState; "
+                "from invoice_service.domain.models.invoice import Invoice, InvoiceStatus; "
                 "from invoice_service.domain.services.invoice_lifecycle import "
                 "InvoiceLifecycle; "
                 "changed = InvoiceLifecycle().submit("
-                "Invoice(status=InvoiceState.DRAFT)); "
-                "assert changed.status is InvoiceState.SUBMITTED"
+                "Invoice(status=InvoiceStatus.DRAFT)); "
+                "assert changed.status is InvoiceStatus.SUBMITTED"
             ),
         ],
         cwd=project,
@@ -551,6 +589,42 @@ def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
         )
 
 
+def test_existing_imported_enum_alias_is_inspected(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    status_module = entity.with_name("invoice_status.py")
+    status_module.write_text(
+        "from enum import StrEnum\n\n\n"
+        "class Status(StrEnum):\n"
+        '    DRAFT = "draft"\n'
+        '    SUBMITTED = "submitted"\n'
+        '    APPROVED = "approved"\n'
+        '    REJECTED = "rejected"\n',
+        encoding="utf-8",
+    )
+    entity.write_text(
+        entity.read_text(encoding="utf-8")
+        .replace(
+            "from typing import Any, Literal, Self\n",
+            "from typing import Any, Literal, Self\n\n"
+            "from .invoice_status import Status as InvoiceStatus\n",
+        )
+        .replace(
+            'Literal["draft", "submitted", "approved", "rejected"]',
+            "InvoiceStatus",
+        ),
+        encoding="utf-8",
+    )
+
+    plan_application_blueprint(
+        project,
+        blueprint_name="state-machine",
+        entity_name="Invoice",
+        feature_name="invoice_lifecycle",
+        parameters=_parameters(),
+    )
+
+
 def test_existing_entity_rejects_a_deceptive_state_copy_helper(
     tmp_path: Path,
 ) -> None:
@@ -574,6 +648,29 @@ def test_existing_entity_rejects_a_deceptive_state_copy_helper(
         )
 
 
+def test_existing_entity_requires_real_pydantic_assignment_helpers(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            "from pydantic import ConfigDict, Field",
+            "from custom import ConfigDict, Field",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="must reject assignment"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
 def test_generated_matrix_supports_existing_required_business_fields(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -588,6 +685,7 @@ def test_generated_matrix_supports_existing_required_business_fields(
         ),
         encoding="utf-8",
     )
+    entity.rename(entity.with_name("invoice_record.py"))
     spec_path = _write_spec(project)
 
     result = _invoke(
@@ -830,6 +928,106 @@ def test_parameterized_recipe_requires_complete_digest_metadata_before_writes(
 
     validate_application_recipe_metadata("crud", {})
     assert not list(project.rglob("invoice.py"))
+
+
+def test_full_recipe_preflights_all_blueprint_metadata_before_init(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created = runner.invoke(app, ["init", "preflight-source", "--dir", str(tmp_path)])
+    assert created.exit_code == 0, created.output
+    project = tmp_path / "preflight-source"
+    spec_path = _write_spec(project)
+    added = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-entity",
+            "Invoice",
+            "--profile",
+            "state-machine",
+            "--spec",
+            str(spec_path),
+        ],
+    )
+    assert added.exit_code == 0, added.output
+    recipe = load_recipe(project / "arclith.recipe.yaml")
+    incomplete_step = replace(
+        recipe.steps[-1],
+        args={
+            key: value
+            for key, value in recipe.steps[-1].args.items()
+            if key != "template_digest"
+        },
+    )
+    incomplete_recipe = replace(
+        recipe,
+        steps=(*recipe.steps[:-1], incomplete_step),
+    )
+    target = tmp_path / "preflight-target"
+
+    with pytest.raises(ValueError, match="replay requires both"):
+        replay_recipe(
+            incomplete_recipe,
+            incomplete_recipe.steps,
+            target_dir=target,
+            strict=True,
+        )
+
+    assert not target.exists()
+
+
+def test_full_recipe_preflights_add_blueprint_metadata_before_init(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created = runner.invoke(
+        app,
+        ["init", "blueprint-preflight-source", "--dir", str(tmp_path)],
+    )
+    assert created.exit_code == 0, created.output
+    project = tmp_path / "blueprint-preflight-source"
+    _stateful_entity(project)
+    spec_path = _write_spec(project)
+    added = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-blueprint",
+            "state-machine",
+            "--entity",
+            "Invoice",
+            "--feature",
+            "invoice_lifecycle",
+            "--spec",
+            str(spec_path),
+        ],
+    )
+    assert added.exit_code == 0, added.output
+    recipe = load_recipe(project / "arclith.recipe.yaml")
+    incomplete_step = replace(
+        recipe.steps[-1],
+        args={
+            key: value
+            for key, value in recipe.steps[-1].args.items()
+            if key != "parameters_digest"
+        },
+    )
+    incomplete_recipe = replace(
+        recipe,
+        steps=(*recipe.steps[:-1], incomplete_step),
+    )
+    target = tmp_path / "blueprint-preflight-target"
+
+    with pytest.raises(ValueError, match="replay requires both"):
+        replay_recipe(
+            incomplete_recipe,
+            incomplete_recipe.steps,
+            target_dir=target,
+            strict=True,
+        )
+
+    assert not target.exists()
 
 
 def test_fresh_state_machine_project_compiles_and_runs_generated_tests(
