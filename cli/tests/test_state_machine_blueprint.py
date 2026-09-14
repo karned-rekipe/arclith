@@ -257,6 +257,7 @@ def test_template_digest_includes_the_complete_renderer_contract(
         "module_bindings",
         "state_machine_spec",
         "state_machine_contract",
+        "state_machine_types",
     ],
 )
 def test_template_digest_includes_every_state_machine_contract_module(
@@ -268,6 +269,7 @@ def test_template_digest_includes_every_state_machine_contract_module(
         module_bindings,
         state_machine_contract,
         state_machine_spec,
+        state_machine_types,
     )
 
     blueprint = get_application_blueprint("state-machine")
@@ -278,6 +280,7 @@ def test_template_digest_includes_every_state_machine_contract_module(
         "module_bindings": module_bindings,
         "state_machine_contract": state_machine_contract,
         "state_machine_spec": state_machine_spec,
+        "state_machine_types": state_machine_types,
     }[module_name]
 
     def changed_source(subject: object) -> str:

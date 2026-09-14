@@ -55,8 +55,14 @@ def class_scope_bindings(model: ast.ClassDef, name: str) -> tuple[ast.stmt, ...]
     return tuple(
         statement
         for statement in model.body
-        if _binds_module_name(statement, name)
+        if statement_binds_name(statement, name)
     )
+
+
+def statement_binds_name(statement: ast.stmt, name: str) -> bool:
+    """Return whether a scope-level statement binds a name."""
+
+    return _binds_module_name(statement, name)
 
 
 def state_copy_is_controlled(

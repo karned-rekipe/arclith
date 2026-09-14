@@ -207,6 +207,7 @@ def _state_machine_renderer_contract_digest() -> str:
         state_machine_entity,
         state_machine_rendering,
         state_machine_spec,
+        state_machine_types,
     )
 
     source = "\0".join(
@@ -219,6 +220,7 @@ def _state_machine_renderer_contract_digest() -> str:
             state_machine_entity,
             state_machine_rendering,
             state_machine_spec,
+            state_machine_types,
         )
     ).encode("utf-8")
     return "sha256:" + hashlib.sha256(source).hexdigest()
