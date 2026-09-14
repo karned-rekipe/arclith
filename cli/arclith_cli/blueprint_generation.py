@@ -59,6 +59,15 @@ class ApplicationBlueprintResult:
     preserved: tuple[Path, ...]
 
 
+@dataclass(frozen=True)
+class _CreatedDirectory:
+    """Filesystem identity of a directory created by the current command."""
+
+    path: Path
+    device: int
+    inode: int
+
+
 def plan_application_blueprint(
     project_dir: Path,
     *,
@@ -261,8 +270,13 @@ def apply_application_blueprint(
                 f"File changed after blueprint planning; rerun the command: {path}"
             )
     written: list[Path] = []
-    directories = _missing_parent_directories(plan.project_dir, tuple(plan.files))
+    directories: list[_CreatedDirectory] = []
     try:
+        _create_parent_directories(
+            plan.project_dir,
+            tuple(plan.files),
+            created=directories,
+        )
         for path, content in plan.files.items():
             if path == plan.manifest_path:
                 continue
@@ -315,9 +329,14 @@ def create_entity_with_application_blueprint(
             if initializer != entity_path
         },
     }
-    directories = _missing_parent_directories(plan.project_dir, tracked)
+    directories: list[_CreatedDirectory] = []
     created_paths: list[Path] = []
     try:
+        _create_parent_directories(
+            plan.project_dir,
+            tracked,
+            created=directories,
+        )
         created = add_entity_cmd(
             project_dir=plan.project_dir,
             entity_name=entity_name,
@@ -337,10 +356,12 @@ def create_entity_with_application_blueprint(
     return created
 
 
-def _missing_parent_directories(
+def _create_parent_directories(
     project_dir: Path,
     targets: tuple[Path, ...],
-) -> tuple[Path, ...]:
+    *,
+    created: list[_CreatedDirectory],
+) -> None:
     missing: set[Path] = set()
     for target in targets:
         for parent in target.parents:
@@ -348,7 +369,24 @@ def _missing_parent_directories(
                 break
             if not parent.exists():
                 missing.add(parent)
-    return tuple(sorted(missing, key=lambda path: len(path.parts), reverse=True))
+    for directory in sorted(missing, key=lambda path: len(path.parts)):
+        try:
+            directory.mkdir()
+        except FileExistsError:
+            if directory.is_symlink() or not directory.is_dir():
+                raise ValueError(
+                    "Application blueprint parent must be a directory without "
+                    f"symlinks: {directory.relative_to(project_dir)}"
+                ) from None
+            continue
+        identity = directory.lstat()
+        created.append(
+            _CreatedDirectory(
+                path=directory,
+                device=identity.st_dev,
+                inode=identity.st_ino,
+            )
+        )
 
 
 def _restore_written_files(
@@ -374,10 +412,16 @@ def _restore_written_files(
             continue
 
 
-def _remove_empty_directories(directories: tuple[Path, ...]) -> None:
-    for directory in directories:
+def _remove_empty_directories(directories: list[_CreatedDirectory]) -> None:
+    for created in reversed(directories):
         try:
-            directory.rmdir()
+            identity = created.path.lstat()
+            if (identity.st_dev, identity.st_ino) != (
+                created.device,
+                created.inode,
+            ):
+                continue
+            created.path.rmdir()
         except OSError:
             continue
 

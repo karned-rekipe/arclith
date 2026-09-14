@@ -36,6 +36,7 @@ _RESERVED_STATE_FIELDS = {
     "schema_json",
     "updated_at",
     "updated_by",
+    "update_forward_refs",
     "uuid",
     "validate",
     "version",

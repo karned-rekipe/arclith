@@ -408,6 +408,10 @@ def test_template_digest_includes_every_state_machine_contract_module(
         ({**_spec_document(), "state_field": "coerce_uuid"}, "reserved by Entity"),
         ({**_spec_document(), "state_field": "model_copy"}, "reserved by Entity"),
         ({**_spec_document(), "state_field": "model_dump"}, "reserved by Entity"),
+        (
+            {**_spec_document(), "state_field": "update_forward_refs"},
+            "reserved by Entity",
+        ),
         ({**_spec_document(), "state_field": "class"}, "public Python identifier"),
         (
             {
@@ -513,7 +517,9 @@ def test_profile_generates_typed_layers_and_parameterized_manifest(
     ).read_text(encoding="utf-8")
     assert "entité créée avec ce profil" in documentation
     assert "entité existante" in documentation
-    assert "son propre `Literal` ou enum reste" in documentation
+    assert "le champ `status` démarre" in documentation
+    assert "conserve sa valeur par" in documentation
+    assert "son propre `Literal` ou enum" in documentation
     assert not (package / "adapters/inbound/fastapi").exists()
     assert not (package / "adapters/inbound/fastmcp").exists()
 
@@ -2593,6 +2599,61 @@ def test_application_blueprint_rolls_back_prior_writes_on_io_failure(
     with pytest.raises(OSError, match="simulated write failure"):
         apply_application_blueprint(plan)
 
+    assert all(not path.exists() for path in plan.files)
+
+
+def test_blueprint_rollback_preserves_a_concurrently_created_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project(tmp_path)
+    _stateful_entity(project)
+    plan = plan_application_blueprint(
+        project,
+        blueprint_name="state-machine",
+        entity_name="Invoice",
+        feature_name="invoice_lifecycle",
+        parameters=_parameters(),
+    )
+    documentation = next(
+        path
+        for path in plan.files
+        if path.name == "invoice_lifecycle-state-machine.md"
+    )
+    raced_directory = documentation.parent
+    original_mkdir = Path.mkdir
+    original_write = blueprint_generation.write_new_text_file
+    raced = False
+
+    def create_directory_concurrently(
+        path: Path,
+        mode: int = 0o777,
+        parents: bool = False,
+        exist_ok: bool = False,
+    ) -> None:
+        nonlocal raced
+        if path == raced_directory and not raced:
+            raced = True
+            original_mkdir(path, mode=mode, parents=parents, exist_ok=exist_ok)
+        original_mkdir(path, mode=mode, parents=parents, exist_ok=exist_ok)
+
+    def fail_documentation_write(path: Path, content: str) -> None:
+        if path == documentation:
+            raise OSError("simulated documentation write failure")
+        original_write(path, content)
+
+    monkeypatch.setattr(Path, "mkdir", create_directory_concurrently)
+    monkeypatch.setattr(
+        blueprint_generation,
+        "write_new_text_file",
+        fail_documentation_write,
+    )
+
+    with pytest.raises(OSError, match="simulated documentation write failure"):
+        apply_application_blueprint(plan)
+
+    assert raced
+    assert raced_directory.is_dir()
     assert all(not path.exists() for path in plan.files)
 
 
