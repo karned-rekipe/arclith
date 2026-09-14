@@ -97,7 +97,7 @@ spécification métier plutôt que d'un catalogue statique.
 - `uv run --project cli python -m pytest cli/tests -q` : 724 tests passés ;
 - smoke test du projet généré : 19 tests passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
-- `make coverage` : 2 484 tests passés, 5 ignorés et 91,34 % sur 9 264
+- `make coverage` : 2 488 tests passés, 5 ignorés et 91,34 % sur 9 264
   statements et 2 142 branches ;
 - `make docs` : build MkDocs strict passé ;
 - `uv build cli` : sdist et wheel `arclith-cli` 0.27.0 construits ;
