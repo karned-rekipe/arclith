@@ -1,0 +1,165 @@
+version: 1
+project:
+  name: compat-sync
+  package: compat_sync
+created_at: '2026-09-14T22:31:32.211849+00:00'
+updated_at: '2026-09-14T22:31:32.310483+00:00'
+steps:
+- id: '0001'
+  at: '2026-09-14T22:31:32.214716+00:00'
+  cli_version: 0.28.0
+  command: init
+  status: success
+  args:
+    project_name: compat-sync
+    directory: .
+  result:
+    generated_files:
+    - path: .gitignore
+      action: created
+    - path: AGENTS.md
+      action: created
+    - path: ARCHITECTURE.md
+      action: created
+    - path: README.md
+      action: created
+    - path: config/adapters/adapters.yaml
+      action: created
+    - path: config/app.yaml
+      action: created
+    - path: config/soft_delete.yaml
+      action: created
+    - path: main.py
+      action: created
+    - path: pyproject.toml
+      action: created
+    - path: src/compat_sync/__init__.py
+      action: created
+    - path: src/compat_sync/adapters/__init__.py
+      action: created
+    - path: src/compat_sync/adapters/bidirectional/__init__.py
+      action: created
+    - path: src/compat_sync/adapters/inbound/__init__.py
+      action: created
+    - path: src/compat_sync/adapters/outbound/__init__.py
+      action: created
+    - path: src/compat_sync/application/__init__.py
+      action: created
+    - path: src/compat_sync/application/intent_interpreters/__init__.py
+      action: created
+    - path: src/compat_sync/application/services/__init__.py
+      action: created
+    - path: src/compat_sync/application/use_cases/__init__.py
+      action: created
+    - path: src/compat_sync/application/workflows/__init__.py
+      action: created
+    - path: src/compat_sync/domain/__init__.py
+      action: created
+    - path: src/compat_sync/domain/events/__init__.py
+      action: created
+    - path: src/compat_sync/domain/models/__init__.py
+      action: created
+    - path: src/compat_sync/domain/ports/__init__.py
+      action: created
+    - path: src/compat_sync/domain/ports/inbound/__init__.py
+      action: created
+    - path: src/compat_sync/domain/ports/outbound/__init__.py
+      action: created
+    - path: src/compat_sync/domain/value_objects/__init__.py
+      action: created
+    - path: src/compat_sync/infrastructure/__init__.py
+      action: created
+    - path: src/compat_sync/infrastructure/bootstrap/__init__.py
+      action: created
+    - path: src/compat_sync/infrastructure/containers/__init__.py
+      action: created
+    - path: src/compat_sync/infrastructure/use_cases_generated.py
+      action: created
+    - path: src/compat_sync/py.typed
+      action: created
+    - path: tests/__init__.py
+      action: created
+    - path: tests/test_project_bootstrap.py
+      action: created
+- id: '0002'
+  at: '2026-09-14T22:31:32.233721+00:00'
+  cli_version: 0.28.0
+  command: add-entity
+  status: success
+  args:
+    entity: Customer
+    profile: minimal
+  result:
+    generated_files:
+    - path: src/compat_sync/domain/models/customer.py
+      action: created
+- id: '0003'
+  at: '2026-09-14T22:31:32.310483+00:00'
+  cli_version: 0.28.0
+  command: add-blueprint
+  status: success
+  args:
+    blueprint: synchronization
+    entity: Customer
+    feature: customer_sync
+    operations:
+    - start_sync
+    - get_sync_status
+    - cancel_sync
+    - get_sync_report
+    blueprint_version: 1
+    template_digest: sha256:999c8bd42dade006347ed75ad302cdb757a59aa18ecfff3689edd7654e48db4a
+    parameters:
+      source_version: '1'
+      direction: pull
+      modes:
+      - full
+      - incremental
+      external_key: external_id
+      page_size: 100
+      conflict_policy: source_wins
+      missing_policy: deactivate
+      execution: job
+      max_full_items: 10000
+      max_pages: 1000
+    parameters_digest: sha256:bd899794b9b1f8db5190783436bdee6825f8926b9aa3584e15e984db4eed82b7
+  result:
+    generated_files:
+    - path: .arclith/features/customer_sync.yaml
+      action: created
+    - path: docs/blueprints/customer_sync-synchronization.md
+      action: created
+    - path: src/compat_sync/application/synchronization/__init__.py
+      action: created
+    - path: src/compat_sync/application/synchronization/customer_sync_mapper.py
+      action: created
+    - path: src/compat_sync/application/use_cases/cancel_sync_customer_sync.py
+      action: created
+    - path: src/compat_sync/application/use_cases/get_sync_report_customer_sync.py
+      action: created
+    - path: src/compat_sync/application/use_cases/get_sync_status_customer_sync.py
+      action: created
+    - path: src/compat_sync/application/use_cases/start_sync_customer_sync.py
+      action: created
+    - path: src/compat_sync/domain/models/customer_sync.py
+      action: created
+    - path: src/compat_sync/domain/ports/inbound/cancel_sync_customer_sync.py
+      action: created
+    - path: src/compat_sync/domain/ports/inbound/get_sync_report_customer_sync.py
+      action: created
+    - path: src/compat_sync/domain/ports/inbound/get_sync_status_customer_sync.py
+      action: created
+    - path: src/compat_sync/domain/ports/inbound/start_sync_customer_sync.py
+      action: created
+    - path: src/compat_sync/domain/ports/outbound/customer_sync_checkpoint.py
+      action: created
+    - path: src/compat_sync/domain/ports/outbound/customer_sync_source.py
+      action: created
+    - path: src/compat_sync/domain/ports/outbound/customer_sync_target.py
+      action: created
+    - path: src/compat_sync/infrastructure/containers/customer_sync.py
+      action: created
+    - path: tests/application/__init__.py
+      action: created
+    - path: tests/application/test_customer_sync_synchronization.py
+      action: created

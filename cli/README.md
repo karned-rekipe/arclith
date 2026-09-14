@@ -269,7 +269,7 @@ arclith-cli add-blueprint state-machine --entity Invoice \
 
 La première application écrit `.arclith/features/shopping_item.yaml`. Un replay
 préserve les fichiers applicatifs déjà personnalisés et complète uniquement les
-fichiers manquants. CRUD, append-only, state-machine, job et synchronization sont des comportements
+fichiers manquants. CRUD, append-only, state-machine, job, synchronization et workflow sont des comportements
 explicites ; aucun n'est inféré depuis un adapter. Voir le
 [contrat détaillé](https://karned-rekipe.github.io/arclith/blueprints/).
 
@@ -679,6 +679,38 @@ arclith-cli version
 ```
 
 ---
+
+Pour un workflow séquentiel, fournir une spec et choisir une cible explicite :
+
+```yaml
+version: 1
+context: PublicationContext
+result: PublicationResult
+steps:
+  - name: validate
+    max_attempts: 1
+  - name: publish
+    max_attempts: 2
+```
+
+```bash
+arclith-cli add-blueprint workflow --feature publication \
+  --no-entity --spec publication-workflow.yaml --dry-run
+arclith-cli add-blueprint workflow --feature publication \
+  --no-entity --spec publication-workflow.yaml
+```
+
+`--entity Document` permet aussi une feature liée à une entité. Workflow utilise
+le manifeste V3 et génère `start`, `get_status`, `cancel`, `resume`, `get_result`,
+les étapes et une projection de résultat à implémenter. Aucun transport, moteur
+ou store durable n'est installé. Les tests injectent des fakes explicites.
+
+Une reprise conserve les étapes confirmées, utilise une clé d'exécution stable
+pour les effets non confirmés et respecte le budget par étape. La définition et
+les schémas sont versionnés. Le [guide workflow](https://karned-rekipe.github.io/arclith/blueprints/workflow/)
+fournit la spec, la composition, les limites et un exemple exécutable.
+Ce blueprint exige un framework/CLI contenant les contrats Workflow ; les
+versions publiées 0.31.0 / 0.28.0 ne les fournissent pas encore.
 
 ## Configuration
 

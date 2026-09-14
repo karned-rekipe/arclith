@@ -4,6 +4,14 @@
 
 ### Added
 
+- **Blueprint workflow** (#226) — orchestration séquentielle typée, checkpoints
+  atomiques, reprise explicite, tentatives bornées, clés d'exécution stables,
+  annulation coopérative et définition/schémas fingerprintés. Ports provider-neutral
+  et store/runner mémoire non durables avec observation bornée.
+- **CLI workflow** — spec V1, cibles standalone/entity du manifeste V3, cinq
+  opérations, étapes et projection métier explicites, tests fake et recettes
+  compatibles. Guide GitHub Pages et quickstart dédiés.
+
 - **Blueprint synchronization** (#225) — réconciliation pull full/incremental
   exécutée comme Job, mapping et champs source-owned explicites, checkpoint CAS
   après page complète, rapports bornés consultables après échec et finalisation

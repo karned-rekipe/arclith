@@ -101,6 +101,13 @@ def test_crud_is_an_application_blueprint_not_an_adapter_capability() -> None:
             ],
             "parameterized": True,
         },
+        {
+            "name": "workflow",
+            "version": 1,
+            "description": "Orchestration séquentielle typée, avec checkpoints et reprise (--spec).",
+            "operations": ["start", "get_status", "cancel", "resume", "get_result"],
+            "parameterized": True,
+        },
     ]
 
 

@@ -154,7 +154,7 @@ def add_blueprint_command(
     blueprint: Annotated[
         str,
         typer.Argument(
-            help="Blueprint applicatif : crud, append-only, state-machine, job ou synchronization."
+            help="Blueprint applicatif : crud, append-only, state-machine, job, synchronization ou workflow."
         ),
     ],
     entity: Annotated[
@@ -163,7 +163,7 @@ def add_blueprint_command(
     ] = None,
     no_entity: Annotated[
         bool,
-        typer.Option("--no-entity", help="Feature job transverse, sans entité métier."),
+        typer.Option("--no-entity", help="Feature job/workflow transverse, sans entité métier."),
     ] = False,
     feature: Annotated[
         str | None,
@@ -196,8 +196,8 @@ def add_blueprint_command(
     try:
         if (entity is not None) == no_entity:
             raise ValueError("Choose exactly one of --entity and --no-entity")
-        if no_entity and get_application_blueprint(blueprint).name != "job":
-            raise ValueError("Only job supports --no-entity")
+        if no_entity and get_application_blueprint(blueprint).name not in {"job", "workflow"}:
+            raise ValueError("Only job/workflow support --no-entity")
         parameters = resolve_blueprint_parameters(
             blueprint,
             spec_path=spec,
@@ -221,7 +221,7 @@ def add_blueprint_command(
             args={
                 "blueprint": result.blueprint.name,
                 **({"entity": result.entity.pascal} if result.entity is not None else {"no_entity": True}),
-                **({"target_version": 1} if result.blueprint.name == "job" else {}),
+                **({"target_version": 1} if result.blueprint.name in {"job", "workflow"} else {}),
                 "feature": result.feature,
                 "operations": list(
                     StateMachineSpec.from_parameters(parameters).operations
@@ -267,7 +267,7 @@ def resolve_entity_profile(value: str | None, *, interactive: bool) -> str:
     if value is None and not interactive:
         return "minimal"
     if value is None:
-        labels = ["minimal", *(item.name for item in APPLICATION_BLUEPRINT_CATALOG if item.name not in {"job", "synchronization"})]
+        labels = ["minimal", *(item.name for item in APPLICATION_BLUEPRINT_CATALOG if item.name not in {"job", "synchronization", "workflow"})]
         console.print("\n[bold]Profil applicatif initial[/bold]")
         for index, label in enumerate(labels, start=1):
             console.print(f"  [cyan]{index}[/cyan]. {label}")
@@ -282,6 +282,8 @@ def resolve_entity_profile(value: str | None, *, interactive: bool) -> str:
         return normalized
     if normalized == "job":
         raise ValueError("Use add-blueprint job with --entity or --no-entity")
+    if normalized == "workflow":
+        raise ValueError("Use add-blueprint workflow with --entity or --no-entity and --spec")
     if normalized == "synchronization":
         raise ValueError("Use add-blueprint synchronization with --entity and --spec")
     return get_application_blueprint(normalized).name
@@ -344,6 +346,10 @@ def resolve_blueprint_parameters(
         from arclith_cli.job_spec import load_job_spec
 
         return load_job_spec(resolved_path).to_parameters()
+    if blueprint.name == "workflow":
+        from arclith_cli.workflow_spec import load_workflow_spec
+
+        return load_workflow_spec(resolved_path).to_parameters()
     if blueprint.name == "synchronization":
         from arclith_cli.synchronization_spec import load_synchronization_spec
 

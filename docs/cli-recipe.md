@@ -172,6 +172,12 @@ vérifie le contrat Job/Synchronization du framework avant de créer le projet ;
 une release incompatible produit une erreur explicite. Les digests, collisions
 et personnalisations suivent le même plan de génération que les autres blueprints.
 
+Le [blueprint workflow](blueprints/workflow.md) réutilise cette enveloppe de recette
+V1 et le manifeste de cible V3 de Job. L'ordre des étapes, leurs budgets, les noms
+de contexte/résultat et `definition_version` restent canoniques et fingerprintés.
+Le replay n'exécute pas les étapes métier : il génère les fichiers manquants,
+préserve les personnalisations et refuse une dérive de définition/template.
+
 Le [blueprint job](blueprints/job.md) conserve l'enveloppe de recette V1 et
 versionne ses arguments de cible avec `target_version: 1`. Il enregistre soit
 `entity`, soit `no_entity: true` avec un nom de feature obligatoire. Le manifeste

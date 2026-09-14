@@ -5,7 +5,7 @@ une technologie. Il génère une structure initiale cohérente dans le domaine,
 l'application, la composition et les tests. Le projet reste propriétaire de ces
 fichiers et doit y ajouter ses règles métier.
 
-CRUD, append-only, state-machine, job et synchronization sont les cinq blueprints fournis par
+CRUD, append-only, state-machine, job, synchronization et workflow sont les six blueprints fournis par
 Arclith. Le CRUD n'est ni le modèle universel d'une entité, ni une capability,
 ni un adapter. `state-machine` décrit l'état métier d'un agrégat ; il ne doit pas
 être confondu avec un workflow d'exécution. D'autres familles pourront être
@@ -16,7 +16,7 @@ une conversation ou un pipeline RAG.
 
 | Niveau | Question | Exemples | Commande |
 |---|---|---|---|
-| Blueprint applicatif | Quel comportement récurrent initialiser ? | CRUD, append-only, state-machine, job, synchronization | `add-blueprint` |
+| Blueprint applicatif | Quel comportement récurrent initialiser ? | CRUD, append-only, state-machine, job, synchronization, workflow | `add-blueprint` |
 | Capability | De quelle capacité technique le service a-t-il besoin ? | API, MCP, repository, agent | `capabilities` |
 | Adapter | Avec quelle technologie implémenter la capability ? | FastAPI, FastMCP, MongoDB, PostgreSQL | `add-adapter` |
 | Projection | Quel contrat public exposer sur un adapter installé ? | CRUD vers REST | `expose-feature` |
@@ -129,6 +129,16 @@ arclith-cli add-blueprint synchronization --entity Customer \
   --feature customer_sync --spec customer-sync.yaml
 ```
 
+Le blueprint [workflow](blueprints/workflow.md) réutilise les cibles du manifeste
+V3. Il orchestre des étapes séquentielles injectées avec checkpoint après succès,
+reprise explicite et clé d’exécution stable. Les étapes métier et la projection
+du résultat restent à compléter. Le store/runner mémoire est non durable.
+
+```bash
+arclith-cli add-blueprint workflow --feature document_publication \
+  --no-entity --spec document-publication-workflow.yaml
+```
+
 La sortie `arclith-cli blueprints --json` expose `parameterized` pour que les
 outils sachent si une entrée externe comme `--spec` est requise, sans déduire ce
 contrat d'une liste d'opérations vide.
@@ -171,7 +181,8 @@ ne prétend pas rendre atomique un repository qui ne possède pas ce contrat.
 Consulter le [blueprint CRUD](blueprints/crud.md), le
 [blueprint append-only](blueprints/append-only.md), le
 [blueprint state-machine](blueprints/state-machine.md), le
-[blueprint job](blueprints/job.md) et le
-[blueprint synchronization](blueprints/synchronization.md) pour leurs contrats détaillés
+[blueprint job](blueprints/job.md), le
+[blueprint synchronization](blueprints/synchronization.md) et le
+[blueprint workflow](blueprints/workflow.md) pour leurs contrats détaillés
 et les [blueprints des adapters](deep-dives/adapter-blueprints.md) pour la
 structure des implémentations techniques.

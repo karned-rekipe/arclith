@@ -1,0 +1,7 @@
+{
+  "append-only": "sha256:b4e82cdeee46b04a55563ba8160f5b7324ade25c8abf06dbff2968f7fd04e4b3",
+  "crud": "sha256:768eabfa1af1d63c6c95d4f9abff4bdd44bd4bd2ccf2c7527694f0847f3fd028",
+  "job": "sha256:bc222a9ff8816732dc8468b117d1dab94de9d9692dd94e1c7dafe7979863b0f1",
+  "state-machine": "sha256:41d495d9b5260515d545b4f88417014f0f1f0e4737cf81baf8dee77719a78767",
+  "synchronization": "sha256:999c8bd42dade006347ed75ad302cdb757a59aa18ecfff3689edd7654e48db4a"
+}
