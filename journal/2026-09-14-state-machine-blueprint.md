@@ -17,19 +17,21 @@ spécification métier plutôt que d'un catalogue statique.
 - Chaque transition devient une méthode de domaine, un port inbound et un use
   case nommés. Aucun dispatcher dynamique par chaîne n'est introduit.
 - Le champ d'état créé avec l'entité est typé, validé à l'affectation et frozen.
-  Une entité existante doit fournir explicitement un enum ou un `Literal` protégé ;
-  la CLI ne patche pas son fichier.
+  `model_copy` rejette aussi ce champ ; le service passe par une copie privée
+  dédiée. Une entité existante doit fournir explicitement un enum vérifiable ou
+  un `Literal` avec les mêmes protections ; la CLI ne patche pas son fichier.
 - La persistance dépend d'un port outbound spécialisé `compare_and_swap`. Son
   contrat exige une comparaison atomique de version ; une lecture suivie d'un
   update inconditionnel n'est pas présentée comme sûre.
 - Le manifeste paramétré passe en version 2 et embarque `parameters`, le digest
   du template et le digest des paramètres. Les manifests V1 restent strictement
   lisibles et rejouables sans conversion.
-- La recette stocke la configuration résolue, jamais le chemin de `--spec`.
+- La recette stocke la configuration résolue, jamais le chemin de `--spec`, et
+  ses digests sont vérifiés avant toute écriture de replay.
 
 ## Validation
 
-- `uv run --project cli python -m pytest cli/tests -q` : 562 tests passés ;
+- `uv run --project cli python -m pytest cli/tests -q` : 567 tests passés ;
 - tests générés dans le smoke test : 17 tests domaine/application passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
 - `make coverage` : 2 472 tests passés, 5 ignorés et 91,34 % sur 9 264
@@ -37,4 +39,5 @@ spécification métier plutôt que d'un catalogue statique.
 - `make docs` : build MkDocs strict passé ;
 - `uv build cli` : sdist et wheel `arclith-cli` 0.27.0 construits ;
 - installation isolée sans cache du wheel, génération et compilation d'un projet
-  frais contre `arclith` 0.30.0, puis transition `draft -> submitted` vérifiée.
+  frais contre `arclith` 0.30.0, puis refus de la copie générique et transition
+  `draft -> submitted` vérifiés.

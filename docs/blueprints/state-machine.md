@@ -65,9 +65,10 @@ calculer les digests et de générer les fichiers. Deux specs qui ne diffèrent 
 par l'ordre de leurs listes produisent donc la même configuration résolue.
 
 Les champs techniques d'`Entity`, notamment `uuid`, `version`, les champs
-d'audit et de soft-delete, ne peuvent pas devenir `state_field`. Un mot-clé
-Python, un nom privé, une transition dupliquée, une cible inconnue ou un état
-inaccessible arrête tout le plan avant la première écriture.
+d'audit et de soft-delete, ainsi que les attributs protégés Pydantic `model_*`,
+ne peuvent pas devenir `state_field`. Un mot-clé Python, un nom privé, une
+transition dupliquée, une cible inconnue ou un état inaccessible arrête tout le
+plan avant la première écriture.
 
 ## Créer L'entité Et Le Cycle De Vie Ensemble
 
@@ -87,6 +88,9 @@ arclith-cli add-entity Invoice \
 Le modèle créé contient le champ typé et protégé :
 
 ```python
+from collections.abc import Mapping
+from typing import Any, Self
+
 from pydantic import ConfigDict, Field
 
 from arclith.domain.models.entity import Entity
@@ -100,12 +104,28 @@ class Invoice(Entity):
         default=InvoiceState.DRAFT,
         frozen=True,
     )
+
+    def model_copy(
+        self,
+        *,
+        update: Mapping[str, Any] | None = None,
+        deep: bool = False,
+    ) -> Self:
+        if update is not None and "status" in update:
+            raise ValueError("status changes must use the generated lifecycle")
+        return super().model_copy(update=update, deep=deep)
+
+    def _copy_with_status(self, target: InvoiceState) -> Self:
+        return super().model_copy(update={"status": target})
 ```
 
 `validate_assignment=True` et `Field(frozen=True)` empêchent
-`invoice.status = ...`. Seul le service de cycle de vie génère un nouveau
-candidat avec `model_copy`. Le modèle reste une `Entity` Arclith et conserve son
-UUIDv7, son audit, son soft-delete et sa version optimiste.
+`invoice.status = ...`. La surcharge de `model_copy` refuse aussi une mise à jour
+générique du champ ; seul le service de cycle de vie appelle la méthode privée de
+copie contrôlée. Les primitives Pydantic de bas niveau appelées directement sur
+la classe de base, comme `BaseModel.model_construct`, restent hors du contrat
+métier. Le modèle reste une `Entity` Arclith et conserve son UUIDv7, son audit,
+son soft-delete et sa version optimiste.
 
 Ajouter ensuite les autres champs et invariants métier dans `Invoice`. Ne pas
 remplacer le champ protégé par un `str` libre ni ajouter un setter générique.
@@ -116,7 +136,8 @@ La V1 ne patche jamais silencieusement un fichier métier existant. Préparer le
 champ, puis appliquer le blueprint :
 
 ```python
-from typing import Literal
+from collections.abc import Mapping
+from typing import Any, Literal, Self
 
 from pydantic import ConfigDict, Field
 
@@ -130,6 +151,19 @@ class Invoice(Entity):
         default="draft",
         frozen=True,
     )
+
+    def model_copy(
+        self,
+        *,
+        update: Mapping[str, Any] | None = None,
+        deep: bool = False,
+    ) -> Self:
+        if update is not None and "status" in update:
+            raise ValueError("status changes must use the generated lifecycle")
+        return super().model_copy(update=update, deep=deep)
+
+    def _copy_with_status(self, target: str) -> Self:
+        return super().model_copy(update={"status": target})
 ```
 
 ```bash
@@ -146,10 +180,13 @@ arclith-cli add-blueprint state-machine \
 ```
 
 Le type accepté est un `Literal[...]` contenant exactement les états déclarés,
-ou un enum `InvoiceState`. Le champ doit rejeter l'affectation : utiliser un
-modèle entièrement frozen, ou `ConfigDict(validate_assignment=True)` avec
-`Field(..., frozen=True)`. Si le champ manque, a un type incompatible ou reste
-assignable, la CLI explique la modification requise et ne touche à aucun fichier.
+ou un enum `InvoiceState` dont la déclaration locale/importée expose exactement
+les valeurs persistées de la spec. Le champ doit rejeter l'affectation et la
+copie générique : utiliser un modèle entièrement frozen, ou
+`ConfigDict(validate_assignment=True)` avec `Field(..., frozen=True)`, surcharger
+`model_copy` et fournir la méthode privée montrée ci-dessus. Si le champ manque,
+a un type incompatible ou reste contournable, la CLI explique la modification
+requise et ne touche à aucun fichier.
 
 ## Structure Générée
 
@@ -209,8 +246,9 @@ politique métier explicite si le contrôle dépend d'un port. Ne jamais déplac
 le contrôle d'état dans un router ou un handler de transport : tous les appels
 au cœur applicatif doivent obtenir le même résultat.
 
-Le service retourne une copie. Si une garde échoue, l'objet chargé reste dans
-son état d'origine et le port de persistance n'est pas appelé.
+Le service retourne une copie via `_copy_with_status`. Si une garde échoue,
+l'objet chargé reste dans son état d'origine et le port de persistance n'est pas
+appelé.
 
 ## Concurrence Et Compare-and-swap
 
@@ -247,6 +285,11 @@ toutes les transitions. Pour chaque paire :
 Les tests applicatifs distinguent not-found, conflit de version et transition
 interdite. Ils vérifient aussi qu'aucune écriture n'a lieu après une erreur et
 qu'un CAS réussi incrémente la version.
+
+Les fixtures générées utilisent `model_construct` uniquement pour isoler la
+matrice de cycle de vie sans inventer de valeurs pour les champs métier requis
+d'une entité existante. Les tests de gardes propres au projet doivent, eux,
+construire des instances validées avec des valeurs métier représentatives.
 
 Après génération :
 
@@ -302,8 +345,10 @@ installé est refusée au lieu de réécrire les fichiers du développeur.
 
 `arclith.recipe.yaml` enregistre le même mapping canonique. Il n'enregistre pas
 le chemin de `invoice-lifecycle.yaml` : le replay reste portable si le fichier
-source a été déplacé ou supprimé. Les manifests V1 existants restent lus et
-rejoués sans conversion vers V2.
+source a été déplacé ou supprimé. Avant toute écriture, le replay compare les
+digests enregistrés au renderer et aux paramètres courants ; une dérive est
+refusée explicitement. Les manifests V1 existants restent lus et rejoués sans
+conversion vers V2.
 
 ## Faire Évoluer Une Machine En Production
 

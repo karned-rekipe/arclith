@@ -233,8 +233,9 @@ arclith-cli add-blueprint state-machine --entity Invoice \
   --feature invoice_lifecycle --spec invoice-lifecycle.yaml
 ```
 
-Le manifeste V2 et la recette embarquent les paramètres résolus, pas le chemin
-local de la spec. Aucun adapter ou transport n'est ajouté. Consulter le
+Le modèle généré refuse l'affectation et les mises à jour `model_copy` génériques
+du champ d'état. Le manifeste V2 et la recette embarquent les paramètres résolus,
+pas le chemin local de la spec. Aucun adapter ou transport n'est ajouté. Consulter le
 [contrat state-machine](https://karned-rekipe.github.io/arclith/blueprints/state-machine/)
 pour les gardes, le CAS et l'évolution des états persistés.
 

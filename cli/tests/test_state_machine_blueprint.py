@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,10 @@ import yaml
 from typer.testing import CliRunner
 
 from arclith_cli.application_blueprint_recipe import replay_add_entity_step
-from arclith_cli.application_blueprints import get_application_blueprint
+from arclith_cli.application_blueprints import (
+    application_blueprint_digest,
+    get_application_blueprint,
+)
 from arclith_cli.blueprint_generation import plan_application_blueprint
 from arclith_cli.core_scaffold import add_entity_cmd
 from arclith_cli.feature_manifest import load_feature_manifest
@@ -72,13 +76,25 @@ def _invoke(
 def _stateful_entity(project: Path) -> Path:
     entity = add_entity_cmd(project_dir=project, entity_name="Invoice")
     entity.write_text(
-        "from typing import Literal\n\n"
+        "from collections.abc import Mapping\n"
+        "from typing import Any, Literal, Self\n\n"
         "from pydantic import ConfigDict, Field\n\n"
         "from arclith.domain.models.entity import Entity\n\n\n"
         "class Invoice(Entity):\n"
         "    model_config = ConfigDict(validate_assignment=True)\n"
         '    status: Literal["draft", "submitted", "approved", "rejected"] = '
-        'Field(default="draft", frozen=True)\n',
+        'Field(default="draft", frozen=True)\n\n'
+        "    def model_copy(\n"
+        "        self,\n"
+        "        *,\n"
+        "        update: Mapping[str, Any] | None = None,\n"
+        "        deep: bool = False,\n"
+        "    ) -> Self:\n"
+        '        if update is not None and "status" in update:\n'
+        '            raise ValueError("status changes must use the lifecycle")\n'
+        "        return super().model_copy(update=update, deep=deep)\n\n"
+        "    def _copy_with_status(self, target: str) -> Self:\n"
+        '        return super().model_copy(update={"status": target})\n',
         encoding="utf-8",
     )
     return entity
@@ -104,6 +120,7 @@ def test_state_machine_is_discoverable_in_text_and_json_catalogues(
         if item["name"] == "state-machine"
     )
     assert entry["operations"] == []
+    assert entry["parameterized"] is True
     assert "spec" in entry["description"]
 
 
@@ -127,6 +144,22 @@ def test_spec_is_canonical_and_digest_is_order_independent() -> None:
     assert first.operations == ("approve", "reject", "submit")
     assert first.digest() == reordered.digest()
     assert re.fullmatch(r"sha256:[0-9a-f]{64}", first.digest())
+
+
+def test_template_digest_covers_the_generated_entity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from arclith_cli import state_machine_entity
+
+    blueprint = get_application_blueprint("state-machine")
+    before = application_blueprint_digest(blueprint)
+    monkeypatch.setattr(
+        state_machine_entity,
+        "render_state_machine_entity",
+        lambda *_args: "# changed entity template\n",
+    )
+
+    assert application_blueprint_digest(blueprint) != before
 
 
 @pytest.mark.parametrize(
@@ -174,6 +207,8 @@ def test_spec_is_canonical_and_digest_is_order_independent() -> None:
             "unreachable: orphan",
         ),
         ({**_spec_document(), "state_field": "version"}, "reserved by Entity"),
+        ({**_spec_document(), "state_field": "model_copy"}, "reserved by Entity"),
+        ({**_spec_document(), "state_field": "model_dump"}, "reserved by Entity"),
         ({**_spec_document(), "state_field": "class"}, "public Python identifier"),
         (
             {
@@ -329,6 +364,25 @@ def test_missing_or_unprotected_existing_state_field_is_rejected_without_writes(
             parameters=_parameters(),
         )
 
+    entity.write_text(
+        "from typing import Literal\n"
+        "from pydantic import ConfigDict, Field\n"
+        "from arclith.domain.models.entity import Entity\n\n"
+        "class Invoice(Entity):\n"
+        "    model_config = ConfigDict(validate_assignment=True)\n"
+        '    status: Literal["draft", "submitted", "approved", "rejected"] = '
+        'Field(default="draft", frozen=True)\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="reject generic model_copy updates"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
 
 def test_existing_compatible_entity_is_preserved(
     tmp_path: Path,
@@ -357,6 +411,104 @@ def test_existing_compatible_entity_is_preserved(
     assert result.exit_code == 0, result.output
     assert entity.read_bytes() == original
     assert (project / ".arclith/features/invoice_lifecycle.yaml").is_file()
+
+
+def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    content = entity.read_text(encoding="utf-8")
+    content = content.replace(
+        "from collections.abc import Mapping\n",
+        "from collections.abc import Mapping\nfrom enum import StrEnum\n",
+    ).replace(
+        "class Invoice(Entity):\n",
+        "class InvoiceState(StrEnum):\n"
+        '    DRAFT = "draft"\n'
+        '    SUBMITTED = "submitted"\n'
+        '    APPROVED = "approved"\n'
+        '    REJECTED = "rejected"\n\n\n'
+        "class Invoice(Entity):\n",
+    )
+    literal = 'Literal["draft", "submitted", "approved", "rejected"]'
+    entity.write_text(content.replace(literal, "InvoiceState"), encoding="utf-8")
+
+    plan_application_blueprint(
+        project,
+        blueprint_name="state-machine",
+        entity_name="Invoice",
+        feature_name="invoice_lifecycle",
+        parameters=_parameters(),
+    )
+
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace('    APPROVED = "approved"\n', ""),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="Literal containing exactly"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+def test_generated_matrix_supports_existing_required_business_fields(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    framework_root = Path(__file__).resolve().parents[2]
+    project = _project(tmp_path, "required-field-service")
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            'Field(default="draft", frozen=True)\n\n',
+            'Field(default="draft", frozen=True)\n    amount: int\n\n',
+        ),
+        encoding="utf-8",
+    )
+    spec_path = _write_spec(project)
+
+    result = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-blueprint",
+            "state-machine",
+            "--entity",
+            "Invoice",
+            "--feature",
+            "invoice_lifecycle",
+            "--spec",
+            str(spec_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-p",
+            "pytest_asyncio.plugin",
+            "tests/domain/test_invoice_lifecycle.py",
+            "tests/application/test_invoice_lifecycle_use_cases.py",
+            "-q",
+        ],
+        cwd=project,
+        env={
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join((str(project / "src"), str(framework_root))),
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
 def test_invalid_spec_and_dry_run_have_no_side_effects(
@@ -529,6 +681,17 @@ def test_profile_collision_is_atomic_and_recipe_replay_needs_no_spec_file(
     )
     assert "spec" not in step.args
     assert re.fullmatch(r"sha256:[0-9a-f]{64}", step.args["parameters_digest"])
+
+    drift_target = _project(tmp_path, "recipe-drift")
+    drifted_parameters = dict(step.args["parameters"])
+    drifted_parameters["state_field"] = "phase"
+    with pytest.raises(ValueError, match="parameters digest drift"):
+        replay_add_entity_step(
+            drift_target,
+            {**step.args, "parameters": drifted_parameters},
+        )
+    assert not (drift_target / "src/recipe_drift/domain/models/invoice.py").exists()
+
     spec_path.unlink()
 
     replay_target = _project(tmp_path, "recipe-replay")
@@ -564,6 +727,7 @@ def test_fresh_state_machine_project_compiles_and_runs_generated_tests(
     }
     for command in (
         [sys.executable, "-m", "compileall", "-q", "src"],
+        [sys.executable, "-m", "ruff", "check", "src", "tests"],
         [sys.executable, "-m", "pytest", "-p", "pytest_asyncio.plugin", "tests", "-q"],
     ):
         completed = subprocess.run(
@@ -608,6 +772,25 @@ def test_new_state_machine_profile_records_portable_parameters(tmp_path: Path) -
     assert recipe.steps[0].command == "new"
     assert recipe.steps[0].args["parameters"] == manifest.parameters
     assert "spec" not in recipe.steps[0].args
+
+    recorded = recipe.steps[0]
+    drifted_step = replace(
+        recorded,
+        args={
+            **recorded.args,
+            "template_digest": "sha256:" + "0" * 64,
+        },
+    )
+    drifted_recipe = replace(recipe, steps=(drifted_step,))
+    drift_target = tmp_path / "new-digest-drift"
+    with pytest.raises(ValueError, match="template digest drift"):
+        replay_recipe(
+            drifted_recipe,
+            drifted_recipe.steps,
+            target_dir=drift_target,
+            strict=True,
+        )
+    assert not drift_target.exists()
 
 
 def test_state_machine_requires_spec_and_non_parameterized_blueprints_reject_it(

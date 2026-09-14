@@ -155,7 +155,7 @@ def _transition_methods(
                 target = type(entity.{spec.state_field})(
                     {entity}State.{transition.target.upper()}.value
                 )
-                return entity.model_copy(update={{"{spec.state_field}": target}})
+                return entity._copy_with_{spec.state_field}(target)
 
             def _ensure_{transition.name}_preconditions(self, entity: {entity}) -> None:
                 """Add project-owned guards here; the state guard already ran."""
@@ -370,6 +370,13 @@ def _domain_test(
         "TRANSITION_MATRIX = (\n"
         f"{matrix}\n"
         ")\n\n\n"
+        f"def make_{_snake_entity(entity)}(\n"
+        f'    state: str = "{spec.initial_state}",\n'
+        f") -> {entity}:\n"
+        '    """Isolate lifecycle tests without guessing required business fields."""\n'
+        f"    return {entity}.model_construct(\n"
+        f"        {spec.state_field}={entity}State(state),\n"
+        "    )\n\n\n"
         '@pytest.mark.parametrize(("state", "operation", "target"), TRANSITION_MATRIX)\n'
         f"def test_{feature}_transition_matrix(\n"
         "    state: str,\n"
@@ -377,7 +384,7 @@ def _domain_test(
         "    target: str | None,\n"
         ") -> None:\n"
         f"    lifecycle = {entity}Lifecycle()\n"
-        f"    original = {entity}({spec.state_field}={entity}State(state))\n"
+        f"    original = make_{_snake_entity(entity)}(state)\n"
         "    transition = getattr(lifecycle, operation)\n\n"
         "    if target is None:\n"
         "        with pytest.raises(ERRORS[operation]):\n"
@@ -388,19 +395,21 @@ def _domain_test(
         f"    assert changed.{spec.state_field} == {entity}State(target)\n"
         f"    assert original.{spec.state_field} == {entity}State(state)\n\n\n"
         f"def test_{feature}_status_rejects_arbitrary_assignment() -> None:\n"
-        f"    entity = {entity}()\n\n"
+        f"    entity = make_{_snake_entity(entity)}()\n\n"
         '    with pytest.raises(ValidationError, match="frozen"):\n'
         f'        setattr(entity, "{spec.state_field}", '
-        f"{entity}State.{first.target.upper()})\n\n\n"
+        f"{entity}State.{first.target.upper()})\n"
+        '    with pytest.raises(ValueError, match="lifecycle"):\n'
+        f"        entity.model_copy(\n"
+        f'            update={{"{spec.state_field}": {entity}State.{first.target.upper()}}}\n'
+        "        )\n\n\n"
         f"def test_{feature}_business_precondition_extension_is_explicit() -> None:\n"
         f"    class GuardedLifecycle({entity}Lifecycle):\n"
         f"        def _ensure_{first.name}_preconditions(\n"
         f"            self, entity: {entity}\n"
         "        ) -> None:\n"
         '            raise RuntimeError("project-owned guard")\n\n'
-        f"    entity = {entity}(\n"
-        f"        {spec.state_field}={entity}State.{first.sources[0].upper()}\n"
-        "    )\n"
+        f'    entity = make_{_snake_entity(entity)}("{first.sources[0]}")\n'
         '    with pytest.raises(RuntimeError, match="project-owned guard"):\n'
         f"        GuardedLifecycle().{first.name}(entity)\n"
     )
@@ -420,12 +429,6 @@ def _application_test(
         if spec.initial_state in transition.sources
     )
     operation_class = EntityNames.from_input(entry.name).pascal
-    command_imports = "\n".join(
-        "        from "
-        f"{prefix}domain.ports.inbound.{transition.name}_{_snake_entity(entity)} "
-        f"import {EntityNames.from_input(transition.name).pascal}{entity}Command"
-        for transition in spec.transitions
-    )
     forbidden = next(
         (
             (transition, state)
@@ -434,6 +437,15 @@ def _application_test(
             if state not in transition.sources
         ),
         None,
+    )
+    used_transitions = [entry]
+    if forbidden is not None and forbidden[0].name != entry.name:
+        used_transitions.append(forbidden[0])
+    command_imports = "\n".join(
+        "        from "
+        f"{prefix}domain.ports.inbound.{transition.name}_{_snake_entity(entity)} "
+        f"import {EntityNames.from_input(transition.name).pascal}{entity}Command"
+        for transition in used_transitions
     )
     forbidden_test = ""
     if forbidden is not None:
@@ -445,9 +457,7 @@ def _application_test(
 
             @pytest.mark.asyncio
             async def test_forbidden_transition_does_not_persist_partial_state() -> None:
-                item = {entity}(
-                    {spec.state_field}={entity}State.{forbidden_state.upper()}
-                )
+                item = make_{_snake_entity(entity)}("{forbidden_state}")
                 store = FakeStore(item)
                 use_cases = build_{feature}_use_cases(store)
 
@@ -487,6 +497,15 @@ def _application_test(
         )
 
 
+        def make_{_snake_entity(entity)}(
+            state: str = "{spec.initial_state}",
+        ) -> {entity}:
+            # Isolate lifecycle tests without guessing required business fields.
+            return {entity}.model_construct(
+                {spec.state_field}={entity}State(state),
+            )
+
+
         class FakeStore({entity}LifecycleStore):
             def __init__(self, item: {entity} | None) -> None:
                 self.item = item
@@ -517,7 +536,7 @@ def _application_test(
 
         @pytest.mark.asyncio
         async def test_transition_loads_applies_and_compare_and_swaps() -> None:
-            item = {entity}()
+            item = make_{_snake_entity(entity)}()
             store = FakeStore(item)
             use_cases = build_{feature}_use_cases(store)
 
@@ -546,7 +565,7 @@ def _application_test(
             with pytest.raises({entity}NotFoundError):
                 await missing_use_cases.{entry.name}.execute(command)
 
-            item = {entity}()
+            item = make_{_snake_entity(entity)}()
             stale = FakeStore(item)
             stale_use_cases = build_{feature}_use_cases(stale)
             with pytest.raises({entity}VersionConflictError):

@@ -70,6 +70,7 @@ def test_append_only_is_discoverable_in_text_and_json_catalogues(
         "version": 1,
         "description": "Faits immuables avec append idempotent et conflit explicite.",
         "operations": ["append"],
+        "parameterized": False,
     }
 
 

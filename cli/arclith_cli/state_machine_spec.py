@@ -16,16 +16,27 @@ from arclith_cli.rename import EntityNames
 
 STATE_MACHINE_SPEC_VERSION = 1
 _RESERVED_STATE_FIELDS = {
+    "construct",
+    "copy",
     "created_at",
     "created_by",
     "deleted_at",
     "deleted_by",
+    "dict",
+    "from_orm",
     "is_deleted",
+    "json",
     "model_config",
     "model_fields",
+    "parse_file",
+    "parse_obj",
+    "parse_raw",
+    "schema",
+    "schema_json",
     "updated_at",
     "updated_by",
     "uuid",
+    "validate",
     "version",
 }
 
@@ -94,9 +105,9 @@ class StateMachineSpec:
                 "state-machine spec.version must be the supported integer version 1"
             )
         state_field = _identifier(data["state_field"], "state-machine state_field")
-        if state_field in _RESERVED_STATE_FIELDS:
+        if state_field in _RESERVED_STATE_FIELDS or state_field.startswith("model_"):
             raise ValueError(
-                f"state-machine state_field {state_field!r} is reserved by Entity"
+                f"state-machine state_field {state_field!r} is reserved by Entity/Pydantic"
             )
         raw_states = data["states"]
         if not isinstance(raw_states, list) or len(raw_states) < 2:

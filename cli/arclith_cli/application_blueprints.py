@@ -31,6 +31,7 @@ class ApplicationBlueprintSpec:
             "version": self.version,
             "description": self.description,
             "operations": list(self.operations),
+            "parameterized": self.parameterized,
         }
 
 
@@ -145,9 +146,20 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
         parameters,
         creating_entity=True,
     )
+    entity_template: str | None = None
+    if blueprint.name == "state-machine":
+        from arclith_cli.state_machine_entity import render_state_machine_entity
+        from arclith_cli.state_machine_spec import StateMachineSpec
+
+        entity_template = render_state_machine_entity(
+            paths,
+            entity,
+            StateMachineSpec.from_parameters(parameters),
+        )
     payload = json.dumps(
         {
             "blueprint": blueprint.to_dict(),
+            "entity_template": entity_template,
             "files": {
                 path.relative_to(root).as_posix(): content
                 for path, content in sorted(rendered.items())

@@ -288,8 +288,13 @@ def _execute_step(
         )
         return
     if step.command == "new":
+        from arclith_cli.application_blueprint_recipe import (
+            validate_application_recipe_metadata,
+        )
         from arclith_cli.new_project import new_project_cmd
 
+        profile = str(args.get("profile", "minimal"))
+        validate_application_recipe_metadata(profile, args)
         new_project_cmd(
             entity=str(args["entity"]),
             project_name=str(args.get("project_name") or target_dir.name),
@@ -297,7 +302,7 @@ def _execute_step(
             port=int(args.get("port", 8000)),
             repo_ref=str(args.get("repo_ref", "main")),
             template_dir=None,
-            profile=str(args.get("profile", "minimal")),
+            profile=profile,
             parameters=(
                 args["parameters"] if isinstance(args.get("parameters"), dict) else None
             ),

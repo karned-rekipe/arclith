@@ -107,6 +107,10 @@ La recette et le manifeste embarquent les valeurs canoniques, jamais le chemin
 absolu du fichier `--spec`. Les manifests version 1 CRUD et append-only restent
 lisibles et rejouables tels quels, sans migration implicite.
 
+La sortie `arclith-cli blueprints --json` expose `parameterized` pour que les
+outils sachent si une entrée externe comme `--spec` est requise, sans déduire ce
+contrat d'une liste d'opérations vide.
+
 Après installation explicite de FastAPI, le CRUD peut être projeté comme un
 ensemble REST cohérent :
 
