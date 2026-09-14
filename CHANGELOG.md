@@ -4,6 +4,34 @@
 
 ---
 
+## [0.30.0] — 2026-09-14
+
+### Added
+
+- **Blueprint append-only** — second archétype applicatif opt-in pour les faits
+  immuables, via `add-entity` / `new --profile append-only` ou `add-blueprint`.
+  Génère contrats typés, use case, composition explicite, tests et documentation,
+  sans transport, query ni backend durable implicite.
+- **Contrat de faits immuables** — `ImmutableRecord` distingue UUID, temps métier
+  obligatoire et temps d'enregistrement UTC ; `AppendOnlyStore[T]` expose un append
+  idempotent avec conflits explicites et empreinte canonique partagée.
+- **Store mémoire de référence** — snapshots isolés, contrôle du contrat technique
+  à l'exécution et protection des replays concurrents d'une même boucle asyncio.
+
+### Fixed
+
+- **Génération sûre** — collisions de cibles et parents détectées avant écriture,
+  reconnaissance du véritable `ImmutableRecord` Arclith, préservation des variables
+  locales dans les méthodes métier et refus des champs techniques redéfinis.
+
+### Changed
+
+- **Versions release** — `arclith` passe à `0.30.0` ; `arclith-cli` passe à
+  `0.27.0` et dépend de `arclith>=0.30.0`. Les manifestes restent en version 1,
+  les anciennes recettes sans profil conservent le comportement minimal.
+
+---
+
 ## [0.29.1] — 2026-09-13
 
 ### Fixed

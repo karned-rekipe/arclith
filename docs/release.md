@@ -62,8 +62,8 @@ Une fois la PR de release mergée :
 ```bash
 git switch main
 git pull --ff-only
-git tag -s v0.29.1 -m "Release v0.29.1"
-git push origin v0.29.1
+git tag -s v0.30.0 -m "Release v0.30.0"
+git push origin v0.30.0
 ```
 
 Le tag déclenche `.github/workflows/publish.yml`. Le workflow exécute :
@@ -85,12 +85,17 @@ Puis valider depuis un environnement consommateur isolé :
 ```bash
 tmp_dir="$(mktemp -d)"
 cd "$tmp_dir"
-uvx --from arclith-cli==0.26.1 arclith-cli init pantry-agent --dir .
+uvx --from arclith-cli==0.27.0 arclith-cli init pantry-agent --dir .
 cd pantry-agent
 uv sync
 uv run python -c "import arclith; print(arclith.__version__ if hasattr(arclith, '__version__') else 'arclith import ok')"
-uvx --from arclith-cli==0.26.1 arclith-cli capabilities
-uvx --from arclith-cli==0.26.1 arclith-cli add-entity ShoppingItem --profile crud
-uvx --from arclith-cli==0.26.1 arclith-cli add-adapter --capability api --adapter fastapi --yes
-uvx --from arclith-cli==0.26.1 arclith-cli expose-feature shopping_item --via fastapi --path /v1/shopping-items
+uvx --from arclith-cli==0.27.0 arclith-cli capabilities
+uvx --from arclith-cli==0.27.0 arclith-cli add-entity ShoppingItem --profile crud
+uvx --from arclith-cli==0.27.0 arclith-cli add-adapter --capability api --adapter fastapi --yes
+uvx --from arclith-cli==0.27.0 arclith-cli expose-feature shopping_item --via fastapi --path /v1/shopping-items
 ```
+
+Pour vérifier le nouvel archétype sans transport, créer séparément un service
+avec `new Measurement measurement-service --profile append-only`, synchroniser
+ses dépendances publiques puis exécuter `uv run pytest -q`. Le smoke doit aussi
+vérifier le rejeu `duplicate` et le conflit de contenu sur une même clé.
