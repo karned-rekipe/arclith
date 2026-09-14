@@ -95,7 +95,15 @@ uvx --from arclith-cli==0.27.0 arclith-cli add-adapter --capability api --adapte
 uvx --from arclith-cli==0.27.0 arclith-cli expose-feature shopping_item --via fastapi --path /v1/shopping-items
 ```
 
-Pour vérifier le nouvel archétype sans transport, créer séparément un service
-avec `new Measurement measurement-service --profile append-only`, synchroniser
-ses dépendances publiques puis exécuter `uv run pytest -q`. Le smoke doit aussi
-vérifier le rejeu `duplicate` et le conflit de contenu sur une même clé.
+Pour vérifier le nouvel archétype sans transport depuis les paquets publics :
+
+```bash
+append_only_dir="$(mktemp -d)"
+uvx --from arclith-cli==0.27.0 --with arclith==0.30.0 arclith-cli new Measurement measurement-service --dir "$append_only_dir" --profile append-only
+cd "$append_only_dir/measurement-service"
+uv sync
+uv run pytest -q
+```
+
+Le smoke doit aussi vérifier le rejeu `duplicate` et le conflit de contenu sur
+une même clé.
