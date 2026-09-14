@@ -92,8 +92,6 @@ def validate_application_recipe_metadata(
     if blueprint_name == "minimal":
         return
     blueprint = get_application_blueprint(blueprint_name)
-    raw_parameters = args.get("parameters")
-    parameters = canonical_blueprint_parameters(blueprint, raw_parameters)
     recorded_template = args.get("template_digest")
     recorded_parameters = args.get("parameters_digest")
     if blueprint.parameterized and (
@@ -103,6 +101,13 @@ def validate_application_recipe_metadata(
             f"Parameterized blueprint {blueprint.name!r} replay requires both "
             "template_digest and parameters_digest"
         )
+    raw_parameters = args.get("parameters")
+    try:
+        parameters = canonical_blueprint_parameters(blueprint, raw_parameters)
+    except ValueError as exc:
+        raise RecipeError(
+            f"Blueprint {blueprint.name!r} has invalid recorded parameters: {exc}"
+        ) from exc
     expected_template = application_blueprint_digest(blueprint)
     if recorded_template is not None and recorded_template != expected_template:
         raise RecipeError(

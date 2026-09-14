@@ -237,18 +237,29 @@ def test_template_digest_includes_the_complete_renderer_contract(
     assert application_blueprint_digest(blueprint) != before
 
 
-def test_template_digest_includes_the_state_machine_spec_contract(
+@pytest.mark.parametrize(
+    "module_name",
+    ["state_machine_spec", "state_machine_contract"],
+)
+def test_template_digest_includes_every_state_machine_contract_module(
     monkeypatch: pytest.MonkeyPatch,
+    module_name: str,
 ) -> None:
-    from arclith_cli import state_machine_spec
+    from arclith_cli import state_machine_contract, state_machine_spec
 
     blueprint = get_application_blueprint("state-machine")
     before = application_blueprint_digest(blueprint)
     original_getsource = inspect.getsource
+    contract_module = {
+        "state_machine_contract": state_machine_contract,
+        "state_machine_spec": state_machine_spec,
+    }[module_name]
 
     def changed_source(subject: object) -> str:
         source = original_getsource(subject)
-        return source + "\n# changed spec contract\n" if subject is state_machine_spec else source
+        if subject is contract_module:
+            return source + "\n# changed state-machine contract\n"
+        return source
 
     monkeypatch.setattr(inspect, "getsource", changed_source)
 
@@ -1017,6 +1028,77 @@ def test_existing_entity_rejects_async_copy_helpers(
         )
 
 
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        (
+            "        self,\n        *,\n",
+            "        self,\n        required: object,\n        *,\n",
+        ),
+        (
+            "    def _copy_with_status(self, target: str) -> Self:\n",
+            "    def _copy_with_status(\n"
+            "        self, target: str, required: object\n"
+            "    ) -> Self:\n",
+        ),
+        (
+            "    def _copy_with_status(self, target: str) -> Self:\n",
+            "    @staticmethod\n"
+            "    def _copy_with_status(self, target: str) -> Self:\n",
+        ),
+    ],
+)
+def test_existing_entity_rejects_incompatible_copy_helper_bindings(
+    tmp_path: Path,
+    before: str,
+    after: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(before, after),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="reject generic model_copy updates"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+def test_existing_entity_rejects_reassigned_model_config(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8")
+        .replace(
+            "    model_config = ConfigDict(validate_assignment=True)\n",
+            "    model_config = ConfigDict(frozen=True)\n"
+            "    model_config = ConfigDict(validate_assignment=True)\n",
+        )
+        .replace(
+            'Field(default="draft", frozen=True)',
+            'Field(default="draft")',
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="must reject assignment"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
 def test_existing_entity_requires_real_pydantic_assignment_helpers(
     tmp_path: Path,
 ) -> None:
@@ -1324,6 +1406,27 @@ def test_parameterized_recipe_requires_complete_digest_metadata_before_writes(
     assert not list(project.rglob("invoice.py"))
 
 
+@pytest.mark.parametrize(
+    "parameters",
+    [None, {"state_field": "status"}],
+)
+def test_parameterized_recipe_normalizes_invalid_recorded_parameters(
+    tmp_path: Path,
+    parameters: dict[str, object] | None,
+) -> None:
+    project = _project(tmp_path, "invalid-parameters")
+    args = _parameterized_recipe_args()
+    if parameters is None:
+        del args["parameters"]
+    else:
+        args["parameters"] = parameters
+
+    with pytest.raises(RecipeError, match="invalid recorded parameters"):
+        replay_add_entity_step(project, args)
+
+    assert not list(project.rglob("invoice.py"))
+
+
 def test_full_recipe_preflights_all_blueprint_metadata_before_init(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1384,6 +1487,31 @@ def test_full_recipe_preflights_all_blueprint_metadata_before_init(
     assert cli_result.exit_code == 1
     assert "Recette CLI invalide" in cli_result.output
     assert "replay requires both" in " ".join(cli_result.output.split())
+    assert not target.exists()
+
+    malformed_step = replace(
+        recipe.steps[-1],
+        args={**recipe.steps[-1].args, "parameters": {"state_field": "status"}},
+    )
+    malformed_recipe = replace(
+        recipe,
+        steps=(*recipe.steps[:-1], malformed_step),
+    )
+    save_recipe(malformed_recipe, project / "malformed.recipe.yaml")
+    cli_result = runner.invoke(
+        app,
+        [
+            "replay",
+            str(project / "malformed.recipe.yaml"),
+            "--dir",
+            str(target),
+            "--strict",
+        ],
+    )
+    assert cli_result.exit_code == 1
+    assert "Recette CLI invalide" in cli_result.output
+    assert "invalid recorded parameters" in " ".join(cli_result.output.split())
+    assert "Traceback" not in cli_result.output
     assert not target.exists()
 
 

@@ -166,6 +166,14 @@ class Invoice(Entity):
         return super().model_copy(update={"status": target})
 ```
 
+La prévalidation est volontairement stricte : `model_config` doit avoir une
+seule affectation effective fondée sur le vrai `pydantic.ConfigDict`. Les deux
+helpers de copie doivent être des méthodes d’instance synchrones, sans décorateur
+qui change leur liaison, et conserver les signatures appelées par le code généré
+(`model_copy(update=..., deep=...)` et `_copy_with_status(target)`). Une
+réaffectation de configuration, un argument obligatoire supplémentaire ou un
+`staticmethod` est refusé avant toute écriture.
+
 ```bash
 arclith-cli add-blueprint state-machine \
   --entity Invoice \
@@ -376,6 +384,8 @@ source a été déplacé ou supprimé. Avant toute écriture, le replay compare 
 deux digests obligatoires au renderer, au contrat de validation et aux paramètres
 courants pour toutes les étapes sélectionnées, avant même d'exécuter un éventuel
 `init` ; une métadonnée absente ou une dérive ne laisse donc aucun projet partiel.
+Des paramètres enregistrés absents ou mal formés sont eux aussi normalisés en
+erreur de recette et produisent le diagnostic CLI habituel sans traceback.
 Les digests CRUD et append-only existants restent stables, les recettes non
 paramétrées historiques restent tolérantes à leur absence, et les manifests V1
 restent lus sans conversion vers V2.

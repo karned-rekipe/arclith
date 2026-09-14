@@ -6,6 +6,7 @@ import ast
 from pathlib import Path
 
 from arclith_cli.entity_scanner import EntityInfo
+from arclith_cli.state_machine_contract import state_copy_is_controlled
 from arclith_cli.state_machine_rendering import (
     render_state_documentation,
     render_state_errors,
@@ -26,7 +27,7 @@ __all__ = [
 
 
 # Bump whenever ``validate_existing_state_field`` accepts or rejects new forms.
-STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 3
+STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 4
 
 
 def validate_existing_state_field(
@@ -96,7 +97,7 @@ def validate_existing_state_field(
             f"Entity field {entity.pascal}.{spec.state_field} must use its declared "
             "enum type for any default; use an enum member or make the field required"
         )
-    if not _state_copy_is_controlled(models[0], spec.state_field):
+    if not state_copy_is_controlled(models[0], spec.state_field):
         raise ValueError(
             f"Entity field {entity.pascal}.{spec.state_field} must reject generic "
             f"model_copy updates and expose a private _copy_with_{spec.state_field} "
@@ -369,27 +370,27 @@ def _state_assignment_is_protected(
     *,
     tree: ast.Module,
 ) -> bool:
-    config_options: dict[str, bool] = {}
-    for statement in model.body:
-        if not isinstance(statement, ast.Assign) or not any(
-            isinstance(target, ast.Name) and target.id == "model_config"
-            for target in statement.targets
-        ):
-            continue
-        if isinstance(statement.value, ast.Call) and _is_pydantic_callable(
-            statement.value.func,
-            "ConfigDict",
-            tree,
-        ):
-            config_options.update(
-                {
-                    option.arg: option.value.value
-                    for option in statement.value.keywords
-                    if option.arg is not None
-                    and isinstance(option.value, ast.Constant)
-                    and isinstance(option.value.value, bool)
-                }
-            )
+    config_bindings = [
+        statement for statement in model.body if _binds_model_config(statement)
+    ]
+    if len(config_bindings) != 1:
+        return False
+    config = config_bindings[0]
+    if not (
+        isinstance(config, ast.Assign)
+        and len(config.targets) == 1
+        and isinstance(config.targets[0], ast.Name)
+        and isinstance(config.value, ast.Call)
+        and _is_pydantic_callable(config.value.func, "ConfigDict", tree)
+    ):
+        return False
+    config_options = {
+        option.arg: option.value.value
+        for option in config.value.keywords
+        if option.arg is not None
+        and isinstance(option.value, ast.Constant)
+        and isinstance(option.value.value, bool)
+    }
     if config_options.get("use_enum_values") is True:
         return False
     if config_options.get("frozen") is True:
@@ -408,6 +409,19 @@ def _state_assignment_is_protected(
         and isinstance(option.value, ast.Constant)
         and option.value.value is True
         for option in value.keywords
+    )
+
+
+def _binds_model_config(statement: ast.stmt) -> bool:
+    if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return statement.name == "model_config"
+    if "model_config" in _bound_names(statement):
+        return True
+    return any(
+        isinstance(node, ast.Name)
+        and node.id == "model_config"
+        and isinstance(node.ctx, (ast.Store, ast.Del))
+        for node in ast.walk(statement)
     )
 
 
@@ -453,132 +467,4 @@ def _is_pydantic_callable(
         symbols=frozenset({symbol}),
         modules=frozenset({"pydantic"}),
         tree=tree,
-    )
-
-
-def _state_copy_is_controlled(model: ast.ClassDef, state_field: str) -> bool:
-    methods = {
-        statement.name: statement
-        for statement in model.body
-        if isinstance(statement, ast.FunctionDef)
-    }
-    public_copy = methods.get("model_copy")
-    lifecycle_copy = methods.get(f"_copy_with_{state_field}")
-    if public_copy is None or lifecycle_copy is None:
-        return False
-    public_body = _method_body(public_copy)
-    lifecycle_body = _method_body(lifecycle_copy)
-    return (
-        len(public_body) == 2
-        and _is_state_update_guard(public_body[0], state_field)
-        and _is_public_model_copy_return(public_body[1])
-        and len(lifecycle_body) == 1
-        and _is_lifecycle_model_copy_return(lifecycle_body[0], state_field)
-    )
-
-
-def _method_body(
-    method: ast.FunctionDef,
-) -> list[ast.stmt]:
-    body = list(method.body)
-    if (
-        body
-        and isinstance(body[0], ast.Expr)
-        and isinstance(body[0].value, ast.Constant)
-        and isinstance(body[0].value.value, str)
-    ):
-        return body[1:]
-    return body
-
-
-def _is_state_update_guard(statement: ast.stmt, state_field: str) -> bool:
-    if (
-        not isinstance(statement, ast.If)
-        or statement.orelse
-        or len(statement.body) != 1
-        or not isinstance(statement.body[0], ast.Raise)
-        or not isinstance(statement.test, ast.BoolOp)
-        or not isinstance(statement.test.op, ast.And)
-        or len(statement.test.values) != 2
-    ):
-        return False
-    return any(_is_update_not_none(value) for value in statement.test.values) and any(
-        _is_state_in_update(value, state_field) for value in statement.test.values
-    )
-
-
-def _is_update_not_none(expression: ast.expr) -> bool:
-    return (
-        isinstance(expression, ast.Compare)
-        and isinstance(expression.left, ast.Name)
-        and expression.left.id == "update"
-        and len(expression.ops) == 1
-        and isinstance(expression.ops[0], ast.IsNot)
-        and len(expression.comparators) == 1
-        and isinstance(expression.comparators[0], ast.Constant)
-        and expression.comparators[0].value is None
-    )
-
-
-def _is_state_in_update(expression: ast.expr, state_field: str) -> bool:
-    return (
-        isinstance(expression, ast.Compare)
-        and isinstance(expression.left, ast.Constant)
-        and expression.left.value == state_field
-        and len(expression.ops) == 1
-        and isinstance(expression.ops[0], ast.In)
-        and len(expression.comparators) == 1
-        and isinstance(expression.comparators[0], ast.Name)
-        and expression.comparators[0].id == "update"
-    )
-
-
-def _is_public_model_copy_return(statement: ast.stmt) -> bool:
-    if not isinstance(statement, ast.Return) or not isinstance(statement.value, ast.Call):
-        return False
-    call = statement.value
-    keywords = {keyword.arg: keyword.value for keyword in call.keywords}
-    update = keywords.get("update")
-    deep = keywords.get("deep")
-    return (
-        _is_super_model_copy(call)
-        and not call.args
-        and len(keywords) == 2
-        and isinstance(update, ast.Name)
-        and update.id == "update"
-        and isinstance(deep, ast.Name)
-        and deep.id == "deep"
-    )
-
-
-def _is_lifecycle_model_copy_return(statement: ast.stmt, state_field: str) -> bool:
-    if not isinstance(statement, ast.Return) or not isinstance(statement.value, ast.Call):
-        return False
-    call = statement.value
-    if not _is_super_model_copy(call) or call.args or len(call.keywords) != 1:
-        return False
-    keyword = call.keywords[0]
-    update = keyword.value
-    return (
-        keyword.arg == "update"
-        and isinstance(update, ast.Dict)
-        and len(update.keys) == 1
-        and isinstance(update.keys[0], ast.Constant)
-        and update.keys[0].value == state_field
-        and len(update.values) == 1
-        and isinstance(update.values[0], ast.Name)
-        and update.values[0].id == "target"
-    )
-
-
-def _is_super_model_copy(call: ast.Call) -> bool:
-    function = call.func
-    return (
-        isinstance(function, ast.Attribute)
-        and function.attr == "model_copy"
-        and isinstance(function.value, ast.Call)
-        and isinstance(function.value.func, ast.Name)
-        and function.value.func.id == "super"
-        and not function.value.args
-        and not function.value.keywords
     )

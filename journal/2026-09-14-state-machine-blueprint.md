@@ -25,10 +25,12 @@ spécification métier plutôt que d'un catalogue statique.
   chemin conventionnel `<entité>_state.py`.
 - Les annotations `Literal` et les bases `Enum` sont résolues jusqu'à leur origine
   `typing`/stdlib, y compris via alias ; les homonymes locaux et helpers de copie
-  asynchrones sont refusés, comme `use_enum_values=True` pour un champ enum. Les
-  defaults enum doivent être des membres typés. Les tests générés dérivent la
-  valeur de l'annotation réelle et en vérifient le type. Les erreurs not-found
-  incluent l'UUID demandé et les conflits exposent versions observée/attendue.
+  asynchrones sont refusés, comme `use_enum_values=True` pour un champ enum. Une
+  seule affectation effective de `model_config` est admise ; les helpers doivent
+  garder leurs signatures d’instance sans décorateur de liaison. Les defaults enum
+  doivent être des membres typés. Les tests générés dérivent la valeur de
+  l'annotation réelle et en vérifient le type. Les erreurs not-found incluent
+  l'UUID demandé et les conflits exposent versions observée/attendue.
 - La persistance dépend d'un port outbound spécialisé `compare_and_swap`. Son
   contrat exige une comparaison atomique de version ; une lecture suivie d'un
   update inconditionnel n'est pas présentée comme sûre.
@@ -37,13 +39,14 @@ spécification métier plutôt que d'un catalogue statique.
   lisibles et rejouables sans conversion.
 - La recette stocke la configuration résolue, jamais le chemin de `--spec`, et
   exige ses deux digests lors du préflight global, avant toute écriture de replay.
+  Les paramètres absents ou mal formés sont normalisés en `RecipeError`.
   Le digest du template couvre le source complet des renderers et versionne aussi
   le contrat de validation des entités existantes, sans modifier les anciens
   digests CRUD/append-only.
 
 ## Validation
 
-- `uv run --project cli python -m pytest cli/tests -q` : 593 tests passés ;
+- `uv run --project cli python -m pytest cli/tests -q` : 600 tests passés ;
 - smoke test du projet généré : 19 tests passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
 - `make coverage` : 2 476 tests passés, 5 ignorés et 91,34 % sur 9 264
