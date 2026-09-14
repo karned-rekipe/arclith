@@ -5,18 +5,18 @@ une technologie. Il génère une structure initiale cohérente dans le domaine,
 l'application, la composition et les tests. Le projet reste propriétaire de ces
 fichiers et doit y ajouter ses règles métier.
 
-CRUD, append-only et state-machine sont les trois blueprints fournis par
+CRUD, append-only, state-machine et job sont les quatre blueprints fournis par
 Arclith. Le CRUD n'est ni le modèle universel d'une entité, ni une capability,
 ni un adapter. `state-machine` décrit l'état métier d'un agrégat ; il ne doit pas
 être confondu avec un workflow d'exécution. D'autres familles pourront être
-ajoutées indépendamment, par exemple un job, une synchronisation, une recherche,
+ajoutées indépendamment, par exemple une synchronisation, une recherche,
 une conversation ou un pipeline RAG.
 
 ## Trois Niveaux Distincts
 
 | Niveau | Question | Exemples | Commande |
 |---|---|---|---|
-| Blueprint applicatif | Quel comportement récurrent initialiser ? | CRUD, append-only, state-machine | `add-blueprint` |
+| Blueprint applicatif | Quel comportement récurrent initialiser ? | CRUD, append-only, state-machine, job | `add-blueprint` |
 | Capability | De quelle capacité technique le service a-t-il besoin ? | API, MCP, repository, agent | `capabilities` |
 | Adapter | Avec quelle technologie implémenter la capability ? | FastAPI, FastMCP, MongoDB, PostgreSQL | `add-adapter` |
 | Projection | Quel contrat public exposer sur un adapter installé ? | CRUD vers REST | `expose-feature` |
@@ -101,11 +101,22 @@ Il est enregistré dans `.arclith/features/<feature>.yaml`. Ce manifeste permet
 à une projection de transport de savoir quelles opérations existent, sans
 déduire un comportement depuis le nom d'un fichier ou d'un adapter.
 
-Les blueprints paramétrés utilisent le manifeste version 2. Il ajoute le mapping
+Le blueprint state-machine utilise le manifeste version 2. Il ajoute le mapping
 `parameters` résolu et des digests SHA-256 du template et de la configuration.
 La recette et le manifeste embarquent les valeurs canoniques, jamais le chemin
 absolu du fichier `--spec`. Les manifests version 1 CRUD et append-only restent
 lisibles et rejouables tels quels, sans migration implicite.
+
+Le blueprint [job](blueprints/job.md) utilise le manifeste V3 pour distinguer
+`target: {kind: standalone}` et `target: {kind: entity, entity: {name, module}}`.
+Il exige une spec et un choix explicite `--entity` ou `--no-entity`. Le mode
+standalone exige aussi `--feature`. Les quatre profils d'entité du menu ci-dessus
+restent inchangés : un job est un modèle d'exécution, pas un profil d'entité.
+
+```bash
+arclith-cli add-blueprint job --feature report_generation \
+  --no-entity --spec report-job.yaml
+```
 
 La sortie `arclith-cli blueprints --json` expose `parameterized` pour que les
 outils sachent si une entrée externe comme `--spec` est requise, sans déduire ce
@@ -148,6 +159,7 @@ ne prétend pas rendre atomique un repository qui ne possède pas ce contrat.
 
 Consulter le [blueprint CRUD](blueprints/crud.md), le
 [blueprint append-only](blueprints/append-only.md), le
-[blueprint state-machine](blueprints/state-machine.md) pour leurs contrats détaillés
+[blueprint state-machine](blueprints/state-machine.md) et le
+[blueprint job](blueprints/job.md) pour leurs contrats détaillés
 et les [blueprints des adapters](deep-dives/adapter-blueprints.md) pour la
 structure des implémentations techniques.

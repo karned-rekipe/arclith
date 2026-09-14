@@ -116,6 +116,21 @@ adapter qui respecte réellement le compare-and-swap. Lire le
 [blueprint state-machine](blueprints/state-machine.md) pour la spec, les gardes,
 le manifeste V2 et l'évolution des états persistés.
 
+Pour une unité de travail suivie, ajouter le blueprint `job` avec une spec :
+
+```bash
+arclith-cli add-blueprint job --feature report_generation \
+  --no-entity --spec report-job.yaml --dry-run
+arclith-cli add-blueprint job --feature report_generation \
+  --no-entity --spec report-job.yaml
+```
+
+Le [parcours job complet](blueprints/job.md) fournit la spec, l'installation
+depuis les sources avant publication PyPI, les commandes de test et l'exécution
+mémoire. Il génère cinq opérations et un handler à compléter, sans transport.
+Le runner mémoire est non durable et ne lance aucune tâche lors de `submit` :
+son propriétaire appelle explicitement `await runner.run(job_id)`.
+
 `arclith-cli run api` exécute `uv run` dans la racine détectée et conserve le
 serveur en avant-plan jusqu'à `Ctrl+C`. Le port et le reload restent pilotés par
 la configuration FastAPI générée.

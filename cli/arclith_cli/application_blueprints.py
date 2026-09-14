@@ -55,10 +55,18 @@ STATE_MACHINE_BLUEPRINT = ApplicationBlueprintSpec(
     parameterized=True,
 )
 
+JOB_BLUEPRINT = ApplicationBlueprintSpec(
+    name="job",
+    description="Exécution suivie, annulable et retentable, avec ou sans entité (--spec).",
+    operations=("submit", "get_status", "cancel", "retry", "get_result"),
+    parameterized=True,
+)
+
 APPLICATION_BLUEPRINT_CATALOG = (
     CRUD_BLUEPRINT,
     APPEND_ONLY_BLUEPRINT,
     STATE_MACHINE_BLUEPRINT,
+    JOB_BLUEPRINT,
 )
 
 
@@ -83,13 +91,22 @@ def application_blueprint_catalog_as_dict() -> list[dict[str, object]]:
 def render_application_blueprint(
     blueprint: ApplicationBlueprintSpec,
     paths: ProjectPaths,
-    entity: EntityInfo,
+    entity: EntityInfo | None,
     feature: str,
     parameters: Mapping[str, Any] | None = None,
     *,
     creating_entity: bool = False,
 ) -> dict[Path, str]:
     """Render one catalogued application blueprint."""
+    if blueprint.name == "job":
+        from arclith_cli.job_blueprint import render_job_blueprint
+        from arclith_cli.job_spec import JobSpec
+
+        return render_job_blueprint(
+            paths, entity, feature, JobSpec.from_parameters(parameters)
+        )
+    if entity is None:
+        raise ValueError(f"Blueprint {blueprint.name!r} requires --entity")
     if blueprint.name == "crud":
         from arclith_cli.crud_blueprint import render_crud_blueprint
 
@@ -137,6 +154,14 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
             "initial_state": "draft",
             "states": ["approved", "draft"],
             "transitions": [{"name": "approve", "from": ["draft"], "to": "approved"}],
+        }
+    elif blueprint.name == "job":
+        parameters = {
+            "request": "ExampleRequest",
+            "result": "ExampleResult",
+            "cancellable": True,
+            "max_attempts": 1,
+            "retention_days": 7,
         }
     rendered = render_application_blueprint(
         blueprint,
@@ -186,6 +211,27 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
             existing_entity_validation_version
         )
         digest_contract["renderer_contract"] = renderer_contract
+    if blueprint.name == "job":
+        import inspect
+
+        from arclith_cli import (
+            application_blueprint_files,
+            job_blueprint,
+            job_spec,
+            feature_manifest,
+        )
+
+        digest_contract["renderer_contract"] = hashlib.sha256(
+            "\0".join(
+                inspect.getsource(module)
+                for module in (
+                    application_blueprint_files,
+                    job_blueprint,
+                    job_spec,
+                    feature_manifest,
+                )
+            ).encode("utf-8")
+        ).hexdigest()
     payload = json.dumps(
         digest_contract,
         ensure_ascii=False,
@@ -235,7 +281,13 @@ def _state_machine_renderer_contract_digest() -> str:
             state_machine_types,
         )
     ).encode("utf-8")
-    return "sha256:" + hashlib.sha256(source).hexdigest()
+    from arclith_cli.blueprint_compatibility import (
+        compatible_state_machine_source_digest,
+    )
+
+    return compatible_state_machine_source_digest(
+        "sha256:" + hashlib.sha256(source).hexdigest()
+    )
 
 
 def canonical_blueprint_parameters(
@@ -248,6 +300,10 @@ def canonical_blueprint_parameters(
         from arclith_cli.state_machine_spec import StateMachineSpec
 
         return StateMachineSpec.from_parameters(raw).to_parameters()
+    if blueprint.name == "job":
+        from arclith_cli.job_spec import JobSpec
+
+        return JobSpec.from_parameters(raw).to_parameters()
     if raw is not None:
         raise ValueError(f"Blueprint {blueprint.name!r} does not accept parameters")
     return None
@@ -261,6 +317,10 @@ def application_parameters_digest(
         from arclith_cli.state_machine_spec import StateMachineSpec
 
         return StateMachineSpec.from_parameters(parameters).digest()
+    if blueprint.name == "job":
+        from arclith_cli.job_spec import JobSpec
+
+        return JobSpec.from_parameters(parameters).digest()
     if parameters is not None:
         raise ValueError(f"Blueprint {blueprint.name!r} does not accept parameters")
     return None

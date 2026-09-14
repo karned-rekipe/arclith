@@ -82,6 +82,13 @@ def test_crud_is_an_application_blueprint_not_an_adapter_capability() -> None:
             "operations": [],
             "parameterized": True,
         },
+        {
+            "name": "job",
+            "version": 1,
+            "description": "Exécution suivie, annulable et retentable, avec ou sans entité (--spec).",
+            "operations": ["submit", "get_status", "cancel", "retry", "get_result"],
+            "parameterized": True,
+        },
     ]
 
 

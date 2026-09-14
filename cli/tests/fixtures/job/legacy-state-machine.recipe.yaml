@@ -1,0 +1,141 @@
+version: 1
+project:
+  name: legacy-job-consumer
+  package: legacy_job_consumer
+created_at: '2026-09-14T19:33:16.179641+00:00'
+updated_at: '2026-09-14T19:33:16.219985+00:00'
+steps:
+- id: '0001'
+  at: '2026-09-14T19:33:16.182769+00:00'
+  cli_version: 0.28.0
+  command: init
+  status: success
+  args:
+    project_name: legacy-job-consumer
+    directory: .
+  result:
+    generated_files:
+    - path: .gitignore
+      action: created
+    - path: AGENTS.md
+      action: created
+    - path: ARCHITECTURE.md
+      action: created
+    - path: README.md
+      action: created
+    - path: config/adapters/adapters.yaml
+      action: created
+    - path: config/app.yaml
+      action: created
+    - path: config/soft_delete.yaml
+      action: created
+    - path: main.py
+      action: created
+    - path: pyproject.toml
+      action: created
+    - path: src/legacy_job_consumer/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/adapters/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/adapters/bidirectional/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/adapters/inbound/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/adapters/outbound/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/application/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/application/intent_interpreters/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/application/services/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/application/use_cases/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/application/workflows/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/domain/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/domain/events/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/domain/models/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/domain/ports/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/domain/ports/inbound/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/domain/ports/outbound/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/domain/value_objects/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/infrastructure/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/infrastructure/bootstrap/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/infrastructure/containers/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/infrastructure/use_cases_generated.py
+      action: created
+    - path: src/legacy_job_consumer/py.typed
+      action: created
+    - path: tests/__init__.py
+      action: created
+    - path: tests/test_project_bootstrap.py
+      action: created
+- id: '0002'
+  at: '2026-09-14T19:33:16.219985+00:00'
+  cli_version: 0.28.0
+  command: add-entity
+  status: success
+  args:
+    entity: Invoice
+    profile: state-machine
+    operations:
+    - approve
+    blueprint_version: 1
+    template_digest: sha256:41d495d9b5260515d545b4f88417014f0f1f0e4737cf81baf8dee77719a78767
+    parameters:
+      state_field: status
+      initial_state: draft
+      states:
+      - approved
+      - draft
+      transitions:
+      - name: approve
+        from:
+        - draft
+        to: approved
+    parameters_digest: sha256:bbc1395c1580231007d972cde5a9814d350d6a8f1d6bd82fbf81811c2e4898b7
+  result:
+    generated_files:
+    - path: .arclith/features/invoice.yaml
+      action: created
+    - path: docs/blueprints/invoice-state-machine.md
+      action: created
+    - path: src/legacy_job_consumer/application/use_cases/approve_invoice.py
+      action: created
+    - path: src/legacy_job_consumer/domain/errors/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/domain/errors/invoice.py
+      action: created
+    - path: src/legacy_job_consumer/domain/models/invoice.py
+      action: created
+    - path: src/legacy_job_consumer/domain/models/invoice_lifecycle_state.py
+      action: created
+    - path: src/legacy_job_consumer/domain/ports/inbound/approve_invoice.py
+      action: created
+    - path: src/legacy_job_consumer/domain/ports/outbound/invoice.py
+      action: created
+    - path: src/legacy_job_consumer/domain/services/__init__.py
+      action: created
+    - path: src/legacy_job_consumer/domain/services/invoice.py
+      action: created
+    - path: src/legacy_job_consumer/infrastructure/containers/invoice.py
+      action: created
+    - path: tests/application/__init__.py
+      action: created
+    - path: tests/application/test_invoice_use_cases.py
+      action: created
+    - path: tests/domain/__init__.py
+      action: created
+    - path: tests/domain/test_invoice.py
+      action: created
