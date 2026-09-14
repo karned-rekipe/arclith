@@ -34,18 +34,17 @@ __all__ = [
     "render_state_machine_entity",
     "render_state_model",
     "state_machine_state_module",
+    "validate_state_machine_import_roots",
 ]
 
 
 # Bump whenever ``validate_existing_state_field`` accepts or rejects new forms.
-STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 7
+STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 8
 
 
-def validate_existing_state_field(
-    paths: ProjectPaths,
-    entity: EntityInfo,
-    spec: StateMachineSpec,
-) -> None:
+def validate_state_machine_import_roots(paths: ProjectPaths) -> None:
+    """Reject project modules that can shadow trusted generated imports."""
+
     shadowed_modules = project_shadowed_top_level_modules(
         paths,
         ("enum", "pydantic", "typing", "typing_extensions"),
@@ -55,6 +54,13 @@ def validate_existing_state_field(
             "Project shadows trusted state contract modules at an import root: "
             + ", ".join(sorted(shadowed_modules))
         )
+
+
+def validate_existing_state_field(
+    paths: ProjectPaths,
+    entity: EntityInfo,
+    spec: StateMachineSpec,
+) -> None:
     tree = ast.parse(
         entity.file_path.read_text(encoding="utf-8"),
         filename=str(entity.file_path),

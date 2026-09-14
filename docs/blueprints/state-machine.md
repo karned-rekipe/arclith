@@ -54,11 +54,12 @@ transitions:
     to: rejected
 ```
 
-Les noms sont des identifiants Python publics. Les états, transitions et sources
-doivent être uniques. L'état initial, chaque source et chaque cible doivent être
-déclarés dans `states`. La CLI refuse aussi un état inaccessible depuis
-`initial_state` : un état orphelin est généralement une erreur de spec, et non un
-warning à ignorer dans du code généré.
+Les noms sont des identifiants Python publics. Les états et les transitions
+doivent être uniques. Les sources doivent être uniques au sein d'une transition,
+mais un même état source peut alimenter plusieurs transitions. L'état initial,
+chaque source et chaque cible doivent être déclarés dans `states`. La CLI refuse
+aussi un état inaccessible depuis `initial_state` : un état orphelin est
+généralement une erreur de spec, et non un warning à ignorer dans du code généré.
 
 La CLI trie canoniquement les états, les sources et les transitions avant de
 calculer les digests et de générer les fichiers. Deux specs qui ne diffèrent que

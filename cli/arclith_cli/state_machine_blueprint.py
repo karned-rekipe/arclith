@@ -15,6 +15,7 @@ from arclith_cli.state_machine_entity import (
     render_state_model as _state_model,
     state_machine_state_module as _state_module,
     validate_existing_state_field as _validate_existing_state_field,
+    validate_state_machine_import_roots as _validate_import_roots,
 )
 from arclith_cli.state_machine_spec import StateMachineSpec, StateTransitionSpec
 from arclith_cli.state_machine_rendering import render_domain_test as _domain_test
@@ -30,6 +31,7 @@ def render_state_machine_blueprint(
 ) -> dict[Path, str]:
     """Render one explicit state machine; runtime dispatch stays out of the domain."""
 
+    _validate_import_roots(paths)
     if not creating_entity:
         _validate_existing_state_field(paths, entity, spec)
     entity_module = paths.import_path("domain", "models", entity.file_path.stem)

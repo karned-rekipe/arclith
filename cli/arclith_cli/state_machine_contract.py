@@ -109,11 +109,20 @@ def _binds_name(statement: ast.stmt, name: str) -> bool:
             (item.asname or item.name.split(".", 1)[0]) == name
             for item in statement.names
         )
-    return any(
+    return any(_node_binds_name(node, name) for node in ast.walk(statement))
+
+
+def _node_binds_name(node: ast.AST, name: str) -> bool:
+    return (
         isinstance(node, ast.Name)
         and node.id == name
         and isinstance(node.ctx, (ast.Store, ast.Del))
-        for node in ast.walk(statement)
+    ) or (
+        isinstance(node, ast.ExceptHandler) and node.name == name
+    ) or (
+        isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name == name
+    ) or (
+        isinstance(node, ast.MatchMapping) and node.rest == name
     )
 
 
@@ -156,6 +165,25 @@ def _binds_module_name(statement: ast.stmt, name: str) -> bool:
 
         def visit_Lambda(self, node: ast.Lambda) -> None:  # noqa: N802
             return
+
+        def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:  # noqa: N802
+            if node.name == name:
+                self.found = True
+            self.generic_visit(node)
+
+        def visit_MatchAs(self, node: ast.MatchAs) -> None:  # noqa: N802
+            if node.name == name:
+                self.found = True
+            self.generic_visit(node)
+
+        def visit_MatchStar(self, node: ast.MatchStar) -> None:  # noqa: N802
+            if node.name == name:
+                self.found = True
+
+        def visit_MatchMapping(self, node: ast.MatchMapping) -> None:  # noqa: N802
+            if node.rest == name:
+                self.found = True
+            self.generic_visit(node)
 
     visitor = ModuleBindingVisitor()
     visitor.visit(statement)

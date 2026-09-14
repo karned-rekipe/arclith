@@ -1318,6 +1318,45 @@ def test_existing_entity_rejects_shadowed_trusted_import_modules(
         )
 
 
+@pytest.mark.parametrize(
+    "relative_module",
+    [
+        "typing.py",
+        "src/enum.py",
+        "pydantic/__init__.py",
+        "src/typing_extensions.py",
+    ],
+)
+def test_profile_rejects_shadowed_trusted_imports_before_creating_entity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    relative_module: str,
+) -> None:
+    project = _project(tmp_path)
+    spec_path = _write_spec(project)
+    shadow = project / relative_module
+    shadow.parent.mkdir(parents=True, exist_ok=True)
+    shadow.write_text("# Project-owned import shadow.\n", encoding="utf-8")
+
+    result = _invoke(
+        monkeypatch,
+        project,
+        [
+            "add-entity",
+            "Invoice",
+            "--profile",
+            "state-machine",
+            "--spec",
+            str(spec_path),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "shadows trusted state contract modules" in result.output
+    assert not (project / "src/invoice_service/domain/models/invoice.py").exists()
+    assert not (project / ".arclith/features/invoice.yaml").exists()
+
+
 @pytest.mark.parametrize("helper", ["ConfigDict", "Field"])
 def test_existing_entity_rejects_shadowed_pydantic_helpers(
     tmp_path: Path,
@@ -1366,6 +1405,70 @@ def test_existing_entity_rejects_contract_helpers_rebound_by_module_control_flow
     )
 
     with pytest.raises(ValueError):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        "try:\n    raise RuntimeError\nexcept Exception as super:\n    pass\n",
+        "match object():\n    case _ as super:\n        pass\n",
+    ],
+)
+def test_existing_entity_rejects_string_stored_module_builtin_bindings(
+    tmp_path: Path,
+    binding: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8").replace(
+            "class Invoice(Entity):\n",
+            f"{binding}\nclass Invoice(Entity):\n",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="reject generic model_copy updates"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        (
+            "    try:\n"
+            "        raise RuntimeError\n"
+            "    except Exception as model_copy:\n"
+            "        pass\n"
+        ),
+        "    match object():\n        case _ as model_copy:\n            pass\n",
+    ],
+)
+def test_existing_entity_rejects_string_stored_class_copy_bindings(
+    tmp_path: Path,
+    binding: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8") + "\n" + binding,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="reject generic model_copy updates"):
         plan_application_blueprint(
             project,
             blueprint_name="state-machine",

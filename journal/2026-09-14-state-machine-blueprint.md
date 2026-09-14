@@ -35,10 +35,13 @@ spécification métier plutôt que d'un catalogue statique.
   statiquement vérifiables ; `default_factory`, les expansions dynamiques et les
   dépendances redéfinies dans le scope de classe ou un contrôle de flux module
   sont refusés. Les racines d'import du projet ne peuvent pas masquer `typing`,
-  `typing_extensions`, `enum` ou `pydantic`. Les tests générés dérivent la valeur
-  de l'annotation réelle et en vérifient le type. Les erreurs not-found incluent
-  l'UUID demandé ; les conflits exposent toujours les versions observée/attendue,
-  avant le CAS comme lors d'une course atomique dans l'adapter.
+  `typing_extensions`, `enum` ou `pydantic`, y compris avant la création d'une
+  entité. Les captures `except ... as` et les motifs `match ... as` comptent aussi
+  comme des liaisons et ne peuvent pas masquer les builtins ou helpers contrôlés.
+  Les tests générés dérivent la valeur de l'annotation réelle et en vérifient le
+  type. Les erreurs not-found incluent l'UUID demandé ; les conflits exposent
+  toujours les versions observée/attendue, avant le CAS comme lors d'une course
+  atomique dans l'adapter.
 - La persistance dépend d'un port outbound spécialisé `compare_and_swap`. Son
   contrat exige une comparaison atomique de version ; une lecture suivie d'un
   update inconditionnel n'est pas présentée comme sûre.
@@ -60,7 +63,7 @@ spécification métier plutôt que d'un catalogue statique.
 
 ## Validation
 
-- `uv run --project cli python -m pytest cli/tests -q` : 628 tests passés ;
+- `uv run --project cli python -m pytest cli/tests -q` : 636 tests passés ;
 - smoke test du projet généré : 19 tests passés ;
 - `make precommit` : Ruff, mypy (232 fichiers) et Bandit passés ;
 - `make coverage` : 2 480 tests passés, 5 ignorés et 91,34 % sur 9 264
