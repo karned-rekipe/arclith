@@ -121,6 +121,19 @@ def _stateful_entity(project: Path) -> Path:
     return entity
 
 
+def _local_state_enum(extra_body: str = "") -> str:
+    lines = [
+        "class InvoiceStatus(StrEnum):",
+        '    DRAFT = "draft"',
+        '    SUBMITTED = "submitted"',
+        '    APPROVED = "approved"',
+        '    REJECTED = "rejected"',
+    ]
+    if extra_body:
+        lines.extend(extra_body.rstrip("\n").splitlines())
+    return "\n".join(lines) + "\n\n\n"
+
+
 def test_state_machine_is_discoverable_in_text_and_json_catalogues(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -741,6 +754,62 @@ def test_existing_enum_values_must_match_the_spec(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "extra_body",
+    [
+        '    if True:\n        CANCELLED = "cancelled"\n',
+        "".join(
+            [
+                '    try:\n        CANCELLED = "cancelled"\n',
+                "    except Exception:\n        pass\n",
+            ]
+        ),
+        '    match True:\n        case True:\n            CANCELLED = "cancelled"\n',
+        '    _HIDDEN = "cancelled"\n',
+        '    (CANCELLED := "cancelled")\n',
+        "".join(
+            [
+                "    @member\n",
+                "    def CANCELLED() -> str:\n",
+                '        return "cancelled"\n',
+            ]
+        ),
+        '    DRAFT = "draft"\n',
+    ],
+)
+def test_existing_enum_rejects_uninspectable_runtime_members(
+    tmp_path: Path,
+    extra_body: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    literal = 'Literal["draft", "submitted", "approved", "rejected"]'
+    content = entity.read_text(encoding="utf-8")
+    content = content.replace(
+        "from collections.abc import Mapping\n",
+        "from collections.abc import Mapping\nfrom enum import StrEnum, member\n",
+    ).replace(
+        "class Invoice(Entity):\n",
+        _local_state_enum(extra_body) + "class Invoice(Entity):\n",
+    )
+    entity.write_text(
+        content.replace(literal, "InvoiceStatus").replace(
+            'Field(default="draft", frozen=True)',
+            "Field(default=InvoiceStatus.DRAFT, frozen=True)",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="statically inspectable"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
 def test_existing_enum_rejects_use_enum_values(tmp_path: Path) -> None:
     project = _project(tmp_path)
     entity = _stateful_entity(project)
@@ -898,6 +967,58 @@ def test_existing_local_literal_alias_is_inspected(tmp_path: Path) -> None:
         feature_name="invoice_lifecycle",
         parameters=_parameters(),
     )
+
+
+def test_existing_literal_alias_must_be_declared_before_the_entity(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    literal = 'Literal["draft", "submitted", "approved", "rejected"]'
+    content = entity.read_text(encoding="utf-8").replace(
+        f"status: {literal}",
+        "status: InvoiceStatus",
+    )
+    entity.write_text(
+        content + f"\n\nInvoiceStatus = {literal}\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="statically inspectable"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+def test_existing_enum_must_be_declared_before_the_entity(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    literal = 'Literal["draft", "submitted", "approved", "rejected"]'
+    content = entity.read_text(encoding="utf-8").replace(
+        "from collections.abc import Mapping\n",
+        "from collections.abc import Mapping\nfrom enum import StrEnum\n",
+    )
+    content = content.replace(literal, "InvoiceStatus").replace(
+        'Field(default="draft", frozen=True)',
+        "Field(default=InvoiceStatus.DRAFT, frozen=True)",
+    )
+    entity.write_text(
+        content + "\n\n" + _local_state_enum(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="statically inspectable"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
 
 
 def test_existing_entity_rejects_a_shadowed_literal_helper(tmp_path: Path) -> None:
@@ -1184,6 +1305,47 @@ def test_existing_entity_rejects_reassigned_model_config(
     )
 
     with pytest.raises(ValueError, match="must reject assignment"):
+        plan_application_blueprint(
+            project,
+            blueprint_name="state-machine",
+            entity_name="Invoice",
+            feature_name="invoice_lifecycle",
+            parameters=_parameters(),
+        )
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        '    status = "draft"\n',
+        '    if True:\n        status = "draft"\n',
+        "".join(
+            [
+                '    try:\n        status = "draft"\n',
+                "    except Exception:\n        pass\n",
+            ]
+        ),
+        "".join(
+            [
+                "    try:\n        raise RuntimeError\n",
+                "    except Exception as status:\n        pass\n",
+            ]
+        ),
+        '    match True:\n        case True:\n            status = "draft"\n',
+    ],
+)
+def test_existing_entity_rejects_additional_state_field_bindings(
+    tmp_path: Path,
+    binding: str,
+) -> None:
+    project = _project(tmp_path)
+    entity = _stateful_entity(project)
+    entity.write_text(
+        entity.read_text(encoding="utf-8") + "\n" + binding,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="exactly one class-scope binding"):
         plan_application_blueprint(
             project,
             blueprint_name="state-machine",

@@ -14,6 +14,7 @@ from arclith_cli.module_bindings import (
 )
 from arclith_cli.project_paths import ProjectPaths
 from arclith_cli.state_machine_contract import (
+    class_scope_bindings,
     class_scope_binds_name,
     class_shadowed_contract_dependencies,
     state_copy_is_controlled,
@@ -39,7 +40,7 @@ __all__ = [
 
 
 # Bump whenever ``validate_existing_state_field`` accepts or rejects new forms.
-STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 8
+STATE_MACHINE_EXISTING_ENTITY_VALIDATION_VERSION = 9
 
 
 def validate_state_machine_import_roots(paths: ProjectPaths) -> None:
@@ -74,9 +75,10 @@ def validate_existing_state_field(
         raise ValueError(
             f"Expected one top-level Entity declaration named {entity.pascal}"
         )
+    model = models[0]
     fields = [
         statement
-        for statement in models[0].body
+        for statement in model.body
         if isinstance(statement, ast.AnnAssign)
         and isinstance(statement.target, ast.Name)
         and statement.target.id == spec.state_field
@@ -93,7 +95,12 @@ def validate_existing_state_field(
             "containing exactly the declared states"
         )
     field = fields[0]
-    shadowed_dependencies = class_shadowed_contract_dependencies(models[0], field)
+    if class_scope_bindings(model, spec.state_field) != (field,):
+        raise ValueError(
+            f"Entity field {entity.pascal}.{spec.state_field} must have exactly one "
+            "class-scope binding; later assignments can remove its protection"
+        )
+    shadowed_dependencies = class_shadowed_contract_dependencies(model, field)
     if shadowed_dependencies:
         raise ValueError(
             f"Entity {entity.pascal} shadows state contract dependencies in its "
@@ -116,7 +123,7 @@ def validate_existing_state_field(
             "a statically inspectable string-valued Enum/StrEnum or Literal "
             "containing exactly the declared states"
         )
-    if not _state_assignment_is_protected(models[0], field, tree=tree):
+    if not _state_assignment_is_protected(model, field, tree=tree):
         raise ValueError(
             f"Entity field {entity.pascal}.{spec.state_field} must reject assignment "
             "without coercing enum values; use ConfigDict(validate_assignment=True) "
@@ -133,7 +140,7 @@ def validate_existing_state_field(
             f"Entity field {entity.pascal}.{spec.state_field} must use its declared "
             "enum type or a declared Literal value as its static default, or be required"
         )
-    if not state_copy_is_controlled(models[0], spec.state_field, tree=tree):
+    if not state_copy_is_controlled(model, spec.state_field, tree=tree):
         raise ValueError(
             f"Entity field {entity.pascal}.{spec.state_field} must reject generic "
             f"model_copy updates and expose a private _copy_with_{spec.state_field} "
@@ -177,9 +184,7 @@ def _resolve_literal_values(
         node_line_or_module_end(annotation, tree),
     ):
         return None
-    bindings = [
-        statement for statement in tree.body if annotation.id in _bound_names(statement)
-    ]
+    bindings = _top_level_bindings_before(tree, annotation.id, annotation)
     if len(bindings) != 1:
         return None
     binding = bindings[0]
@@ -252,9 +257,7 @@ def _resolve_enum_declaration(
         node_line_or_module_end(annotation, tree),
     ):
         return None
-    bindings = [
-        statement for statement in tree.body if symbol in _bound_names(statement)
-    ]
+    bindings = _top_level_bindings_before(tree, symbol, annotation)
     if len(bindings) != 1:
         return None
     binding = bindings[0]
@@ -329,7 +332,19 @@ def _enum_members(
     ):
         return None
     members: dict[str, str] = {}
+    declarations: set[str] = set()
     for statement in declaration.body:
+        if isinstance(statement, ast.Pass) or (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Constant)
+            and isinstance(statement.value.value, str)
+        ):
+            continue
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if statement.decorator_list or statement.name in declarations:
+                return None
+            declarations.add(statement.name)
+            continue
         member_name: str | None = None
         value: ast.expr | None = None
         if (
@@ -345,11 +360,27 @@ def _enum_members(
             member_name = statement.target.id
             value = statement.value
         if member_name is None or member_name.startswith("_"):
-            continue
+            return None
         if not isinstance(value, ast.Constant) or not isinstance(value.value, str):
             return None
+        if member_name in declarations:
+            return None
+        declarations.add(member_name)
         members[member_name] = value.value
     return members or None
+
+
+def _top_level_bindings_before(
+    tree: ast.Module,
+    symbol: str,
+    reference: ast.AST,
+) -> list[ast.stmt]:
+    boundary = node_line_or_module_end(reference, tree)
+    return [
+        statement
+        for statement in tree.body
+        if statement.lineno < boundary and symbol in _bound_names(statement)
+    ]
 
 
 def _bound_names(statement: ast.stmt) -> set[str]:

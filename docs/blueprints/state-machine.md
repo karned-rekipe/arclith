@@ -185,8 +185,11 @@ ne doit être masqué ni au niveau module ni localement dans l'un des helpers. L
 garde doit lever le builtin `ValueError` avec un message contenant `lifecycle`,
 ce que vérifie le test généré. Toute liaison de `__setattr__` dans le scope de
 classe est refusée, y compris sous un contrôle de flux, car elle pourrait
-contourner le gel Pydantic. Une réaffectation de configuration, un argument
-obligatoire supplémentaire ou un `staticmethod` est refusé avant toute écriture.
+contourner le gel Pydantic. Le champ d'état lui-même doit aussi avoir une seule
+liaison dans le scope de classe : une affectation ultérieure, même conditionnelle,
+pourrait remplacer son `Field(frozen=True)`. Une réaffectation de configuration,
+un argument obligatoire supplémentaire ou un `staticmethod` est refusé avant
+toute écriture.
 
 ```bash
 arclith-cli add-blueprint state-machine \
@@ -203,9 +206,13 @@ arclith-cli add-blueprint state-machine \
 
 Le type accepté est un `Literal[...]` contenant exactement les états déclarés,
 ou un `Enum`/`StrEnum` à valeurs chaînes, quel que soit son nom (`Status`,
-`InvoiceStatus`, alias importé…), dont la déclaration locale/importée expose
-exactement les valeurs persistées de la spec. Le champ doit rejeter l'affectation
-et la copie générique : utiliser un modèle entièrement frozen, ou les vrais
+`InvoiceStatus`, alias importé…), dont la déclaration locale/importée, disponible
+avant le champ, expose exactement les valeurs persistées de la spec. Les membres
+d'enum doivent être des affectations directes de chaînes ; les membres produits
+par un contrôle de flux, une expression dynamique ou un helper décoré sont
+refusés, faute de pouvoir prouver statiquement l'ensemble runtime. Le champ doit
+rejeter l'affectation et la copie générique : utiliser un modèle entièrement
+frozen, ou les vrais
 `ConfigDict` et `Field` importés de `pydantic`, surcharger `model_copy` et fournir
 la méthode privée synchrone montrée ci-dessus. Les alias importés de
 `typing.Literal` et les alias de type locaux sont résolus récursivement. La

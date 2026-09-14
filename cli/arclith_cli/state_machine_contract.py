@@ -46,7 +46,17 @@ def class_shadowed_contract_dependencies(
 def class_scope_binds_name(model: ast.ClassDef, name: str) -> bool:
     """Return whether the class binds a name directly or through control flow."""
 
-    return any(_binds_module_name(statement, name) for statement in model.body)
+    return bool(class_scope_bindings(model, name))
+
+
+def class_scope_bindings(model: ast.ClassDef, name: str) -> tuple[ast.stmt, ...]:
+    """Return class statements that bind a name, including through control flow."""
+
+    return tuple(
+        statement
+        for statement in model.body
+        if _binds_module_name(statement, name)
+    )
 
 
 def state_copy_is_controlled(
