@@ -1692,6 +1692,46 @@ def test_full_recipe_preflights_add_blueprint_metadata_before_init(
 
     assert not target.exists()
 
+    missing_blueprint_step = replace(
+        recipe.steps[-1],
+        args={
+            key: value
+            for key, value in recipe.steps[-1].args.items()
+            if key != "blueprint"
+        },
+    )
+    missing_blueprint_recipe = replace(
+        recipe,
+        steps=(*recipe.steps[:-1], missing_blueprint_step),
+    )
+    with pytest.raises(RecipeError, match="non-empty string 'blueprint'"):
+        replay_recipe(
+            missing_blueprint_recipe,
+            missing_blueprint_recipe.steps,
+            target_dir=target,
+            strict=True,
+        )
+
+    save_recipe(
+        missing_blueprint_recipe,
+        project / "missing-blueprint.recipe.yaml",
+    )
+    cli_result = runner.invoke(
+        app,
+        [
+            "replay",
+            str(project / "missing-blueprint.recipe.yaml"),
+            "--dir",
+            str(target),
+            "--strict",
+        ],
+    )
+    assert cli_result.exit_code == 1
+    assert "Recette CLI invalide" in cli_result.output
+    assert "non-empty string 'blueprint'" in " ".join(cli_result.output.split())
+    assert "Traceback" not in cli_result.output
+    assert not target.exists()
+
 
 def test_fresh_state_machine_project_compiles_and_runs_generated_tests(
     tmp_path: Path,

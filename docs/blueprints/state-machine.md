@@ -391,8 +391,8 @@ deux digests obligatoires au renderer, au contrat de validation et aux paramètr
 courants pour toutes les étapes sélectionnées, avant même d'exécuter un éventuel
 `init` ; une métadonnée absente ou une dérive ne laisse donc aucun projet partiel.
 Des paramètres enregistrés absents ou mal formés, ainsi qu'un nom de blueprint
-inconnu, sont eux aussi normalisés en erreur de recette et produisent le
-diagnostic CLI habituel sans traceback.
+absent ou inconnu, sont eux aussi normalisés en erreur de recette et produisent
+le diagnostic CLI habituel sans traceback.
 Les digests CRUD et append-only existants restent stables, les recettes non
 paramétrées historiques restent tolérantes à leur absence, et les manifests V1
 restent lus sans conversion vers V2.

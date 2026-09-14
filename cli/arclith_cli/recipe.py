@@ -235,6 +235,7 @@ def _validate_application_blueprint_replay_metadata(
 ) -> None:
     """Reject blueprint drift across the full selection before the first write."""
     from arclith_cli.application_blueprint_recipe import (
+        required_recipe_blueprint_name,
         validate_application_recipe_metadata,
     )
 
@@ -243,7 +244,7 @@ def _validate_application_blueprint_replay_metadata(
         if step.command in {"new", "add-entity"}:
             blueprint_name = str(args.get("profile", "minimal"))
         elif step.command == "add-blueprint":
-            blueprint_name = str(args["blueprint"])
+            blueprint_name = required_recipe_blueprint_name(args)
         if blueprint_name is not None:
             validate_application_recipe_metadata(blueprint_name, args)
 

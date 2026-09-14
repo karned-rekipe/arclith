@@ -150,9 +150,9 @@ sont des contrats publics portables ; seuls les chemins absolus de fichiers sont
 remplacés par `<external-path>`.
 
 Avant de créer la cible, le préflight valide aussi les métadonnées de chaque
-blueprint sélectionné. Un nom de blueprint inconnu, des paramètres mal formés ou
-les digests obligatoires manquants d'un blueprint paramétré produisent une erreur
-de recette homogène, sans traceback ni projet partiel.
+blueprint sélectionné. Un nom de blueprint absent ou inconnu, des paramètres mal
+formés ou les digests obligatoires manquants d'un blueprint paramétré produisent
+une erreur de recette homogène, sans traceback ni projet partiel.
 
 Le profil `append-only` est enregistré avec la version du blueprint, l'opération
 `append` et l'empreinte du template, comme le profil CRUD. Le replay de `new` ou

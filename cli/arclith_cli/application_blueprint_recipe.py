@@ -69,7 +69,7 @@ def replay_add_entity_step(target_dir: Path, args: dict[str, Any]) -> None:
 def replay_add_blueprint_step(target_dir: Path, args: dict[str, Any]) -> None:
     """Replay a standalone application-blueprint decision."""
     feature = args.get("feature")
-    blueprint_name = str(args["blueprint"])
+    blueprint_name = required_recipe_blueprint_name(args)
     validate_application_recipe_metadata(blueprint_name, args)
     raw_parameters = args.get("parameters")
     parameters = raw_parameters if isinstance(raw_parameters, dict) else None
@@ -81,6 +81,17 @@ def replay_add_blueprint_step(target_dir: Path, args: dict[str, Any]) -> None:
         dry_run=False,
         parameters=parameters,
     )
+
+
+def required_recipe_blueprint_name(args: dict[str, Any]) -> str:
+    """Return a statically valid blueprint name from recorded recipe metadata."""
+
+    blueprint_name = args.get("blueprint")
+    if not isinstance(blueprint_name, str) or not blueprint_name.strip():
+        raise RecipeError(
+            "Recipe add-blueprint step requires a non-empty string 'blueprint'"
+        )
+    return blueprint_name
 
 
 def validate_application_recipe_metadata(

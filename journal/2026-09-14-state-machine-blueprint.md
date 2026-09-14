@@ -42,8 +42,8 @@ spécification métier plutôt que d'un catalogue statique.
   lisibles et rejouables sans conversion.
 - La recette stocke la configuration résolue, jamais le chemin de `--spec`, et
   exige ses deux digests lors du préflight global, avant toute écriture de replay.
-  Les paramètres absents ou mal formés et les noms de blueprint inconnus sont
-  normalisés en `RecipeError`.
+  Les paramètres absents ou mal formés et les noms de blueprint absents ou
+  inconnus sont normalisés en `RecipeError`.
   Le digest du template couvre le source complet des renderers et versionne aussi
   le contrat de validation des entités existantes, sans modifier les anciens
   digests CRUD/append-only.
