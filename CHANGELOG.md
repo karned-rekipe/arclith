@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+---
+
+## [0.32.0] — 2026-09-15
+
 ### Added
 
 - **Blueprint workflow** (#226) — orchestration séquentielle typée, checkpoints
@@ -30,6 +34,14 @@
   portables, tests générés avec fake métier et documentation GitHub Pages.
 - **Compatibilité des recettes** — replay des manifests V1/V2 conservé, dont
   la recette state-machine CLI 0.28.0 vérifiée octet pour octet.
+
+### Changed
+
+- **Versions release** — `arclith` passe à `0.32.0` ; `arclith-cli` passe à
+  `0.29.0` et dépend de `arclith>=0.32.0`. Les six blueprints sont disponibles
+  depuis les paquets publics ; les guides utilisent cette installation.
+- **Publication et CI** (#229) — actions GitHub modernisées et épinglées,
+  permissions et cache adaptés aux jobs de publication.
 
 ---
 

@@ -6,9 +6,8 @@ opérations `submit`, `get_status`, `cancel`, `retry`, `get_result`, un handler
 métier à compléter et des tests avec un fake déterministe.
 
 Cette capacité est développée dans l'[issue #224](https://github.com/karned-rekipe/arclith/issues/224).
-Elle nécessite les sources contenant ce blueprint ; les distributions Arclith
-0.31.0 / CLI 0.28.0 ne le contiennent pas. La publication PyPI se vérifie
-séparément selon le [processus de release](../release.md).
+Elle est disponible à partir d’Arclith **0.32.0** et d’arclith-cli **0.29.0**,
+publiés selon le [processus de release](../release.md).
 
 ## Choisir Ce Modèle
 
@@ -26,16 +25,10 @@ aucun endpoint FastAPI, tool FastMCP, binding RabbitMQ ni node LangGraph.
 
 ## Générer Une Feature Sans Entité
 
-Depuis un checkout contenant ce blueprint, installer les sources dans un
-environnement de développement, puis utiliser la CLI de cet environnement :
+Installer la CLI publique, puis générer un projet dans un répertoire de travail :
 
 ```bash
-# Dans le dépôt Arclith :
-uv venv .venv-job-dev
-uv pip install --python .venv-job-dev/bin/python -e . -e ./cli pytest pytest-asyncio
-export PATH="$PWD/.venv-job-dev/bin:$PATH"
-
-# Depuis un répertoire de travail :
+uv tool install --upgrade arclith-cli==0.29.0
 arclith-cli init report-service
 cd report-service
 cat > report-job.yaml <<'YAML'
@@ -52,12 +45,12 @@ arclith-cli add-blueprint job --feature report_generation \
   --no-entity --spec report-job.yaml --dry-run
 arclith-cli add-blueprint job --feature report_generation \
   --no-entity --spec report-job.yaml
-PYTHONPATH=src python -m pytest tests -q
+uv sync --group dev
+uv run python -m pytest tests -q
 ```
 
-La dernière commande utilise le Python du même environnement, avec le framework
-local. Après publication d'une version compatible, le parcours habituel
-`uv sync --group dev` / `uv run pytest` s'applique au projet consommateur.
+Le projet généré déclare `arclith>=0.32.0` et ses dépendances de test.
+`uv sync` installe les paquets publics dans son propre environnement.
 
 `--entity` et `--no-entity` sont mutuellement exclusifs ; l'un des deux est
 obligatoire. `--feature` est obligatoire avec `--no-entity`. Les noms request et

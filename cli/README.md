@@ -303,10 +303,9 @@ initial lève NotImplementedError et les tests injectent un fake explicite.
 Le runner mémoire est **non durable**, avec exécution contrôlée par
 `await runner.run(job_id)`, annulation coopérative et retry explicite borné.
 
-Cette fonctionnalité nécessite les sources de l'issue #224 avant sa publication
-PyPI ; Arclith 0.31.0 / CLI 0.28.0 ne la contiennent pas. Le
+Cette fonctionnalité est disponible avec Arclith ≥ 0.32.0 et CLI ≥ 0.29.0. Le
 [guide job](https://karned-rekipe.github.io/arclith/blueprints/job/) détaille
-l'installation de développement, le smoke test, la rétention et les futurs adapters.
+l'installation depuis PyPI, le smoke test, la rétention et les futurs adapters.
 
 ---
 
@@ -339,8 +338,7 @@ appliquée ; le full recommence du début après échec, avec clés vues bornée
 et désactivation atomique après réussite de toutes les pages. Le manifeste V2
 et la recette V1 conservent les paramètres canoniques et les digests.
 
-Les distributions 0.31.0 / CLI 0.28.0 ne contiennent pas cette capacité ; installer
-les sources compatibles ensemble selon le
+Cette capacité est disponible avec Arclith ≥ 0.32.0 et CLI ≥ 0.29.0 ; suivre le
 [guide synchronization](https://karned-rekipe.github.io/arclith/blueprints/synchronization/).
 Le CLI refuse explicitement une génération/reprise sur un framework incompatible.
 
@@ -709,8 +707,7 @@ Une reprise conserve les étapes confirmées, utilise une clé d'exécution stab
 pour les effets non confirmés et respecte le budget par étape. La définition et
 les schémas sont versionnés. Le [guide workflow](https://karned-rekipe.github.io/arclith/blueprints/workflow/)
 fournit la spec, la composition, les limites et un exemple exécutable.
-Ce blueprint exige un framework/CLI contenant les contrats Workflow ; les
-versions publiées 0.31.0 / 0.28.0 ne les fournissent pas encore.
+Ce blueprint est disponible avec Arclith ≥ 0.32.0 et CLI ≥ 0.29.0.
 
 ## Configuration
 

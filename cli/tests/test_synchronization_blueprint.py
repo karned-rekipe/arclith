@@ -324,7 +324,10 @@ def test_planned_collision_and_write_failure_are_atomic(tmp_path, monkeypatch):
     assert tree(root) == before
 
 
-def test_legacy_job_recipes_keep_exact_generated_files(tmp_path):
+def test_legacy_job_recipes_keep_exact_generated_files(tmp_path, monkeypatch):
+    # Keep the captured package version stable; renderer compatibility is the
+    # subject of this fixture, not the installed framework's release number.
+    monkeypatch.setattr("arclith_cli.init_project._framework_version", lambda: "0.31.0")
     fixtures = Path(__file__).parent / "fixtures/synchronization"
     target = tmp_path / "legacy"
     replay(fixtures / "legacy-job.recipe.yaml", target)

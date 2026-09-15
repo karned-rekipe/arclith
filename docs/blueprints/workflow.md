@@ -27,17 +27,13 @@ processus ni dispatcher dynamique n'est nécessaire.
 
 ## Générer Une Feature
 
-Utiliser les sources contenant les contrats Workflow. Les distributions
-Arclith 0.31.0 / CLI 0.28.0 publiées avant cette évolution ne les contiennent pas.
-La CLI vérifie le runtime avant toute écriture ; la [publication](../release.md)
-des paquets est une étape distincte de la fusion du code.
+Workflow est disponible à partir d’Arclith **0.32.0** et d’arclith-cli
+**0.29.0**. La CLI vérifie le runtime avant toute écriture.
 
-Depuis le dépôt Arclith :
+Depuis un répertoire de travail, utiliser les paquets publics :
 
 ```bash
-uv venv .venv-workflow-dev
-uv pip install --python .venv-workflow-dev/bin/python -e . -e ./cli pytest pytest-asyncio
-export PATH="$PWD/.venv-workflow-dev/bin:$PATH"
+uv tool install --upgrade arclith-cli==0.29.0
 arclith-cli init publication-service
 cd publication-service
 cat > document-publication-workflow.yaml <<'YAML'
@@ -58,12 +54,12 @@ arclith-cli add-blueprint workflow --feature document_publication \
   --no-entity --spec document-publication-workflow.yaml --dry-run
 arclith-cli add-blueprint workflow --feature document_publication \
   --no-entity --spec document-publication-workflow.yaml
-PYTHONPATH=src python -m pytest tests -q
+uv sync --group dev
+uv run python -m pytest tests -q
 ```
 
-La dernière commande utilise le même environnement local. Après une release
-compatible, le projet peut utiliser son parcours habituel `uv sync --group dev`
-puis `uv run pytest` avec les distributions publiées.
+Le projet généré déclare `arclith>=0.32.0` et ses dépendances de test.
+`uv sync` installe les paquets publics dans son propre environnement.
 
 Pour rattacher une autre feature à une entité, la créer explicitement puis
 choisir `--entity` à la place de `--no-entity` :

@@ -348,7 +348,9 @@ def test_write_rollback_and_concurrent_collision(tmp_path, monkeypatch):
     assert tree(root) == before
 
 
-def test_legacy_blueprint_digests_and_exact_sync_replay(tmp_path):
+def test_legacy_blueprint_digests_and_exact_sync_replay(tmp_path, monkeypatch):
+    # The historical fixture includes pyproject.toml from framework 0.31.0.
+    monkeypatch.setattr("arclith_cli.init_project._framework_version", lambda: "0.31.0")
     fixtures = Path(__file__).parent / "fixtures/workflow"
     for name, digest in json.loads(
         (fixtures / "legacy-digests.json").read_text()
