@@ -64,7 +64,7 @@ wheels = [
 
 [[package]]
 name = "arclith"
-version = "0.31.0"
+version = "0.32.0"
 source = { editable = "../" }
 dependencies = [
     { name = "loguru" },
@@ -195,7 +195,7 @@ docs = [
 
 [[package]]
 name = "arclith-cli"
-version = "0.28.0"
+version = "0.29.0"
 source = { editable = "." }
 dependencies = [
     { name = "arclith" },

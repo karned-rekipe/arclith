@@ -8,10 +8,8 @@ d'annulation. Les adapters CRM/ERP, le mapping métier et le stockage durable
 restent à implémenter dans le projet.
 
 Cette capacité est développée dans l'[issue #225](https://github.com/karned-rekipe/arclith/issues/225).
-Elle nécessite les sources contenant les contrats Job et Synchronization :
-Arclith 0.31.0 / CLI 0.28.0 publiés ne les contiennent pas. Le parcours ci-dessous
-utilise les deux sources locales ; la publication se vérifie séparément selon
-le [processus de release](../release.md).
+Elle est disponible à partir d’Arclith **0.32.0** et d’arclith-cli **0.29.0**,
+publiés selon le [processus de release](../release.md).
 
 ## Choisir Ce Modèle
 
@@ -31,12 +29,10 @@ liste explicite, sans copie automatique du payload source.
 
 ## Générer Une Feature
 
-Depuis le dépôt Arclith contenant cette capacité :
+Depuis un répertoire de travail, utiliser les paquets publics :
 
 ```bash
-uv venv .venv-sync-dev
-uv pip install --python .venv-sync-dev/bin/python -e . -e ./cli pytest pytest-asyncio
-export PATH="$PWD/.venv-sync-dev/bin:$PATH"
+uv tool install --upgrade arclith-cli==0.29.0
 
 arclith-cli init customer-service
 cd customer-service
@@ -56,12 +52,12 @@ arclith-cli add-blueprint synchronization --entity Customer \
   --feature customer_sync --spec customer-sync.yaml --dry-run
 arclith-cli add-blueprint synchronization --entity Customer \
   --feature customer_sync --spec customer-sync.yaml
-PYTHONPATH=src python -m pytest tests -q
+uv sync --group dev
+uv run python -m pytest tests -q
 ```
 
-La dernière commande utilise le Python du même environnement de développement.
-Après une release compatible, le parcours habituel `uv sync --group dev` puis
-`uv run pytest` peut utiliser les distributions publiées.
+Le projet généré déclare `arclith>=0.32.0` et ses dépendances de test.
+`uv sync` installe les paquets publics dans son propre environnement.
 
 `synchronization` exige une entité mutable existante et une spec ; `--no-entity`
 et `add-entity --profile synchronization` sont refusés. Le modèle `Customer`
