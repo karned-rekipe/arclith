@@ -147,8 +147,8 @@ def validate_application_recipe_metadata(
     expected_operations = blueprint.operations
     if blueprint.name == "state-machine":
         expected_operations = StateMachineSpec.from_parameters(parameters).operations
-    if blueprint.name == "job":
-        _validate_job_target(args)
+    if blueprint.name in {"job", "workflow"}:
+        _validate_job_target(args, blueprint.name)
     if blueprint.name == "synchronization":
         entity = args.get("entity")
         if not isinstance(entity, str) or not entity.strip() or args.get("no_entity", False) is not False:
@@ -181,13 +181,13 @@ def validate_application_recipe_metadata(
         )
 
 
-def _validate_job_target(args: dict[str, Any]) -> None:
+def _validate_job_target(args: dict[str, Any], blueprint_name: str = "job") -> None:
     if type(args.get("target_version")) is not int or args["target_version"] != 1:
-        raise RecipeError("Job recipe requires target_version integer 1")
+        raise RecipeError(f"{blueprint_name} recipe requires target_version integer 1")
     entity = args.get("entity")
     standalone = args.get("no_entity")
     if standalone is True:
         if "entity" in args or not isinstance(args.get("feature"), str) or not args["feature"].strip():
-            raise RecipeError("Standalone job requires --feature and excludes --entity")
+            raise RecipeError(f"Standalone {blueprint_name} requires --feature and excludes --entity")
     elif "no_entity" in args or not isinstance(entity, str) or not entity.strip():
-        raise RecipeError("Job recipe requires exactly one entity or no_entity=true target")
+        raise RecipeError(f"{blueprint_name} recipe requires exactly one entity or no_entity=true target")

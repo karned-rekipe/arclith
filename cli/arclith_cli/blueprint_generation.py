@@ -100,9 +100,9 @@ def plan_application_blueprint_for_entity(
     project_paths: ProjectPaths | None = None,
     expected_empty_initializers: tuple[Path, ...] = (),
 ) -> ApplicationBlueprintPlan:
-    if entity is None and (blueprint.name != "job" or not feature_name):
-        raise ValueError("Only job supports --no-entity and it requires --feature")
-    if entity is not None and blueprint.name != "job" and entity.model_base != blueprint.model_base:
+    if entity is None and (blueprint.name not in {"job", "workflow"} or not feature_name):
+        raise ValueError("Only job/workflow support --no-entity and it requires --feature")
+    if entity is not None and blueprint.name not in {"job", "workflow"} and entity.model_base != blueprint.model_base:
         expected = (
             "ImmutableRecord"
             if blueprint.model_base == "immutable-record"
@@ -136,7 +136,7 @@ def plan_application_blueprint_for_entity(
 
         operations = StateMachineSpec.from_parameters(canonical_parameters).operations
     manifest_version = (
-        TARGETED_FEATURE_MANIFEST_VERSION if blueprint.name == "job" else
+        TARGETED_FEATURE_MANIFEST_VERSION if blueprint.name in {"job", "workflow"} else
         PARAMETERIZED_FEATURE_MANIFEST_VERSION
         if canonical_parameters is not None
         else FEATURE_MANIFEST_VERSION
@@ -235,6 +235,8 @@ def plan_application_profile_for_new_entity(
     blueprint = get_application_blueprint(profile_name)
     if blueprint.name == "job":
         raise ValueError("Use add-blueprint job with --entity or --no-entity; job is not an entity profile")
+    if blueprint.name == "workflow":
+        raise ValueError("Use add-blueprint workflow with --entity or --no-entity and --spec")
     if blueprint.name == "synchronization":
         raise ValueError("Use add-blueprint synchronization with --entity and --spec; synchronization is not an entity profile")
     return plan_application_blueprint_for_entity(

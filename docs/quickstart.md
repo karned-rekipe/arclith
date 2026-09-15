@@ -161,6 +161,19 @@ Pour tester une branche de développement avant merge:
 uv tool install --force "git+https://github.com/karned-rekipe/arclith.git@feat/hexagonal-foundation#subdirectory=cli"
 ```
 
+Pour une orchestration en plusieurs étapes reprenables, ajouter un workflow :
+
+```bash
+arclith-cli add-blueprint workflow --feature document_publication \
+  --no-entity --spec document-publication-workflow.yaml --dry-run
+arclith-cli add-blueprint workflow --feature document_publication \
+  --no-entity --spec document-publication-workflow.yaml
+```
+
+Le [parcours workflow](blueprints/workflow.md) fournit la spec et l'installation
+compatible, les étapes à compléter et un exemple de panne/reprise. La génération
+installe un contrat indépendant des transports ; la mémoire reste non durable.
+
 ## 1. Comprendre le raccourci `new`
 
 Pour compatibilité, `new` reste disponible. Il équivaut à `init` suivi de

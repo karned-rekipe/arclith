@@ -69,12 +69,20 @@ SYNCHRONIZATION_BLUEPRINT = ApplicationBlueprintSpec(
     parameterized=True,
 )
 
+WORKFLOW_BLUEPRINT = ApplicationBlueprintSpec(
+    name="workflow",
+    description="Orchestration séquentielle typée, avec checkpoints et reprise (--spec).",
+    operations=("start", "get_status", "cancel", "resume", "get_result"),
+    parameterized=True,
+)
+
 APPLICATION_BLUEPRINT_CATALOG = (
     CRUD_BLUEPRINT,
     APPEND_ONLY_BLUEPRINT,
     STATE_MACHINE_BLUEPRINT,
     JOB_BLUEPRINT,
     SYNCHRONIZATION_BLUEPRINT,
+    WORKFLOW_BLUEPRINT,
 )
 
 
@@ -106,6 +114,13 @@ def render_application_blueprint(
     creating_entity: bool = False,
 ) -> dict[Path, str]:
     """Render one catalogued application blueprint."""
+    if blueprint.name == "workflow":
+        from arclith_cli.workflow_blueprint import render_workflow_blueprint
+        from arclith_cli.workflow_spec import WorkflowSpec
+
+        return render_workflow_blueprint(
+            paths, entity, feature, WorkflowSpec.from_parameters(parameters)
+        )
     if blueprint.name == "job":
         from arclith_cli.job_blueprint import render_job_blueprint
         from arclith_cli.job_spec import JobSpec
@@ -190,6 +205,12 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
             "missing_policy": "deactivate",
             "execution": "job",
         }
+    elif blueprint.name == "workflow":
+        parameters = {
+            "context": "ExampleContext",
+            "result": "ExampleResult",
+            "steps": [{"name": "process", "max_attempts": 1}],
+        }
     rendered = render_application_blueprint(
         blueprint,
         paths,
@@ -273,6 +294,27 @@ def application_blueprint_digest(blueprint: ApplicationBlueprintSpec) -> str:
                 )
             ).encode("utf-8")
         ).hexdigest()
+    if blueprint.name == "workflow":
+        import inspect
+
+        from arclith_cli import (
+            workflow_blueprint,
+            workflow_spec,
+            application_blueprint_files,
+            feature_manifest,
+        )
+
+        digest_contract["renderer_contract"] = hashlib.sha256(
+            "\0".join(
+                inspect.getsource(module)
+                for module in (
+                    workflow_blueprint,
+                    workflow_spec,
+                    application_blueprint_files,
+                    feature_manifest,
+                )
+            ).encode("utf-8")
+        ).hexdigest()
     payload = json.dumps(
         digest_contract,
         ensure_ascii=False,
@@ -349,6 +391,10 @@ def canonical_blueprint_parameters(
         from arclith_cli.synchronization_spec import SynchronizationSpec
 
         return SynchronizationSpec.from_parameters(raw).to_parameters()
+    if blueprint.name == "workflow":
+        from arclith_cli.workflow_spec import WorkflowSpec
+
+        return WorkflowSpec.from_parameters(raw).to_parameters()
     if raw is not None:
         raise ValueError(f"Blueprint {blueprint.name!r} does not accept parameters")
     return None
@@ -370,6 +416,10 @@ def application_parameters_digest(
         from arclith_cli.synchronization_spec import SynchronizationSpec
 
         return SynchronizationSpec.from_parameters(parameters).digest()
+    if blueprint.name == "workflow":
+        from arclith_cli.workflow_spec import WorkflowSpec
+
+        return WorkflowSpec.from_parameters(parameters).digest()
     if parameters is not None:
         raise ValueError(f"Blueprint {blueprint.name!r} does not accept parameters")
     return None

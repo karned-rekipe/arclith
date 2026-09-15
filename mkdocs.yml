@@ -50,6 +50,7 @@ nav:
       - State-machine: blueprints/state-machine.md
       - Job: blueprints/job.md
       - Synchronization: blueprints/synchronization.md
+      - Workflow: blueprints/workflow.md
   - Formation:
       - Parcours: learning/training-path.md
       - Quickstarts essentiels: learning/quickstarts.md
